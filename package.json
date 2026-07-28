@@ -1,0 +1,41 @@
+{
+  "name": "memo-graph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "pnpm": "10.33.2"
+  },
+  "scripts": {
+    "build": "pnpm --filter @memo-graph/contracts build",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:contract": "vitest run tests/contract",
+    "test:fixtures": "vitest run tests/fixtures",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p packages/contracts/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "24.13.3",
+    "better-sqlite3": "13.0.1",
+    "eslint": "10.8.0",
+    "globals": "17.8.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.65.0",
+    "vite": "7.3.6",
+    "vitest": "4.1.10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
+}

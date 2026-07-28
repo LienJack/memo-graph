@@ -1,0 +1,7 @@
+{"file":"docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md","reason":"Check contract preservation against R1-R20, F1-F4, and AE1-AE8"}
+{"file":"docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md","reason":"Check U1 and G0 traceability"}
+{"file":".trellis/tasks/07-28-agent-memory-runtime/design.md","reason":"Check authority, lifecycle, MCP, graph, and learning invariants"}
+{"file":".trellis/tasks/07-28-agent-memory-runtime/implement.md","reason":"Check M0 scope and G0 exit evidence"}
+{"file":".trellis/tasks/07-28-agent-memory-runtime/research/research-handoff.md","reason":"Check research constraints and Claim/Evidence handoff"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Check repository quality gates"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check shared contract ownership and round-trip boundaries"}

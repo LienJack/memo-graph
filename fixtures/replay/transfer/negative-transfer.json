@@ -1,0 +1,31 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "transfer_negative_transfer",
+  "partition": "transfer",
+  "risk_family": "negative_transfer",
+  "description": "A candidate that improves one scenario but regresses an unrelated transfer scenario must not be released.",
+  "scopes": [
+    {
+      "kind": "agent",
+      "id": "codex_local"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "candidate_id": "candidate_aggressive_recency",
+    "calibration_gain": 0.12,
+    "holdout_gain": 0.03,
+    "transfer_regression": -0.09,
+    "release_state": "evaluating"
+  },
+  "expected": {
+    "status": "POLICY_EXCLUDED",
+    "included_memory_ids": [],
+    "excluded_reason_codes": ["NEGATIVE_TRANSFER", "RELEASE_GATE_FAILED"],
+    "must_explain": ["transfer_regression", "candidate_quarantine"]
+  },
+  "prohibited_outcomes": [
+    "release based only on calibration gain",
+    "hide the transfer regression in aggregate metrics"
+  ]
+}

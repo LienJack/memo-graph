@@ -1,0 +1,96 @@
+{
+  "corpus_version": "1.0.0",
+  "fixture_schema_version": "1.0.0",
+  "frozen_at": "2026-07-28T13:00:00.000Z",
+  "hash_algorithm": "sha256-canonical-json-v1",
+  "cases": [
+    {
+      "case_id": "cal_normal_preference",
+      "partition": "calibration",
+      "risk_family": "normal",
+      "requirement_anchors": ["R7", "R10", "R11", "AE1"],
+      "body_file": "calibration/normal-preference.json",
+      "content_hash": "sha256:79a9da05cf8203bfe9fd7eb9e38428bbfa29d8f6e93ca9e5a746136dc46d43f2"
+    },
+    {
+      "case_id": "cal_conflict_supersession",
+      "partition": "calibration",
+      "risk_family": "conflict",
+      "requirement_anchors": ["R12", "R14", "AE2"],
+      "body_file": "calibration/conflict-supersession.json",
+      "content_hash": "sha256:a2c326551bf3803149ea2e7f67a3d5bf57fcc6fb038acefaea2fd979aa4c5205"
+    },
+    {
+      "case_id": "cal_correction_lineage",
+      "partition": "calibration",
+      "risk_family": "correction",
+      "requirement_anchors": ["R8", "R14", "R15", "AE4"],
+      "body_file": "calibration/correction-lineage.json",
+      "content_hash": "sha256:60925368f038c8ca9cd8d4b8c2e4108e8ae2b33fe23c7a161a0fa92e923aa4fe"
+    },
+    {
+      "case_id": "cal_privacy_scope",
+      "partition": "calibration",
+      "risk_family": "privacy",
+      "requirement_anchors": ["R2", "R10", "R18", "AE8"],
+      "body_file": "calibration/privacy-scope.json",
+      "content_hash": "sha256:fd6c6be68b785cea81de51e0a635b2ea99affcae883c8e48a237eb9ef307f6cb"
+    },
+    {
+      "case_id": "cal_temporal_validity",
+      "partition": "calibration",
+      "risk_family": "temporal",
+      "requirement_anchors": ["R7", "R10", "R12"],
+      "body_file": "calibration/temporal-validity.json",
+      "content_hash": "sha256:ff136748b2f521353eaf1171418314b733846ecc09d98ff657790f457649c7cd"
+    },
+    {
+      "case_id": "hold_deletion_no_resurrection",
+      "partition": "holdout",
+      "risk_family": "deletion",
+      "requirement_anchors": ["R14", "R15", "R20", "AE4", "AE8"],
+      "body_file": "holdout/deletion-no-resurrection.json",
+      "content_hash": "sha256:85cd8dcc0a61c38ada4e7864fab41496310626967df77f341243b905f909a5fa"
+    },
+    {
+      "case_id": "hold_persisted_prompt_injection",
+      "partition": "holdout",
+      "risk_family": "prompt_injection",
+      "requirement_anchors": ["R6", "R12", "R18", "R20"],
+      "body_file": "holdout/persisted-prompt-injection.json",
+      "content_hash": "sha256:1ef790619c11066f48c95d3c5f3816c3d848f267142f91b81658e1fdb86072fb"
+    },
+    {
+      "case_id": "hold_multi_hop_lineage",
+      "partition": "holdout",
+      "risk_family": "multi_hop",
+      "requirement_anchors": ["R8", "R10", "R11", "R20"],
+      "body_file": "holdout/multi-hop-lineage.json",
+      "content_hash": "sha256:0dc00c5f8519d8762185489f4f9e04dded29621ab39174bbedc5ce368fc44624"
+    },
+    {
+      "case_id": "hold_projection_failure",
+      "partition": "holdout",
+      "risk_family": "failure",
+      "requirement_anchors": ["R9", "R13", "R19", "AE3", "AE5"],
+      "body_file": "holdout/projection-failure.json",
+      "content_hash": "sha256:53831dedc37ad41c8e4115d289c31a081a3da4bd727cca0916db1055ff27b538"
+    },
+    {
+      "case_id": "transfer_negative_transfer",
+      "partition": "transfer",
+      "risk_family": "negative_transfer",
+      "requirement_anchors": ["R17", "R18", "R20", "AE6"],
+      "body_file": "transfer/negative-transfer.json",
+      "content_hash": "sha256:e29916fde800922a1daf72e04c11c3b8840ff58f61db80c34e49e62974b218a5"
+    },
+    {
+      "case_id": "transfer_policy_exclusion",
+      "partition": "transfer",
+      "risk_family": "privacy",
+      "requirement_anchors": ["R10", "R12", "R13", "AE5"],
+      "body_file": "transfer/policy-exclusion.json",
+      "content_hash": "sha256:fa213848817f7adbbde9daf74aaf6623c7ab27ec142d1dde806c9b8242148d18"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "cal_temporal_validity",
+  "partition": "calibration",
+  "risk_family": "temporal",
+  "description": "Recall must use the revision valid at the request time and retain system-time history.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Find the current timezone",
+    "revisions": [
+      {
+        "memory_id": "mem_timezone_old",
+        "value": "UTC",
+        "valid_to": "2026-06-01T00:00:00.000Z"
+      },
+      {
+        "memory_id": "mem_timezone_current",
+        "value": "Asia/Shanghai",
+        "valid_from": "2026-06-01T00:00:00.000Z"
+      }
+    ]
+  },
+  "expected": {
+    "status": "OK",
+    "included_memory_ids": ["mem_timezone_current"],
+    "excluded_reason_codes": ["OUTSIDE_VALID_TIME"],
+    "must_explain": ["valid_time", "system_time"]
+  },
+  "prohibited_outcomes": [
+    "treat both time-bounded revisions as current",
+    "discard the historical revision"
+  ]
+}

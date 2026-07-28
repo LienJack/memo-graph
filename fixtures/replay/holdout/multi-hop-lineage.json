@@ -1,0 +1,37 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "hold_multi_hop_lineage",
+  "partition": "holdout",
+  "risk_family": "multi_hop",
+  "description": "A structural answer may follow multiple derived edges only when every edge drills down to live SQLite evidence.",
+  "scopes": [
+    {
+      "kind": "topic",
+      "id": "memory_runtime"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Explain why the graph backend is optional",
+    "path": [
+      "mem_sqlite_authority",
+      "mem_graph_projection_rule",
+      "mem_graph_no_go_allowed"
+    ],
+    "live_evidence_ids": ["evidence_r8", "evidence_r20"]
+  },
+  "expected": {
+    "status": "OK",
+    "included_memory_ids": [
+      "mem_sqlite_authority",
+      "mem_graph_projection_rule",
+      "mem_graph_no_go_allowed"
+    ],
+    "excluded_reason_codes": [],
+    "must_explain": ["multi_hop_path", "evidence_lineage"]
+  },
+  "prohibited_outcomes": [
+    "return a graph edge without live evidence",
+    "treat graph reachability as factual authority"
+  ]
+}
