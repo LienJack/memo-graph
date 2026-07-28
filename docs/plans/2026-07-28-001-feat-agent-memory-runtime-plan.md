@@ -444,6 +444,19 @@ Gate evidence records tested commit, dependency lock hash, schema version, compi
 - No learning candidate changes production without evaluation, authority, canary and rollback evidence.
 - Restore cannot move behind tombstone, schema, projection or release frontiers.
 
+### 6.4 Recorded Gate Status
+
+This table is append-only status evidence; it does not rewrite the historical
+gate decisions.
+
+| Gate | Current status | Tested implementation | Decision |
+| --- | --- | --- | --- |
+| G3 Layered Context | `GO` after H3 remediation on 2026-07-29 | `6224f782c86712488d416d8101ef7c9fa477c0ae` | `docs/evaluations/g3r-h3-decision.md` |
+
+G3R GO makes M4A, M4B, and M5 eligible for separate Trellis workflows. It
+does not enable projection lanes by default and does not adopt graph, vector,
+learning release, or M6 production readiness.
+
 ---
 
 ## 7. Requirement Traceability

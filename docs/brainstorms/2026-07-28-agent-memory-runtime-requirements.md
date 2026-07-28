@@ -216,3 +216,20 @@ flowchart TB
 - [Affects R1, R10-R13][Technical] MCP 能力如何组织成对 Codex 可发现、可解释且能表达无命中、拒绝和故障差异的交互契约。
 - [Affects R14-R20][Technical] 版本、传播、评测、发布和回滚如何拆成可独立交付与验证的实施阶段。
 - [Affects all][Technical] 如何把最小闭环、图谱增强和受控学习拆成连续里程碑，并为每一阶段设置 Go/No-Go 门禁。
+
+---
+
+## Implementation Status Addendum — 2026-07-29
+
+本节只追加当前实施状态，不修改上面的 R1–R20、F1–F4、AE1–AE8 或历史规划边界。
+
+- 用户已于 2026-07-28 授权通过 Trellis 里程碑子任务实施。
+- M0、M1A、M1B、M2 已完成各自门禁；SQLite 仍是唯一权威账本。
+- 历史 G3 `HOLD` 已由 H3 有界召回修复后的 G3R `GO` 更新为当前状态。
+- G3R 测试实现为
+  `6224f782c86712488d416d8101ef7c9fa477c0ae`，决策记录为
+  `docs/evaluations/g3r-h3-decision.md`。
+- 该 `GO` 不会默认启用 L2/L3 projection lanes，也不代表已采用图数据库、向量数据库、自学习发布或 M6 生产发布。
+- M4A、M4B、M5 如需开始，仍必须分别执行
+  `ce-brainstorm → research-to-article → ce-plan → ce-work`，并在 Trellis
+  下形成独立任务、证据和决策提交。

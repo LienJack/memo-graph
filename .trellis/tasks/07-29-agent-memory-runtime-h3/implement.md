@@ -506,13 +506,13 @@ pnpm benchmark:g3:resources
 
 **Checklist:**
 
-- [ ] Run full tests:
+- [x] Run full tests:
 
   ```bash
   pnpm test
   ```
 
-- [ ] Run static checks:
+- [x] Run static checks:
 
   ```bash
   pnpm lint
@@ -520,7 +520,7 @@ pnpm benchmark:g3:resources
   pnpm build
   ```
 
-- [ ] Verify dependency reproducibility and production audit in a clean
+- [x] Verify dependency reproducibility and production audit in a clean
       temporary install:
 
   ```bash
@@ -528,25 +528,25 @@ pnpm benchmark:g3:resources
   pnpm audit --prod
   ```
 
-- [ ] Validate JSON, Markdown fences, evidence manifests, report/source
+- [x] Validate JSON, Markdown fences, evidence manifests, report/source
       hashes, and `git diff --check`.
-- [ ] Run:
+- [x] Run:
 
   ```bash
   python3 .trellis/scripts/task.py validate \
     07-29-agent-memory-runtime-h3
   ```
 
-- [ ] Perform the mandatory full-diff correctness, maintainability, testing,
+- [x] Perform the mandatory full-diff correctness, maintainability, testing,
       project-standards, security, reliability, API-contract, data-integrity,
       performance, and simplicity review.
-- [ ] Fix valid findings and rerun affected checks.
-- [ ] Write a new explicit G3R `GO` or `HOLD` naming the tested executable
+- [x] Fix valid findings and rerun affected checks.
+- [x] Write a new explicit G3R `GO` or `HOLD` naming the tested executable
       commit and every gate result.
-- [ ] Keep M4A, M4B, and M5 blocked unless the decision is `GO`.
-- [ ] Update Product Contract/roadmap status without renumbering requirements
+- [x] Keep M4A, M4B, and M5 blocked unless the decision is `GO`.
+- [x] Update Product Contract/roadmap status without renumbering requirements
       or rewriting prior decisions.
-- [ ] Create the U8 decision commit.
+- [x] Create the U8 decision commit.
 
 **GO conditions:**
 

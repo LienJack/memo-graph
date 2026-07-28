@@ -1,6 +1,6 @@
 ---
 date: 2026-07-29
-status: ready-for-implementation
+status: completed
 milestone: H3
 gate: G3R
 branch: codex/agent-memory-runtime-h3
@@ -13,6 +13,10 @@ branch: codex/agent-memory-runtime-h3
 Repair the four correctness defects that placed G3 on `HOLD`, freeze a new
 executable candidate, and make a fresh G3R `GO`/`HOLD` decision. The accepted
 M2 L0/L1 compiler remains the release boundary until that decision is `GO`.
+
+**Recorded result (2026-07-29):** G3R is `GO` for tested implementation
+`6224f782c86712488d416d8101ef7c9fa477c0ae`. The decision does not enable
+projection lanes by default or start any downstream milestone.
 
 This plan implements Product Contract R10, R11, R13–R15, R19–R20. It does not
 create new product requirement identifiers.
