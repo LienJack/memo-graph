@@ -268,21 +268,21 @@ pnpm typecheck
 
 **Checklist:**
 
-- [ ] Refactor the compiler into pure explicit stages without changing safe
+- [x] Refactor the compiler into pure explicit stages without changing safe
       L0/L1 semantics.
-- [ ] Reject any candidate lacking a successful canonical-revalidation result.
-- [ ] Preserve competing claims as provenance-bearing conflict sets.
-- [ ] Dedupe repeated abstraction by exact lineage before budget packing.
-- [ ] Decompose deterministic scores into relevance, authority, freshness,
+- [x] Reject any candidate lacking a successful canonical-revalidation result.
+- [x] Preserve competing claims as provenance-bearing conflict sets.
+- [x] Dedupe repeated abstraction by exact lineage before budget packing.
+- [x] Decompose deterministic scores into relevance, authority, freshness,
       diversity, conflict cost, token utility, and lane contribution.
-- [ ] Keep constraint, precondition, exception, failure, recovery, and policy
+- [x] Keep constraint, precondition, exception, failure, recovery, and policy
       items before redundant summaries.
-- [ ] Enforce hard global budgets for every integer from 1 through 32,000.
-- [ ] Use stable tie breaks and bounded lane minimums.
-- [ ] Record every inclusion, exclusion, and displacement reason.
-- [ ] Freeze compiler/lane/frontier/version/hash state into Context and receipt
+- [x] Enforce hard global budgets for every integer from 1 through 32,000.
+- [x] Use stable tie breaks and bounded lane minimums.
+- [x] Record every inclusion, exclusion, and displacement reason.
+- [x] Freeze compiler/lane/frontier/version/hash state into Context and receipt
       artifacts.
-- [ ] Return a valid immutable empty Context when no candidate is eligible.
+- [x] Return a valid immutable empty Context when no candidate is eligible.
 
 **Focused verification:**
 
@@ -296,10 +296,10 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] Compiler has no I/O imports.
-- [ ] Property/boundary tests prove the hard budget.
-- [ ] Repeated calls with identical inputs seal identical artifacts.
-- [ ] Create the U5 commit.
+- [x] Compiler has no I/O imports.
+- [x] Property/boundary tests prove the hard budget.
+- [x] Repeated calls with identical inputs seal identical artifacts.
+- [x] Create the U5 commit.
 
 ## 8. U6 — Runtime, purge, restore, and MCP integration
 

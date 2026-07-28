@@ -1,10 +1,16 @@
 import { createHash } from "node:crypto";
 
 import {
+  ContextConflictSetSchema,
+  ContextFrontierSchema,
   ContextSliceItemSchema,
   ContextSliceSchema,
+  EffectiveLaneConfigurationSchema,
   EvidenceRecordSchema,
   GovernedSearchItemSchema,
+  LaneTelemetrySchema,
+  ProjectionRevisionSchema,
+  RecallLaneSchema,
   RecallRequestSchema,
   RetrievalReceiptSchema,
   canonicalJson,
@@ -15,8 +21,38 @@ import {
 } from "@memo-graph/contracts";
 import { z } from "zod";
 
+import {
+  resolveConflictsAndDedupe,
+} from "./conflict-resolver.js";
+import {
+  hardFilterLayeredCandidates,
+  type LayeredCandidateExclusion,
+  type LayeredCompilerCandidate,
+} from "./hard-filters.js";
+import {
+  rankLayeredCandidates,
+} from "./ranking-policy.js";
+import {
+  buildLayeredArtifacts,
+  type LayeredDecision,
+} from "./receipt-builder.js";
+import {
+  estimateContextTokens,
+  estimateStructuredTokens,
+  packContextItems,
+} from "./token-packer.js";
+
 export const CONTEXT_COMPILER_VERSION = "1.0.0";
 export const CONTEXT_POLICY_VERSION = "1.0.0";
+export const LAYERED_CONTEXT_COMPILER_VERSION = "2.0.0";
+export const LAYERED_CONTEXT_POLICY_VERSION = "2.0.0";
+export {
+  estimateContextTokens,
+  estimateStructuredTokens,
+  packContextItems,
+  type PackableContextItem,
+  type PackedContextDecision,
+} from "./token-packer.js";
 
 const L0ContextCandidateSchema = z
   .object({
@@ -126,20 +162,6 @@ export function l0MemoryIdentity(evidence: {
       content_hash: evidence.content_hash,
     }),
   };
-}
-
-export function estimateContextTokens(text: string): number {
-  let asciiBytes = 0;
-  let nonAsciiCodePoints = 0;
-  for (const character of text) {
-    const codePoint = character.codePointAt(0);
-    if (codePoint !== undefined && codePoint <= 0x7f) {
-      asciiBytes += Buffer.byteLength(character, "utf8");
-    } else {
-      nonAsciiCodePoints += 1;
-    }
-  }
-  return Math.ceil(asciiBytes / 4) + nonAsciiCodePoints * 2;
 }
 
 function candidateOrder(
@@ -469,5 +491,286 @@ export function compileContext(input: unknown): CompileContextResult {
     excluded_count: exclusions.size,
     reason_codes: [...new Set(exclusions.values())].sort(),
     warnings: degradedLanes.map((lane) => `lane unavailable: ${lane}`),
+  });
+}
+
+const LayeredMemoryCompilerCandidateSchema = z
+  .object({
+    kind: z.literal("memory"),
+    abstraction: z.literal("l1_memory"),
+    lane: z.literal("recent_l1"),
+    scope: z.lazy(() => ContextSliceItemSchema.shape.scope),
+    rank: z.number().finite(),
+    canonical_revalidated: z.boolean(),
+    memory: GovernedSearchItemSchema,
+  })
+  .strict();
+
+const LayeredProjectionCompilerCandidateSchema = z
+  .object({
+    kind: z.literal("projection"),
+    abstraction: z.enum([
+      "l2_topic",
+      "l2_scenario",
+      "l2_relation",
+      "l3_core",
+    ]),
+    lane: z.enum([
+      "topic",
+      "scenario_procedure",
+      "core",
+      "relation_sqlite",
+    ]),
+    scope: z.lazy(() => ContextSliceItemSchema.shape.scope),
+    rank: z.number().finite(),
+    canonical_revalidated: z.boolean(),
+    projection: ProjectionRevisionSchema,
+  })
+  .strict();
+
+export const LayeredCompilerCandidateSchema = z.discriminatedUnion(
+  "kind",
+  [
+    LayeredMemoryCompilerCandidateSchema,
+    LayeredProjectionCompilerCandidateSchema,
+  ],
+);
+
+export const LayeredCompilerExclusionSchema = z
+  .object({
+    memory_id: z.string().trim().min(1),
+    revision_id: z.string().trim().min(1),
+    lane: RecallLaneSchema,
+    reason_code: z.string().trim().min(1).max(200),
+    score: z.number().finite().nullable(),
+  })
+  .strict();
+
+export const CompileLayeredContextInputSchema = z
+  .object({
+    request: RecallRequestSchema,
+    candidates: z.array(LayeredCompilerCandidateSchema),
+    exclusions: z.array(LayeredCompilerExclusionSchema).default([]),
+    frontier: ContextFrontierSchema,
+    effective_configuration: EffectiveLaneConfigurationSchema,
+    telemetry: z.array(LaneTelemetrySchema),
+    conflict_sets: z.array(ContextConflictSetSchema).default([]),
+    created_at: z.iso.datetime({ offset: true }),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const scopes = new Set(value.request.scopes.map(scopeKey));
+    const enabled = new Set(
+      value.effective_configuration.enabled_lanes,
+    );
+    for (const [index, candidate] of value.candidates.entries()) {
+      if (!scopes.has(scopeKey(candidate.scope))) {
+        context.addIssue({
+          code: "custom",
+          path: ["candidates", index, "scope"],
+          message: "layered candidate scope is outside the recall request",
+        });
+      }
+      if (!enabled.has(candidate.lane)) {
+        context.addIssue({
+          code: "custom",
+          path: ["candidates", index, "lane"],
+          message: "a disabled lane cannot inject compiler candidates",
+        });
+      }
+    }
+    const telemetryLanes = value.telemetry.map((item) => item.lane);
+    if (
+      telemetryLanes.length !== RecallLaneSchema.options.length ||
+      new Set(telemetryLanes).size !== telemetryLanes.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["telemetry"],
+        message: "layered compile telemetry must cover every lane once",
+      });
+    }
+  });
+
+export type CompileLayeredContextInput = z.input<
+  typeof CompileLayeredContextInputSchema
+>;
+
+function exclusionDecision(
+  exclusion: LayeredCandidateExclusion | z.infer<
+    typeof LayeredCompilerExclusionSchema
+  >,
+): LayeredDecision {
+  return {
+    memory_id: exclusion.memory_id,
+    revision_id: exclusion.revision_id,
+    lane: exclusion.lane,
+    included: false,
+    reason_codes: [exclusion.reason_code],
+    score: exclusion.score,
+  };
+}
+
+export function compileLayeredContext(
+  input: unknown,
+): CompileContextResult {
+  const parsed = CompileLayeredContextInputSchema.parse(input);
+  const filtered = hardFilterLayeredCandidates({
+    candidates: parsed.candidates as LayeredCompilerCandidate[],
+    allowed_scopes: parsed.request.scopes,
+    as_of: parsed.request.as_of,
+    include_sensitive: parsed.request.include_sensitive,
+    frontier: parsed.frontier,
+  });
+  const resolved = resolveConflictsAndDedupe({
+    candidates: filtered.eligible,
+    conflict_sets: parsed.conflict_sets,
+  });
+  const ranked = rankLayeredCandidates({
+    candidates: resolved.candidates,
+    query: parsed.request.query,
+    as_of: parsed.request.as_of,
+  });
+  const itemByRevision = new Map(
+    ranked.map((rankedCandidate) => {
+      const candidate = rankedCandidate.candidate;
+      const itemWithoutEstimate = {
+        memory_id: candidate.memory_id,
+        revision_id: candidate.revision_id,
+        abstraction: candidate.abstraction,
+        lifecycle: candidate.lifecycle,
+        authority: candidate.authority,
+        sensitivity: candidate.sensitivity,
+        scope: candidate.scope,
+        content: candidate.content,
+        evidence_ids: candidate.evidence_ids,
+        selection_reason:
+          `ranked ${candidate.lane} after canonical revalidation`,
+        uncertainty:
+          candidate.conflict_group_id === null
+            ? null
+            : "Competing claims are retained without synthetic merge.",
+        lane: candidate.lane,
+        score_components: rankedCandidate.score_components,
+        conflict_group_id: candidate.conflict_group_id,
+        decision_reason_codes: candidate.decision_reason_codes,
+        ...(candidate.projection === null
+          ? {}
+          : { projection: candidate.projection }),
+      };
+      return [
+        candidate.revision_id,
+        ContextSliceItemSchema.parse({
+          ...itemWithoutEstimate,
+          token_estimate: estimateStructuredTokens(itemWithoutEstimate),
+        }),
+      ] as const;
+    }),
+  );
+  const packed = packContextItems(
+    ranked.map((rankedCandidate) => {
+      const item = itemByRevision.get(
+        rankedCandidate.candidate.revision_id,
+      );
+      if (item === undefined) {
+        throw new Error("ranked candidate is missing its Context item");
+      }
+      return {
+        key: rankedCandidate.candidate.revision_id,
+        lane: rankedCandidate.candidate.lane,
+        constraint_priority: rankedCandidate.constraint_priority,
+        total_score: rankedCandidate.total_score,
+        item,
+      };
+    }),
+    parsed.request.token_budget,
+  );
+  const rankedByRevision = new Map(
+    ranked.map((candidate) => [
+      candidate.candidate.revision_id,
+      candidate,
+    ]),
+  );
+  const decisions: LayeredDecision[] = packed.decisions.map((decision) => {
+    const rankedCandidate = rankedByRevision.get(decision.candidate.key);
+    if (rankedCandidate === undefined) {
+      throw new Error("packed candidate is missing its ranking evidence");
+    }
+    const candidate = rankedCandidate.candidate;
+    return {
+      memory_id: candidate.memory_id,
+      revision_id: candidate.revision_id,
+      lane: candidate.lane,
+      included: decision.included,
+      reason_codes:
+        decision.included
+          ? ["INCLUDED", ...candidate.decision_reason_codes]
+          : [decision.reason_code],
+      score: rankedCandidate.total_score,
+      score_components: rankedCandidate.score_components,
+      token_estimate: decision.candidate.item.token_estimate,
+      ...(candidate.projection === null
+        ? {}
+        : { projection: candidate.projection }),
+      conflict_group_id: candidate.conflict_group_id,
+      item: decision.candidate.item,
+    };
+  });
+  decisions.push(
+    ...filtered.exclusions.map(exclusionDecision),
+    ...resolved.exclusions.map(exclusionDecision),
+    ...parsed.exclusions.map(exclusionDecision),
+  );
+  const orderedDecisions = decisions.sort(
+    (left, right) =>
+      Number(right.included) - Number(left.included) ||
+      RecallLaneSchema.options.indexOf(
+        left.lane as z.infer<typeof RecallLaneSchema>,
+      ) -
+        RecallLaneSchema.options.indexOf(
+          right.lane as z.infer<typeof RecallLaneSchema>,
+        ) ||
+      left.revision_id.localeCompare(right.revision_id),
+  );
+  const degradedLanes = parsed.telemetry
+    .filter((item) =>
+      item.status === "unavailable" || item.status === "degraded"
+    )
+    .map((item) => item.lane)
+    .sort();
+  const artifacts = buildLayeredArtifacts({
+    request: parsed.request,
+    created_at: parsed.created_at,
+    compiler_version: LAYERED_CONTEXT_COMPILER_VERSION,
+    policy_version: LAYERED_CONTEXT_POLICY_VERSION,
+    frontier: parsed.frontier,
+    effective_configuration: parsed.effective_configuration,
+    telemetry: parsed.telemetry,
+    conflict_sets: resolved.conflict_sets,
+    decisions: orderedDecisions,
+    degraded: degradedLanes.length > 0,
+  });
+  const excluded = orderedDecisions.filter(
+    (decision) => !decision.included,
+  );
+  const status =
+    degradedLanes.length > 0
+      ? "DEGRADED"
+      : packed.included.length > 0
+        ? "OK"
+        : excluded.length > 0
+          ? "POLICY_EXCLUDED"
+          : "NO_MATCH";
+  return CompileContextResultSchema.parse({
+    status,
+    context_slice: artifacts.context_slice,
+    receipt: artifacts.receipt,
+    excluded_count: excluded.length,
+    reason_codes: [
+      ...new Set(excluded.flatMap((decision) => decision.reason_codes)),
+    ].sort(),
+    warnings: degradedLanes.map((lane) =>
+      `lane unavailable or degraded: ${lane}`
+    ),
   });
 }
