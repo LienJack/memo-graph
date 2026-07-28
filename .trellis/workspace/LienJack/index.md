@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-07-29
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~171 | Active |
+| `journal-1.md` | ~222 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-07-29 | Complete H3 bounded recall remediation and record G3R GO | `cd50bfd`, `fea84db`, `ff116bc`, `30fb402`, `a970b34`, `f969e07`, `2e44f98`, `2a08cc4`, `d3e7132`, `58b35d4`, `ae07a24`, `6224f78`, `c092b26`, `4c68b77`, `37f9a54` | `codex/agent-memory-runtime-h3` |
 | 5 | 2026-07-29 | M3 layered Context Compiler HOLD | `135f322`, `f6c10e4`, `c4472dd`, `da4bde7`, `7246c13`, `9767351`, `7314408`, `693218e`, `603f851`, `cc6b55f`, `5e4c754`, `ba20974` | `codex/agent-memory-runtime-m3` |
 | 4 | 2026-07-29 | M2 Versioned L1 Governance G2 | `8e15401`, `cfa659a`, `e0de085`, `f537586`, `f07126b`, `1b3deb6`, `d949b40`, `c7cf1c2`, `31959fc`, `66a954a`, `c273972` | `codex/agent-memory-runtime-m2` |
 | 3 | 2026-07-28 | M1B governed stdio memory loop and G1 | `9f510e5`, `cd10577`, `d097ca2` | `codex/agent-memory-runtime-m1b` |

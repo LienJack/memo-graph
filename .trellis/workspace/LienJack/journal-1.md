@@ -169,3 +169,54 @@ Completed the Trellis-governed M3 requirements, research, plan, layered projecti
 ### Status
 
 [OK] **Completed**
+
+
+## Session 6: Complete H3 bounded recall remediation and record G3R GO
+
+**Date**: 2026-07-29
+**Task**: Complete H3 bounded recall remediation and record G3R GO
+**Branch**: `codex/agent-memory-runtime-h3`
+
+### Summary
+
+Completed the Trellis H3 workflow, fixed bounded recall and scope-frontier correctness, refroze candidate 6224f78, recorded G3R GO, and archived the task.
+
+### Main Changes
+
+- Added bounded projection paging, exact source revalidation, V2 scope frontiers, and explicit relation truncation telemetry.
+- Resolved the U8 cross-scope invalidation P1 so an affected pending scope cannot remove unrelated ready-scope projections.
+- Recorded hash-bound G3R replay, performance, reproducibility, full-diff review, and GO decision evidence.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cd50bfd` | (see git log) |
+| `fea84db` | (see git log) |
+| `ff116bc` | (see git log) |
+| `30fb402` | (see git log) |
+| `a970b34` | (see git log) |
+| `f969e07` | (see git log) |
+| `2e44f98` | (see git log) |
+| `2a08cc4` | (see git log) |
+| `d3e7132` | (see git log) |
+| `58b35d4` | (see git log) |
+| `ae07a24` | (see git log) |
+| `6224f78` | (see git log) |
+| `c092b26` | (see git log) |
+| `4c68b77` | (see git log) |
+| `37f9a54` | (see git log) |
+
+### Testing
+
+- [OK] pnpm test: 44 files, 237 passed, 1 skipped; lint, typecheck, and build passed.
+- [OK] pnpm test:g3 and pnpm test:g3r:h3 passed; accepted M2 parity, 9 H3 regressions, Small/Expected benchmarks, and physical Small rebuild passed.
+- [OK] pnpm audit --prod, pnpm verify:g3r, Trellis validation, JSON, Markdown fence, and diff checks passed.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Start M4A, M4B, or M5 only as a separate Trellis workflow; projection lanes remain disabled by default.
