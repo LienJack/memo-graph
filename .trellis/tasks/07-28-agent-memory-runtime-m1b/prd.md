@@ -68,26 +68,26 @@ This child does not add or renumber product requirements.
 
 ## Acceptance Criteria
 
-- [ ] `pnpm test:mcp` proves tool annotations, schemas, principal binding,
+- [x] `pnpm test:mcp` proves tool annotations, schemas, principal binding,
   safety classes, statuses, resources, idempotency, and stdout/log hygiene.
-- [ ] `pnpm test:integration -- codex-explicit-loop` starts a real stdio server,
+- [x] `pnpm test:integration -- codex-explicit-loop` starts a real stdio server,
   compiles an initial NO_MATCH, commits one episode, starts a new server
   session, and recalls a frozen Context slice.
-- [ ] Repeating `memory_episode_commit` returns the identical receipt and one
+- [x] Repeating `memory_episode_commit` returns the identical receipt and one
   episode.
-- [ ] Principal/scope mismatch changes no storage or recall-audit counts.
-- [ ] Search, get, explain, receipt lookup, Context compile, and resource reads
+- [x] Principal/scope mismatch changes no storage or recall-audit counts.
+- [x] Search, get, explain, receipt lookup, Context compile, and resource reads
   leave canonical ledger epoch and content counts unchanged.
-- [ ] Context output stays within budgets at 1 token, the default 1,800, and the
+- [x] Context output stays within budgets at 1 token, the default 1,800, and the
   32,000 hard maximum; zero/overflow budgets fail input validation.
-- [ ] Privacy fixtures produce zero cross-scope results.
-- [ ] Pending/unavailable FTS returns DEGRADED rather than NO_MATCH or
+- [x] Privacy fixtures produce zero cross-scope results.
+- [x] Pending/unavailable FTS returns DEGRADED rather than NO_MATCH or
   fabricated data.
-- [ ] Stored retrieval receipts and Context slices pass their M0 runtime
+- [x] Stored retrieval receipts and Context slices pass their M0 runtime
   schemas and hash replay.
-- [ ] M0, M1A, recovery, lint, typecheck, build, frozen install, and audit
+- [x] M0, M1A, recovery, lint, typecheck, build, frozen install, and audit
   remain green on Node 24.18.0.
-- [ ] `docs/evaluations/g1-decision.md` records implementation commit, lock,
+- [x] `docs/evaluations/g1-decision.md` records implementation commit, lock,
   schema/migration hashes, real stdio evidence, tests, baseline performance,
   debt, and `GO` or `HOLD`.
 

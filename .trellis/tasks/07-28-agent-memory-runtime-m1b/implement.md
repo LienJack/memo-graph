@@ -46,8 +46,8 @@
 
 ## 6. G1
 
-- [ ] Run M0, M1A, MCP, integration, recovery, privacy, lint, typecheck, build,
+- [x] Run M0, M1A, MCP, integration, recovery, privacy, lint, typecheck, build,
   frozen-install, audit, and baseline benchmark gates.
-- [ ] Record tested commit, lock/schema/migration/fixture hashes, stdio
+- [x] Record tested commit, lock/schema/migration/fixture hashes, stdio
   transcript evidence, performance, and debt in `g1-decision.md`.
 - [ ] Commit, archive, and journal M1B before activating M2.

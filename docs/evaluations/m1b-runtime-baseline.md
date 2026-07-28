@@ -1,6 +1,8 @@
 # M1B governed runtime baseline
 
-- Recorded at: 2026-07-28T14:46:23.053Z
+- Recorded at: 2026-07-28T14:59:36.762Z
+- Tested implementation commit:
+  `cd1057776529c0cff04ec9a17548488bcddd00c1`
 - Gate: G1
 - Profile: M0 `Small`
 
@@ -39,14 +41,14 @@ receipts, and 200 proposal episode commits with FTS drain.
 
 | Operation | p50 | p95 | max | M0 p95 target |
 | --- | ---: | ---: | ---: | ---: |
-| Governed search | 0.609 ms | 0.825 ms | 7.123 ms | 200 ms |
-| Context compilation and durable receipt | 0.799 ms | 1.105 ms | 3.323 ms | 400 ms |
-| Episode commit and FTS drain | 1.679 ms | 4.582 ms | 15.966 ms | 150 ms |
+| Governed search | 0.591 ms | 0.728 ms | 9.892 ms | 200 ms |
+| Context compilation and durable receipt | 0.768 ms | 1.009 ms | 10.455 ms | 400 ms |
+| Episode commit and FTS drain | 1.627 ms | 4.350 ms | 15.796 ms | 150 ms |
 
 All three Small-profile comparisons passed. The final temporary frontier was
 10,200 evidence events at ledger epoch 10,200, with 400 recall requests and
-200 frozen Context slices. RSS was 327,352,320 bytes and heap used was
-19,811,632 bytes at measurement.
+200 frozen Context slices. RSS was 327,581,696 bytes and heap used was
+18,647,336 bytes at measurement.
 
 This benchmark exercises the governed kernel and worker-owned storage path. It
 does not include stdio process startup or JSON-RPC transport latency; the real

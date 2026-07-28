@@ -256,19 +256,19 @@ Close the first explicit Codex loop: compile context, use it, commit an episode,
 
 - [x] Create the local data-root contract and refuse unsafe or unsupported paths.
 - [x] Open SQLite in WAL mode with foreign keys, defensive limits, and explicit busy handling.
-- [ ] Implement one serialized writer and read connections that never bypass it for mutation.
+- [x] Implement one serialized writer and read connections that never bypass it for mutation.
 - [x] If the selected SQLite driver is synchronous, isolate reads, writes, checkpoints, and backups in a dedicated storage worker so the MCP loop remains responsive.
-- [ ] Add forward-only migrations for events, episodes, artifacts, idempotency, receipts, outbox, recall requests, and context slices.
+- [x] Add forward-only migrations for events, episodes, artifacts, idempotency, receipts, outbox, recall requests, and context slices.
 - [x] Store large tool/artifact payloads by content hash in local blobs.
 - [x] Implement append-only event and episode sealing.
 - [x] Implement FTS5 indexing for governed searchable text.
-- [ ] Implement read-only `memory_search`, `memory_get`, `memory_explain`, `memory_receipt_get`, and baseline `memory_context_compile`.
-- [ ] Implement proposal-only `memory_episode_commit` with idempotency.
-- [ ] Bind MCP requests to the configured local principal and reject actor or scope claims outside its allowed set.
-- [ ] Expose inspection resources without assuming automatic prompt inclusion.
-- [ ] Return degraded-mode results when FTS is rebuilding or unavailable.
-- [ ] Record structured logs without raw memory content.
-- [ ] Add an explicit Codex usage guide for task-start compile and task-end commit.
+- [x] Implement read-only `memory_search`, `memory_get`, `memory_explain`, `memory_receipt_get`, and baseline `memory_context_compile`.
+- [x] Implement proposal-only `memory_episode_commit` with idempotency.
+- [x] Bind MCP requests to the configured local principal and reject actor or scope claims outside its allowed set.
+- [x] Expose inspection resources without assuming automatic prompt inclusion.
+- [x] Return degraded-mode results when FTS is rebuilding or unavailable.
+- [x] Record structured logs without raw memory content.
+- [x] Add an explicit Codex usage guide for task-start compile and task-end commit.
 
 ### Validation contract
 
