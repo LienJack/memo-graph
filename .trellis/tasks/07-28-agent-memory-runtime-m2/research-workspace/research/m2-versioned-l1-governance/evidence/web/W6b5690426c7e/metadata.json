@@ -1,0 +1,21 @@
+{
+  "source_id": "W6b5690426c7e",
+  "snapshot_id": "V93cb4b952a07",
+  "previous_snapshot": null,
+  "url_id": "U6b5690426c7e",
+  "title": "SQLite PRAGMA secure_delete",
+  "original_url": "https://sqlite.org/pragma.html#pragma_secure_delete",
+  "normalized_url": "https://sqlite.org/pragma.html",
+  "retrieved_at": "2026-07-28T23:14:34+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.95,
+  "independence_group": "sqlite-official",
+  "published_at": null,
+  "freshness": "current",
+  "extraction_quality": 0.95,
+  "extraction_method": "defuddle",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "113e70cd9993b8e8cd629c3eecabeffa402d9d7a8178d109ce3c100c5909322f"
+}

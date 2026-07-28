@@ -1,0 +1,29 @@
+{
+  "schema_version": 4,
+  "slug": "m2-versioned-l1-governance",
+  "title": "M2 Versioned L1 Governance",
+  "research_question": "在现有 Agent Memory Runtime 中，怎样以可验证、可恢复的方式实现 L1 候选准入、不可变修订、用户控制和删除不复活？",
+  "status": "exploring",
+  "repositories": [
+    "/Users/lienli/Documents/GitHub/memo-graph"
+  ],
+  "code_project_ids": [],
+  "active_session": null,
+  "active_run": "RUN20260728-231007-m2-governance-implementa-8ca6a5",
+  "user_confirmed_at": null,
+  "ready_gate_validated_at": null,
+  "answer_runtime": {
+    "mode": "off",
+    "updated_at": "2026-07-28T23:09:44+08:00"
+  },
+  "learning_runtime": {
+    "mode": "off",
+    "max_cycles": 3,
+    "max_no_gain_cycles": 2,
+    "max_gap_repeats": 3,
+    "evaluation_report": null,
+    "updated_at": "2026-07-28T23:09:44+08:00"
+  },
+  "created_at": "2026-07-28T23:09:44+08:00",
+  "updated_at": "2026-07-28T23:10:07+08:00"
+}

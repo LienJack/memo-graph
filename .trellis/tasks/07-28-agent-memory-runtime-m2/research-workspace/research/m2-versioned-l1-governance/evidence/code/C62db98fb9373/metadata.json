@@ -1,0 +1,12 @@
+{
+  "code_id": "C62db98fb9373",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "packages/storage-sqlite/src/restore.ts",
+  "start_line": 48,
+  "end_line": 136,
+  "symbol": "restoreBackupToEmptyDataRoot",
+  "why": "当前 restore 只校验 snapshot 内 epoch、receipt 和 blob 数，不能与 live tombstone frontier 比较",
+  "captured_at": "2026-07-28T23:12:46+08:00"
+}

@@ -1,0 +1,12 @@
+{
+  "code_id": "C12af3fd5b335",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "packages/contracts/src/mcp.ts",
+  "start_line": 19,
+  "end_line": 125,
+  "symbol": "MEMORY_TOOL_SAFETY_CLASS",
+  "why": "工具安全分级、幂等键、expected revision 与 dry-run 是 M2 mutation envelope 基线",
+  "captured_at": "2026-07-28T23:12:45+08:00"
+}

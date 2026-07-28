@@ -1,0 +1,21 @@
+{
+  "source_id": "W42754b59f310",
+  "snapshot_id": "Vb1c73798b221",
+  "previous_snapshot": null,
+  "url_id": "U42754b59f310",
+  "title": "SQLite Online Backup API",
+  "original_url": "https://www.sqlite.org/backup.html",
+  "normalized_url": "https://www.sqlite.org/backup.html",
+  "retrieved_at": "2026-07-28T23:14:34+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.95,
+  "independence_group": "sqlite-official",
+  "published_at": null,
+  "freshness": "current",
+  "extraction_quality": 0.95,
+  "extraction_method": "defuddle",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "ef36381d433f1d74b61e6576c52a562b6904aedd454074526907ee5aa243eb62"
+}

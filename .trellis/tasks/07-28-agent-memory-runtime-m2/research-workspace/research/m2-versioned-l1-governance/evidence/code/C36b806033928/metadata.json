@@ -1,0 +1,12 @@
+{
+  "code_id": "C36b806033928",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "migrations/0001-evidence-ledger.sql",
+  "start_line": 1,
+  "end_line": 120,
+  "symbol": "evidence_ledger_control_tables",
+  "why": "M1 权威账本已有 append-only evidence、idempotency、outbox 和 backup manifest 基础表",
+  "captured_at": "2026-07-28T23:12:59+08:00"
+}

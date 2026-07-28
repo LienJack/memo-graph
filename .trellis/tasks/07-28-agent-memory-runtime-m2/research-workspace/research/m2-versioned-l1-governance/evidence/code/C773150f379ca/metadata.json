@@ -1,0 +1,12 @@
+{
+  "code_id": "C773150f379ca",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "packages/storage-sqlite/src/database.ts",
+  "start_line": 635,
+  "end_line": 987,
+  "symbol": "StorageDatabase.recordRecall_insertRecall",
+  "why": "Context slice 与 receipt 作为不可变派生物持久化，删除需要通过 suppression/invalidation 阻止继续使用并记录清理结果",
+  "captured_at": "2026-07-28T23:12:46+08:00"
+}

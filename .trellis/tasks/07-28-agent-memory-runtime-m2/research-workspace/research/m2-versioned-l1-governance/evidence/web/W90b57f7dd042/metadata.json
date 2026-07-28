@@ -1,0 +1,21 @@
+{
+  "source_id": "W90b57f7dd042",
+  "snapshot_id": "Vd4f9d209deef",
+  "previous_snapshot": null,
+  "url_id": "U90b57f7dd042",
+  "title": "SQLite FTS5 Extension",
+  "original_url": "https://www.sqlite.org/fts5.html",
+  "normalized_url": "https://www.sqlite.org/fts5.html",
+  "retrieved_at": "2026-07-28T23:14:34+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.95,
+  "independence_group": "sqlite-official",
+  "published_at": null,
+  "freshness": "current",
+  "extraction_quality": 0.95,
+  "extraction_method": "defuddle",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "7b132512854763f9ae365aeff8b5e423a627b51b057c57d034d82635a1eeb3bf"
+}

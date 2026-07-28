@@ -21,7 +21,8 @@
   "children": [
     "07-28-agent-memory-runtime-m0",
     "07-28-agent-memory-runtime-m1a",
-    "07-28-agent-memory-runtime-m1b"
+    "07-28-agent-memory-runtime-m1b",
+    "07-28-agent-memory-runtime-m2"
   ],
   "parent": null,
   "relatedFiles": [

@@ -1,0 +1,12 @@
+{
+  "code_id": "C11d4bf9ebec4",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "packages/storage-sqlite/src/database.ts",
+  "start_line": 265,
+  "end_line": 355,
+  "symbol": "StorageDatabase.commitEpisode",
+  "why": "现有 writer 使用 BEGIN IMMEDIATE、双重幂等检查、事务内 ledger/outbox/receipt 提交，可复用为 L1 mutation 原子边界",
+  "captured_at": "2026-07-28T23:12:46+08:00"
+}
