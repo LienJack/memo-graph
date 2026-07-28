@@ -130,6 +130,7 @@ type ExistingRecall = {
   request_id: string;
   principal_id: string;
   request_hash: string;
+  request_json: string;
   receipt_json: string;
   slice_json: string | null;
 };
@@ -1239,7 +1240,7 @@ export class StorageDatabase {
   #readRecall(requestId: string): ExistingRecall | undefined {
     return this.#database
       .prepare(
-        `SELECT q.request_id, q.principal_id, q.request_hash,
+        `SELECT q.request_id, q.principal_id, q.request_hash, q.request_json,
                 r.receipt_json, s.slice_json
          FROM recall_requests AS q
          JOIN retrieval_receipts AS r ON r.request_id = q.request_id
@@ -1260,6 +1261,9 @@ export class StorageDatabase {
         existing.principal_id !== expectedPrincipalId)
     ) {
       throw new StorageError("CONFLICT");
+    }
+    if (this.#recallContainsUnredactedTombstone(existing.request_id)) {
+      throw new StorageError("INCOMPLETE_PURGE");
     }
     const receipt = RetrievalReceiptSchema.parse(
       JSON.parse(existing.receipt_json) as unknown,
@@ -1282,7 +1286,122 @@ export class StorageDatabase {
     ) {
       throw new StorageError("CORRUPTION");
     }
+    if (contextSlice !== null) {
+      let requestJson: unknown;
+      try {
+        requestJson = JSON.parse(existing.request_json) as unknown;
+      } catch {
+        throw new StorageError("CORRUPTION");
+      }
+      const parsedRequest = RecallRequestSchema.safeParse(requestJson);
+      if (!parsedRequest.success) {
+        throw new StorageError("CORRUPTION");
+      }
+      const request = parsedRequest.data;
+      this.#assertGovernedContextReplayEligible(
+        contextSlice,
+        existing.principal_id,
+        request.as_of,
+        request.include_sensitive,
+      );
+    }
     return { receipt, context_slice: contextSlice, replayed: true };
+  }
+
+  #assertGovernedContextReplayEligible(
+    contextSlice: ReturnType<typeof ContextSliceSchema.parse>,
+    principalId: string,
+    asOf: string,
+    includeSensitive: boolean,
+  ): void {
+    for (const item of contextSlice.items) {
+      const isRedacted =
+        item.content.storage === "inline" &&
+        item.content.text === "[PURGED]" &&
+        item.content.media_type ===
+          "application/x.memo-graph-redacted";
+      if (item.abstraction !== "l1_memory" || isRedacted) {
+        continue;
+      }
+      const eligibility = this.#governedMemory.checkEligibility(
+        MemoryEligibilityInputSchema.parse({
+          memory_id: item.memory_id,
+          revision_id: item.revision_id,
+          principal_id: principalId,
+          scope: item.scope,
+          as_of: asOf,
+          include_sensitive: includeSensitive,
+          context_scope: item.scope,
+        }),
+      );
+      if (!eligibility.eligible) {
+        throw new StorageError(
+          eligibility.reason_code === "TOMBSTONED"
+            ? "INCOMPLETE_PURGE"
+            : "CONFLICT",
+        );
+      }
+    }
+  }
+
+  #recallContainsUnredactedTombstone(requestId: string): boolean {
+    return (
+      this.#database
+        .prepare(
+          `SELECT 1
+           FROM context_slice_items AS i
+           JOIN context_slices AS s
+             ON s.context_slice_id = i.context_slice_id
+           WHERE s.request_id = ?
+             AND NOT (
+               json_extract(i.item_json, '$.content.storage') IS 'inline'
+               AND json_extract(i.item_json, '$.content.text') IS '[PURGED]'
+               AND json_extract(i.item_json, '$.content.media_type')
+                 IS 'application/x.memo-graph-redacted'
+             )
+             AND (
+               EXISTS (
+                 SELECT 1
+                 FROM memory_objects AS direct_m
+                 WHERE direct_m.memory_id = i.memory_id
+                   AND direct_m.lifecycle = 'purged'
+               )
+               OR EXISTS (
+                 SELECT 1
+                 FROM context_slice_item_evidence AS cie
+                 JOIN evidence_events AS e
+                   ON e.evidence_id = cie.evidence_id
+                 WHERE cie.context_slice_id = i.context_slice_id
+                   AND cie.ordinal = i.ordinal
+                   AND e.purged_at IS NOT NULL
+               )
+               OR EXISTS (
+                 SELECT 1
+                 FROM context_slice_item_evidence AS cie
+                 JOIN memory_revision_evidence AS re
+                   ON re.evidence_id = cie.evidence_id
+                 JOIN memory_revisions AS r
+                   ON r.revision_id = re.revision_id
+                 JOIN memory_objects AS m ON m.memory_id = r.memory_id
+                 WHERE cie.context_slice_id = i.context_slice_id
+                   AND cie.ordinal = i.ordinal
+                   AND m.lifecycle = 'purged'
+                   AND NOT EXISTS (
+                     SELECT 1
+                     FROM memory_revision_evidence AS other_re
+                     JOIN memory_revisions AS other_r
+                       ON other_r.revision_id = other_re.revision_id
+                     JOIN memory_objects AS other_m
+                       ON other_m.memory_id = other_r.memory_id
+                     WHERE other_re.evidence_id = cie.evidence_id
+                       AND other_m.lifecycle <> 'purged'
+                   )
+               )
+             )
+           LIMIT 1`,
+        )
+        .get(requestId) !== undefined
+    );
   }
 
   #insertRecall(command: ParsedRecordRecallCommand): void {

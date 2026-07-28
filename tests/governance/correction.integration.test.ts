@@ -74,7 +74,7 @@ describe("correction and canonical eligibility", () => {
     });
     await storage.drainFtsOutbox();
     const oldRevision = first.current_revision_id;
-    const frozenOldContext = await runtime(storage).memoryContextCompile({
+    const oldContextRequest = {
       envelope: {
         schema_version: "1.0.0",
         request_id: "request_old_context",
@@ -99,7 +99,10 @@ describe("correction and canonical eligibility", () => {
         token_budget: 1_800,
         include_sensitive: false,
       },
-    });
+    } as const;
+    const frozenOldContext = await runtime(storage).memoryContextCompile(
+      oldContextRequest,
+    );
     expect(frozenOldContext.status).toBe("OK");
     if (frozenOldContext.status !== "OK") {
       throw new Error("predecessor Context must compile before correction");
@@ -150,6 +153,12 @@ describe("correction and canonical eligibility", () => {
         reason_code: "SUPERSEDED",
       }),
     );
+    expect(
+      await runtime(storage).memoryContextCompile(oldContextRequest),
+    ).toMatchObject({
+      status: "FAILED",
+      error: { code: "CONFLICT" },
+    });
     expect(currentSearch.items).toEqual([
       expect.objectContaining({
         item: expect.objectContaining({

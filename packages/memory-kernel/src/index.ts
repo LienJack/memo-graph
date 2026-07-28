@@ -117,6 +117,7 @@ function publicFailure(
     | "STALE_REVISION"
     | "APPROVAL_REQUIRED"
     | "APPROVAL_INVALID"
+    | "INCOMPLETE_PURGE"
     | "PROJECTION_UNAVAILABLE"
     | "INTERNAL_FAILURE",
   message: string,
@@ -143,6 +144,13 @@ function storageFailure(error: StorageError): GovernedResponse {
   if (error.code === "APPROVAL_INVALID") {
     return publicFailure(
       "APPROVAL_INVALID",
+      error.message,
+      error.retryable,
+    );
+  }
+  if (error.code === "INCOMPLETE_PURGE") {
+    return publicFailure(
+      "INCOMPLETE_PURGE",
       error.message,
       error.retryable,
     );
@@ -399,6 +407,45 @@ export class MemoryRuntime {
         receipt: stored.receipt,
         replayed: stored.replayed,
       };
+      if (stored.replayed) {
+        if (stored.receipt.state === "partial") {
+          return GovernedResponseSchema.parse({
+            status: "DEGRADED",
+            receipt_id: stored.receipt.receipt_id,
+            fallback_lane:
+              stored.context_slice === null ? "none" : "partial_sqlite_fts",
+            warnings: ["frozen replay of a partial retrieval"],
+            data,
+          });
+        }
+        if (stored.context_slice !== null) {
+          return GovernedResponseSchema.parse({
+            status: "OK",
+            receipt_id: stored.receipt.receipt_id,
+            data,
+          });
+        }
+        const excluded = stored.receipt.items.filter(
+          (item) => item.decision === "excluded",
+        );
+        if (excluded.length > 0) {
+          return GovernedResponseSchema.parse({
+            status: "POLICY_EXCLUDED",
+            receipt_id: stored.receipt.receipt_id,
+            excluded_count: excluded.length,
+            reason_codes: [
+              ...new Set(
+                excluded.flatMap((item) => item.reason_codes),
+              ),
+            ].sort(),
+          });
+        }
+        return GovernedResponseSchema.parse({
+          status: "NO_MATCH",
+          receipt_id: stored.receipt.receipt_id,
+          reason: "the frozen replay contains no matched evidence",
+        });
+      }
       if (compiled.status === "DEGRADED") {
         return GovernedResponseSchema.parse({
           status: "DEGRADED",

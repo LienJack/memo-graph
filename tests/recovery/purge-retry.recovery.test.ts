@@ -96,7 +96,7 @@ describe("purge recovery", () => {
       current_revision_id: string;
     };
     await storage.drainFtsOutbox();
-    const frozen = await kernel.memoryContextCompile({
+    const contextRequest = {
       envelope: {
         schema_version: "1.0.0",
         request_id: "request_context_before_purge",
@@ -121,7 +121,8 @@ describe("purge recovery", () => {
         token_budget: 1_800,
         include_sensitive: false,
       },
-    });
+    } as const;
+    const frozen = await kernel.memoryContextCompile(contextRequest);
     expect(frozen.status).toBe("OK");
 
     const deletion = deleteRequest({
@@ -138,6 +139,10 @@ describe("purge recovery", () => {
     }
     const purgeJobId = (deleted.data as { purge_job_id: string })
       .purge_job_id;
+    expect(await kernel.memoryContextCompile(contextRequest)).toMatchObject({
+      status: "FAILED",
+      error: { code: "INCOMPLETE_PURGE" },
+    });
     await storage.close();
 
     storage = await SqliteStorageClient.open({ dataRoot });
@@ -148,6 +153,25 @@ describe("purge recovery", () => {
       purge_job_id: purgeJobId,
     });
     expect(replayed).toEqual(completed);
+    expect(
+      await runtime(storage, approvals).memoryContextCompile(contextRequest),
+    ).toMatchObject({
+      status: "OK",
+      data: {
+        replayed: true,
+        context_slice: {
+          items: [
+            {
+              content: {
+                storage: "inline",
+                text: "[PURGED]",
+                media_type: "application/x.memo-graph-redacted",
+              },
+            },
+          ],
+        },
+      },
+    });
 
     await storage.close();
     const database = new DatabaseSync(
