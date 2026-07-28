@@ -90,7 +90,13 @@ export const MemoryObjectSchema = z
       });
     }
     if (
-      ["revoked", "quarantined", "purged"].includes(value.lifecycle) &&
+      [
+        "candidate",
+        "superseded",
+        "revoked",
+        "quarantined",
+        "purged",
+      ].includes(value.lifecycle) &&
       value.context_eligible
     ) {
       context.addIssue({
@@ -178,6 +184,17 @@ export const MemoryRevisionSchema = z
         message: "derived claims require live evidence lineage",
       });
     }
+    if (
+      value.abstraction === "l1_memory" &&
+      value.lifecycle === "active" &&
+      value.evidence_ids.length === 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["evidence_ids"],
+        message: "active L1 revisions require live evidence lineage",
+      });
+    }
   });
 
 export const AdmissionDecisionSchema = z
@@ -210,6 +227,212 @@ export const AdmissionDecisionSchema = z
         path: ["decided_by", "authority"],
         message: "user confirmation is required before activation",
       });
+    }
+  });
+
+export const MemoryCandidateSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    candidate_id: IdentifierSchema,
+    logical_key: z.string().trim().min(1).max(500),
+    kind: MemoryKindSchema,
+    scope: ScopeSchema,
+    sensitivity: SensitivitySchema,
+    inferred: z.boolean(),
+    content: ContentRefSchema,
+    content_hash: CanonicalHashSchema,
+    evidence_ids: z.array(IdentifierSchema).min(1),
+    validity: ValidityWindowSchema,
+    injection_risk: z.enum(["none", "suspected", "confirmed"]),
+    requires_user_confirmation: z.boolean(),
+    transform: TransformRefSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.injection_risk !== "none" &&
+      value.kind === "procedural" &&
+      !value.requires_user_confirmation
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["requires_user_confirmation"],
+        message:
+          "injection-risk procedural candidates require user confirmation",
+      });
+    }
+  });
+
+export const MemoryConflictGroupSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    conflict_group_id: IdentifierSchema,
+    logical_key_hash: CanonicalHashSchema,
+    candidate_ids: z.array(IdentifierSchema).min(2),
+    status: z.enum(["open", "resolved"]),
+    resolved_revision_id: IdentifierSchema.nullable(),
+    created_at: UtcTimestampSchema,
+    resolved_at: UtcTimestampSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (new Set(value.candidate_ids).size !== value.candidate_ids.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["candidate_ids"],
+        message: "conflict candidates must be unique",
+      });
+    }
+    if (
+      (value.status === "open" &&
+        (value.resolved_revision_id !== null ||
+          value.resolved_at !== null)) ||
+      (value.status === "resolved" &&
+        (value.resolved_revision_id === null || value.resolved_at === null))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "conflict resolution state and evidence must agree",
+      });
+    }
+  });
+
+export const MemoryStatusEventSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    status_event_id: IdentifierSchema,
+    memory_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+    action: z.enum([
+      "activate",
+      "demote",
+      "suppress",
+      "revoke",
+      "tombstone",
+      "purge_redact",
+    ]),
+    lifecycle: LifecycleSchema,
+    actor: ActorClaimSchema,
+    occurred_at: UtcTimestampSchema,
+    reason: NonEmptyReasonSchema,
+    tombstone_epoch: z.number().int().positive().nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const tombstoneAction =
+      value.action === "tombstone" || value.action === "purge_redact";
+    if (tombstoneAction !== (value.tombstone_epoch !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["tombstone_epoch"],
+        message: "only tombstone and purge-redaction events carry an epoch",
+      });
+    }
+    if (
+      (value.action === "activate" && value.lifecycle !== "active") ||
+      (value.action === "demote" && value.lifecycle !== "candidate") ||
+      (value.action === "suppress" && value.lifecycle !== "superseded") ||
+      (value.action === "revoke" && value.lifecycle !== "revoked") ||
+      (tombstoneAction && value.lifecycle !== "purged")
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["lifecycle"],
+        message: "status action and lifecycle must agree",
+      });
+    }
+  });
+
+export const MemoryPinEventSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    pin_event_id: IdentifierSchema,
+    memory_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+    pinned: z.boolean(),
+    actor: ActorClaimSchema,
+    occurred_at: UtcTimestampSchema,
+    reason: NonEmptyReasonSchema,
+  })
+  .strict();
+
+export const MemoryUsageRuleSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    usage_rule_id: IdentifierSchema,
+    memory_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+    effect: z.enum(["allow", "block"]),
+    context_scope: ScopeSchema.nullable(),
+    actor: ActorClaimSchema,
+    occurred_at: UtcTimestampSchema,
+    reason: NonEmptyReasonSchema,
+  })
+  .strict();
+
+export const GovernedMemoryRecordSchema = z
+  .object({
+    memory: MemoryObjectSchema,
+    current_revision: MemoryRevisionSchema.nullable(),
+    admission: AdmissionDecisionSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const revision = value.current_revision;
+    if (
+      (value.memory.current_revision_id === null) !== (revision === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["current_revision"],
+        message: "memory pointer and current revision must agree",
+      });
+      return;
+    }
+    if (revision === null) {
+      return;
+    }
+    if (
+      value.memory.current_revision_id !== revision.revision_id ||
+      value.memory.memory_id !== revision.memory_id ||
+      value.memory.kind !== revision.kind ||
+      value.memory.scope.kind !== revision.scope.kind ||
+      value.memory.scope.id !== revision.scope.id ||
+      value.memory.lifecycle !== revision.lifecycle
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["current_revision"],
+        message: "current revision must match the logical memory pointer",
+      });
+    }
+    if (
+      value.admission !== null &&
+      (value.admission.memory_id !== value.memory.memory_id ||
+        value.admission.revision_id !== revision.revision_id)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["admission"],
+        message: "admission decision must match the current revision",
+      });
+    }
+    if (value.memory.lifecycle === "active") {
+      if (
+        value.admission === null ||
+        value.admission.decision !== "activate" ||
+        value.admission.memory_id !== value.memory.memory_id ||
+        value.admission.revision_id !== revision.revision_id ||
+        revision.evidence_ids.length === 0
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["admission"],
+          message:
+            "active L1 memory requires a matching activation decision and evidence",
+        });
+      }
     }
   });
 
@@ -247,12 +470,27 @@ export const MemoryArtifactSchema = z.union([
   MemoryObjectSchema,
   MemoryRevisionSchema,
   AdmissionDecisionSchema,
+  MemoryCandidateSchema,
+  MemoryConflictGroupSchema,
+  MemoryStatusEventSchema,
+  MemoryPinEventSchema,
+  MemoryUsageRuleSchema,
   RelationRevisionSchema,
 ]);
 
 export type AdmissionDecision = z.infer<typeof AdmissionDecisionSchema>;
 export type Episode = z.infer<typeof EpisodeSchema>;
 export type EvidenceRecord = z.infer<typeof EvidenceRecordSchema>;
+export type GovernedMemoryRecord = z.infer<
+  typeof GovernedMemoryRecordSchema
+>;
+export type MemoryCandidate = z.infer<typeof MemoryCandidateSchema>;
+export type MemoryConflictGroup = z.infer<
+  typeof MemoryConflictGroupSchema
+>;
 export type MemoryObject = z.infer<typeof MemoryObjectSchema>;
+export type MemoryPinEvent = z.infer<typeof MemoryPinEventSchema>;
 export type MemoryRevision = z.infer<typeof MemoryRevisionSchema>;
+export type MemoryStatusEvent = z.infer<typeof MemoryStatusEventSchema>;
+export type MemoryUsageRule = z.infer<typeof MemoryUsageRuleSchema>;
 export type RelationRevision = z.infer<typeof RelationRevisionSchema>;

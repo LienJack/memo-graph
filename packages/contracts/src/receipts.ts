@@ -77,6 +77,28 @@ export const EvalReceiptSchema = z
   })
   .strict();
 
+export const PurgeStoreSchema = z.enum([
+  "memory_revisions",
+  "candidates",
+  "conflicts",
+  "fts",
+  "context",
+  "exports",
+  "blobs",
+  "backups",
+  "projections",
+]);
+
+export const PurgeStoreOutcomeSchema = z
+  .object({
+    store: PurgeStoreSchema,
+    status: z.enum(["verified", "residual", "failed"]),
+    residual_hashes: z.array(CanonicalHashSchema),
+    error_code: z.string().trim().min(1).nullable(),
+    checked_at: UtcTimestampSchema,
+  })
+  .strict();
+
 export const ReleaseReceiptSchema = z
   .object({
     ...ReceiptBaseShape,
@@ -109,7 +131,8 @@ export const PurgeReceiptSchema = z
     purge_job_id: IdentifierSchema,
     target_memory_ids: z.array(IdentifierSchema).min(1),
     tombstone_epoch: z.number().int().nonnegative(),
-    stores_checked: z.array(z.string().trim().min(1)).min(1),
+    stores_checked: z.array(PurgeStoreSchema).min(1),
+    store_outcomes: z.array(PurgeStoreOutcomeSchema).min(1),
     residual_hashes: z.array(CanonicalHashSchema),
     completed: z.boolean(),
   })
@@ -120,6 +143,81 @@ export const PurgeReceiptSchema = z
         code: "custom",
         path: ["residual_hashes"],
         message: "a completed purge cannot report residual content hashes",
+      });
+    }
+    const outcomeStores = value.store_outcomes.map((item) => item.store);
+    if (new Set(outcomeStores).size !== outcomeStores.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["store_outcomes"],
+        message: "purge store outcomes must be unique",
+      });
+    }
+    const checked = [...new Set(value.stores_checked)].sort();
+    const outcomes = [...new Set(outcomeStores)].sort();
+    if (
+      checked.length !== outcomes.length ||
+      checked.some((store, index) => store !== outcomes[index])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["stores_checked"],
+        message: "checked stores must exactly match recorded outcomes",
+      });
+    }
+    for (const [index, outcome] of value.store_outcomes.entries()) {
+      if (
+        (outcome.status === "verified" &&
+          (outcome.residual_hashes.length > 0 ||
+            outcome.error_code !== null)) ||
+        (outcome.status === "residual" &&
+          (outcome.residual_hashes.length === 0 ||
+            outcome.error_code !== null)) ||
+        (outcome.status === "failed" && outcome.error_code === null)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["store_outcomes", index],
+          message: "purge outcome status and evidence must agree",
+        });
+      }
+    }
+    const residuals = [
+      ...new Set(
+        value.store_outcomes.flatMap((outcome) => outcome.residual_hashes),
+      ),
+    ].sort();
+    const declaredResiduals = [...new Set(value.residual_hashes)].sort();
+    if (
+      residuals.length !== declaredResiduals.length ||
+      residuals.some(
+        (hash, index) => hash !== declaredResiduals[index],
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["residual_hashes"],
+        message: "purge residual summary must match store outcomes",
+      });
+    }
+    if (
+      value.completed &&
+      (value.state !== "purged" ||
+        value.store_outcomes.some(
+          (outcome) => outcome.status !== "verified",
+        ))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["completed"],
+        message: "completed purge requires verified outcomes and purged state",
+      });
+    }
+    if (!value.completed && value.state === "purged") {
+      context.addIssue({
+        code: "custom",
+        path: ["state"],
+        message: "an incomplete purge cannot use the purged state",
       });
     }
   });
@@ -152,6 +250,8 @@ export function receiptHashIsValid(receipt: z.infer<typeof ReceiptSchema>): bool
 export type EvalReceipt = z.infer<typeof EvalReceiptSchema>;
 export type MutationReceipt = z.infer<typeof MutationReceiptSchema>;
 export type PurgeReceipt = z.infer<typeof PurgeReceiptSchema>;
+export type PurgeStore = z.infer<typeof PurgeStoreSchema>;
+export type PurgeStoreOutcome = z.infer<typeof PurgeStoreOutcomeSchema>;
 export type Receipt = z.infer<typeof ReceiptSchema>;
 export type ReleaseReceipt = z.infer<typeof ReleaseReceiptSchema>;
 export type RetrievalReceipt = z.infer<typeof RetrievalReceiptSchema>;

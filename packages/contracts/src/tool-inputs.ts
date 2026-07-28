@@ -1,10 +1,18 @@
 import { z } from "zod";
 
 import {
+  CanonicalHashSchema,
+  ContentRefSchema,
+  IdentifierSchema,
+  MemoryKindSchema,
   ScopeSchema,
+  SensitivitySchema,
+  TransformRefSchema,
+  ValidityWindowSchema,
   scopeKey,
 } from "./common.js";
 import {
+  MutationRequestEnvelopeSchema,
   ReadRequestEnvelopeSchema,
   ProposalRequestEnvelopeSchema,
   RecallRequestSchema,
@@ -12,6 +20,7 @@ import {
 import {
   EpisodeSchema,
   EvidenceRecordSchema,
+  MemoryCandidateSchema,
 } from "./memory.js";
 import { canonicalJson } from "./canonical-json.js";
 
@@ -130,6 +139,158 @@ export const MemoryEpisodeCommitInputSchema = withExpectedTool(
   "memory_episode_commit",
 );
 
+export const MemoryProposeInputSchema = withExpectedTool(
+  z
+    .object({
+      envelope: ProposalRequestEnvelopeSchema,
+      candidate: MemoryCandidateSchema,
+    })
+    .strict()
+    .superRefine((value, context) => {
+      if (
+        !value.envelope.scopes.some(
+          (scope) => scopeKey(scope) === scopeKey(value.candidate.scope),
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["candidate", "scope"],
+          message: "candidate scope is outside the request envelope",
+        });
+      }
+    }),
+  "memory_propose",
+);
+
+export const MemoryCorrectionSchema = z
+  .object({
+    content: ContentRefSchema,
+    content_hash: CanonicalHashSchema,
+    evidence_ids: z.array(IdentifierSchema).min(1),
+    validity: ValidityWindowSchema,
+    reason: z.string().trim().min(1).max(2_000),
+  })
+  .strict();
+
+function requireExpectedRevision<T extends z.ZodType>(
+  schema: T,
+): T {
+  return schema.superRefine((value, context) => {
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      "envelope" in value &&
+      typeof value.envelope === "object" &&
+      value.envelope !== null &&
+      "expected_revision_id" in value.envelope &&
+      value.envelope.expected_revision_id === null
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["envelope", "expected_revision_id"],
+        message: "this mutation requires the exact expected revision",
+      });
+    }
+  }) as T;
+}
+
+export const MemoryCorrectInputSchema = withExpectedTool(
+  requireExpectedRevision(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        memory_id: IdentifierSchema,
+        replacement: MemoryCorrectionSchema,
+      })
+      .strict(),
+  ),
+  "memory_correct",
+);
+
+export const MemoryPinInputSchema = withExpectedTool(
+  requireExpectedRevision(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        memory_id: IdentifierSchema,
+        pinned: z.boolean(),
+      })
+      .strict(),
+  ),
+  "memory_pin",
+);
+
+export const MemoryDemoteInputSchema = withExpectedTool(
+  requireExpectedRevision(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        memory_id: IdentifierSchema,
+      })
+      .strict(),
+  ),
+  "memory_demote",
+);
+
+export const MemoryUsageSetInputSchema = withExpectedTool(
+  requireExpectedRevision(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        memory_id: IdentifierSchema,
+        effect: z.enum(["allow", "block"]),
+        context_scope: ScopeSchema.nullable(),
+      })
+      .strict(),
+  ),
+  "memory_usage_set",
+);
+
+export const MemoryRevokeInputSchema = withExpectedTool(
+  requireExpectedRevision(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        memory_id: IdentifierSchema,
+      })
+      .strict(),
+  ),
+  "memory_revoke",
+);
+
+export const MemoryDeleteInputSchema = withExpectedTool(
+  requireExpectedRevision(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        memory_id: IdentifierSchema,
+      })
+      .strict(),
+  ),
+  "memory_delete",
+);
+
+export const GovernedMemoryLookupSelectorSchema = z.union([
+  z.object({ evidence_id: IdentifierSchema }).strict(),
+  z.object({ memory_id: IdentifierSchema }).strict(),
+]);
+
+export const GovernedSearchItemSchema = z
+  .object({
+    abstraction: z.enum(["l0_evidence", "l1_memory"]),
+    memory_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+    kind: MemoryKindSchema,
+    scope: ScopeSchema,
+    sensitivity: SensitivitySchema,
+    content: ContentRefSchema,
+    content_hash: CanonicalHashSchema,
+    evidence_ids: z.array(IdentifierSchema).min(1),
+    transform: TransformRefSchema.nullable(),
+    reason_codes: z.array(z.string().trim().min(1)).min(1),
+  })
+  .strict();
+
 export type EpisodeBlobInput = z.infer<typeof EpisodeBlobInputSchema>;
 export type MemoryContextCompileInput = z.infer<
   typeof MemoryContextCompileInputSchema
@@ -137,12 +298,21 @@ export type MemoryContextCompileInput = z.infer<
 export type MemoryEpisodeCommitInput = z.infer<
   typeof MemoryEpisodeCommitInputSchema
 >;
+export type MemoryCorrectInput = z.infer<typeof MemoryCorrectInputSchema>;
+export type MemoryDeleteInput = z.infer<typeof MemoryDeleteInputSchema>;
+export type MemoryDemoteInput = z.infer<typeof MemoryDemoteInputSchema>;
 export type MemoryEvidenceLookupInput = z.infer<
   typeof MemoryEvidenceLookupInputSchema
 >;
 export type MemoryExplainInput = z.infer<typeof MemoryExplainInputSchema>;
 export type MemoryGetInput = z.infer<typeof MemoryGetInputSchema>;
+export type MemoryPinInput = z.infer<typeof MemoryPinInputSchema>;
+export type MemoryProposeInput = z.infer<typeof MemoryProposeInputSchema>;
 export type MemoryReceiptGetInput = z.infer<
   typeof MemoryReceiptGetInputSchema
 >;
+export type MemoryRevokeInput = z.infer<typeof MemoryRevokeInputSchema>;
 export type MemorySearchInput = z.infer<typeof MemorySearchInputSchema>;
+export type MemoryUsageSetInput = z.infer<
+  typeof MemoryUsageSetInputSchema
+>;

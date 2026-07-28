@@ -112,6 +112,7 @@ export const MutationRequestEnvelopeSchema = RequestEnvelopeBaseSchema.safeExten
   safety_class: z.enum(["important_mutation", "destructive"]),
   idempotency_key: z.string().trim().min(8).max(200),
   expected_revision_id: IdentifierSchema.nullable(),
+  approval_id: IdentifierSchema.nullable(),
   dry_run: z.boolean().default(false),
 }).superRefine((value, context) => {
   const expectedClass = MEMORY_TOOL_SAFETY_CLASS[value.tool];
@@ -122,7 +123,55 @@ export const MutationRequestEnvelopeSchema = RequestEnvelopeBaseSchema.safeExten
       message: `${value.tool} requires safety class ${expectedClass}`,
     });
   }
+  if (!value.dry_run && value.approval_id === null) {
+    context.addIssue({
+      code: "custom",
+      path: ["approval_id"],
+      message: "effect-bearing mutations require a trusted approval reference",
+    });
+  }
 });
+
+export const ApprovalGrantSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    approval_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    tool: MemoryToolNameSchema,
+    safety_class: z.enum(["important_mutation", "destructive"]),
+    scopes: z.array(ScopeSchema).min(1),
+    request_hash: CanonicalHashSchema,
+    issued_at: UtcTimestampSchema,
+    expires_at: UtcTimestampSchema,
+    manifest_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (MEMORY_TOOL_SAFETY_CLASS[value.tool] !== value.safety_class) {
+      context.addIssue({
+        code: "custom",
+        path: ["safety_class"],
+        message: `${value.tool} requires safety class ${
+          MEMORY_TOOL_SAFETY_CLASS[value.tool]
+        }`,
+      });
+    }
+    if (Date.parse(value.expires_at) <= Date.parse(value.issued_at)) {
+      context.addIssue({
+        code: "custom",
+        path: ["expires_at"],
+        message: "approval expiry must be after issuance",
+      });
+    }
+    const scopeKeys = value.scopes.map(scopeKey);
+    if (new Set(scopeKeys).size !== scopeKeys.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["scopes"],
+        message: "approval scopes must be unique",
+      });
+    }
+  });
 
 export const LocalPrincipalSchema = z
   .object({
@@ -222,8 +271,11 @@ export const McpErrorCodeSchema = z.enum([
   "PERMISSION_DENIED",
   "CONFLICT",
   "STALE_REVISION",
+  "APPROVAL_REQUIRED",
+  "APPROVAL_INVALID",
   "PROJECTION_UNAVAILABLE",
   "INCOMPLETE_PURGE",
+  "STALE_TOMBSTONE_FRONTIER",
   "DEGRADED_RECALL",
   "INTERNAL_FAILURE",
 ]);
@@ -332,6 +384,7 @@ export const ContextSliceSchema = z
   });
 
 export type AuthorityDecision = z.infer<typeof AuthorityDecisionSchema>;
+export type ApprovalGrant = z.infer<typeof ApprovalGrantSchema>;
 export type ContextSlice = z.infer<typeof ContextSliceSchema>;
 export type GovernedResponse = z.infer<typeof GovernedResponseSchema>;
 export type LocalPrincipal = z.infer<typeof LocalPrincipalSchema>;

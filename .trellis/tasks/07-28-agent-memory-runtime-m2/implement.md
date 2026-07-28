@@ -2,24 +2,24 @@
 
 ## 0. Task gate
 
-- [ ] Validate the M2 Trellis task and activate it on
+- [x] Validate the M2 Trellis task and activate it on
       `codex/agent-memory-runtime-m2`.
-- [ ] Load M2 PRD, design, plan, research handoff, and relevant Trellis specs.
-- [ ] Confirm Node 24.18.0 and the current frozen dependency lock.
-- [ ] Preserve M1B/G1 as the regression baseline.
+- [x] Load M2 PRD, design, plan, research handoff, and relevant Trellis specs.
+- [x] Confirm Node 24.18.0 and the current frozen dependency lock.
+- [x] Preserve M1B/G1 as the regression baseline.
 
 ## 1. U1 — governance contracts first
 
-- [ ] Add failing contract tests for candidate, admission, revision, lifecycle
+- [x] Add failing contract tests for candidate, admission, revision, lifecycle
       event, user-control, approval-reference, and purge artifacts.
-- [ ] Add failing input tests for propose/correct/pin/demote/usage/revoke/delete
+- [x] Add failing input tests for propose/correct/pin/demote/usage/revoke/delete
       and dry-run/CAS requirements.
-- [ ] Extend receipt/status schemas with stale-revision,
+- [x] Extend receipt/status schemas with stale-revision,
       stale-tombstone-frontier, and incomplete-purge outcomes.
-- [ ] Preserve canonical JSON/hash replay for all existing artifacts.
-- [ ] Validate with:
+- [x] Preserve canonical JSON/hash replay for all existing artifacts.
+- [x] Validate with:
       `pnpm test:contract -- governance.contract.test.ts`.
-- [ ] Commit U1 only after its focused tests, lint, and typecheck pass.
+- [x] Commit U1 only after its focused tests, lint, and typecheck pass.
 
 ## 2. U2 — SQLite governance schema
 
