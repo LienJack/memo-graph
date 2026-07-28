@@ -16,6 +16,16 @@ import {
   scopeKey,
 } from "./common.js";
 import { canonicalSha256Omitting } from "./canonical-json.js";
+import {
+  ContextConflictSetSchema,
+  ContextFrontierSchema,
+  ContextScoreComponentsSchema,
+  EffectiveLaneConfigurationSchema,
+  LaneRequestOverridesSchema,
+  LaneTelemetrySchema,
+  ProjectionLineageRefSchema,
+  RecallLaneSchema,
+} from "./projections.js";
 
 export const ToolSafetyClassSchema = z.enum([
   "read_only",
@@ -408,6 +418,7 @@ export const RecallRequestSchema = z
     as_of: UtcTimestampSchema,
     token_budget: z.number().int().positive().max(32_000),
     include_sensitive: z.boolean().default(false),
+    lane_overrides: LaneRequestOverridesSchema.optional(),
   })
   .strict();
 
@@ -425,8 +436,54 @@ export const ContextSliceItemSchema = z
     selection_reason: NonEmptyReasonSchema,
     uncertainty: z.string().trim().min(1).nullable(),
     token_estimate: z.number().int().nonnegative(),
+    lane: RecallLaneSchema.optional(),
+    projection: ProjectionLineageRefSchema.optional(),
+    score_components: ContextScoreComponentsSchema.optional(),
+    conflict_group_id: IdentifierSchema.nullable().optional(),
+    decision_reason_codes: z
+      .array(z.string().trim().min(1).max(200))
+      .min(1)
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const projectionLaneByAbstraction = {
+      l2_topic: "topic",
+      l2_scenario: "scenario_procedure",
+      l2_relation: "relation_sqlite",
+      l3_core: "core",
+    } as const;
+    const expectedLane =
+      value.abstraction in projectionLaneByAbstraction
+        ? projectionLaneByAbstraction[
+            value.abstraction as keyof typeof projectionLaneByAbstraction
+          ]
+        : null;
+
+    if (expectedLane !== null) {
+      if (
+        value.lane !== expectedLane ||
+        value.projection === undefined ||
+        value.score_components === undefined
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["projection"],
+          message:
+            "L2/L3 Context items require matching lane, lineage, and score components",
+        });
+      }
+      return;
+    }
+
+    if (value.projection !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["projection"],
+        message: "L0/L1 Context items cannot carry projection lineage",
+      });
+    }
+  });
 
 export const ContextSliceSchema = z
   .object({
@@ -439,6 +496,12 @@ export const ContextSliceSchema = z
     token_used: z.number().int().nonnegative(),
     items: z.array(ContextSliceItemSchema),
     frozen_hash: CanonicalHashSchema,
+    policy_version: ContractVersionSchema.optional(),
+    frontier: ContextFrontierSchema.optional(),
+    effective_lane_configuration:
+      EffectiveLaneConfigurationSchema.optional(),
+    lane_telemetry: z.array(LaneTelemetrySchema).optional(),
+    conflict_sets: z.array(ContextConflictSetSchema).optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -449,6 +512,52 @@ export const ContextSliceSchema = z
         message: "compiled context cannot exceed its token budget",
       });
     }
+
+    const projectionItems = value.items.filter(
+      (item) => item.projection !== undefined,
+    );
+    if (
+      projectionItems.length > 0 &&
+      (value.policy_version === undefined ||
+        value.frontier === undefined ||
+        value.effective_lane_configuration === undefined ||
+        value.lane_telemetry === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["frontier"],
+        message:
+          "layered Context requires policy, frontier, effective lanes, and telemetry",
+      });
+    }
+
+    if (value.lane_telemetry !== undefined) {
+      const lanes = value.lane_telemetry.map((item) => item.lane);
+      if (new Set(lanes).size !== lanes.length) {
+        context.addIssue({
+          code: "custom",
+          path: ["lane_telemetry"],
+          message: "Context lane telemetry must contain one row per lane",
+        });
+      }
+    }
+
+    const conflictIds = new Set(
+      (value.conflict_sets ?? []).map((set) => set.conflict_group_id),
+    );
+    for (const [index, item] of value.items.entries()) {
+      if (
+        item.conflict_group_id !== undefined &&
+        item.conflict_group_id !== null &&
+        !conflictIds.has(item.conflict_group_id)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["items", index, "conflict_group_id"],
+          message: "Context item conflict reference must resolve",
+        });
+      }
+    }
   });
 
 export type AuthorityDecision = z.infer<typeof AuthorityDecisionSchema>;
@@ -458,6 +567,7 @@ export type ApprovalRegistryManifest = z.infer<
   typeof ApprovalRegistryManifestSchema
 >;
 export type ContextSlice = z.infer<typeof ContextSliceSchema>;
+export type ContextSliceItem = z.infer<typeof ContextSliceItemSchema>;
 export type GovernedResponse = z.infer<typeof GovernedResponseSchema>;
 export type LocalPrincipal = z.infer<typeof LocalPrincipalSchema>;
 export type McpError = z.infer<typeof McpErrorSchema>;

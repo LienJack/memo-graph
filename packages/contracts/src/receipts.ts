@@ -8,6 +8,14 @@ import {
   NonEmptyReasonSchema,
   UtcTimestampSchema,
 } from "./common.js";
+import {
+  ContextFrontierSchema,
+  ContextScoreComponentsSchema,
+  EffectiveLaneConfigurationSchema,
+  LaneTelemetrySchema,
+  ProjectionLineageRefSchema,
+  RecallLaneSchema,
+} from "./projections.js";
 
 export const ReceiptStateSchema = z.enum([
   "durable",
@@ -36,8 +44,27 @@ export const RetrievalReceiptItemSchema = z
     reason_codes: z.array(z.string().trim().min(1)).min(1),
     lane: z.string().trim().min(1).max(120),
     score: z.number().finite().nullable(),
+    score_components: ContextScoreComponentsSchema.optional(),
+    token_estimate: z.number().int().nonnegative().optional(),
+    projection: ProjectionLineageRefSchema.optional(),
+    conflict_group_id: IdentifierSchema.nullable().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.projection !== undefined &&
+      (!RecallLaneSchema.safeParse(value.lane).success ||
+        value.score_components === undefined ||
+        value.token_estimate === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["projection"],
+        message:
+          "projection receipt items require a governed lane, score components, and token estimate",
+      });
+    }
+  });
 
 export const RetrievalReceiptSchema = z
   .object({
@@ -46,9 +73,39 @@ export const RetrievalReceiptSchema = z
     context_slice_id: IdentifierSchema.nullable(),
     compiler_version: ContractVersionSchema,
     policy_version: ContractVersionSchema,
+    frontier: ContextFrontierSchema.optional(),
+    effective_lane_configuration:
+      EffectiveLaneConfigurationSchema.optional(),
+    lane_telemetry: z.array(LaneTelemetrySchema).optional(),
     items: z.array(RetrievalReceiptItemSchema),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.items.some((item) => item.projection !== undefined) &&
+      (value.frontier === undefined ||
+        value.effective_lane_configuration === undefined ||
+        value.lane_telemetry === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["frontier"],
+        message:
+          "layered retrieval receipts require frontier, lane configuration, and telemetry",
+      });
+    }
+
+    if (value.lane_telemetry !== undefined) {
+      const lanes = value.lane_telemetry.map((item) => item.lane);
+      if (new Set(lanes).size !== lanes.length) {
+        context.addIssue({
+          code: "custom",
+          path: ["lane_telemetry"],
+          message: "retrieval telemetry must contain one row per lane",
+        });
+      }
+    }
+  });
 
 export const MutationReceiptSchema = z
   .object({

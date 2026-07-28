@@ -18,6 +18,7 @@ import {
   UtcTimestampSchema,
   ValidityWindowSchema,
 } from "./common.js";
+import { ProjectionRevisionSchema } from "./projections.js";
 
 export function normalizeLogicalKey(value: string): string {
   return value
@@ -503,6 +504,7 @@ export const MemoryArtifactSchema = z.union([
   MemoryPinEventSchema,
   MemoryUsageRuleSchema,
   RelationRevisionSchema,
+  ProjectionRevisionSchema,
 ]);
 
 export type AdmissionDecision = z.infer<typeof AdmissionDecisionSchema>;

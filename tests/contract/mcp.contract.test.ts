@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   GovernedResponseSchema,
+  LaneRequestOverridesSchema,
   LocalPrincipalSchema,
   MEMORY_TOOL_SAFETY_CLASS,
   MemoryContextCompileInputSchema,
@@ -159,6 +160,30 @@ describe("MCP boundary contracts", () => {
       authorized: false,
       code: "SCOPE_NOT_ALLOWED",
     });
+  });
+
+  it("keeps lane overrides bounded and rejects duplicate requested lanes", () => {
+    expect(
+      LaneRequestOverridesSchema.safeParse({
+        requested_lanes: ["recent_l1", "topic"],
+        limits: {
+          max_candidates_per_lane: 25,
+          relation_max_depth: 1,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      LaneRequestOverridesSchema.safeParse({
+        requested_lanes: ["topic", "topic"],
+        limits: {},
+      }).success,
+    ).toBe(false);
+    expect(
+      LaneRequestOverridesSchema.safeParse({
+        requested_lanes: ["relation_sqlite"],
+        limits: { relation_max_depth: 100 },
+      }).success,
+    ).toBe(false);
   });
 
   it.each(["NO_MATCH", "POLICY_EXCLUDED", "DEGRADED", "FAILED"] as const)(
