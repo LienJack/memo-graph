@@ -472,9 +472,13 @@ M3 is complete when:
 - [x] U1–U8 commits exist and each focused verification passed.
 - [x] The final full validation suite passes on Node 24.18.0.
 - [x] G3 is explicitly `GO` or `HOLD`.
-- [x] A `GO` authorizes M4A, M4B, and M5 as independent child tasks; it does
-      not adopt graph, vector, or learning automatically.
+- [x] A `GO` would authorize M4A, M4B, and M5 as independent child tasks; this
+      `HOLD` does not open them.
 - [x] A `HOLD` preserves the M2 fallback and records the failed invariant or
       insufficient value.
-- [ ] Trellis check and finish workflows pass.
+- [x] Post-implementation review records three P1 correctness blockers and one
+      P2 observability defect in `docs/evaluations/g3-code-review.md`.
+- [x] Required remediation and re-freeze evidence are recorded in
+      `docs/evaluations/g3-decision.md`.
+- [x] Trellis check workflow passes; finish proceeds after the closure commit.
 - [ ] The child task is archived with the tested commit and journal evidence.

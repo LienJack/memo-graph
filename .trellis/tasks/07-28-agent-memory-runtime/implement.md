@@ -403,19 +403,21 @@ Build topic, scenario, relation, procedural, and core projections on the SQLite 
 
 ### Checklist
 
-- [ ] Implement versioned TopicProjection, ScenarioPattern, temporal relation, and CoreProjection records.
-- [ ] Require lineage, transform version, validity, authority, and projection epoch on every L2/L3 record.
-- [ ] Keep Topic and Scenario as separate abstractions.
-- [ ] Implement SQLite adjacency as the graph-free reference behavior.
-- [ ] Invalidate and rebuild all descendants when a source revision changes status.
-- [ ] Implement hard filters before candidate generation.
-- [ ] Implement recent, topic, scenario/procedural, core, and optional relation lanes.
-- [ ] Rank by relevance, authority, freshness, evidence diversity, conflict penalty, and token utility.
-- [ ] Allocate per-lane minimums and a global token budget.
-- [ ] Present conflict sets with provenance rather than silently merging them.
-- [ ] Persist included and excluded reasons in a RetrievalReceipt.
-- [ ] Freeze ordered context items, compiler version, token estimates, and slice hash.
-- [ ] Ensure a memory-epoch change produces a new slice only on the next compile.
+- [x] Implement versioned TopicProjection, ScenarioPattern, temporal relation, and CoreProjection records.
+- [x] Require lineage, transform version, validity, authority, and projection epoch on every L2/L3 record.
+- [x] Keep Topic and Scenario as separate abstractions.
+- [x] Implement SQLite adjacency as the graph-free reference behavior.
+- [x] Invalidate and rebuild all descendants when a source revision changes status.
+- [ ] Implement hard filters before candidate generation. G3 review found
+      limit-before-match and incomplete frontier revalidation; see
+      `docs/evaluations/g3-code-review.md`.
+- [x] Implement recent, topic, scenario/procedural, core, and optional relation lanes.
+- [x] Rank by relevance, authority, freshness, evidence diversity, conflict penalty, and token utility.
+- [x] Allocate per-lane minimums and a global token budget.
+- [x] Present conflict sets with provenance rather than silently merging them.
+- [x] Persist included and excluded reasons in a RetrievalReceipt.
+- [x] Freeze ordered context items, compiler version, token estimates, and slice hash.
+- [x] Ensure a memory-epoch change produces a new slice only on the next compile.
 
 ### Validation contract
 
@@ -435,10 +437,18 @@ Assertions:
 
 ### G3 exit gate
 
-- The compiler beats or matches the M1 baseline on task usefulness while meeting every governance invariant.
-- Token budget violations and cross-scope leakage are zero.
-- Conflict and exclusion explanations are present for every designated fixture.
-- L2/L3 rebuilds are deterministic from L0/L1.
+- [x] The frozen compiler beats or matches the M1 baseline on task usefulness;
+      post-implementation review nevertheless blocks adoption.
+- [x] Token budget violations and cross-scope leakage are zero in the frozen
+      one-scope replay.
+- [x] Conflict and exclusion explanations are present for every designated
+      fixture.
+- [x] L2/L3 rebuilds are deterministic from L0/L1.
+- [x] Final G3 decision is `HOLD`; the accepted M2 compiler remains the release
+      boundary.
+- [x] M4A, M4B, and M5 remain closed until a new hash-bound G3 decision fixes
+      bounded projection recall, exact source revalidation, multi-scope
+      frontiers, and relation truncation telemetry.
 
 ### Hold/rollback
 

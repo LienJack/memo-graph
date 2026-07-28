@@ -1,6 +1,7 @@
 {
   "schema_version": "1.0.0",
   "candidate_commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
+  "final_decision": "HOLD",
   "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
   "environment": {
     "node": "v24.18.0",
@@ -118,6 +119,13 @@
     "Compiler timing measures the deterministic bounded post-retrieval candidate set while retaining the declared population identity.",
     "The complete Small population was physically materialized in SQLite.",
     "The Expected population identity and compiler envelope were exercised; a 250k-row SQLite resource materialization was not required by the frozen M3 plan.",
-    "These are local synthetic measurements, not production capacity claims."
-  ]
+    "These are local synthetic measurements, not production capacity claims.",
+    "Post-gate review found that the online retrieval path truncates before lexical matching and revalidates only the first 1000 canonical sources, so these compiler timings cannot establish end-to-end Expected-profile retrieval correctness."
+  ],
+  "post_gate_review": {
+    "reviewed_commit": "5e4c75404e288402c0c1253807cd9eed2a8414ef",
+    "result": "HOLD",
+    "compiler_thresholds_still_pass": true,
+    "end_to_end_expected_profile_proven": false
+  }
 }

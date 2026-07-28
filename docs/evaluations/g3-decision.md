@@ -1,6 +1,6 @@
 # G3 Layered Context Compiler Gate Decision
 
-- Decision: **GO**
+- Decision: **HOLD**
 - Date: 2026-07-28
 - Tested implementation commit:
   `cc6b55fe30a477340909029ea7e04bef2c85c470`
@@ -12,15 +12,15 @@
 
 ## Decision boundary
 
-**GO to independent M4A graph, M4B vector, and M5 Learning Lab
-experiments.**
+**HOLD M3 layered retrieval and keep the accepted M2 L0/L1 compiler as the
+runtime fallback.**
 
-This decision accepts the deterministic L2/L3 projection layer, governed
-multi-lane recall, and layered Context Compiler implemented in M3. It does not
-adopt a graph backend, vector backend, autonomous learning release, remote
-transport, or production operations. Each downstream experiment retains its
-own gate and may independently end in No-Go. The accepted L0/L1 path remains
-the mandatory fallback.
+The frozen G3 replay and compiler benchmark pass their declared cases, but the
+required post-implementation review found untested normal-usage failures in
+bounded retrieval, source-frontier validation, and multi-scope compilation.
+Those gaps invalidate advancement even though the narrower replay metrics are
+green. M4A graph, M4B vector, and M5 Learning Lab are not opened by this
+decision.
 
 No executable code, migration, dependency, fixture, or policy changed after
 the tested U7 commit. U8 records evidence only.
@@ -41,7 +41,8 @@ the tested U7 commit. U8 records evidence only.
 | Environment | Node 24.18.0, pnpm 10.33.2, macOS 15.5 Darwin arm64, SQLite 3.53.3 |
 
 The machine-readable identity and commands are in
-`g3-reproducibility-manifest.json`.
+`g3-reproducibility-manifest.json`. The reviewed executable remains the U7
+commit; the HOLD correction changes documentation and evidence metadata only.
 
 ## Three-arm replay
 
@@ -58,7 +59,8 @@ Arm A was checked from the exact accepted M2 commit in an isolated detached
 worktree. Arms A and B were semantically equal and produced equal frozen
 Context; there were no compatibility mismatches.
 
-Arm C had no aggregate or partition regression. Its strict improvement was
+Within the frozen corpus, Arm C had no aggregate or partition regression. Its
+strict improvement was
 the designated holdout `hold_multi_hop_lineage` case at both budgets, adding
 one task inclusion per run. Calibration remained 10/10 task and 10/10
 evidence; holdout increased from 2 to 4 task inclusions while remaining 6/6
@@ -74,6 +76,10 @@ The projection-failure case degraded twice as designed and recovered through
 the L1 lane. No failed replay case or invariant failure was observed.
 Persisted prompt injection, negative transfer, and policy exclusion remained
 excluded by policy.
+
+These results are necessary but not sufficient for GO. The corpus uses one
+scope and a bounded candidate set that does not expose the review failures
+below.
 
 ## Performance and resource evidence
 
@@ -112,6 +118,34 @@ There are no failed or quarantined G3 cases. The normal full-suite run leaves
 the exact-checkout case environment-gated; `pnpm test:g3:accepted` exercised
 and passed it from the accepted commit.
 
+## Post-gate code review
+
+The mandatory Tier 2 review ran over the complete M3 diff through evidence
+commit `5e4c75404e288402c0c1253807cd9eed2a8414ef`. It found three P1 blockers:
+
+1. `LayeredLaneRetrievers.#projections` asks SQLite for only
+   `request.limit + 1` rows and applies lexical matching afterward. A relevant
+   projection outside that prefix is reported as no match, and truncation is
+   not observable.
+2. `RecallOrchestrator.recall` enumerates at most 1,000 canonical L1 sources,
+   but consolidation can bind a scope frontier to as many as 100,000 sources.
+   Above 1,000 active L1 rows, the recomputed source frontier differs and
+   otherwise valid projections are rejected.
+3. `MemoryRuntime.#compileLayeredContext` selects one projection frontier for
+   the entire request. A request containing multiple exact scopes can contain
+   projections with distinct scope frontiers, so candidates from the other
+   scopes fail compiler frontier equality.
+
+The same review recorded one P2 observability defect: relation traversal
+silently keeps only the first 100 start revisions without reporting that
+truncation. Existing integration tests exercise one scope and do not cover
+relevant projections beyond the initial database prefix or canonical source
+counts above 1,000.
+
+These are false-negative and explainability failures, not authorization
+bypasses. The operator default still enables only `recent_l1`, and disabling
+all projection lanes retains the accepted M2 behavior.
+
 ## Known limits and debt
 
 - All evidence is local and synthetic on one Darwin arm64 machine.
@@ -125,14 +159,34 @@ and passed it from the accepted commit.
   monitoring and incident response remain M6 work.
 - Policy-excluded transfer cases prove safety boundaries, not positive
   cross-domain transfer value.
+- Projection retrieval is not correct beyond its pre-filter database prefix.
+- Source-frontier revalidation is not correct above 1,000 active L1 rows.
+- One Context frontier cannot currently represent multiple scope-local
+  projection frontiers.
+- Relation-start truncation is not yet reflected in lane telemetry.
+
+## Required evidence to leave HOLD
+
+- Push projection relevance filtering into a bounded storage query or add a
+  cursor/FTS design that proves relevant rows cannot be lost before ranking.
+- Revalidate the exact source revisions used by returned projections without
+  enumerating or silently truncating the entire scope.
+- Define and test a deterministic multi-scope frontier representation,
+  including exact replay and purge behavior.
+- Report relation start-set truncation explicitly.
+- Add regressions for more than one scope, a relevant projection beyond the
+  first query page, and more than 1,000 active canonical L1 sources.
+- Re-freeze a new executable candidate and rerun three-arm replay, Small
+  resource evidence, Expected compiler evidence, full tests, build, lint,
+  typecheck, frozen install, and dependency audit.
 
 ## Decision
 
-**GO.**
+**HOLD.**
 
-Arm C satisfies every frozen condition: zero governance, budget, and rebuild
-violations; no aggregate or partition regression; deterministic rebuild; and
-a strict designated holdout improvement. M4A, M4B, and M5 may now start only
-as separate Trellis child tasks with independent evidence and Go/No-Go
-decisions. A downstream No-Go must preserve this accepted SQLite L0/L1/L2/L3
-runtime and its lower-layer fallback.
+The frozen replay demonstrates a promising strict holdout gain with no
+observed safety regression, but the reviewed candidate does not yet satisfy
+the full R10/R11/R19 retrieval and frontier contract. Projection lanes remain
+disabled by default, and the accepted M2 L0/L1 compiler remains the release
+boundary. No M4A, M4B, or M5 child may start from this gate until a new
+hash-bound G3 decision closes the listed blockers.

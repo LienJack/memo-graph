@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "gate": "G3",
-  "decision": "GO",
+  "decision": "HOLD",
   "recorded_at": "2026-07-28T21:24:00Z",
   "tested_implementation": {
     "commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
@@ -45,13 +45,19 @@
   "evidence_reports": {
     "replay": {
       "path": "docs/evaluations/g3-replay-report.json",
-      "raw_hash": "sha256:5cb4117d8135b2307199c4398a5a67fe8f92c9164977668520311af796934e51",
-      "canonical_hash": "sha256:a12e041a31b5028e946e1d2af0af3712c80e9de22d322dd0c8d874dada2f19e1"
+      "raw_hash": "sha256:60d257c0900accb3a62e8fd820f76cbad4f86ecbc6864ff7b4da917aa60fa097",
+      "canonical_hash": "sha256:0d379ab00d60c3103bdbf093f97735a7f06574485614a5469e5bc471d02e501b"
     },
     "performance": {
       "path": "docs/evaluations/g3-performance-report.json",
-      "raw_hash": "sha256:017912ce11b68f1a7591467e722ba44b0caf97dff3486659eff120ad23aad8b7",
-      "canonical_hash": "sha256:4812cba7421eab5d3425be312d1c75e234f3ac1daee4271c02e111199272fe1f"
+      "raw_hash": "sha256:a9405b1e328bc59e0716513a519c48039815f6b2ebd597287afbdb50e3ab967a",
+      "canonical_hash": "sha256:a55564db8da2abf8ad76ba07ff704e481ae6287fe78760aef35723f47aa89861"
+    },
+    "post_gate_code_review": {
+      "path": "docs/evaluations/g3-code-review.md",
+      "raw_hash": "sha256:45894c4cf4cb9b4a77cf94b0f41f233ff2cb411689a9979d47ed89bebb883428",
+      "reviewed_head": "5e4c75404e288402c0c1253807cd9eed2a8414ef",
+      "result": "HOLD"
     }
   },
   "verification": [
@@ -96,6 +102,8 @@
     "production_readiness_claimed": false,
     "graph_backend_adopted": false,
     "vector_backend_adopted": false,
-    "learning_release_adopted": false
+    "learning_release_adopted": false,
+    "downstream_gates_opened": false,
+    "release_fallback": "accepted_m2_l0_l1"
   }
 }

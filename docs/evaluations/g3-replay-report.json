@@ -2,6 +2,7 @@
   "schema_version": "1.0.0",
   "recorded_at": "2026-07-28T21:21:25.117Z",
   "protocol_version": "1.0.0",
+  "final_decision": "HOLD",
   "candidate_commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
   "accepted_m2_commit": "31959fc841ddc95f7570e5e0f2028a1e6b00243e",
   "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
@@ -272,5 +273,12 @@
     "zero_governance_budget_rebuild_violations": true,
     "no_aggregate_or_partition_regression": true,
     "strict_designated_improvement": true
+  },
+  "post_gate_review": {
+    "reviewed_commit": "5e4c75404e288402c0c1253807cd9eed2a8414ef",
+    "result": "HOLD",
+    "reason": "The frozen replay passes its declared cases, but review found uncovered normal-usage failures in bounded projection retrieval, source-frontier revalidation above 1000 active L1 rows, and multi-scope frontier composition.",
+    "runtime_fallback": "accepted_m2_l0_l1",
+    "downstream_gates_opened": false
   }
 }

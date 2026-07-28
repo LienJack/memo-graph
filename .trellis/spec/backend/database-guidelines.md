@@ -478,6 +478,125 @@ await approvalRegistry.confirmUnchanged(verified);
 return storage.applyMemoryControl({ request, approval: verified });
 ```
 
+## Scenario: Bounded Layered Projection Recall
+
+### 1. Scope / Trigger
+
+Use this contract before enabling any L2/L3 lane that searches projection
+content, revalidates projection lineage, traverses relations, or combines more
+than one exact scope into a Context.
+
+G3 remains HOLD until every rule in this section is executable.
+
+### 2. Signatures
+
+```ts
+storage.searchProjections(
+  query: ProjectionSearchQuery,
+): Promise<ProjectionSearchResult>
+
+storage.getProjectionSourcesByRevisionIds(
+  query: ProjectionSourceBatchQuery,
+): Promise<ProjectionSourceBatchResult>
+
+compileLayeredContext({
+  scope_frontiers,
+  candidates,
+  telemetry,
+}: MultiScopeLayeredContextInput): CompileContextResult
+```
+
+`ProjectionSearchResult` carries a cursor or an explicit
+`candidate_space_truncated` flag. `ProjectionSourceBatchResult` returns one
+typed result for every requested source revision, including a stable exclusion
+reason for missing or ineligible sources. Multi-scope Context records one
+frontier per exact scope and seals their canonical ordered aggregate.
+
+### 3. Contracts
+
+- Apply relevance filtering in storage before the requested candidate limit,
+  or paginate until the bounded search policy proves no eligible match was
+  skipped.
+- Candidate limits bound returned candidates; they must not silently redefine
+  the searchable corpus.
+- Revalidate the exact source revision IDs referenced by returned projections.
+  Never enumerate an arbitrary prefix of the scope and compare that partial
+  set with a full-scope frontier hash.
+- A scope frontier is keyed by principal plus exact scope. Never apply one
+  scope's source/projection hash to another scope's candidates.
+- Relation start-set caps set `truncated = true` and record a stable reason
+  code before discarding any start revision.
+- Any incomplete candidate space, source batch, or scope frontier is named
+  `DEGRADED` or fails closed; it cannot become `NO_MATCH`.
+- Exact replay revalidates every included projection against its own recorded
+  scope frontier and the current canonical source revisions.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Relevant projection exists after the first storage page | Return it or report explicit bounded truncation; never `NO_MATCH` |
+| Projection references a source outside the first 1,000 scope rows | Batch-load and revalidate that exact revision |
+| Requested source batch is incomplete | Exclude the projection with a stable source reason |
+| Request contains two scopes with different projection frontiers | Freeze and validate both scope frontiers |
+| Relation start set exceeds the configured cap | `DEGRADED` plus `RELATION_START_TRUNCATED` |
+| Projection search/index is unavailable | Named degraded lane with safe `recent_l1` fallback |
+
+### 5. Good / Base / Bad Cases
+
+- Good: search returns 20 relevant candidates from 6,000 projections, then
+  batch-revalidates only their exact lineage and seals both requested scope
+  frontiers.
+- Base: no projection matches after the bounded storage search proves the full
+  searchable set was covered; return `NO_MATCH`.
+- Bad: query 21 rows, filter them in memory, and claim no match while a
+  relevant row exists later.
+- Bad: hash the first 1,000 active L1 rows and compare it with a frontier built
+  from 25,000 rows.
+- Bad: choose the first projection's frontier for every scope in the request.
+
+### 6. Tests Required
+
+- Storage search: the only relevant row appears after the first unfiltered
+  page and is still returned.
+- Scale: more than 1,000 active L1 sources with a returned projection whose
+  lineage crosses that prefix.
+- Multi-scope: two exact scopes with different source/projection hashes both
+  contribute eligible items and replay independently.
+- Degradation: an incomplete source batch, projection index failure, and
+  relation start-set truncation are named and never collapse to `NO_MATCH`.
+- Recovery/purge: correction or tombstone in either scope excludes only its
+  affected descendants and cannot be bypassed by a frozen aggregate frontier.
+- Performance: Small and Expected evidence includes end-to-end storage search,
+  exact-source revalidation, compiler latency, and token adherence.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const rows = await storage.queryProjections({ limit: requestedLimit + 1 });
+const matched = rows.filter((row) => matchesQuery(row, query));
+```
+
+#### Correct
+
+```ts
+const found = await storage.searchProjections({
+  query,
+  limit: requestedLimit,
+  cursor,
+});
+const sources = await storage.getProjectionSourcesByRevisionIds({
+  revision_ids: exactLineageIds(found.items),
+});
+return compileLayeredContext({
+  scope_frontiers: found.scope_frontiers,
+  candidates: revalidate(found.items, sources),
+  telemetry: found.telemetry,
+});
+```
+
 ## Migrations
 
 Migrations begin in M1, are forward-only, and are versioned files under

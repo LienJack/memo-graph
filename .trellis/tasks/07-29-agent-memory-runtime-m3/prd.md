@@ -51,33 +51,43 @@ This child does not add or renumber product requirements.
 
 ## Acceptance Criteria
 
-- [ ] Topic, scenario/procedural, core, and temporal/relation projections are
+- [x] Topic, scenario/procedural, core, and temporal/relation projections are
       typed, versioned, evidence-bound, and deterministically rebuildable.
-- [ ] Same source frontier and transform configuration produce identical
+- [x] Same source frontier and transform configuration produce identical
       projection identities, content hashes, relations, and eligible state.
-- [ ] Correction, demotion, usage block, revoke, evidence purge, and tombstone
+- [x] Correction, demotion, usage block, revoke, evidence purge, and tombstone
       prevent affected descendants from entering the next Context before
       projection cleanup.
-- [ ] Rebuild excludes stale, unauthorized, invalid, conflicted, revoked, and
+- [x] Rebuild excludes stale, unauthorized, invalid, conflicted, revoked, and
       tombstoned sources without resurrecting payloads.
 - [ ] Every enabled lane applies canonical hard filters and can fail or be
       disabled without failing the safe lower-layer baseline.
-- [ ] Conflict fixtures preserve competing claims, source authority, current
+- [x] Conflict fixtures preserve competing claims, source authority, current
       status, and explicit selection/exclusion reasoning.
-- [ ] The token packer never exceeds budgets from 1 through 32,000 and retains
+- [x] The token packer never exceeds budgets from 1 through 32,000 and retains
       governing constraints/failure boundaries before redundant summaries.
-- [ ] Frozen slices and receipts validate canonical hashes and record the exact
+- [x] Frozen slices and receipts validate canonical hashes and record the exact
       compiler, policy, projection frontier, lane configuration, order, scores,
       and included/excluded reasons.
-- [ ] Existing slices remain immutable after a memory/projection frontier
+- [x] Existing slices remain immutable after a memory/projection frontier
       change; the next compile produces the new governed view.
-- [ ] Calibration, holdout, and transfer replay compare baseline/layered arms
+- [x] Calibration, holdout, and transfer replay compare baseline/layered arms
       on identical cases and token budgets.
-- [ ] G3 reports correctness, task/evidence utility, context pollution,
+- [x] G3 reports correctness, task/evidence utility, context pollution,
       governance, recovery, latency/disk cost, hashes, included/excluded cases,
       debt, and explicit `GO` or `HOLD`.
-- [ ] M0-M2 regressions, lint, typecheck, build, frozen install, and dependency
+- [x] M0-M2 regressions, lint, typecheck, build, frozen install, and dependency
       audit remain green on Node 24.18.0.
+
+## Final disposition
+
+- G3 is `HOLD`, not `GO`.
+- The unchecked lane criterion is blocked by projection limit-before-match,
+  capped source-frontier validation, and single-frontier multi-scope
+  composition.
+- The accepted M2 L0/L1 compiler remains the release boundary.
+- M4A, M4B, and M5 remain closed until a new executable candidate fixes the
+  recorded blockers and reruns the hash-bound G3 gate.
 
 ## Notes
 

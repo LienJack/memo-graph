@@ -1,7 +1,7 @@
 ---
 title: Layered Projections and Governed Context Compiler
 type: feat
-status: active
+status: completed
 date: 2026-07-29
 deepened: 2026-07-29
 artifact_contract: ce-unified-plan/v1
