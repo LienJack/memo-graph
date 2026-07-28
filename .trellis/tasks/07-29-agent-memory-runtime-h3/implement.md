@@ -464,21 +464,21 @@ rollback is needed.
 
 **Checklist:**
 
-- [ ] Add immutable H3 regression cases referencing existing M0 case hashes.
-- [ ] Add late-match, scan-ceiling, >1,000-source, two-scope permutation,
+- [x] Add immutable H3 regression cases referencing existing M0 case hashes.
+- [x] Add late-match, scan-ceiling, >1,000-source, two-scope permutation,
       relation-start, exact governance, and V1 replay cases.
-- [ ] Freeze a new executable candidate commit after U6.
-- [ ] Run Arm A accepted M2 in its isolated checkout.
-- [ ] Run Arm B H3 binary with projection lanes disabled.
-- [ ] Run Arm C corrected layered compiler.
-- [ ] Run leave-one-lane-out diagnostics.
-- [ ] Rerun utility, pollution, governance, budget, rebuild, and partition
+- [x] Freeze a new executable candidate commit after U6.
+- [x] Run Arm A accepted M2 in its isolated checkout.
+- [x] Run Arm B H3 binary with projection lanes disabled.
+- [x] Run Arm C corrected layered compiler.
+- [x] Run leave-one-lane-out diagnostics.
+- [x] Rerun utility, pollution, governance, budget, rebuild, and partition
       assertions.
-- [ ] Generate Small and Expected resource reports at the corrected
+- [x] Generate Small and Expected resource reports at the corrected
       end-to-end boundary.
-- [ ] Bind executable, lockfile, fixture, report, environment, and source
+- [x] Bind executable, lockfile, fixture, report, environment, and source
       hashes in a new evidence manifest.
-- [ ] Do not modify old U7 reports or present compiler-only throughput as
+- [x] Do not modify old U7 reports or present compiler-only throughput as
       production capacity.
 
 **Focused verification:**
@@ -491,10 +491,10 @@ pnpm benchmark:g3:resources
 
 **Completion evidence:**
 
-- [ ] Four review findings fail on the historical candidate and pass on H3.
-- [ ] Original G3 assertions and M2 parity pass.
-- [ ] Reports and hashes identify the new candidate.
-- [ ] Create the U7 commit.
+- [x] Four review findings fail on the historical candidate and pass on H3.
+- [x] Original G3 assertions and M2 parity pass.
+- [x] Reports and hashes identify the new candidate.
+- [x] Create the U7 commit.
 
 **Rollback point:** record G3R `HOLD`; do not open downstream milestones.
 

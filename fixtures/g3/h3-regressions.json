@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0.0",
+  "suite_id": "g3r_h3_bounded_recall",
+  "frozen_at": "2026-07-29T07:12:00.000Z",
+  "candidate_commit": "58b35d48020a2bd8ea3089b858d9a65eb3b9ff4b",
+  "historical_candidate_commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
+  "base_manifest_hash": "sha256:4c3b2a658b6f93ac09374d376edcac6f299b4628e891362c5568166d5561de0b",
+  "historical_failure_evidence": "docs/evaluations/g3-code-review.md",
+  "cases": [
+    {
+      "case_id": "h3_late_projection_match",
+      "base_case_id": "hold_multi_hop_lineage",
+      "base_case_hash": "sha256:0dc00c5f8519d8762185489f4f9e04dded29621ab39174bbedc5ce368fc44624",
+      "oracle": "A relevant projection after the first storage page is returned, or a named scan ceiling degrades; it is never a clean false NO_MATCH.",
+      "test_file": "tests/integration/layered-recall.integration.test.ts",
+      "test_name": "finds a relevant projection after the first page and exhausts clean misses",
+      "requirement_anchors": ["R10", "R11", "R13"],
+      "historical_result": "FAIL",
+      "candidate_expected_result": "PASS"
+    },
+    {
+      "case_id": "h3_projection_scan_ceiling",
+      "base_case_id": "hold_projection_failure",
+      "base_case_hash": "sha256:53831dedc37ad41c8e4115d289c31a081a3da4bd727cca0916db1055ff27b538",
+      "oracle": "Reaching the projection scan ceiling produces typed DEGRADED telemetry rather than NO_MATCH.",
+      "test_file": "tests/integration/layered-recall.integration.test.ts",
+      "test_name": "degrades instead of emitting NO_MATCH when the projection scan ceiling is reached",
+      "requirement_anchors": ["R10", "R11", "R13"],
+      "historical_result": "FAIL",
+      "candidate_expected_result": "PASS"
+    },
+    {
+      "case_id": "h3_exact_lineage_over_scope_prefix",
+      "base_case_id": "cal_correction_lineage",
+      "base_case_hash": "sha256:60925368f038c8ca9cd8d4b8c2e4108e8ae2b33fe23c7a161a0fa92e923aa4fe",
+      "oracle": "Projection lineage validates exact named ancestors independently of the first one thousand scope rows.",
+      "test_file": "tests/integration/layered-recall.integration.test.ts",
+      "test_name": "validates a projection source beyond a 1,000-row scope prefix by exact revision identity",
+      "requirement_anchors": ["R11", "R13", "R17"],
+      "historical_result": "FAIL",
+      "candidate_expected_result": "PASS"
+    },
+    {
+      "case_id": "h3_two_scope_permutation",
+      "base_case_id": "cal_privacy_scope",
+      "base_case_hash": "sha256:fd6c6be68b785cea81de51e0a635b2ea99affcae883c8e48a237eb9ef307f6cb",
+      "oracle": "Each projection is checked against its own exact-scope frontier and request-order permutations seal to one identity.",
+      "test_file": "tests/compiler/layered-context-compiler.test.ts",
+      "test_name": "binds each projection to its own canonical V2 scope frontier",
+      "requirement_anchors": ["R11", "R14", "R19"],
+      "historical_result": "FAIL",
+      "candidate_expected_result": "PASS"
+    },
+    {
+      "case_id": "h3_relation_start_and_fanout_caps",
+      "base_case_id": "hold_multi_hop_lineage",
+      "base_case_hash": "sha256:0dc00c5f8519d8762185489f4f9e04dded29621ab39174bbedc5ce368fc44624",
+      "oracle": "Relation start and fanout caps retain a deterministic prefix and emit separate exact bounded-work evidence.",
+      "test_file": "tests/integration/layered-recall.integration.test.ts",
+      "test_name": "reports deterministic relation start and repository fanout limits separately",
+      "requirement_anchors": ["R10", "R11", "R13"],
+      "historical_result": "FAIL",
+      "candidate_expected_result": "PASS"
+    },
+    {
+      "case_id": "h3_exact_governance_revalidation",
+      "base_case_id": "cal_correction_lineage",
+      "base_case_hash": "sha256:60925368f038c8ca9cd8d4b8c2e4108e8ae2b33fe23c7a161a0fa92e923aa4fe",
+      "oracle": "A corrected source is rejected by exact stable reason while current canonical L1 remains available.",
+      "test_file": "tests/governance/correction.integration.test.ts",
+      "test_name": "returns a stable reason for %s lifecycle",
+      "requirement_anchors": ["R11", "R13", "R17"],
+      "historical_result": "FAIL",
+      "candidate_expected_result": "PASS"
+    },
+    {
+      "case_id": "h3_multi_scope_epoch_retry",
+      "base_case_id": "hold_projection_failure",
+      "base_case_hash": "sha256:53831dedc37ad41c8e4115d289c31a081a3da4bd727cca0916db1055ff27b538",
+      "oracle": "A second cross-scope epoch mismatch after one complete retry drops projections and preserves L1 with named degradation.",
+      "test_file": "tests/integration/frozen-layered-context-slice.integration.test.ts",
+      "test_name": "retries every scope once and degrades projections on a second epoch mismatch",
+      "requirement_anchors": ["R11", "R14", "R19"],
+      "historical_result": "FAIL",
+      "candidate_expected_result": "PASS"
+    },
+    {
+      "case_id": "h3_v1_frozen_replay",
+      "base_case_id": "cal_normal_preference",
+      "base_case_hash": "sha256:79a9da05cf8203bfe9fd7eb9e38428bbfa29d8f6e93ca9e5a746136dc46d43f2",
+      "oracle": "A V1 layered Context and receipt parse and replay byte-for-byte without V2 fields.",
+      "test_file": "tests/replay/layered-context-replay.test.ts",
+      "test_name": "parses V1 layered artifacts without adding V2 fields or changing bytes",
+      "requirement_anchors": ["R14", "R19"],
+      "historical_result": "PASS",
+      "candidate_expected_result": "PASS"
+    }
+  ]
+}
