@@ -1,0 +1,12 @@
+{
+  "code_id": "C3545d567db35",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "packages/storage-sqlite/src/fts-index.ts",
+  "start_line": 390,
+  "end_line": 490,
+  "symbol": "FtsIndex rebuild",
+  "why": "FTS rebuild is transactionally reconstructed from canonical current eligible rows in stable order and advances projection state, establishing a reusable rebuild convention.",
+  "captured_at": "2026-07-29T02:25:29+08:00"
+}

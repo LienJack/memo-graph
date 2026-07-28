@@ -1,0 +1,12 @@
+{
+  "code_id": "Cc174b604fbab",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "fixtures/replay/manifest.json",
+  "start_line": 1,
+  "end_line": 95,
+  "symbol": "frozen replay manifest",
+  "why": "The frozen corpus already separates calibration, holdout, and transfer risks for normal preference, conflict, correction, privacy, temporal, deletion, injection, multi-hop, projection failure, negative transfer, and policy exclusion.",
+  "captured_at": "2026-07-29T02:25:29+08:00"
+}

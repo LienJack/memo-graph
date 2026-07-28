@@ -1,0 +1,12 @@
+{
+  "code_id": "Ce117a6da657f",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "packages/context-compiler/src/index.ts",
+  "start_line": 311,
+  "end_line": 470,
+  "symbol": "compileContext",
+  "why": "The baseline deterministically sorts, deduplicates L0 under governed L1, enforces a hard global token budget, freezes hashes, and seals inclusion/exclusion receipts, but has no lane quotas or L2/L3 candidates.",
+  "captured_at": "2026-07-29T02:25:28+08:00"
+}
