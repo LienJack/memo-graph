@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "gate": "G3R",
-  "candidate_commit": "58b35d48020a2bd8ea3089b858d9a65eb3b9ff4b",
+  "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
   "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
   "environment": {
-    "recorded_at": "2026-07-28T23:15:28.349Z",
+    "recorded_at": "2026-07-28T23:31:42.860Z",
     "node": "v24.18.0",
     "pnpm": "10.33.2",
     "platform": "darwin",
@@ -25,18 +25,18 @@
       "warmup": 20,
       "samples": 200,
       "compiler": {
-        "p50_ms": 0.307,
-        "p95_ms": 0.629,
-        "max_ms": 1.398
+        "p50_ms": 0.319,
+        "p95_ms": 0.428,
+        "max_ms": 0.957
       },
       "total_replay_request": {
-        "p50_ms": 0.433,
-        "p95_ms": 0.831,
-        "max_ms": 1.514
+        "p50_ms": 0.449,
+        "p95_ms": 0.673,
+        "max_ms": 1.763
       },
       "token_budget": 1800,
       "token_budget_adherent": true,
-      "result_hash": "sha256:ca37720bc8167bdc6a227c82d2c6d2b044b9a715ae658f39f975522901073e10"
+      "result_hash": "sha256:04962696622938c278a671ad4995f0ff7029a2feaeae815ddc125993da0039aa"
     },
     "expected": {
       "population": {
@@ -48,18 +48,18 @@
       "warmup": 20,
       "samples": 200,
       "compiler": {
-        "p50_ms": 0.308,
-        "p95_ms": 0.494,
-        "max_ms": 1.069
+        "p50_ms": 0.309,
+        "p95_ms": 0.419,
+        "max_ms": 1.738
       },
       "total_replay_request": {
         "p50_ms": 0.432,
-        "p95_ms": 0.771,
-        "max_ms": 1.796
+        "p95_ms": 0.693,
+        "max_ms": 1.873
       },
       "token_budget": 1800,
       "token_budget_adherent": true,
-      "result_hash": "sha256:ca37720bc8167bdc6a227c82d2c6d2b044b9a715ae658f39f975522901073e10"
+      "result_hash": "sha256:04962696622938c278a671ad4995f0ff7029a2feaeae815ddc125993da0039aa"
     }
   },
   "small_physical_resource_profile": {
@@ -78,9 +78,9 @@
       "projection_sources": 3000
     },
     "latency": {
-      "projection_build_ms": 3589.826,
-      "full_rebuild_ms": 339.035,
-      "total_ms": 16911.905
+      "projection_build_ms": 3632.913,
+      "full_rebuild_ms": 329.538,
+      "total_ms": 16478.612
     },
     "rebuild": {
       "applied": false,
@@ -89,13 +89,13 @@
       "equal": true
     },
     "storage": {
-      "database_bytes": 59609088,
-      "wal_bytes": 17114512,
-      "data_root_bytes": 76789136
+      "database_bytes": 59588608,
+      "wal_bytes": 16438832,
+      "data_root_bytes": 76060208
     },
     "memory": {
-      "rss_bytes": 666959872,
-      "heap_used_bytes": 122714376
+      "rss_bytes": 669827072,
+      "heap_used_bytes": 75248368
     }
   },
   "corrected_end_to_end_boundary": {
@@ -105,10 +105,11 @@
       "cursor exhaustion and named projection scan ceiling",
       "exact projection-source batch revalidation beyond a one-thousand-row scope prefix",
       "scope-keyed V2 frontier aggregation and one full-set epoch retry",
+      "scope-local correction invalidation with unrelated ready-scope retention",
       "relation start and fanout bounded-work telemetry sealed into Context and receipt",
       "V1 frozen artifact byte replay"
     ],
-    "h3_regression_cases": 8,
+    "h3_regression_cases": 9,
     "physical_expected_profile_materialized": false,
     "production_capacity_claimed": false
   },

@@ -76,9 +76,13 @@ describe("frozen G3 overlay corpus", () => {
               z.string().regex(/^R\d+$/u),
             ).min(1),
             historical_result: z.enum(["PASS", "FAIL"]),
+            failure_candidate_commit: z
+              .string()
+              .regex(/^[a-f0-9]{40}$/u)
+              .optional(),
             candidate_expected_result: z.literal("PASS"),
           }).strict(),
-        ).length(8),
+        ).length(9),
       })
       .strict();
     const suite = regressionSchema.parse(
@@ -98,7 +102,7 @@ describe("frozen G3 overlay corpus", () => {
     );
     expect(
       suite.cases.filter((item) => item.historical_result === "FAIL"),
-    ).toHaveLength(7);
+    ).toHaveLength(8);
     for (const regression of suite.cases) {
       const base = manifests.base.cases.find(
         (item) => item.case_id === regression.base_case_id,

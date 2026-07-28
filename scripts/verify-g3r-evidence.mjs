@@ -81,6 +81,8 @@ const sourcePaths = {
     "migrations/0011-scope-projection-frontiers.sql",
   governed_memory_reader_source:
     "packages/storage-sqlite/src/governed-memory-reader.ts",
+  projection_effects_source:
+    "packages/storage-sqlite/src/projection-effects.ts",
   projection_repository_source:
     "packages/storage-sqlite/src/projection-repository.ts",
   relation_repository_source:

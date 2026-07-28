@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
   "suite_id": "g3r_h3_bounded_recall",
-  "frozen_at": "2026-07-29T07:12:00.000Z",
-  "candidate_commit": "58b35d48020a2bd8ea3089b858d9a65eb3b9ff4b",
+  "frozen_at": "2026-07-28T23:29:28.000Z",
+  "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
   "historical_candidate_commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
   "base_manifest_hash": "sha256:4c3b2a658b6f93ac09374d376edcac6f299b4628e891362c5568166d5561de0b",
   "historical_failure_evidence": "docs/evaluations/g3-code-review.md",
@@ -82,6 +82,18 @@
       "test_name": "retries every scope once and degrades projections on a second epoch mismatch",
       "requirement_anchors": ["R11", "R14", "R19"],
       "historical_result": "FAIL",
+      "candidate_expected_result": "PASS"
+    },
+    {
+      "case_id": "h3_unrelated_scope_retention",
+      "base_case_id": "hold_projection_failure",
+      "base_case_hash": "sha256:53831dedc37ad41c8e4115d289c31a081a3da4bd727cca0916db1055ff27b538",
+      "oracle": "A correction in one scope removes only that scope's stale projections while ready projections from an unrelated exact scope remain eligible.",
+      "test_file": "tests/integration/frozen-layered-context-slice.integration.test.ts",
+      "test_name": "seals two exact scopes into one canonical V2 frontier",
+      "requirement_anchors": ["R11", "R14", "R17", "R19"],
+      "historical_result": "FAIL",
+      "failure_candidate_commit": "58b35d48020a2bd8ea3089b858d9a65eb3b9ff4b",
       "candidate_expected_result": "PASS"
     },
     {

@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "recorded_at": "2026-07-28T23:16:56.867Z",
+  "recorded_at": "2026-07-28T23:31:06.231Z",
   "gate": "G3R",
   "protocol_version": "1.0.0",
-  "candidate_commit": "58b35d48020a2bd8ea3089b858d9a65eb3b9ff4b",
+  "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
   "accepted_m2_commit": "31959fc841ddc95f7570e5e0f2028a1e6b00243e",
   "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
   "accepted_m2_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
@@ -16,7 +16,7 @@
     "base_manifest_hash": "sha256:4c3b2a658b6f93ac09374d376edcac6f299b4628e891362c5568166d5561de0b",
     "g3_manifest_raw_hash": "sha256:674f73a1879795bf5b9a38b291c107782228984552ddee2b7460bbe083c5ecb2",
     "g3_manifest_hash": "sha256:94c74e54ab560e9b80acf282802a5b485ac685c1cb3fe9c292ed648daffaa813",
-    "h3_regression_manifest_hash": "sha256:37b6063da3b501ff965c0be6c6595acf4e58d21403f8071787766a20558f65df",
+    "h3_regression_manifest_hash": "sha256:4e17282d16c91c0296386bb8d1f5d2b673df4e14573b08554459dc086d2a8390",
     "cases": 11,
     "runs_per_arm": 22
   },
@@ -167,7 +167,7 @@
   "invariant_failures": [],
   "h3_regressions": {
     "command": "pnpm test:g3r:h3",
-    "cases": 8,
+    "cases": 9,
     "result": "PASS"
   },
   "decision_input": {
