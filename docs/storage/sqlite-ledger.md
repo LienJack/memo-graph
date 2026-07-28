@@ -19,12 +19,17 @@ touches the ledger, blob, backup, checkpoint, migration, outbox, and FTS files.
 ```
 
 The root must be an absolute, non-root, non-URL, non-symlink local path. Known
-network filesystem types fail closed. Directories are `0700`; database, blob,
-and backup files are `0600`.
+network filesystem types plus known cloud-sync and removable mount roots fail
+closed while application encryption is unavailable. Directories are `0700`;
+database, blob, and backup files are `0600`.
 
 The current compatibility evidence is Darwin arm64 only. A path passing the
 runtime checks does not itself certify an untested operating system or
 filesystem.
+
+`secret` evidence always returns `ENCRYPTION_REQUIRED` in M1A. It cannot be
+stored until M6 implements and verifies the threat model's application-level
+encryption and key-lifecycle contract.
 
 ## Canonical commit
 

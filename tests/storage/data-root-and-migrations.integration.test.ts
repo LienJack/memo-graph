@@ -65,6 +65,11 @@ describe("data-root and migration contract", () => {
     ["relative path", "relative/data"],
     ["filesystem root", "/"],
     ["URL-like path", "file:///tmp/memo-graph"],
+    ["removable volume", "/Volumes/memo-graph-untrusted"],
+    [
+      "cloud-synchronized path",
+      "/Users/local/Library/CloudStorage/provider/memo-graph",
+    ],
   ])("rejects an unsafe %s", async (_label, dataRoot) => {
     await expect(SqliteStorageClient.open({ dataRoot })).rejects.toMatchObject({
       code: "INVALID_DATA_ROOT",

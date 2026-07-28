@@ -164,6 +164,25 @@ describe("authoritative evidence ledger", () => {
     await storage.close();
   });
 
+  it("rejects secret evidence until application encryption exists", async () => {
+    const dataRoot = temporaryRoot("secret");
+    const storage = await SqliteStorageClient.open({ dataRoot });
+    const command = inlineEpisode({});
+    const secret = {
+      ...command,
+      evidence: command.evidence.map((record) => ({
+        ...record,
+        sensitivity: "secret",
+      })),
+    };
+
+    await expect(storage.commitEpisode(secret)).rejects.toMatchObject({
+      code: "ENCRYPTION_REQUIRED",
+    });
+    expect((await storage.health()).ledger_epoch).toBe(0);
+    await storage.close();
+  });
+
   it("enforces append-only canonical tables inside SQLite", async () => {
     const dataRoot = temporaryRoot("append-only");
     const storage = await SqliteStorageClient.open({ dataRoot });

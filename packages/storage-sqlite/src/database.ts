@@ -510,6 +510,9 @@ export class StorageDatabase {
       (left, right) => left.sequence - right.sequence,
     );
     ordered.forEach((record, index) => {
+      if (record.sensitivity === "secret") {
+        throw new StorageError("ENCRYPTION_REQUIRED");
+      }
       if (
         record.sequence !== index ||
         episode.event_ids[index] !== record.evidence_id ||

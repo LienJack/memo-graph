@@ -21,6 +21,17 @@ const NETWORK_FILESYSTEM_TYPES = new Set([
   0x01021997, // 9P
 ]);
 
+const UNTRUSTED_VOLUME_PATTERNS = [
+  /\/Library\/CloudStorage(?:\/|$)/u,
+  /\/Library\/Mobile Documents(?:\/|$)/u,
+  /\/Dropbox(?:\/|$)/u,
+  /\/OneDrive[^/]*(?:\/|$)/u,
+  /^\/Volumes(?:\/|$)/u,
+  /^\/media(?:\/|$)/u,
+  /^\/mnt(?:\/|$)/u,
+  /^\/run\/user\/[^/]+\/gvfs(?:\/|$)/u,
+];
+
 export type DataRootLayout = {
   root: string;
   ledger: string;
@@ -70,7 +81,10 @@ export function prepareDataRoot(input: string): DataRootLayout {
   }
 
   const root = resolve(input);
-  if (root === parse(root).root) {
+  if (
+    root === parse(root).root ||
+    UNTRUSTED_VOLUME_PATTERNS.some((pattern) => pattern.test(root))
+  ) {
     fail();
   }
 

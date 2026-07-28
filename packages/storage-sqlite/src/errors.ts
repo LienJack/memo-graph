@@ -4,6 +4,7 @@ export const STORAGE_ERROR_CODES = [
   "CONFLICT",
   "CORRUPTION",
   "MIGRATION_DRIFT",
+  "ENCRYPTION_REQUIRED",
   "FTS_UNAVAILABLE",
   "WORKER_CRASHED",
   "STORAGE_UNAVAILABLE",
@@ -23,6 +24,8 @@ const PUBLIC_MESSAGES: Record<StorageErrorCode, string> = {
   CONFLICT: "the storage request conflicts with durable state",
   CORRUPTION: "stored content failed an integrity check",
   MIGRATION_DRIFT: "the migration history differs from the applied schema",
+  ENCRYPTION_REQUIRED:
+    "application-level encryption is required for this content or volume",
   FTS_UNAVAILABLE: "the FTS projection is unavailable",
   WORKER_CRASHED: "the dedicated storage worker exited before responding",
   STORAGE_UNAVAILABLE: "the storage operation is temporarily unavailable",
