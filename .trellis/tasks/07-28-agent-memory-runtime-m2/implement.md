@@ -148,11 +148,11 @@
 
 ## 9. Review and finish
 
-- [ ] Run Trellis full-scope check against PRD/design/implementation criteria.
-- [ ] Review correctness, data integrity, security, recovery, API contracts,
+- [x] Run Trellis full-scope check against PRD/design/implementation criteria.
+- [x] Review correctness, data integrity, security, recovery, API contracts,
       test coverage, maintainability, and project standards.
-- [ ] Resolve every P0/P1 finding and rerun affected suites.
-- [ ] Update Trellis specs only for durable new conventions.
-- [ ] Commit all remaining scoped documentation/evidence.
-- [ ] Archive M2 only after G2 evidence is complete and journal the commit.
-- [ ] Do not open M3 when G2 is `HOLD`.
+- [x] Resolve every P0/P1 finding and rerun affected suites.
+- [x] Update Trellis specs only for durable new conventions.
+- [x] Commit all remaining scoped documentation/evidence.
+- [x] Archive M2 only after G2 evidence is complete and journal the commit.
+- [x] Do not open M3 when G2 is `HOLD`.

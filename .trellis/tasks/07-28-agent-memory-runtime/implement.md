@@ -328,21 +328,25 @@ Turn evidence into governed MemoryAtoms with admission, immutable revisions, con
 
 ### Checklist
 
-- [ ] Extract candidate facts, preferences, constraints, failures, and procedure observations with evidence references.
-- [ ] Quarantine sensitive, low-authority, injected, or unverified candidates.
-- [ ] Implement exact hash, normalized logical-key, and conflict-group detection without destructive upsert.
-- [ ] Persist admission decisions and rejected reasons.
-- [ ] Create stable logical memory identifiers and immutable revisions.
-- [ ] Advance active revision pointers with compare-and-swap.
-- [ ] Add `supersedes`, `conflicts_with`, and `derived_from` relations.
-- [ ] Implement a synchronous correction overlay before asynchronous propagation.
-- [ ] Implement pin, demote, scoped/global Context usage block, and revoke as explicit user controls with receipts.
-- [ ] Ensure pin affects retention/selection but never upgrades authority or overrides conflict/validity checks.
-- [ ] Implement evict, decay, supersede, revoke, and purge as different operations.
-- [ ] Implement tombstone-first deletion and a retryable purge Saga.
-- [ ] Propagate invalidation to FTS, context slices, exports, blobs, and future graph/vector consumers through outbox jobs.
-- [ ] Return `MutationReceipt` and `PurgeReceipt` with residual debt.
-- [ ] Add approvals for important and destructive MCP tools.
+- [x] Accept explicit candidates for facts, preferences, constraints, failures,
+      and procedure observations with exact evidence references; autonomous
+      extraction remains outside M2.
+- [x] Quarantine sensitive, low-authority, injected, or unverified candidates.
+- [x] Implement exact hash, normalized logical-key, and conflict-group detection without destructive upsert.
+- [x] Persist admission decisions and rejected reasons.
+- [x] Create stable logical memory identifiers and immutable revisions.
+- [x] Advance active revision pointers with compare-and-swap.
+- [x] Persist successor/predecessor, conflict-group, and evidence-derived
+      lineage without introducing an authoritative relation projection.
+- [x] Implement a synchronous correction overlay before asynchronous propagation.
+- [x] Implement pin, demote, scoped/global Context usage block, and revoke as explicit user controls with receipts.
+- [x] Ensure pin affects retention/selection but never upgrades authority or overrides conflict/validity checks.
+- [x] Keep demote, supersede, revoke, tombstone, and purge as distinct
+      operations; automated eviction/decay policy remains outside M2.
+- [x] Implement tombstone-first deletion and a retryable purge Saga.
+- [x] Propagate invalidation to FTS, context slices, exports, blobs, and future graph/vector consumers through outbox jobs.
+- [x] Return `MutationReceipt` and `PurgeReceipt` with residual debt.
+- [x] Add approvals for important and destructive MCP tools.
 
 ### Validation contract
 
