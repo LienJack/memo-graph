@@ -1,1 +1,13 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m3/prd.md", "reason": "M3 product scope, authority, acceptance criteria, and exclusions"}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m3/design.md", "reason": "M3 component boundaries, data model, lifecycle, compiler, recovery, and G3 architecture"}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m3/implement.md", "reason": "Ordered U1-U8 checklist, focused verification, commit policy, and G3 exit"}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m3/research/research-handoff.md", "reason": "Supported Claim/Evidence constraints and M3 research decisions"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/design.md", "reason": "Parent authority, canonical ledger, L2/L3, Context, deletion, and gate architecture"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/prd.md", "reason": "Parent milestone scope and Product Contract projection"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite ownership, migration, transaction, query, and persistence rules"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Backend package and file ownership conventions"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Typed error and boundary behavior"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Content-free structured diagnostics"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Backend validation and code-quality expectations"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-package contract and dependency-boundary rules"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse and abstraction guidance for shared runtime paths"}

@@ -20,11 +20,18 @@
   "subtasks": [],
   "children": [],
   "parent": "07-28-agent-memory-runtime",
-  "relatedFiles": [],
-  "notes": "",
+  "relatedFiles": [
+    "docs/brainstorms/2026-07-29-layered-context-compiler-requirements.md",
+    "docs/plans/2026-07-29-001-feat-layered-context-compiler-plan.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m3/prd.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m3/design.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m3/implement.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m3/research/research-handoff.md"
+  ],
+  "notes": "User authorized continuous roadmap execution. Complete and commit each U1-U8 unit separately; G3 may end GO or HOLD without weakening governance.",
   "meta": {
     "milestone": "M3",
     "gate": "G3",
-    "implementation_authorized": "false"
+    "implementation_authorized": "true"
   }
 }
