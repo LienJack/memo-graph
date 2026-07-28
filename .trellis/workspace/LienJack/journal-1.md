@@ -106,3 +106,34 @@ Implemented principal-bound official MCP stdio tools/resources, recall and Conte
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: M2 Versioned L1 Governance G2
+
+**Date**: 2026-07-29
+**Task**: M2 Versioned L1 Governance G2
+**Branch**: `codex/agent-memory-runtime-m2`
+
+### Summary
+
+Completed the mandated brainstorm, research, plan, and work pipeline for M2; implemented evidence-bound L1 admission, immutable revisions and CAS, governed Context, trusted approvals and user controls, tombstone-first purge, verified restore frontier, frozen replay evidence, operator documentation, and a GO-to-M3 G2 decision. Full review passed 28 files and 138 tests with no open P0/P1.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8e15401` | (see git log) |
+| `cfa659a` | (see git log) |
+| `e0de085` | (see git log) |
+| `f537586` | (see git log) |
+| `f07126b` | (see git log) |
+| `1b3deb6` | (see git log) |
+| `d949b40` | (see git log) |
+| `c7cf1c2` | (see git log) |
+| `31959fc` | (see git log) |
+| `66a954a` | (see git log) |
+| `c273972` | (see git log) |
+
+### Status
+
+[OK] **Completed**
