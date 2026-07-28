@@ -20,8 +20,12 @@
   "subtasks": [],
   "children": [],
   "parent": "07-28-agent-memory-runtime",
-  "relatedFiles": [],
-  "notes": "",
+  "relatedFiles": [
+    "docs/evaluations/g0-decision.md",
+    "packages/contracts/src/index.ts",
+    "fixtures/replay/manifest.json"
+  ],
+  "notes": "G0 GO recorded against implementation commit e8ae579484ee2d11178c266983d8d7eb8aa0c24c on Node 24.18.0. M1A may start; changes to the lockfile, public contracts, canonical serialization, or replay corpus require G0 recertification.",
   "meta": {
     "milestone": "M0",
     "gate": "G0",

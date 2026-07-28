@@ -55,7 +55,7 @@ AE1-AE8.
 - [x] ADRs record exact dependency/runtime choices and probe evidence.
 - [x] Threat model covers local file access, scope leakage, persisted
   injection, projection resurrection, tool replay, and learning overfit.
-- [ ] `docs/evaluations/g0-decision.md` records tested commit/lock hash,
+- [x] `docs/evaluations/g0-decision.md` records tested commit/lock hash,
   versions, fixture hashes, unresolved debt, and `GO` or `HOLD`.
 - [x] No M1+ production behavior exists before the G0 decision.
 

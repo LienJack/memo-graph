@@ -49,6 +49,6 @@
 - [x] Run `pnpm test:fixtures`.
 - [x] Run `pnpm lint`.
 - [x] Run `pnpm typecheck`.
-- [ ] Record fixture hashes, dependency lock hash, versions, open debt, and the
+- [x] Record fixture hashes, dependency lock hash, versions, open debt, and the
   `GO`/`HOLD` decision in `docs/evaluations/g0-decision.md`.
 - [x] Keep all M1+ behavior out of the tree until the G0 decision is recorded.

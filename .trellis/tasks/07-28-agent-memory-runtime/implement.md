@@ -767,7 +767,7 @@ No batch should mix a new canonical mutation path with an unrelated retrieval op
 
 ### Execution readiness
 
-- [ ] M0 decisions are sufficient to create the repository scaffold.
+- [x] M0 decisions are sufficient to create the repository scaffold.
 - [ ] Every feature-bearing package has planned contract, integration, failure, and recovery tests.
 - [ ] Planned commands have clear owners and expected outputs.
 - [ ] Phase gates name the evidence required to proceed.
