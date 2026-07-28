@@ -8,21 +8,31 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ScopeSchema } from "../../packages/contracts/src/index.js";
+import {
+  ProjectionRevisionSchema,
+  ScopeSchema,
+  canonicalSha256,
+} from "../../packages/contracts/src/index.js";
 import {
   ConsolidationService,
   LayeredLaneRetrievers,
   RecallOrchestrator,
   type RecallLaneRetriever,
 } from "../../packages/memory-kernel/src/index.js";
-import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import {
+  SqliteStorageClient,
+  StorageError,
+} from "@memo-graph/storage-sqlite";
 
 import {
   memoryCandidate,
   revisionCommand,
 } from "../helpers/governance-examples.js";
 import {
+  projectionFrontier,
+  seedProjectionSources,
   seedLayeredProjectionSources,
+  topicProjection,
 } from "../helpers/projection-examples.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
 
@@ -65,6 +75,64 @@ function lanePolicy(
   } as const;
 }
 
+async function seedLateRelevantProjections(
+  storage: SqliteStorageClient,
+): Promise<void> {
+  const sources = await seedProjectionSources(storage);
+  const health = await storage.health();
+  const baseFrontier = projectionFrontier({
+    ledgerEpoch: health.ledger_epoch,
+    tombstoneEpoch: health.tombstone_epoch,
+    projectionEpoch: 1,
+  });
+  const frontier = {
+    ...baseFrontier,
+    source_frontier_hash: canonicalSha256(
+      sources
+        .map((source) => ({
+          revision_id: source.revision_id,
+          content_hash: source.content_hash,
+        }))
+        .sort((left, right) =>
+          left.revision_id.localeCompare(right.revision_id)
+        ),
+    ),
+  };
+  const base = topicProjection(sources, frontier);
+  const projections = [
+    ["projection_topic_early_a", "irrelevant alpha"],
+    ["projection_topic_early_b", "irrelevant beta"],
+    ["projection_topic_late_relevant", "needle appears late"],
+  ].map(([projectionId, text]) => {
+    const content = {
+      storage: "inline",
+      text,
+      media_type: "text/plain",
+    } as const;
+    return ProjectionRevisionSchema.parse({
+      ...base,
+      projection_id: projectionId,
+      projection_revision_id: `${projectionId}_revision_1`,
+      payload: {
+        kind: "topic",
+        key: projectionId,
+        summary: text,
+        open_items: [],
+      },
+      content,
+      content_hash: canonicalSha256(content),
+    });
+  });
+  await storage.applyProjectionBatch({
+    principal_id: "user_local",
+    scope: MAIN_SCOPE,
+    idempotency_key: "projection-late-relevant-0001",
+    expected_projection_epoch: 0,
+    projections,
+    applied_at: "2026-07-28T12:05:00.000Z",
+  });
+}
+
 afterEach(() => {
   while (cleanupPaths.length > 0) {
     const target = cleanupPaths.pop();
@@ -75,6 +143,184 @@ afterEach(() => {
 });
 
 describe("governed layered recall", () => {
+  it("finds a relevant projection after the first page and exhausts clean misses", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-late-match"),
+    });
+    await seedLateRelevantProjections(storage);
+    const policy = {
+      ...lanePolicy(["topic"]),
+      limits: {
+        ...lanePolicy(["topic"]).limits,
+        max_projection_scan_per_lane: 10,
+      },
+    };
+    const overrides = {
+      requested_lanes: ["topic"],
+      limits: {
+        max_candidates_per_lane: 1,
+        max_projection_scan_per_lane: 10,
+        max_concurrent_lanes: 1,
+      },
+    } satisfies NonNullable<
+      Parameters<RecallOrchestrator["recall"]>[0]["lane_overrides"]
+    >;
+    const recalled = await new RecallOrchestrator({ storage }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "needle",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: policy,
+      lane_overrides: overrides,
+    });
+    expect(recalled.status).toBe("OK");
+    expect(
+      recalled.candidates.map((candidate) =>
+        candidate.kind === "projection"
+          ? candidate.projection.projection_id
+          : ""
+      ),
+    ).toEqual(["projection_topic_late_relevant"]);
+    expect(
+      recalled.telemetry.find((item) => item.lane === "topic")
+        ?.bounded_work,
+    ).toEqual([
+      {
+        boundary: "projection_scan",
+        configured_limit: 10,
+        observed_count: 3,
+        retained_count: 3,
+        truncated_count: 0,
+        complete: true,
+      },
+      {
+        boundary: "projection_return",
+        configured_limit: 1,
+        observed_count: 1,
+        retained_count: 1,
+        truncated_count: 0,
+        complete: true,
+      },
+    ]);
+
+    const missed = await new RecallOrchestrator({ storage }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "absent",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: policy,
+      lane_overrides: overrides,
+    });
+    expect(missed.status).toBe("NO_MATCH");
+    expect(
+      missed.telemetry.find((item) => item.lane === "topic")
+        ?.bounded_work?.[0],
+    ).toMatchObject({
+      boundary: "projection_scan",
+      retained_count: 3,
+      truncated_count: 0,
+      complete: true,
+    });
+    await storage.close();
+  });
+
+  it("degrades instead of emitting NO_MATCH when the projection scan ceiling is reached", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-scan-limit"),
+    });
+    await seedLateRelevantProjections(storage);
+    const recalled = await new RecallOrchestrator({ storage }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "needle",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: {
+        ...lanePolicy(["topic"]),
+        limits: {
+          ...lanePolicy(["topic"]).limits,
+          max_projection_scan_per_lane: 2,
+        },
+      },
+      lane_overrides: {
+        requested_lanes: ["topic"],
+        limits: {
+          max_candidates_per_lane: 1,
+          max_projection_scan_per_lane: 2,
+          max_concurrent_lanes: 1,
+        },
+      },
+    });
+    expect(recalled.status).toBe("DEGRADED");
+    expect(recalled.candidates).toEqual([]);
+    expect(recalled.degraded_lanes).toEqual(["topic"]);
+    expect(
+      recalled.telemetry.find((item) => item.lane === "topic"),
+    ).toMatchObject({
+      status: "degraded",
+      reason_codes: ["PROJECTION_SCAN_LIMIT"],
+      bounded_work: [
+        {
+          boundary: "projection_scan",
+          configured_limit: 2,
+          observed_count: 3,
+          retained_count: 2,
+          truncated_count: 1,
+          complete: false,
+          reason_code: "PROJECTION_SCAN_LIMIT",
+        },
+        {
+          boundary: "projection_return",
+          configured_limit: 1,
+          observed_count: 0,
+          retained_count: 0,
+          truncated_count: 0,
+          complete: true,
+        },
+      ],
+    });
+    await storage.close();
+  });
+
+  it("names a concurrent scope-frontier change as degradation", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-frontier-change"),
+    });
+    const retriever: RecallLaneRetriever = {
+      retrieve: async () => {
+        throw new StorageError("STALE_PROJECTION_FRONTIER", {
+          retryable: true,
+        });
+      },
+    };
+    const recalled = await new RecallOrchestrator({
+      storage,
+      retriever,
+    }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "needle",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: lanePolicy(["topic"]),
+      lane_overrides: {
+        requested_lanes: ["topic"],
+        limits: { max_concurrent_lanes: 1 },
+      },
+    });
+    expect(recalled.status).toBe("DEGRADED");
+    expect(recalled.degraded_lanes).toEqual(["topic"]);
+    expect(
+      recalled.telemetry.find((item) => item.lane === "topic"),
+    ).toMatchObject({
+      status: "unavailable",
+      reason_codes: ["PROJECTION_FRONTIER_CHANGED"],
+    });
+    await storage.close();
+  });
+
   it("returns every enabled exact-scope lane with revalidated lineage", async () => {
     const storage = await SqliteStorageClient.open({
       dataRoot: temporaryRoot("layered-recall"),

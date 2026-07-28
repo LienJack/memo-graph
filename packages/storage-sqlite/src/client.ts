@@ -54,6 +54,8 @@ import {
   PurgeRunResultSchema,
   ProjectionBatchResultSchema,
   ProjectionJobMutationResultSchema,
+  ProjectionPageQuerySchema,
+  ProjectionPageResultSchema,
   ProjectionQueryResultSchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
@@ -111,6 +113,8 @@ import {
   type PurgeRunResult,
   type ProjectionBatchResult,
   type ProjectionJobMutationResult,
+  type ProjectionPageQuery,
+  type ProjectionPageResult,
   type ProjectionQuery,
   type ProjectionQueryResult,
   type ProjectionScopeFrontierInput,
@@ -262,6 +266,17 @@ export class SqliteStorageClient {
       "query_projections",
       query,
       ProjectionQueryResultSchema,
+    );
+  }
+
+  queryProjectionPage(
+    input: ProjectionPageQuery,
+  ): Promise<ProjectionPageResult> {
+    const query = ProjectionPageQuerySchema.parse(input);
+    return this.#request(
+      "query_projection_page",
+      query,
+      ProjectionPageResultSchema,
     );
   }
 

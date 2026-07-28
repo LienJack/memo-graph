@@ -11,15 +11,60 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
-import { canonicalSha256 } from "../../packages/contracts/src/index.js";
+import {
+  ProjectionRevisionSchema,
+  canonicalSha256,
+} from "../../packages/contracts/src/index.js";
 
 import {
   projectionFrontier,
+  relationProjection,
   seedProjectionSources,
   topicProjection,
 } from "../helpers/projection-examples.js";
 
 const cleanupPaths: string[] = [];
+
+function projectionVariant(
+  base: ReturnType<typeof topicProjection>,
+  options: {
+    id: string;
+    projectionType?: "scenario" | "topic";
+    text: string;
+  },
+) {
+  const projectionType = options.projectionType ?? "topic";
+  const content = {
+    storage: "inline",
+    text: options.text,
+    media_type: "text/plain",
+  } as const;
+  return ProjectionRevisionSchema.parse({
+    ...base,
+    projection_id: options.id,
+    projection_revision_id: `${options.id}_revision_1`,
+    projection_type: projectionType,
+    abstraction:
+      projectionType === "scenario" ? "l2_scenario" : "l2_topic",
+    payload:
+      projectionType === "scenario"
+        ? {
+            kind: "scenario",
+            key: options.id,
+            trigger: options.id,
+            preconditions: [],
+            outcomes: [options.text],
+          }
+        : {
+            kind: "topic",
+            key: options.id,
+            summary: options.text,
+            open_items: [],
+          },
+    content,
+    content_hash: canonicalSha256(content),
+  });
+}
 
 function temporaryRoot(prefix: string): string {
   const root = realpathSync(
@@ -231,6 +276,165 @@ describe("layered projection storage", () => {
       "DELETE FROM projection_write_guard WHERE singleton = 1",
     );
     database.close();
+  });
+
+  it("pages stable projection tuples and binds cursors to query and scope state", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("projection-pages"),
+    });
+    const sources = await seedProjectionSources(storage);
+    const health = await storage.health();
+    const frontier = projectionFrontier({
+      ledgerEpoch: health.ledger_epoch,
+      tombstoneEpoch: health.tombstone_epoch,
+      projectionEpoch: 1,
+    });
+    const base = topicProjection(sources, frontier);
+    const relationBase = relationProjection(sources, frontier);
+    const exactRelation = ProjectionRevisionSchema.parse({
+      ...relationBase,
+      projection_id: "projection_relation_z",
+      projection_revision_id: "projection_relation_z_revision_1",
+    });
+    const projections = [
+      projectionVariant(base, {
+        id: "projection_topic_z",
+        text: "topic z",
+      }),
+      projectionVariant(base, {
+        id: "projection_scenario_a",
+        projectionType: "scenario",
+        text: "scenario a",
+      }),
+      projectionVariant(base, {
+        id: "projection_topic_a",
+        text: "topic a",
+      }),
+      exactRelation,
+    ];
+    await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      idempotency_key: "projection-pages-apply-0001",
+      expected_projection_epoch: 0,
+      projections,
+      applied_at: "2026-07-28T12:05:00.000Z",
+    });
+
+    const first = await storage.queryProjectionPage({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      projection_types: ["topic", "scenario"],
+      as_of: "2026-07-28T12:06:00.000Z",
+      limit: 1,
+    });
+    const second = await storage.queryProjectionPage({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      projection_types: ["topic", "scenario"],
+      as_of: "2026-07-28T12:06:00.000Z",
+      limit: 1,
+      cursor: first.next_cursor ?? undefined,
+    });
+    const third = await storage.queryProjectionPage({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      projection_types: ["topic", "scenario"],
+      as_of: "2026-07-28T12:06:00.000Z",
+      limit: 1,
+      cursor: second.next_cursor ?? undefined,
+    });
+    expect([
+      first.items[0]?.projection_id,
+      second.items[0]?.projection_id,
+      third.items[0]?.projection_id,
+    ]).toEqual([
+      "projection_scenario_a",
+      "projection_topic_a",
+      "projection_topic_z",
+    ]);
+    expect(first).toMatchObject({
+      examined_count: 1,
+      total_count: 3,
+      exhausted: false,
+    });
+    expect(third).toMatchObject({
+      examined_count: 1,
+      total_count: 3,
+      next_cursor: null,
+      exhausted: true,
+    });
+
+    await expect(
+      storage.queryProjectionPage({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
+        projection_types: ["topic"],
+        as_of: "2026-07-28T12:06:00.000Z",
+        limit: 1,
+        cursor: first.next_cursor ?? undefined,
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    for (const changedIdentity of [
+      {
+        principal_id: "user_other",
+        scope: { kind: "workspace", id: "workspace_local" } as const,
+      },
+      {
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_other" } as const,
+      },
+    ]) {
+      await expect(
+        storage.queryProjectionPage({
+          ...changedIdentity,
+          projection_types: ["topic", "scenario"],
+          as_of: "2026-07-28T12:06:00.000Z",
+          limit: 1,
+          cursor: first.next_cursor ?? undefined,
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    }
+    expect(
+      (
+        await storage.queryProjectionPage({
+          principal_id: "user_local",
+          scope: { kind: "workspace", id: "workspace_local" },
+          projection_types: ["relation"],
+          projection_revision_ids: [
+            exactRelation.projection_revision_id,
+          ],
+          as_of: "2026-07-28T12:06:00.000Z",
+          limit: 1,
+        })
+      ).items.map((item) => item.projection_revision_id),
+    ).toEqual([exactRelation.projection_revision_id]);
+
+    const nextFrontier = projectionFrontier({
+      ledgerEpoch: health.ledger_epoch,
+      tombstoneEpoch: health.tombstone_epoch,
+      projectionEpoch: 2,
+    });
+    await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      idempotency_key: "projection-pages-frontier-0002",
+      expected_projection_epoch: 1,
+      frontier: nextFrontier,
+      projections: [],
+      applied_at: "2026-07-28T12:07:00.000Z",
+    });
+    await expect(
+      storage.queryProjectionPage({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
+        projection_types: ["topic", "scenario"],
+        as_of: "2026-07-28T12:06:00.000Z",
+        limit: 1,
+        cursor: first.next_cursor ?? undefined,
+      }),
+    ).rejects.toMatchObject({ code: "STALE_PROJECTION_FRONTIER" });
+    await storage.close();
   });
 
   it("rejects stale frontiers, foreign scope, and immutable row mutation", async () => {

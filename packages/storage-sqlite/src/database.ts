@@ -60,6 +60,7 @@ import {
   MemoryRevisionCommandSchema,
   FailProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
+  ProjectionPageQuerySchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
   ProjectionSourceListInputSchema,
@@ -94,6 +95,7 @@ import {
   type PurgeRunResult,
   type ProjectionBatchResult,
   type ProjectionJobMutationResult,
+  type ProjectionPageResult,
   type ProjectionQueryResult,
   type ProjectionScopeStorageFrontier,
   type ProjectionSourceListResult,
@@ -372,6 +374,10 @@ export class StorageDatabase {
 
   queryProjections(input: unknown): ProjectionQueryResult {
     return this.#projections.query(ProjectionQuerySchema.parse(input));
+  }
+
+  queryProjectionPage(input: unknown): ProjectionPageResult {
+    return this.#projections.page(ProjectionPageQuerySchema.parse(input));
   }
 
   listProjectionSources(input: unknown): ProjectionSourceListResult {

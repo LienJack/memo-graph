@@ -1,11 +1,14 @@
 import {
   canonicalJson,
+  type BoundedWorkTelemetry,
   type ProjectionRevision,
   type RecallLane,
   type Scope,
 } from "@memo-graph/contracts";
 import type {
   GovernedMemorySearchResult,
+  ProjectionPageCursor,
+  ProjectionScopeStorageFrontier,
   ProjectionStorageFrontier,
   SqliteStorageClient,
 } from "@memo-graph/storage-sqlite";
@@ -18,6 +21,7 @@ export type LaneRetrieverRequest = {
   as_of: string;
   include_sensitive: boolean;
   limit: number;
+  projection_scan_limit: number;
   relation_max_depth: number;
   relation_max_fanout: number;
   start_revision_ids: string[];
@@ -55,6 +59,7 @@ export type LaneRetrievalResult = {
   projection_frontier: ProjectionStorageFrontier | null;
   truncated: boolean;
   reason_codes: string[];
+  bounded_work?: BoundedWorkTelemetry[];
 };
 
 export interface RecallLaneRetriever {
@@ -86,6 +91,20 @@ const PROJECTION_TYPES_BY_LANE = {
   scenario_procedure: ["scenario", "procedure"],
   core: ["core"],
 } as const;
+
+function scalarFrontier(
+  frontier: ProjectionScopeStorageFrontier,
+): ProjectionStorageFrontier {
+  return {
+    schema_version: frontier.schema_version,
+    ledger_epoch: frontier.ledger_epoch,
+    tombstone_epoch: frontier.tombstone_epoch,
+    projection_epoch: frontier.projection_epoch,
+    source_frontier_hash: frontier.source_frontier_hash,
+    projection_frontier_hash: frontier.projection_frontier_hash,
+    transform_versions: frontier.transform_versions,
+  };
+}
 
 export class LayeredLaneRetrievers implements RecallLaneRetriever {
   readonly #storage: SqliteStorageClient;
@@ -150,17 +169,76 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
       throw new Error("projection retriever received an invalid lane");
     }
     const lane = request.lane;
-    const result = await this.#storage.queryProjections({
+    const scopeFrontier = await this.#storage.projectionScopeFrontier({
       principal_id: request.principal_id,
       scope: request.scope,
-      projection_types: [...PROJECTION_TYPES_BY_LANE[lane]],
-      as_of: request.as_of,
-      limit: request.limit + 1,
     });
+    if (scopeFrontier.status === "pending") {
+      return {
+        candidates: [],
+        exclusions: [],
+        projection_frontier: scalarFrontier(scopeFrontier),
+        truncated: false,
+        reason_codes: ["PROJECTION_SCOPE_PENDING"],
+      };
+    }
+    if (scopeFrontier.status !== "ready") {
+      throw new Error(
+        `projection scope is ${scopeFrontier.status}`,
+      );
+    }
     const terms = queryTerms(request.query);
-    const matched = result.items.filter((projection) =>
-      matchesQuery(projection, terms)
-    );
+    const matched: ProjectionRevision[] = [];
+    let cursor: ProjectionPageCursor | undefined;
+    let examined = 0;
+    let total = 0;
+    let exhausted = false;
+    let frontier: ProjectionStorageFrontier | null = null;
+    while (
+      examined < request.projection_scan_limit &&
+      matched.length <= request.limit &&
+      !exhausted
+    ) {
+      const page = await this.#storage.queryProjectionPage({
+        principal_id: request.principal_id,
+        scope: request.scope,
+        projection_types: [...PROJECTION_TYPES_BY_LANE[lane]],
+        as_of: request.as_of,
+        limit: Math.min(
+          request.limit + 1,
+          request.projection_scan_limit - examined,
+        ),
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      frontier = scalarFrontier(page.scope_frontier);
+      total = page.total_count;
+      examined += page.examined_count;
+      matched.push(
+        ...page.items.filter((projection) =>
+          matchesQuery(projection, terms)
+        ),
+      );
+      exhausted = page.exhausted;
+      if (
+        !page.exhausted &&
+        page.next_cursor === null
+      ) {
+        throw new Error("incomplete projection page omitted its cursor");
+      }
+      cursor = page.next_cursor ?? undefined;
+    }
+    if (frontier === null) {
+      throw new Error("projection scan produced no frontier");
+    }
+    const scanLimited =
+      !exhausted &&
+      matched.length <= request.limit &&
+      examined >= request.projection_scan_limit;
+    const returnLimited = matched.length > request.limit;
+    const reasonCodes = [
+      ...(scanLimited ? ["PROJECTION_SCAN_LIMIT"] : []),
+      ...(returnLimited ? ["LANE_CANDIDATE_LIMIT"] : []),
+    ];
     return {
       candidates: matched.slice(0, request.limit).map(
         (projection, index) => ({
@@ -171,10 +249,33 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
         }),
       ),
       exclusions: [],
-      projection_frontier: result.frontier,
-      truncated: matched.length > request.limit,
-      reason_codes:
-        matched.length > request.limit ? ["LANE_CANDIDATE_LIMIT"] : [],
+      projection_frontier: frontier,
+      truncated: scanLimited || returnLimited,
+      reason_codes: reasonCodes,
+      bounded_work: [
+        {
+          boundary: "projection_scan",
+          configured_limit: request.projection_scan_limit,
+          observed_count: total,
+          retained_count: examined,
+          truncated_count: Math.max(0, total - examined),
+          complete: !scanLimited,
+          ...(scanLimited
+            ? { reason_code: "PROJECTION_SCAN_LIMIT" }
+            : {}),
+        },
+        {
+          boundary: "projection_return",
+          configured_limit: request.limit,
+          observed_count: matched.length,
+          retained_count: Math.min(matched.length, request.limit),
+          truncated_count: Math.max(0, matched.length - request.limit),
+          complete: !returnLimited,
+          ...(returnLimited
+            ? { reason_code: "LANE_CANDIDATE_LIMIT" }
+            : {}),
+        },
+      ],
     };
   }
 
@@ -193,6 +294,24 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
     const starts = [...new Set(request.start_revision_ids)]
       .sort()
       .slice(0, 100);
+    const scopeFrontier = await this.#storage.projectionScopeFrontier({
+      principal_id: request.principal_id,
+      scope: request.scope,
+    });
+    if (scopeFrontier.status === "pending") {
+      return {
+        candidates: [],
+        exclusions: [],
+        projection_frontier: scalarFrontier(scopeFrontier),
+        truncated: false,
+        reason_codes: ["PROJECTION_SCOPE_PENDING"],
+      };
+    }
+    if (scopeFrontier.status !== "ready") {
+      throw new Error(
+        `projection scope is ${scopeFrontier.status}`,
+      );
+    }
     const traversal = await this.#storage.traverseRelations({
       principal_id: request.principal_id,
       scope: request.scope,
@@ -202,20 +321,25 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
       max_fanout: request.relation_max_fanout,
       as_of: request.as_of,
     });
-    const query = await this.#storage.queryProjections({
-      principal_id: request.principal_id,
-      scope: request.scope,
-      projection_types: ["relation"],
-      as_of: request.as_of,
-      limit: Math.min(1_000, request.limit * 10),
-    });
     const hitDepth = new Map(
       traversal.hits.map((hit) => [hit.relation_revision_id, hit.depth]),
     );
-    const relations = query.items
-      .filter((projection) =>
-        hitDepth.has(projection.projection_revision_id)
-      )
+    const relationRevisionIds = [...hitDepth.keys()].sort();
+    if (relationRevisionIds.length > 100_000) {
+      throw new Error("relation projection membership exceeds storage cap");
+    }
+    const page =
+      relationRevisionIds.length === 0
+        ? null
+        : await this.#storage.queryProjectionPage({
+            principal_id: request.principal_id,
+            scope: request.scope,
+            projection_types: ["relation"],
+            projection_revision_ids: relationRevisionIds,
+            as_of: request.as_of,
+            limit: relationRevisionIds.length,
+          });
+    const relations = (page?.items ?? [])
       .sort(
         (left, right) =>
           (hitDepth.get(left.projection_revision_id) ?? 0) -
@@ -241,7 +365,10 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
         }),
       ),
       exclusions: [],
-      projection_frontier: query.frontier,
+      projection_frontier:
+        page === null
+          ? scalarFrontier(scopeFrontier)
+          : scalarFrontier(page.scope_frontier),
       truncated,
       reason_codes: truncated ? ["RELATION_TRUNCATED"] : [],
     };

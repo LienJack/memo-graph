@@ -18,6 +18,8 @@ import {
   ProjectionBatchResultSchema,
   ProjectionJobMutationResultSchema,
   ProjectionOutboxJobSchema,
+  ProjectionPageQuerySchema,
+  ProjectionPageResultSchema,
   ProjectionQueryResultSchema,
   ProjectionQuerySchema,
   ProjectionRebuildReceiptSchema,
@@ -28,8 +30,10 @@ import {
   type ClaimProjectionJobsResult,
   type InvalidateProjectionDescendantsResult,
   type ParsedApplyProjectionBatchCommand,
+  type ParsedProjectionPageQuery,
   type ProjectionBatchResult,
   type ProjectionJobMutationResult,
+  type ProjectionPageResult,
   type ProjectionQueryResult,
   type ProjectionScopeStorageFrontier,
   type ProjectionStorageFrontier,
@@ -388,6 +392,33 @@ export class ProjectionRepository {
         ProjectionRevisionSchema.parse(JSON.parse(row.revision_json))
       ),
     });
+  }
+
+  page(input: unknown): ProjectionPageResult {
+    const query = ProjectionPageQuerySchema.parse(input);
+    const queryHash = canonicalSha256({
+      principal_id: query.principal_id,
+      scope: query.scope,
+      projection_types:
+        query.projection_types === undefined
+          ? null
+          : [...query.projection_types].sort(),
+      projection_revision_ids:
+        query.projection_revision_ids === undefined
+          ? null
+          : [...query.projection_revision_ids].sort(),
+      include_inactive: query.include_inactive,
+      as_of: query.as_of,
+    });
+    if (
+      query.cursor !== undefined &&
+      query.cursor.query_hash !== queryHash
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    return this.#database
+      .transaction(() => this.#page(query, queryHash))
+      .deferred();
   }
 
   enqueue(input: unknown): ProjectionJobMutationResult {
@@ -933,6 +964,132 @@ export class ProjectionRepository {
         command.applied_at,
       );
     return result;
+  }
+
+  #page(
+    query: ParsedProjectionPageQuery,
+    queryHash: `sha256:${string}`,
+  ): ProjectionPageResult {
+    const scopeFrontier = this.scopeFrontier({
+      principal_id: query.principal_id,
+      scope: query.scope,
+    });
+    if (scopeFrontier.status !== "ready") {
+      throw new StorageError("STORAGE_UNAVAILABLE", {
+        retryable: true,
+      });
+    }
+    const scopeFrontierHash = canonicalSha256(scopeFrontier);
+    if (
+      query.cursor !== undefined &&
+      query.cursor.scope_frontier_hash !== scopeFrontierHash
+    ) {
+      throw new StorageError("STALE_PROJECTION_FRONTIER", {
+        retryable: true,
+      });
+    }
+
+    const lifecycleClause = query.include_inactive
+      ? ""
+      : `AND o.lifecycle = 'active'
+         AND r.lifecycle = 'active'
+         AND r.valid_from <= ?
+         AND (r.valid_to IS NULL OR r.valid_to > ?)
+         AND NOT EXISTS (
+           SELECT 1 FROM projection_invalidations AS i
+           WHERE i.projection_revision_id = r.projection_revision_id
+         )`;
+    const typeClause =
+      query.projection_types === undefined
+        ? ""
+        : `AND o.projection_type IN (${query.projection_types
+            .map(() => "?")
+            .join(", ")})`;
+    const revisionClause =
+      query.projection_revision_ids === undefined
+        ? ""
+        : `AND r.projection_revision_id IN (${query.projection_revision_ids
+            .map(() => "?")
+            .join(", ")})`;
+    const cursorClause =
+      query.cursor === undefined
+        ? ""
+        : `AND (
+           o.projection_type > ?
+           OR (
+             o.projection_type = ?
+             AND o.projection_id > ?
+           )
+         )`;
+    const baseParameters = [
+      query.principal_id,
+      query.scope.kind,
+      query.scope.id,
+      ...(query.include_inactive ? [] : [query.as_of, query.as_of]),
+      ...(query.projection_types ?? []),
+      ...(query.projection_revision_ids ?? []),
+    ];
+    const fromAndWhere = `
+      FROM projection_objects AS o
+      JOIN projection_revisions AS r
+        ON r.projection_revision_id = o.current_revision_id
+      WHERE o.principal_id = ?
+        AND o.scope_kind = ?
+        AND o.scope_id = ?
+        AND r.purged_at IS NULL
+        ${lifecycleClause}
+        ${typeClause}
+        ${revisionClause}`;
+    const totalCount = Number(
+      (
+        this.#database
+          .prepare(`SELECT count(*) AS count ${fromAndWhere}`)
+          .get(...baseParameters) as { count: number }
+      ).count,
+    );
+    const cursorParameters =
+      query.cursor === undefined
+        ? []
+        : [
+            query.cursor.projection_type,
+            query.cursor.projection_type,
+            query.cursor.projection_id,
+          ];
+    const rows = this.#database
+      .prepare(
+        `SELECT r.revision_json
+         ${fromAndWhere}
+         ${cursorClause}
+         ORDER BY o.projection_type, o.projection_id
+         LIMIT ?`,
+      )
+      .all(
+        ...baseParameters,
+        ...cursorParameters,
+        query.limit + 1,
+      ) as ProjectionJsonRow[];
+    const hasMore = rows.length > query.limit;
+    const items = rows.slice(0, query.limit).map((row) =>
+      ProjectionRevisionSchema.parse(JSON.parse(row.revision_json))
+    );
+    const last = items.at(-1);
+    return ProjectionPageResultSchema.parse({
+      scope_frontier: scopeFrontier,
+      items,
+      examined_count: items.length,
+      total_count: totalCount,
+      next_cursor:
+        hasMore && last !== undefined
+          ? {
+              schema_version: "1.0.0",
+              projection_type: last.projection_type,
+              projection_id: last.projection_id,
+              query_hash: queryHash,
+              scope_frontier_hash: scopeFrontierHash,
+            }
+          : null,
+      exhausted: !hasMore,
+    });
   }
 
   #assertRetirements(

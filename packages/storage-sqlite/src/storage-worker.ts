@@ -28,6 +28,7 @@ import {
   MemoryDeleteCommandSchema,
   MemoryRevisionCommandSchema,
   PurgeRunInputSchema,
+  ProjectionPageQuerySchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
   ProjectionSourceListInputSchema,
@@ -113,6 +114,11 @@ port.on("message", (message: unknown) => {
         case "query_projections":
           result = database.queryProjections(
             ProjectionQuerySchema.parse(request.payload),
+          );
+          break;
+        case "query_projection_page":
+          result = database.queryProjectionPage(
+            ProjectionPageQuerySchema.parse(request.payload),
           );
           break;
         case "list_projection_sources":

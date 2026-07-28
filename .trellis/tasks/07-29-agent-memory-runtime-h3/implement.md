@@ -206,31 +206,31 @@ pnpm typecheck
 
 **Test-first checklist:**
 
-- [ ] Seed the only relevant projection after the first storage page and
+- [x] Seed the only relevant projection after the first storage page and
       reproduce the pre-H3 false `NO_MATCH`.
-- [ ] Prove paging returns that projection before applying the return limit.
-- [ ] Prove cursor order is stable across projection types and IDs.
-- [ ] Prove a cursor cannot be reused for a different principal, scope, type
+- [x] Prove paging returns that projection before applying the return limit.
+- [x] Prove cursor order is stable across projection types and IDs.
+- [x] Prove a cursor cannot be reused for a different principal, scope, type
       filter, or frontier.
-- [ ] Prove a concurrent scope frontier change aborts/degrades the scan.
-- [ ] Prove clean `NO_MATCH` only when `exhausted=true`.
-- [ ] Prove scan ceiling returns retained matches plus
+- [x] Prove a concurrent scope frontier change aborts/degrades the scan.
+- [x] Prove clean `NO_MATCH` only when `exhausted=true`.
+- [x] Prove scan ceiling returns retained matches plus
       `PROJECTION_SCAN_LIMIT`, counts, and degraded status.
-- [ ] Prove exact relation revision membership is filtered in storage before
+- [x] Prove exact relation revision membership is filtered in storage before
       its return limit.
 
 **Implementation checklist:**
 
-- [ ] Implement tuple cursor predicates and deterministic ordering.
-- [ ] Read page rows and scope frontier from one synchronous transaction.
-- [ ] Return exact total/examined/unexamined counts for the frozen page
+- [x] Implement tuple cursor predicates and deterministic ordering.
+- [x] Read page rows and scope frontier from one synchronous transaction.
+- [x] Return exact total/examined/unexamined counts for the frozen page
       frontier.
-- [ ] Validate expected scope frontier on continuation pages.
-- [ ] Page generic projection lanes through the existing matcher.
-- [ ] Stop at return-limit+1, exhaustion, or operator scan ceiling.
-- [ ] Use exact relation revision IDs for relation projection lookup.
-- [ ] Populate `projection_scan` and `projection_return` bounded-work rows.
-- [ ] Remove limit-before-match and limit-before-membership paths.
+- [x] Validate expected scope frontier on continuation pages.
+- [x] Page generic projection lanes through the existing matcher.
+- [x] Stop at return-limit+1, exhaustion, or operator scan ceiling.
+- [x] Use exact relation revision IDs for relation projection lookup.
+- [x] Populate `projection_scan` and `projection_return` bounded-work rows.
+- [x] Remove limit-before-match and limit-before-membership paths.
 
 **Focused verification:**
 
@@ -244,9 +244,9 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] Late relevant row is returned or named degraded.
-- [ ] No incomplete scan emits clean `NO_MATCH`.
-- [ ] Create the U3 commit.
+- [x] Late relevant row is returned or named degraded.
+- [x] No incomplete scan emits clean `NO_MATCH`.
+- [x] Create the U3 commit.
 
 **Rollback point:** U2 scope state remains valid; projection lanes may be
 disabled to return to M2 behavior.

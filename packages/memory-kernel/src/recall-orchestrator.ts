@@ -1,4 +1,5 @@
 import {
+  DEFAULT_BOUNDED_RECALL_LIMITS,
   EffectiveLaneConfigurationSchema,
   GovernedSearchItemSchema,
   LanePolicySchema,
@@ -16,6 +17,7 @@ import {
 } from "@memo-graph/contracts";
 import {
   ProjectionStorageFrontierSchema,
+  StorageError,
   type ProjectionSourceListResult,
   type SqliteStorageClient,
 } from "@memo-graph/storage-sqlite";
@@ -393,9 +395,12 @@ export class RecallOrchestrator {
       ].sort();
       const stale =
         eligibleCount === 0 &&
-        laneExclusions.some((exclusion) =>
+        (laneExclusions.some((exclusion) =>
           exclusion.reason_code.startsWith("PROJECTION_")
-        );
+        ) ||
+          reasonCodes.some((reason) =>
+            reason.startsWith("PROJECTION_SCOPE_")
+          ));
       const degraded = state?.result?.truncated === true ||
         reasonCodes.some((reason) =>
           reason.startsWith("LOWER_LANE_DEGRADED:")
@@ -415,6 +420,9 @@ export class RecallOrchestrator {
         selected_count: eligibleCount,
         exclusion_counts: exclusionCounts(laneExclusions),
         reason_codes: reasonCodes,
+        ...(state?.result?.bounded_work === undefined
+          ? {}
+          : { bounded_work: state.result.bounded_work }),
       });
     });
     const orderedCandidates = candidates
@@ -444,7 +452,12 @@ export class RecallOrchestrator {
         ? "DEGRADED"
         : orderedCandidates.length > 0
           ? "OK"
-          : orderedExclusions.length > 0
+          : orderedExclusions.length > 0 ||
+              telemetry.some((item) =>
+                item.reason_codes.some((reason) =>
+                  reason.startsWith("PROJECTION_SCOPE_")
+                )
+              )
             ? "POLICY_EXCLUDED"
             : "NO_MATCH";
     return LayeredRecallResultSchema.parse({
@@ -472,6 +485,9 @@ export class RecallOrchestrator {
       as_of: request.as_of,
       include_sensitive: request.include_sensitive,
       limit: limits.max_candidates_per_lane,
+      projection_scan_limit:
+        limits.max_projection_scan_per_lane ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.max_projection_scan_per_lane,
       relation_max_depth: limits.relation_max_depth,
       relation_max_fanout: limits.relation_max_fanout,
       start_revision_ids: startRevisionIds,
@@ -486,10 +502,14 @@ export class RecallOrchestrator {
         result: await this.#retriever.retrieve(request),
         failure_reason: null,
       };
-    } catch {
+    } catch (error) {
       return {
         result: null,
-        failure_reason: `LANE_UNAVAILABLE:${request.lane}`,
+        failure_reason:
+          error instanceof StorageError &&
+            error.code === "STALE_PROJECTION_FRONTIER"
+            ? "PROJECTION_FRONTIER_CHANGED"
+            : `LANE_UNAVAILABLE:${request.lane}`,
       };
     }
   }

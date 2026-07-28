@@ -1393,6 +1393,7 @@ export const WorkerOperationSchema = z.enum([
   "apply_projection_batch",
   "get_projection_scope_frontier",
   "query_projections",
+  "query_projection_page",
   "list_projection_sources",
   "traverse_relations",
   "enqueue_projection_job",
