@@ -1,0 +1,12 @@
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m1b/prd.md", "reason": "M1B requirements, exclusions, invariants, and G1 gate"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m1b/design.md", "reason": "Principal, tools, compiler, storage, resource, and stdio design"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m1b/implement.md", "reason": "Ordered implementation and verification checklist"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/design.md", "reason": "Canonical authority, MCP boundary, Context, and receipt architecture"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/implement.md", "reason": "Parent M1 assertions and G1 exit gate"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Recall persistence and canonical epoch rules"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Governed status and failure mapping"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "stdio and content-free diagnostics"}
+{"file": "docs/contracts/mcp-tools.md", "reason": "M0 tool names, safety classes, and principal claims"}
+{"file": "docs/contracts/receipts.md", "reason": "Receipt identity, hashing, and replay"}
+{"file": "docs/evaluations/g1a-storage-decision.md", "reason": "Certified storage boundary and open debt"}
+{"file": "docs/evaluations/performance-envelope.md", "reason": "Context and latency budgets"}
