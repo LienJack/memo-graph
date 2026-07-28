@@ -1,0 +1,36 @@
+{
+  "id": "agent-memory-runtime-m1a",
+  "name": "agent-memory-runtime-m1a",
+  "title": "Agent Memory Runtime M1A canonical SQLite ledger",
+  "description": "Implement the authoritative L0 SQLite ledger, migrations, content-addressed blobs, FTS5, dedicated worker isolation, idempotent episode sealing, backup, and recovery evidence; exclude MCP transport and product handlers.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "M1A only: authoritative L0 SQLite ledger, migrations, content-addressed blobs, FTS5 derived projection, dedicated worker, idempotent episode receipts, backup and recovery; excludes MCP handlers and M2+ governance",
+  "package": null,
+  "priority": "P0",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-28",
+  "completedAt": null,
+  "branch": "codex/agent-memory-runtime-m1a",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [
+    "packages/storage-sqlite",
+    "migrations",
+    "tests/storage",
+    "tests/recovery",
+    "docs/evaluations/g1a-storage-decision.md"
+  ],
+  "notes": "G1A is an internal storage gate. Parent G1 remains open until M1B proves the explicit stdio MCP loop.",
+  "meta": {
+    "milestone": "M1A",
+    "gate": "G1A",
+    "implementation_authorized": "true"
+  }
+}
