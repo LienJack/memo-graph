@@ -225,7 +225,6 @@ function sameStringSet(
   const rightSet = [...new Set(right)].sort();
   return (
     left.length === leftSet.length &&
-    right.length === rightSet.length &&
     leftSet.length === rightSet.length &&
     leftSet.every((value, index) => value === rightSet[index])
   );

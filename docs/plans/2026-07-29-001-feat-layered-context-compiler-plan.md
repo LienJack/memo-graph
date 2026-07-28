@@ -536,7 +536,7 @@ worker-decoded repository operations.
 - **Error path:** missing/foreign-scope source revisions, stale projection
   epoch, partial relation endpoints, or mutation of immutable rows rolls back.
 - **Integration:** restart preserves live state and health reports schema
-  `0008`, projection counts, queue debt, and frontiers.
+  `0009`, projection counts, queue debt, and frontiers.
 - **Covers AE4:** a tombstoned source cannot satisfy a projection write even
   when a stale queued batch still exists.
 
@@ -956,9 +956,11 @@ flowchart TB
 
 ### Compatibility and rollout
 
-- Migration `0008` is forward-only and additive. Existing M2 databases must
-  open, migrate, and continue in all-projection-lanes-disabled mode before any
-  projection is admitted to Context.
+- Migrations `0008` and `0009` are forward-only and additive. `0008` owns the
+  layered schema; `0009` adds purge-only redaction guards without editing
+  migration history. Existing M2 databases must open, migrate, and continue in
+  all-projection-lanes-disabled mode before any projection is admitted to
+  Context.
 - Runtime lane permission and resource ceilings remain operator-owned.
   Lane-aware MCP inputs can only narrow the effective configuration, never
   self-authorize a disabled lane or higher resource limit.

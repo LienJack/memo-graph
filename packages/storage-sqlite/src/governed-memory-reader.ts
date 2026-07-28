@@ -14,6 +14,8 @@ import {
   type ParsedGovernedMemorySearchQuery,
   type ParsedGovernedMemoryLookupInput,
   type ParsedMemoryEligibilityInput,
+  type ParsedProjectionSourceListInput,
+  type ProjectionSourceListResult,
 } from "./protocol.js";
 import { StorageError } from "./errors.js";
 
@@ -137,6 +139,64 @@ export class GovernedMemoryReader {
         revision_id: row.revision_id,
       }),
     );
+  }
+
+  listProjectionSources(
+    input: ParsedProjectionSourceListInput,
+  ): ProjectionSourceListResult {
+    const rows = this.#database
+      .prepare(
+        `SELECT memory_id, current_revision_id
+         FROM memory_objects
+         WHERE principal_id = ?
+           AND scope_kind = ?
+           AND scope_id = ?
+           AND current_revision_id IS NOT NULL
+         ORDER BY memory_id
+         LIMIT ?`,
+      )
+      .all(
+        input.principal_id,
+        input.scope.kind,
+        input.scope.id,
+        input.limit,
+      ) as Array<{
+      memory_id: string;
+      current_revision_id: string;
+    }>;
+    const items = rows.flatMap((row) => {
+      const result = this.checkEligibility(
+        MemoryEligibilityInputSchema.parse({
+          memory_id: row.memory_id,
+          revision_id: row.current_revision_id,
+          principal_id: input.principal_id,
+          scope: input.scope,
+          as_of: input.as_of,
+          include_sensitive: input.include_sensitive,
+          context_scope: input.context_scope,
+        }),
+      );
+      return result.eligible ? [result.item] : [];
+    });
+    const ledgerEpoch = (
+      this.#database
+        .prepare(
+          "SELECT ledger_epoch FROM ledger_state WHERE singleton = 1",
+        )
+        .get() as { ledger_epoch: number }
+    ).ledger_epoch;
+    const tombstoneEpoch = (
+      this.#database
+        .prepare(
+          "SELECT tombstone_epoch FROM tombstone_state WHERE singleton = 1",
+        )
+        .get() as { tombstone_epoch: number }
+    ).tombstone_epoch;
+    return {
+      ledger_epoch: ledgerEpoch,
+      tombstone_epoch: tombstoneEpoch,
+      items,
+    };
   }
 
   checkEligibility(

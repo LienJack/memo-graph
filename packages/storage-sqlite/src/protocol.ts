@@ -20,6 +20,7 @@ import {
   MemoryRevokeInputSchema,
   MutationReceiptSchema,
   PurgeReceiptSchema,
+  ProjectionFrontierSchema,
   ProjectionRevisionSchema,
   ProjectionTypeSchema,
   RecallRequestSchema,
@@ -30,6 +31,7 @@ import {
   SensitivitySchema,
   TransformRefSchema,
   UtcTimestampSchema,
+  canonicalSha256,
 } from "@memo-graph/contracts";
 
 import { STORAGE_ERROR_CODES } from "./errors.js";
@@ -644,6 +646,25 @@ export const GovernedMemorySearchResultSchema = z.discriminatedUnion(
   ],
 );
 
+export const ProjectionSourceListInputSchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    as_of: UtcTimestampSchema,
+    include_sensitive: z.boolean().default(false),
+    context_scope: ScopeSchema.nullable().default(null),
+    limit: z.number().int().min(1).max(1_000).default(1_000),
+  })
+  .strict();
+
+export const ProjectionSourceListResultSchema = z
+  .object({
+    ledger_epoch: z.number().int().nonnegative(),
+    tombstone_epoch: z.number().int().nonnegative(),
+    items: z.array(GovernedSearchItemSchema),
+  })
+  .strict();
+
 export const RebuildFtsResultSchema = z
   .object({
     indexed: z.number().int().nonnegative(),
@@ -746,7 +767,12 @@ export const ApplyProjectionBatchCommandSchema = z
   .object({
     idempotency_key: z.string().trim().min(8).max(200),
     expected_projection_epoch: z.number().int().nonnegative(),
-    projections: z.array(ProjectionRevisionSchema).min(1).max(1_000),
+    projections: z.array(ProjectionRevisionSchema).max(1_000),
+    frontier: ProjectionFrontierSchema.optional(),
+    retire_projection_revision_ids: z
+      .array(IdentifierSchema)
+      .max(1_000)
+      .optional(),
     applied_at: UtcTimestampSchema,
     claimed_job: z
       .object({
@@ -758,6 +784,24 @@ export const ApplyProjectionBatchCommandSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.projections.length === 0 && value.frontier === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["frontier"],
+        message: "an empty projection batch must declare its frontier",
+      });
+    }
+    if (
+      value.frontier !== undefined &&
+      value.frontier.projection_epoch !==
+        value.expected_projection_epoch + 1
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["frontier", "projection_epoch"],
+        message: "declared batch frontier must advance exactly once",
+      });
+    }
     const revisionIds = value.projections.map(
       (projection) => projection.projection_revision_id,
     );
@@ -766,6 +810,17 @@ export const ApplyProjectionBatchCommandSchema = z
         code: "custom",
         path: ["projections"],
         message: "projection batch revision ids must be unique",
+      });
+    }
+    if (
+      value.retire_projection_revision_ids !== undefined &&
+      new Set(value.retire_projection_revision_ids).size !==
+        value.retire_projection_revision_ids.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["retire_projection_revision_ids"],
+        message: "retired projection revision ids must be unique",
       });
     }
     for (const [index, projection] of value.projections.entries()) {
@@ -803,6 +858,17 @@ export const ApplyProjectionBatchCommandSchema = z
           message: "one projection batch must bind one exact frontier",
         });
       }
+      if (
+        value.frontier !== undefined &&
+        canonicalSha256(value.frontier) !==
+          canonicalSha256(projection.frontier)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["projections", index, "frontier"],
+          message: "projection rows must match the declared batch frontier",
+        });
+      }
     }
   });
 
@@ -821,6 +887,7 @@ export const ProjectionQuerySchema = z
     principal_id: IdentifierSchema,
     scope: ScopeSchema,
     projection_types: z.array(ProjectionTypeSchema).min(1).optional(),
+    include_inactive: z.boolean().default(false),
     as_of: UtcTimestampSchema,
     limit: z.number().int().min(1).max(1_000).default(100),
   })
@@ -967,6 +1034,14 @@ export const FailProjectionJobCommandSchema = z
   })
   .strict();
 
+export const CompleteProjectionJobCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    worker_id: IdentifierSchema,
+    completed_at: UtcTimestampSchema,
+  })
+  .strict();
+
 export const ProjectionJobMutationResultSchema = z
   .object({
     job: ProjectionOutboxJobSchema,
@@ -1044,10 +1119,12 @@ export const WorkerOperationSchema = z.enum([
   "record_recall",
   "apply_projection_batch",
   "query_projections",
+  "list_projection_sources",
   "traverse_relations",
   "enqueue_projection_job",
   "claim_projection_jobs",
   "fail_projection_job",
+  "complete_projection_job",
   "invalidate_projection_descendants",
   "record_projection_rebuild",
   "test_block",
@@ -1103,6 +1180,15 @@ export type ParsedProjectionQuery = z.output<typeof ProjectionQuerySchema>;
 export type ProjectionQueryResult = z.infer<
   typeof ProjectionQueryResultSchema
 >;
+export type ProjectionSourceListInput = z.input<
+  typeof ProjectionSourceListInputSchema
+>;
+export type ParsedProjectionSourceListInput = z.output<
+  typeof ProjectionSourceListInputSchema
+>;
+export type ProjectionSourceListResult = z.infer<
+  typeof ProjectionSourceListResultSchema
+>;
 export type ProjectionStorageFrontier = z.infer<
   typeof ProjectionStorageFrontierSchema
 >;
@@ -1129,6 +1215,9 @@ export type ClaimProjectionJobsResult = z.infer<
 >;
 export type FailProjectionJobCommand = z.input<
   typeof FailProjectionJobCommandSchema
+>;
+export type CompleteProjectionJobCommand = z.input<
+  typeof CompleteProjectionJobCommandSchema
 >;
 export type ProjectionJobMutationResult = z.infer<
   typeof ProjectionJobMutationResultSchema

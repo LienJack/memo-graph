@@ -57,6 +57,18 @@ import {
 
 export { evaluateAdmission } from "./governance.js";
 export {
+  ConsolidationService,
+  type ProjectionDrainResult,
+  type ProjectionRebuildResult,
+} from "./consolidation-service.js";
+export {
+  PROJECTION_TRANSFORM,
+  buildDeterministicProjections,
+  emptyProjectionFrontier,
+  projectionStructuralDigest,
+  type ProjectionPolicyInput,
+} from "./projection-policy.js";
+export {
   ApprovalBindingSchema,
   ApprovalError,
   DenyAllApprovalRegistry,

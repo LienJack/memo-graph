@@ -12,6 +12,7 @@ import {
   ApplyProjectionBatchCommandSchema,
   AdmitMemoryCommandSchema,
   ClaimProjectionJobsInputSchema,
+  CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
   EnqueueProjectionJobCommandSchema,
@@ -28,6 +29,7 @@ import {
   MemoryRevisionCommandSchema,
   PurgeRunInputSchema,
   ProjectionQuerySchema,
+  ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
@@ -107,6 +109,11 @@ port.on("message", (message: unknown) => {
             ProjectionQuerySchema.parse(request.payload),
           );
           break;
+        case "list_projection_sources":
+          result = database.listProjectionSources(
+            ProjectionSourceListInputSchema.parse(request.payload),
+          );
+          break;
         case "traverse_relations":
           result = database.traverseRelations(
             RelationTraversalInputSchema.parse(request.payload),
@@ -125,6 +132,11 @@ port.on("message", (message: unknown) => {
         case "fail_projection_job":
           result = database.failProjectionJob(
             FailProjectionJobCommandSchema.parse(request.payload),
+          );
+          break;
+        case "complete_projection_job":
+          result = database.completeProjectionJob(
+            CompleteProjectionJobCommandSchema.parse(request.payload),
           );
           break;
         case "invalidate_projection_descendants":

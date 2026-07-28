@@ -61,23 +61,23 @@ These are non-negotiable at every unit:
 
 **Checklist:**
 
-- [ ] Write failing tests for valid Topic, Scenario/Procedure, Core, and
+- [x] Write failing tests for valid Topic, Scenario/Procedure, Core, and
       Relation revisions.
-- [ ] Write invalid tests for missing/duplicate source revisions, malformed
+- [x] Write invalid tests for missing/duplicate source revisions, malformed
       frontiers, widened scope, raised authority, reduced sensitivity, and
       invalid validity intersections.
-- [ ] Define projection type, revision envelope, typed payloads, exact lineage,
+- [x] Define projection type, revision envelope, typed payloads, exact lineage,
       transform, and frontier schemas.
-- [ ] Define stable lane identifiers, lane configuration, telemetry, named
+- [x] Define stable lane identifiers, lane configuration, telemetry, named
       degradation, and inclusion/exclusion reasons.
-- [ ] Define operator-owned lane/resource ceilings and request overrides that
+- [x] Define operator-owned lane/resource ceilings and request overrides that
       can only narrow the effective configuration.
-- [ ] Extend Context item and receipt schemas with lane, projection,
+- [x] Extend Context item and receipt schemas with lane, projection,
       conflict/dedupe, score, token, frontier, and hash detail.
-- [ ] Add strict G3 overlay/rubric schemas referencing replay case hashes.
-- [ ] Preserve parsing of existing L0/L1 Context and receipt fixtures.
-- [ ] Export all public types from the package entrypoint.
-- [ ] Prove canonical serialization produces stable projection and receipt
+- [x] Add strict G3 overlay/rubric schemas referencing replay case hashes.
+- [x] Preserve parsing of existing L0/L1 Context and receipt fixtures.
+- [x] Export all public types from the package entrypoint.
+- [x] Prove canonical serialization produces stable projection and receipt
       hashes.
 
 **Focused verification:**
@@ -92,9 +92,9 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] Happy, boundary, invalid, and compatibility contract tests pass.
-- [ ] No storage or runtime behavior was smuggled into the contract unit.
-- [ ] Create the U1 commit.
+- [x] Happy, boundary, invalid, and compatibility contract tests pass.
+- [x] No storage or runtime behavior was smuggled into the contract unit.
+- [x] Create the U1 commit.
 
 ## 4. U2 — SQLite projection and relation model
 
@@ -117,19 +117,19 @@ pnpm typecheck
 
 **Checklist:**
 
-- [ ] Write migration tests before adding migration `0008`.
-- [ ] Add immutable projection object/revision and source-membership tables.
-- [ ] Add immutable relation object/revision tables.
-- [ ] Add projection frontier/rebuild receipt and outbox state.
-- [ ] Add indexes for exact scope/type/status, descendants, frontier, bounded
+- [x] Write migration tests before adding migration `0008`.
+- [x] Add immutable projection object/revision and source-membership tables.
+- [x] Add immutable relation object/revision tables.
+- [x] Add projection frontier/rebuild receipt and outbox state.
+- [x] Add indexes for exact scope/type/status, descendants, frontier, bounded
       traversal, and outbox claiming.
-- [ ] Add constraints against duplicate lineage and mutable revision payloads.
-- [ ] Implement repository claim/apply/fail/query/invalidate/rebuild
+- [x] Add constraints against duplicate lineage and mutable revision payloads.
+- [x] Implement repository claim/apply/fail/query/invalidate/rebuild
       operations with short transactions.
-- [ ] Runtime-decode every worker request and response payload.
-- [ ] Implement bounded directional SQLite adjacency queries.
-- [ ] Keep the SQLite driver private to `storage-sqlite`.
-- [ ] Confirm M1/M2 migrations and repository tests remain green.
+- [x] Runtime-decode every worker request and response payload.
+- [x] Implement bounded directional SQLite adjacency queries.
+- [x] Keep the SQLite driver private to `storage-sqlite`.
+- [x] Confirm M1/M2 migrations and repository tests remain green.
 
 **Focused verification:**
 
@@ -143,10 +143,10 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] Migration applies to empty and existing M2 databases.
-- [ ] Revisions and lineage are immutable and queryable.
-- [ ] Worker boundary rejects malformed operations.
-- [ ] Create the U2 commit.
+- [x] Migration applies to empty and existing M2 databases.
+- [x] Revisions and lineage are immutable and queryable.
+- [x] Worker boundary rejects malformed operations.
+- [x] Create the U2 commit.
 
 ## 5. U3 — Projection lifecycle and rebuild
 
@@ -158,6 +158,7 @@ pnpm typecheck
 
 - `packages/memory-kernel/src/consolidation-service.ts`
 - `packages/memory-kernel/src/projection-policy.ts`
+- `migrations/0009-projection-purge-redaction.sql`
 - existing mutation/admission/governance paths
 - `tests/governance/derived-invalidation.integration.test.ts`
 - `tests/storage/projection-rebuild.integration.test.ts`
@@ -166,22 +167,22 @@ pnpm typecheck
 
 **Checklist:**
 
-- [ ] Write failing tests for deterministic Topic, Scenario/Procedure, Core,
+- [x] Write failing tests for deterministic Topic, Scenario/Procedure, Core,
       and Relation consolidation.
-- [ ] Derive projection identity from type, scope, sorted source revisions,
+- [x] Derive projection identity from type, scope, sorted source revisions,
       transform, and normalized output.
-- [ ] Intersect source scope, authority, sensitivity, and validity without
+- [x] Intersect source scope, authority, sensitivity, and validity without
       privilege amplification.
-- [ ] Enqueue refresh/invalidation with the canonical mutation transaction.
-- [ ] Re-read canonical sources after claiming a job and before applying it.
-- [ ] Make correction, demotion, usage block, revoke, tombstone, and purge
+- [x] Enqueue refresh/invalidation with the canonical mutation transaction.
+- [x] Re-read canonical sources after claiming a job and before applying it.
+- [x] Make correction, demotion, usage block, revoke, tombstone, and purge
       synchronously suppress descendants.
-- [ ] Implement idempotent retry and content-free failure receipts.
-- [ ] Implement full rebuild from authoritative L0/L1 into an empty derived
+- [x] Implement idempotent retry and content-free failure receipts.
+- [x] Implement full rebuild from authoritative L0/L1 into an empty derived
       plane.
-- [ ] Compare incremental and rebuilt identities, hashes, lineage, relations,
+- [x] Compare incremental and rebuilt identities, hashes, lineage, relations,
       frontier, and order exactly.
-- [ ] Prove purge removes derived plaintext and rebuild cannot resurrect it.
+- [x] Prove purge removes derived plaintext and rebuild cannot resurrect it.
 
 **Focused verification:**
 
@@ -195,9 +196,9 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] All lifecycle transitions and failure paths pass.
-- [ ] Full rebuild Oracle passes across correction and deletion fixtures.
-- [ ] Create the U3 commit.
+- [x] All lifecycle transitions and failure paths pass.
+- [x] Full rebuild Oracle passes across correction and deletion fixtures.
+- [x] Create the U3 commit.
 
 ## 6. U4 — Governed multi-lane recall
 

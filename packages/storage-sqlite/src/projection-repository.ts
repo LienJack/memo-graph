@@ -10,6 +10,7 @@ import {
   ApplyProjectionBatchCommandSchema,
   ClaimProjectionJobsInputSchema,
   ClaimProjectionJobsResultSchema,
+  CompleteProjectionJobCommandSchema,
   EnqueueProjectionJobCommandSchema,
   FailProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
@@ -297,12 +298,21 @@ export class ProjectionRepository {
         : `AND o.projection_type IN (${query.projection_types
             .map(() => "?")
             .join(", ")})`;
+    const lifecycleClause = query.include_inactive
+      ? ""
+      : `AND o.lifecycle = 'active'
+         AND r.lifecycle = 'active'
+         AND r.valid_from <= ?
+         AND (r.valid_to IS NULL OR r.valid_to > ?)
+         AND NOT EXISTS (
+           SELECT 1 FROM projection_invalidations AS i
+           WHERE i.projection_revision_id = r.projection_revision_id
+         )`;
     const parameters = [
       query.principal_id,
       query.scope.kind,
       query.scope.id,
-      query.as_of,
-      query.as_of,
+      ...(query.include_inactive ? [] : [query.as_of, query.as_of]),
       ...(query.projection_types ?? []),
       query.limit,
     ];
@@ -315,15 +325,8 @@ export class ProjectionRepository {
          WHERE o.principal_id = ?
            AND o.scope_kind = ?
            AND o.scope_id = ?
-           AND o.lifecycle = 'active'
-           AND r.lifecycle = 'active'
            AND r.purged_at IS NULL
-           AND r.valid_from <= ?
-           AND (r.valid_to IS NULL OR r.valid_to > ?)
-           AND NOT EXISTS (
-             SELECT 1 FROM projection_invalidations AS i
-             WHERE i.projection_revision_id = r.projection_revision_id
-           )
+           ${lifecycleClause}
            ${typeClause}
          ORDER BY o.projection_type, o.projection_id,
                   r.revision DESC, r.projection_revision_id
@@ -502,6 +505,55 @@ export class ProjectionRepository {
     return ProjectionJobMutationResultSchema.parse(result);
   }
 
+  complete(input: unknown): ProjectionJobMutationResult {
+    const command = CompleteProjectionJobCommandSchema.parse(input);
+    const result = this.#database
+      .transaction(() => {
+        const row = this.#readJob(command.job_id);
+        if (row === undefined) {
+          throw new StorageError("INVALID_INPUT");
+        }
+        if (row.status === "processed") {
+          return {
+            job: this.#jobFromRow(row),
+            replayed: true,
+          };
+        }
+        if (
+          row.status !== "processing" ||
+          row.claimed_by !== command.worker_id
+        ) {
+          throw new StorageError("CONFLICT");
+        }
+        this.#openGuard("complete");
+        try {
+          this.#database
+            .prepare(
+              `UPDATE projection_outbox_jobs
+               SET status = 'processed',
+                   claimed_by = NULL,
+                   lease_expires_at = NULL,
+                   processed_at = ?,
+                   last_error_code = NULL
+               WHERE job_id = ?`,
+            )
+            .run(command.completed_at, command.job_id);
+        } finally {
+          this.#closeGuard();
+        }
+        const completed = this.#readJob(command.job_id);
+        if (completed === undefined) {
+          throw new StorageError("CORRUPTION");
+        }
+        return {
+          job: this.#jobFromRow(completed),
+          replayed: false,
+        };
+      })
+      .immediate();
+    return ProjectionJobMutationResultSchema.parse(result);
+  }
+
   invalidateDescendants(
     input: unknown,
   ): InvalidateProjectionDescendantsResult {
@@ -667,10 +719,11 @@ export class ProjectionRepository {
         .get() as { tombstone_epoch: number }
     ).tombstone_epoch;
     const first = command.projections[0];
+    const batchFrontier = command.frontier ?? first?.frontier;
     if (
-      first === undefined ||
-      first.frontier.ledger_epoch !== ledgerEpoch ||
-      first.frontier.tombstone_epoch !== tombstoneEpoch
+      batchFrontier === undefined ||
+      batchFrontier.ledger_epoch !== ledgerEpoch ||
+      batchFrontier.tombstone_epoch !== tombstoneEpoch
     ) {
       throw new StorageError("CONFLICT");
     }
@@ -692,6 +745,18 @@ export class ProjectionRepository {
 
     this.#openGuard("apply");
     try {
+      for (const projectionRevisionId of
+        command.retire_projection_revision_ids ?? []) {
+        if (first === undefined) {
+          throw new StorageError("INVALID_INPUT");
+        }
+        this.#retireProjection(
+          projectionRevisionId,
+          first.principal_id,
+          first.scope,
+          command.applied_at,
+        );
+      }
       for (const projection of command.projections) {
         this.#insertProjection(projection);
       }
@@ -705,6 +770,9 @@ export class ProjectionRepository {
                 candidate.version === transform.version,
             ) === index,
         )
+        .concat(command.projections.length === 0
+          ? [batchFrontier.transform]
+          : [])
         .sort((left, right) =>
           `${left.name}:${left.version}`.localeCompare(
             `${right.name}:${right.version}`,
@@ -725,11 +793,11 @@ export class ProjectionRepository {
            WHERE singleton = 1`,
         )
         .run(
-          first.frontier.ledger_epoch,
-          first.frontier.tombstone_epoch,
-          first.frontier.projection_epoch,
-          first.frontier.source_frontier_hash,
-          first.frontier.projection_frontier_hash,
+          batchFrontier.ledger_epoch,
+          batchFrontier.tombstone_epoch,
+          batchFrontier.projection_epoch,
+          batchFrontier.source_frontier_hash,
+          batchFrontier.projection_frontier_hash,
           canonicalJson(transforms),
           command.applied_at,
         );
@@ -752,7 +820,7 @@ export class ProjectionRepository {
 
     const result = ProjectionBatchResultSchema.parse({
       replayed: false,
-      projection_epoch: first.frontier.projection_epoch,
+      projection_epoch: batchFrontier.projection_epoch,
       projection_revision_ids: command.projections
         .map((projection) => projection.projection_revision_id)
         .sort(),
@@ -778,6 +846,66 @@ export class ProjectionRepository {
         command.applied_at,
       );
     return result;
+  }
+
+  #retireProjection(
+    projectionRevisionId: string,
+    principalId: string,
+    scope: { kind: string; id: string },
+    retiredAt: string,
+  ): void {
+    const row = this.#database
+      .prepare(
+        `SELECT r.projection_id
+         FROM projection_revisions AS r
+         JOIN projection_objects AS o
+           ON o.projection_id = r.projection_id
+          AND o.current_revision_id = r.projection_revision_id
+         WHERE r.projection_revision_id = ?
+           AND o.principal_id = ?
+           AND o.scope_kind = ?
+           AND o.scope_id = ?`,
+      )
+      .get(
+        projectionRevisionId,
+        principalId,
+        scope.kind,
+        scope.id,
+      ) as { projection_id: string } | undefined;
+    if (row === undefined) {
+      throw new StorageError("CONFLICT");
+    }
+    this.#database
+      .prepare(
+        `INSERT OR IGNORE INTO projection_invalidations (
+           invalidation_id, projection_id, projection_revision_id,
+           source_revision_id, reason, invalidated_at
+         ) VALUES (?, ?, ?, ?, 'PROJECTION_BATCH_REPLACED', ?)`,
+      )
+      .run(
+        `projection-invalidation:${canonicalSha256({
+          projection_revision_id: projectionRevisionId,
+          reason: "PROJECTION_BATCH_REPLACED",
+        }).slice("sha256:".length, 42)}`,
+        row.projection_id,
+        projectionRevisionId,
+        projectionRevisionId,
+        retiredAt,
+      );
+    this.#database
+      .prepare(
+        `UPDATE projection_objects
+         SET lifecycle = 'superseded', updated_at = ?
+         WHERE projection_id = ? AND current_revision_id = ?`,
+      )
+      .run(retiredAt, row.projection_id, projectionRevisionId);
+    this.#database
+      .prepare(
+        `UPDATE relation_objects
+         SET lifecycle = 'superseded', updated_at = ?
+         WHERE relation_id = ? AND current_relation_revision_id = ?`,
+      )
+      .run(retiredAt, row.projection_id, projectionRevisionId);
   }
 
   #insertProjection(

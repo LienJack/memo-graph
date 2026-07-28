@@ -15,6 +15,10 @@ import type Database from "better-sqlite3";
 
 import { StorageError } from "./errors.js";
 import {
+  enqueueProjectionRefresh,
+  suppressProjectionDescendants,
+} from "./projection-effects.js";
+import {
   GovernanceMutationResultSchema,
   MemoryCorrectionBasisSchema,
   type ContentReferenceCounts,
@@ -949,7 +953,7 @@ export class GovernanceRepository {
       });
     }
 
-    const projectionJobs =
+    const ftsProjectionJobs =
       lifecycle === "active"
         ? [
             ...(options.supersedes === null
@@ -976,6 +980,36 @@ export class GovernanceRepository {
                 options.requestedAt,
               ),
             ];
+    const layeredProjectionJobs = [
+      ...(options.supersedes === null
+        ? []
+        : [
+            suppressProjectionDescendants(this.#database, {
+              causeId: options.idempotencyKey,
+              memoryId,
+              revisionId: options.supersedes.revision_id,
+              principalId: options.principalId,
+              scope: options.candidate.scope,
+              occurredAt: options.requestedAt,
+            }),
+          ]),
+      ...(lifecycle === "active"
+        ? [
+            enqueueProjectionRefresh(this.#database, {
+              causeId: options.idempotencyKey,
+              memoryId,
+              revisionId,
+              principalId: options.principalId,
+              scope: options.candidate.scope,
+              occurredAt: options.requestedAt,
+            }),
+          ]
+        : []),
+    ];
+    const projectionJobs = [
+      ...ftsProjectionJobs,
+      ...layeredProjectionJobs,
+    ];
 
     return this.#sealMutation({
       idempotencyKey: options.idempotencyKey,
@@ -1225,6 +1259,17 @@ export class GovernanceRepository {
       options.memory.memory_id,
       options.requestedAt,
     );
+    const layeredProjectionJob = suppressProjectionDescendants(
+      this.#database,
+      {
+        causeId: options.idempotencyKey,
+        memoryId: options.memory.memory_id,
+        revisionId: options.current.revision_id,
+        principalId: options.principalId,
+        scope: options.scope,
+        occurredAt: options.requestedAt,
+      },
+    );
     return this.#sealMutation({
       idempotencyKey: options.idempotencyKey,
       requestHash: options.requestHash,
@@ -1239,7 +1284,7 @@ export class GovernanceRepository {
       lifecycle: options.memory.lifecycle,
       decision: null,
       previousRevisionId: null,
-      projectionJobs: [projectionJob],
+      projectionJobs: [projectionJob, layeredProjectionJob],
       warnings: ["OPEN_CONFLICT"],
     });
   }

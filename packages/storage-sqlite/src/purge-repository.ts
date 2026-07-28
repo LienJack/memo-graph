@@ -1,6 +1,7 @@
 import {
   ContextSliceSchema,
   MutationReceiptSchema,
+  ProjectionRevisionSchema,
   PurgeReceiptSchema,
   PurgeStoreOutcomeSchema,
   PurgeStoreSchema,
@@ -19,6 +20,7 @@ import type Database from "better-sqlite3";
 
 import type { BlobStore } from "./blob-store.js";
 import { StorageError } from "./errors.js";
+import { suppressProjectionDescendants } from "./projection-effects.js";
 import {
   MemoryDeleteResultSchema,
   type MemoryDeleteResult,
@@ -77,6 +79,13 @@ type ContextItemRow = {
   context_slice_id: string;
   ordinal: number;
   item_json: string;
+};
+
+type ProjectionRevisionRow = {
+  projection_revision_id: string;
+  projection_id: string;
+  projection_type: string;
+  revision_json: string;
 };
 
 const PURGE_STORES = PurgeStoreSchema.options;
@@ -258,6 +267,20 @@ export class PurgeRepository {
         memory.memory_id,
         occurredAt,
       );
+      const layeredProjectionJob = suppressProjectionDescendants(
+        this.#database,
+        {
+          causeId: idempotencyKey,
+          memoryId: memory.memory_id,
+          revisionId,
+          principalId: memory.principal_id,
+          scope: {
+            kind: memory.scope_kind,
+            id: memory.scope_id,
+          },
+          occurredAt,
+        },
+      );
       const result = this.#sealDelete({
         command,
         requestHash,
@@ -265,7 +288,7 @@ export class PurgeRepository {
         revisionId,
         tombstoneEpoch,
         purgeJobId,
-        projectionJobs: [projectionJob],
+        projectionJobs: [projectionJob, layeredProjectionJob],
       });
       this.#consumeDeleteApproval(command, requestHash, result);
       return result;
@@ -724,6 +747,142 @@ export class PurgeRepository {
     );
     this.#database
       .transaction(() => {
+        const projectionRows = this.#database
+          .prepare(
+            `WITH RECURSIVE descendants(projection_revision_id) AS (
+               SELECT projection_revision_id
+               FROM projection_revision_sources
+               WHERE source_memory_id = ?
+               UNION
+               SELECT source.projection_revision_id
+               FROM projection_revision_sources AS source
+               JOIN descendants
+                 ON source.source_revision_id =
+                    descendants.projection_revision_id
+             )
+             SELECT revision.projection_revision_id,
+                    revision.projection_id,
+                    revision.projection_type,
+                    revision.revision_json
+             FROM projection_revisions AS revision
+             JOIN descendants
+               ON descendants.projection_revision_id =
+                  revision.projection_revision_id
+             WHERE revision.purged_at IS NULL
+             ORDER BY revision.projection_revision_id`,
+          )
+          .all(job.memory_id) as ProjectionRevisionRow[];
+        if (projectionRows.length > 0) {
+          this.#database
+            .prepare(
+              `INSERT INTO projection_write_guard (
+                 singleton, operation, opened_at
+               ) VALUES (1, 'purge-redaction', ?)`,
+            )
+            .run(checkedAt);
+          try {
+            const updateProjection = this.#database.prepare(
+              `UPDATE projection_revisions
+               SET lifecycle = 'purged',
+                   payload_json = NULL,
+                   content_json = NULL,
+                   revision_json = ?,
+                   purged_at = ?
+               WHERE projection_revision_id = ?`,
+            );
+            const updateRelation = this.#database.prepare(
+              `UPDATE relation_revisions
+               SET lifecycle = 'purged',
+                   description = NULL,
+                   relation_json = ?
+               WHERE projection_revision_id = ?`,
+            );
+            for (const row of projectionRows) {
+              const revision = ProjectionRevisionSchema.parse(
+                JSON.parse(row.revision_json) as unknown,
+              );
+              const redacted = ProjectionRevisionSchema.parse({
+                ...revision,
+                lifecycle: "purged",
+                payload: null,
+                content: null,
+                invalidated_at: checkedAt,
+                invalidation_reason:
+                  "A canonical source memory was purged.",
+              });
+              updateProjection.run(
+                canonicalJson(redacted),
+                checkedAt,
+                row.projection_revision_id,
+              );
+              if (row.projection_type === "relation") {
+                const relation = this.#database
+                  .prepare(
+                    `SELECT relation_json
+                     FROM relation_revisions
+                     WHERE projection_revision_id = ?`,
+                  )
+                  .get(row.projection_revision_id) as
+                  | { relation_json: string }
+                  | undefined;
+                if (relation !== undefined) {
+                  updateRelation.run(
+                    canonicalJson({
+                      ...(JSON.parse(relation.relation_json) as Record<
+                        string,
+                        unknown
+                      >),
+                      description: null,
+                    }),
+                    row.projection_revision_id,
+                  );
+                }
+              }
+            }
+            this.#database
+              .prepare(
+                `UPDATE projection_objects
+                 SET lifecycle = 'purged',
+                     current_revision_id = NULL,
+                     updated_at = ?
+                 WHERE current_revision_id IN (
+                   SELECT value FROM json_each(?)
+                 )`,
+              )
+              .run(
+                checkedAt,
+                canonicalJson(
+                  projectionRows.map(
+                    (row) => row.projection_revision_id,
+                  ),
+                ),
+              );
+            this.#database
+              .prepare(
+                `UPDATE relation_objects
+                 SET lifecycle = 'purged',
+                     current_relation_revision_id = NULL,
+                     updated_at = ?
+                 WHERE current_relation_revision_id IN (
+                   SELECT value FROM json_each(?)
+                 )`,
+              )
+              .run(
+                checkedAt,
+                canonicalJson(
+                  projectionRows.map(
+                    (row) => row.projection_revision_id,
+                  ),
+                ),
+              );
+          } finally {
+            this.#database
+              .prepare(
+                "DELETE FROM projection_write_guard WHERE singleton = 1",
+              )
+              .run();
+          }
+        }
         this.#database
           .prepare(
             `UPDATE outbox_jobs

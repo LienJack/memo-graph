@@ -11,6 +11,10 @@ import type Database from "better-sqlite3";
 
 import { StorageError } from "./errors.js";
 import {
+  enqueueProjectionRefresh,
+  suppressProjectionDescendants,
+} from "./projection-effects.js";
+import {
   MemoryControlResultSchema,
   type MemoryControlResult,
   type ParsedMemoryControlCommand,
@@ -206,7 +210,33 @@ export class ControlRepository {
           pinned: memory.pinned === 1,
           lifecycle: memory.lifecycle,
           usageRuleId,
-          projectionJobs: [],
+          projectionJobs: [
+            request.effect === "block"
+              ? suppressProjectionDescendants(this.#database, {
+                  causeId: request.envelope.idempotency_key,
+                  memoryId: memory.memory_id,
+                  revisionId,
+                  principalId:
+                    request.envelope.actor_claim.principal_id,
+                  scope: {
+                    kind: memory.scope_kind,
+                    id: memory.scope_id,
+                  },
+                  occurredAt,
+                })
+              : enqueueProjectionRefresh(this.#database, {
+                  causeId: request.envelope.idempotency_key,
+                  memoryId: memory.memory_id,
+                  revisionId,
+                  principalId:
+                    request.envelope.actor_claim.principal_id,
+                  scope: {
+                    kind: memory.scope_kind,
+                    id: memory.scope_id,
+                  },
+                  occurredAt,
+                }),
+          ],
         };
       }
       case "memory_demote": {
@@ -227,6 +257,18 @@ export class ControlRepository {
           usageRuleId: null,
           projectionJobs: [
             this.#insertInvalidation(memory.memory_id, occurredAt),
+            suppressProjectionDescendants(this.#database, {
+              causeId: request.envelope.idempotency_key,
+              memoryId: memory.memory_id,
+              revisionId,
+              principalId:
+                request.envelope.actor_claim.principal_id,
+              scope: {
+                kind: memory.scope_kind,
+                id: memory.scope_id,
+              },
+              occurredAt,
+            }),
           ],
         };
       }
@@ -248,6 +290,18 @@ export class ControlRepository {
           usageRuleId: null,
           projectionJobs: [
             this.#insertInvalidation(memory.memory_id, occurredAt),
+            suppressProjectionDescendants(this.#database, {
+              causeId: request.envelope.idempotency_key,
+              memoryId: memory.memory_id,
+              revisionId,
+              principalId:
+                request.envelope.actor_claim.principal_id,
+              scope: {
+                kind: memory.scope_kind,
+                id: memory.scope_id,
+              },
+              occurredAt,
+            }),
           ],
         };
       }

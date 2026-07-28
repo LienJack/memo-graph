@@ -43,6 +43,7 @@ import {
   ApplyProjectionBatchCommandSchema,
   AdmitMemoryCommandSchema,
   ClaimProjectionJobsInputSchema,
+  CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   EnqueueProjectionJobCommandSchema,
   EvidenceExplanationSchema,
@@ -58,6 +59,7 @@ import {
   FailProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   ProjectionQuerySchema,
+  ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   PurgeRunInputSchema,
   RecordRecallCommandSchema,
@@ -90,6 +92,7 @@ import {
   type ProjectionBatchResult,
   type ProjectionJobMutationResult,
   type ProjectionQueryResult,
+  type ProjectionSourceListResult,
   type RecordProjectionRebuildResult,
   type RelationTraversalResult,
   type RestoreVerificationResult,
@@ -355,6 +358,12 @@ export class StorageDatabase {
     return this.#projections.query(ProjectionQuerySchema.parse(input));
   }
 
+  listProjectionSources(input: unknown): ProjectionSourceListResult {
+    return this.#governedMemory.listProjectionSources(
+      ProjectionSourceListInputSchema.parse(input),
+    );
+  }
+
   traverseRelations(input: unknown): RelationTraversalResult {
     return this.#relations.traverse(
       RelationTraversalInputSchema.parse(input),
@@ -376,6 +385,12 @@ export class StorageDatabase {
   failProjectionJob(input: unknown): ProjectionJobMutationResult {
     return this.#projections.fail(
       FailProjectionJobCommandSchema.parse(input),
+    );
+  }
+
+  completeProjectionJob(input: unknown): ProjectionJobMutationResult {
+    return this.#projections.complete(
+      CompleteProjectionJobCommandSchema.parse(input),
     );
   }
 

@@ -65,6 +65,14 @@ describe("layered projection storage", () => {
       join(process.cwd(), "migrations", "0008-layered-projections.sql"),
       join(migrationRoot, "0008-layered-projections.sql"),
     );
+    cpSync(
+      join(
+        process.cwd(),
+        "migrations",
+        "0009-projection-purge-redaction.sql",
+      ),
+      join(migrationRoot, "0009-projection-purge-redaction.sql"),
+    );
     const upgraded = await SqliteStorageClient.open({
       dataRoot,
       migrationsDir: migrationRoot,
@@ -72,8 +80,8 @@ describe("layered projection storage", () => {
     const health = await upgraded.health();
     await upgraded.close();
 
-    expect(health.schema_version).toBe("0008");
-    expect(health.migrations).toHaveLength(8);
+    expect(health.schema_version).toBe("0009");
+    expect(health.migrations).toHaveLength(9);
     expect(health.layered_projection_state).toBe("ready");
     expect(health.projection_frontier).toMatchObject({
       ledger_epoch: 0,
@@ -242,6 +250,19 @@ describe("layered projection storage", () => {
       tombstoneEpoch: health.tombstone_epoch,
       projectionEpoch: 1,
     });
+    const seededJobs = await storage.claimProjectionJobs({
+      worker_id: "projection_setup_worker",
+      claimed_at: "2026-07-28T12:01:00.000Z",
+      lease_expires_at: "2026-07-28T12:02:00.000Z",
+      limit: 10,
+    });
+    for (const seededJob of seededJobs.jobs) {
+      await storage.completeProjectionJob({
+        job_id: seededJob.job_id,
+        worker_id: "projection_setup_worker",
+        completed_at: "2026-07-28T12:01:30.000Z",
+      });
+    }
     const job = {
       job_id: "projection_job_topic_1",
       kind: "refresh",

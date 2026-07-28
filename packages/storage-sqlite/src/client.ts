@@ -19,6 +19,7 @@ import {
   CheckpointResultSchema,
   ClaimProjectionJobsInputSchema,
   ClaimProjectionJobsResultSchema,
+  CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
   ContentReferenceCountsSchema,
@@ -55,6 +56,8 @@ import {
   ProjectionJobMutationResultSchema,
   ProjectionQueryResultSchema,
   ProjectionQuerySchema,
+  ProjectionSourceListInputSchema,
+  ProjectionSourceListResultSchema,
   ProjectionRebuildReceiptSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
@@ -77,6 +80,7 @@ import {
   type CheckpointResult,
   type ClaimProjectionJobsInput,
   type ClaimProjectionJobsResult,
+  type CompleteProjectionJobCommand,
   type ContentReferenceCounts,
   type DrainFtsResult,
   type EnqueueProjectionJobCommand,
@@ -107,6 +111,8 @@ import {
   type ProjectionJobMutationResult,
   type ProjectionQuery,
   type ProjectionQueryResult,
+  type ProjectionSourceListInput,
+  type ProjectionSourceListResult,
   type ProjectionRebuildReceipt,
   type RecordRecallResult,
   type RecordProjectionRebuildResult,
@@ -244,6 +250,17 @@ export class SqliteStorageClient {
     );
   }
 
+  listProjectionSources(
+    input: ProjectionSourceListInput,
+  ): Promise<ProjectionSourceListResult> {
+    const query = ProjectionSourceListInputSchema.parse(input);
+    return this.#request(
+      "list_projection_sources",
+      query,
+      ProjectionSourceListResultSchema,
+    );
+  }
+
   traverseRelations(
     input: RelationTraversalInput,
   ): Promise<RelationTraversalResult> {
@@ -288,6 +305,19 @@ export class SqliteStorageClient {
     return this.#writerQueue.enqueue(() =>
       this.#request(
         "fail_projection_job",
+        command,
+        ProjectionJobMutationResultSchema,
+      ),
+    );
+  }
+
+  completeProjectionJob(
+    input: CompleteProjectionJobCommand,
+  ): Promise<ProjectionJobMutationResult> {
+    const command = CompleteProjectionJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "complete_projection_job",
         command,
         ProjectionJobMutationResultSchema,
       ),

@@ -113,6 +113,11 @@ Migration `0008-layered-projections.sql` adds typed projection and relation
 tables, lineage membership, projection-frontier state, and outbox state. It
 does not modify historical migrations.
 
+Forward migration `0009-projection-purge-redaction.sql` narrows the existing
+append-only guards only while a matching purge job and redaction guard are
+active. This permits physical redaction of derived projection and relation
+plaintext without opening a general mutation path.
+
 The intended logical records are:
 
 - projection objects and immutable projection revisions;
