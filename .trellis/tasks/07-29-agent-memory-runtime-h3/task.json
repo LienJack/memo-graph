@@ -23,12 +23,15 @@
   "relatedFiles": [
     "docs/brainstorms/2026-07-29-g3-bounded-recall-remediation-requirements.md",
     ".trellis/tasks/07-29-agent-memory-runtime-h3/prd.md",
-    ".trellis/tasks/07-29-agent-memory-runtime-h3/research/research-handoff.md"
+    ".trellis/tasks/07-29-agent-memory-runtime-h3/research/research-handoff.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-h3/design.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-h3/implement.md",
+    "docs/plans/2026-07-29-002-fix-g3-bounded-recall-remediation-plan.md"
   ],
   "notes": "H3 follows the pre-authorized G3 HOLD path. Complete brainstorm, research-to-article, ce-plan, and ce-work under Trellis; commit each completed unit separately.",
   "meta": {
     "milestone": "H3",
     "gate": "G3R",
-    "implementation_authorized": "false"
+    "implementation_authorized": "true"
   }
 }

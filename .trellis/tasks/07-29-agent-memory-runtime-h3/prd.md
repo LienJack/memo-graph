@@ -67,7 +67,10 @@ This child does not add or renumber product requirements.
 
 ## Notes
 
-- Planning starts from Approach A: storage-native bounded search, exact-source
-  batch revalidation, and scope-keyed frontiers.
-- `implementation_authorized=false` until research, design, implementation
-  checklist, and Trellis context validation are complete.
+- Research selected deterministic cursor exhaustion for projection relevance
+  while retaining storage-native exact-source batch revalidation and
+  scope-keyed frontiers. This preserves the current matcher without weakening
+  bounded completeness.
+- Research, design, implementation checklist, and Trellis context validation
+  are complete; task metadata now records
+  `implementation_authorized=true`.
