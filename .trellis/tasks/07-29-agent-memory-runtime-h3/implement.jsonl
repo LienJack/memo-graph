@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend pre-development and quality checklist for the storage, recall, and runtime changes."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite migration, transaction, repository, index, and evidence rules for scope-keyed frontier state and exact-ID batches."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Typed fail-closed and degradation behavior for incomplete search, invalid lineage, and epoch mismatch."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Stable telemetry and receipt fields for every bounded search and relation cap."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Test-first, deterministic fixtures, resource checks, and verification expectations."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-h3/research/research-handoff.md", "reason": "Fixed-commit Claim/Evidence handoff, correctness invariants, failure Oracles, and G3R matrix."}
