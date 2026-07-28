@@ -561,6 +561,174 @@ describe("governed layered recall", () => {
     await storage.close();
   });
 
+  it("reports deterministic relation start and repository fanout limits separately", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-relation-bounds"),
+    });
+    await seedLayeredProjectionSources(storage, {
+      prefix: "relation_bounds",
+    });
+    await new ConsolidationService({ storage }).drain({
+      worker_id: "layered_relation_bounds_worker",
+      claimed_at: "2026-07-28T12:10:00.000Z",
+      lease_expires_at: "2026-07-28T12:11:00.000Z",
+    });
+    const baseline = await storage.searchGovernedMemory({
+      query: "agent memory",
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      context_scope: MAIN_SCOPE,
+      limit: 20,
+    });
+    const allStarts = baseline.items
+      .map((item) => item.item.revision_id)
+      .sort();
+    expect(allStarts).toHaveLength(4);
+    const originalTraversal = storage.traverseRelations.bind(storage);
+    let retainedStarts: string[] = [];
+    storage.traverseRelations = async (input) => {
+      retainedStarts = [...input.start_revision_ids];
+      return originalTraversal(input);
+    };
+    const recalled = await new RecallOrchestrator({ storage }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "agent memory",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: {
+        allowed_lanes: ["recent_l1", "relation_sqlite"],
+        limits: {
+          max_candidates_per_lane: 20,
+          relation_max_depth: 1,
+          relation_max_fanout: 1,
+          relation_max_starts: 3,
+          max_concurrent_lanes: 2,
+        },
+      },
+      lane_overrides: {
+        requested_lanes: ["recent_l1", "relation_sqlite"],
+        limits: {
+          max_candidates_per_lane: 20,
+          relation_max_depth: 1,
+          relation_max_fanout: 1,
+          relation_max_starts: 3,
+          max_concurrent_lanes: 2,
+        },
+      },
+    });
+
+    expect(recalled.status).toBe("DEGRADED");
+    expect(retainedStarts).toEqual(allStarts.slice(0, 3));
+    expect(
+      recalled.telemetry.find(
+        (item) => item.lane === "relation_sqlite",
+      ),
+    ).toMatchObject({
+      status: "degraded",
+      reason_codes: expect.arrayContaining([
+        "RELATION_FANOUT_LIMIT",
+        "RELATION_START_LIMIT",
+      ]),
+      bounded_work: expect.arrayContaining([
+        {
+          boundary: "relation_starts",
+          configured_limit: 3,
+          observed_count: 4,
+          retained_count: 3,
+          truncated_count: 1,
+          complete: false,
+          reason_code: "RELATION_START_LIMIT",
+        },
+        expect.objectContaining({
+          boundary: "relation_fanout",
+          configured_limit: 1,
+          complete: false,
+          reason_code: "RELATION_FANOUT_LIMIT",
+        }),
+      ]),
+    });
+    await storage.close();
+  });
+
+  it("returns DEGRADED when a truncated relation lane has no hits", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-empty-relation-bound"),
+    });
+    const retriever: RecallLaneRetriever = {
+      retrieve: async () => ({
+        candidates: [],
+        exclusions: [],
+        projection_frontier: null,
+        truncated: true,
+        reason_codes: [
+          "RELATION_FANOUT_LIMIT",
+          "RELATION_START_LIMIT",
+        ],
+        bounded_work: [
+          {
+            boundary: "relation_starts",
+            configured_limit: 1,
+            observed_count: 2,
+            retained_count: 1,
+            truncated_count: 1,
+            complete: false,
+            reason_code: "RELATION_START_LIMIT",
+          },
+          {
+            boundary: "relation_fanout",
+            configured_limit: 1,
+            observed_count: 2,
+            retained_count: 1,
+            truncated_count: 1,
+            complete: false,
+            reason_code: "RELATION_FANOUT_LIMIT",
+          },
+        ],
+      }),
+    };
+    const recalled = await new RecallOrchestrator({
+      storage,
+      retriever,
+    }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "agent memory",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: {
+        allowed_lanes: ["relation_sqlite"],
+        limits: {
+          max_candidates_per_lane: 20,
+          relation_max_depth: 1,
+          relation_max_fanout: 1,
+          relation_max_starts: 1,
+          max_concurrent_lanes: 1,
+        },
+      },
+    });
+
+    expect(recalled).toMatchObject({
+      status: "DEGRADED",
+      candidates: [],
+      degraded_lanes: ["relation_sqlite"],
+    });
+    expect(
+      recalled.telemetry.find(
+        (item) => item.lane === "relation_sqlite",
+      ),
+    ).toMatchObject({
+      status: "degraded",
+      reason_codes: [
+        "RELATION_FANOUT_LIMIT",
+        "RELATION_START_LIMIT",
+      ],
+    });
+    await storage.close();
+  });
+
   it("clamps forged expansion and preserves recent L1 when one lane fails", async () => {
     const storage = await SqliteStorageClient.open({
       dataRoot: temporaryRoot("layered-recall-degraded"),

@@ -9,10 +9,14 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import {
+  ConsolidationService,
+} from "../../packages/memory-kernel/src/index.js";
 
 import {
   projectionFrontier,
   relationProjection,
+  seedLayeredProjectionSources,
   seedProjectionSources,
 } from "../helpers/projection-examples.js";
 
@@ -81,6 +85,9 @@ describe("SQLite relation repository", () => {
 
     expect(outbound).toMatchObject({
       truncated: false,
+      fanout_observed_count: 1,
+      fanout_retained_count: 1,
+      fanout_truncated_count: 0,
       hits: [
         {
           depth: 1,
@@ -125,7 +132,49 @@ describe("SQLite relation repository", () => {
         max_fanout: 10,
         as_of: "2026-07-28T12:06:00.000Z",
       }),
-    ).toEqual({ hits: [], truncated: false });
+    ).toEqual({
+      hits: [],
+      truncated: false,
+      fanout_observed_count: 0,
+      fanout_retained_count: 0,
+      fanout_truncated_count: 0,
+    });
+    await storage.close();
+  });
+
+  it("reports exact fanout observations and dropped adjacency rows", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("relation-fanout"),
+    });
+    const admitted = await seedLayeredProjectionSources(storage, {
+      prefix: "relation_fanout",
+    });
+    await new ConsolidationService({ storage }).drain({
+      worker_id: "relation_fanout_worker",
+      claimed_at: "2026-07-28T12:10:00.000Z",
+      lease_expires_at: "2026-07-28T12:11:00.000Z",
+    });
+    const middle = admitted[1];
+    if (middle === undefined) {
+      throw new Error("fanout fixture requires a middle source");
+    }
+    const traversal = await storage.traverseRelations({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      start_revision_ids: [middle.current_revision_id],
+      direction: "both",
+      max_depth: 1,
+      max_fanout: 1,
+      as_of: "2026-07-28T12:12:00.000Z",
+    });
+
+    expect(traversal).toMatchObject({
+      truncated: true,
+      fanout_observed_count: 2,
+      fanout_retained_count: 1,
+      fanout_truncated_count: 1,
+    });
+    expect(traversal.hits).toHaveLength(1);
     await storage.close();
   });
 });

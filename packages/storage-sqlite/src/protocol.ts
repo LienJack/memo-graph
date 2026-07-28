@@ -1236,8 +1236,30 @@ export const RelationTraversalResultSchema = z
   .object({
     hits: z.array(RelationTraversalHitSchema),
     truncated: z.boolean(),
+    fanout_observed_count: z.number().int().nonnegative(),
+    fanout_retained_count: z.number().int().nonnegative(),
+    fanout_truncated_count: z.number().int().nonnegative(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.fanout_retained_count + value.fanout_truncated_count !==
+        value.fanout_observed_count
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["fanout_truncated_count"],
+        message: "relation fanout counts must exactly partition observations",
+      });
+    }
+    if (value.truncated !== (value.fanout_truncated_count > 0)) {
+      context.addIssue({
+        code: "custom",
+        path: ["truncated"],
+        message: "relation truncation must match the exact fanout count",
+      });
+    }
+  });
 
 export const ProjectionOutboxJobSchema = z
   .object({

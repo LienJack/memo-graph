@@ -24,6 +24,7 @@ export type LaneRetrieverRequest = {
   projection_scan_limit: number;
   relation_max_depth: number;
   relation_max_fanout: number;
+  relation_max_starts: number;
   start_revision_ids: string[];
 };
 
@@ -282,18 +283,30 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
   async #relations(
     request: LaneRetrieverRequest,
   ): Promise<LaneRetrievalResult> {
-    if (request.start_revision_ids.length === 0) {
+    const distinctStarts = [...new Set(request.start_revision_ids)].sort();
+    const starts = distinctStarts.slice(0, request.relation_max_starts);
+    const startLimited = starts.length < distinctStarts.length;
+    const startWork = {
+      boundary: "relation_starts" as const,
+      configured_limit: request.relation_max_starts,
+      observed_count: distinctStarts.length,
+      retained_count: starts.length,
+      truncated_count: distinctStarts.length - starts.length,
+      complete: !startLimited,
+      ...(startLimited
+        ? { reason_code: "RELATION_START_LIMIT" }
+        : {}),
+    };
+    if (distinctStarts.length === 0) {
       return {
         candidates: [],
         exclusions: [],
         projection_frontier: null,
         truncated: false,
         reason_codes: ["RELATION_START_EMPTY"],
+        bounded_work: [startWork],
       };
     }
-    const starts = [...new Set(request.start_revision_ids)]
-      .sort()
-      .slice(0, 100);
     const scopeFrontier = await this.#storage.projectionScopeFrontier({
       principal_id: request.principal_id,
       scope: request.scope,
@@ -303,8 +316,12 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
         candidates: [],
         exclusions: [],
         projection_frontier: scalarFrontier(scopeFrontier),
-        truncated: false,
-        reason_codes: ["PROJECTION_SCOPE_PENDING"],
+        truncated: startLimited,
+        reason_codes: [
+          "PROJECTION_SCOPE_PENDING",
+          ...(startLimited ? ["RELATION_START_LIMIT"] : []),
+        ].sort(),
+        bounded_work: [startWork],
       };
     }
     if (scopeFrontier.status !== "ready") {
@@ -351,8 +368,14 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
             right.projection_revision_id,
           ),
       );
-    const truncated =
-      traversal.truncated || relations.length > request.limit;
+    const returnLimited = relations.length > request.limit;
+    const fanoutLimited = traversal.fanout_truncated_count > 0;
+    const truncated = startLimited || fanoutLimited || returnLimited;
+    const reasonCodes = [
+      ...(startLimited ? ["RELATION_START_LIMIT"] : []),
+      ...(fanoutLimited ? ["RELATION_FANOUT_LIMIT"] : []),
+      ...(returnLimited ? ["LANE_CANDIDATE_LIMIT"] : []),
+    ].sort();
     return {
       candidates: relations.slice(0, request.limit).map(
         (projection, index) => ({
@@ -370,7 +393,21 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
           ? scalarFrontier(scopeFrontier)
           : scalarFrontier(page.scope_frontier),
       truncated,
-      reason_codes: truncated ? ["RELATION_TRUNCATED"] : [],
+      reason_codes: reasonCodes,
+      bounded_work: [
+        startWork,
+        {
+          boundary: "relation_fanout",
+          configured_limit: request.relation_max_fanout,
+          observed_count: traversal.fanout_observed_count,
+          retained_count: traversal.fanout_retained_count,
+          truncated_count: traversal.fanout_truncated_count,
+          complete: !fanoutLimited,
+          ...(fanoutLimited
+            ? { reason_code: "RELATION_FANOUT_LIMIT" }
+            : {}),
+        },
+      ],
     };
   }
 }

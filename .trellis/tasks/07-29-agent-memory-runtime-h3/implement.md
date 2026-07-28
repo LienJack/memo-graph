@@ -402,26 +402,26 @@ lanes and the accepted M2 compiler.
 
 **Test-first checklist:**
 
-- [ ] Supply more distinct relation starts than the configured cap.
-- [ ] Prove deterministic retained prefix and exact dropped count.
-- [ ] Prove caller-side start truncation uses
+- [x] Supply more distinct relation starts than the configured cap.
+- [x] Prove deterministic retained prefix and exact dropped count.
+- [x] Prove caller-side start truncation uses
       `RELATION_START_LIMIT`.
-- [ ] Prove repository fanout truncation uses
+- [x] Prove repository fanout truncation uses
       `RELATION_FANOUT_LIMIT`.
-- [ ] Prove both reasons and bounded-work rows can coexist.
-- [ ] Prove the sealed receipt contains the same counts/reasons as lane
+- [x] Prove both reasons and bounded-work rows can coexist.
+- [x] Prove the sealed receipt contains the same counts/reasons as lane
       telemetry.
-- [ ] Prove a truncated empty relation result is `DEGRADED`, not `NO_MATCH`.
+- [x] Prove a truncated empty relation result is `DEGRADED`, not `NO_MATCH`.
 
 **Implementation checklist:**
 
-- [ ] Replace literal `.slice(0, 100)` with
+- [x] Replace literal `.slice(0, 100)` with
       `effective.limits.relation_max_starts`.
-- [ ] Measure distinct observed, retained, and truncated starts before
+- [x] Measure distinct observed, retained, and truncated starts before
       traversal.
-- [ ] Preserve repository fanout truncation as a separate boundary.
-- [ ] Merge relation reasons without collapsing their semantics.
-- [ ] Propagate both boundaries through recall, compiler, MCP, and receipt.
+- [x] Preserve repository fanout truncation as a separate boundary.
+- [x] Merge relation reasons without collapsing their semantics.
+- [x] Propagate both boundaries through recall, compiler, MCP, and receipt.
 
 **Focused verification:**
 
@@ -436,8 +436,8 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] No relation start disappears without typed receipt evidence.
-- [ ] Create the U6 commit.
+- [x] No relation start disappears without typed receipt evidence.
+- [x] Create the U6 commit.
 
 **Rollback point:** projection lanes can be disabled; no canonical data
 rollback is needed.

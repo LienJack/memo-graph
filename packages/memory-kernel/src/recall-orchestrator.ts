@@ -600,6 +600,9 @@ export class RecallOrchestrator {
         DEFAULT_BOUNDED_RECALL_LIMITS.max_projection_scan_per_lane,
       relation_max_depth: limits.relation_max_depth,
       relation_max_fanout: limits.relation_max_fanout,
+      relation_max_starts:
+        limits.relation_max_starts ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.relation_max_starts,
       start_revision_ids: startRevisionIds,
     };
   }

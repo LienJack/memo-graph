@@ -34,7 +34,13 @@ export class RelationRepository {
   traverse(input: unknown): RelationTraversalResult {
     const query = RelationTraversalInputSchema.parse(input);
     if (query.max_depth === 0) {
-      return { hits: [], truncated: false };
+      return RelationTraversalResultSchema.parse({
+        hits: [],
+        truncated: false,
+        fanout_observed_count: 0,
+        fanout_retained_count: 0,
+        fanout_truncated_count: 0,
+      });
     }
 
     const visitedNodes = new Set<string>(query.start_revision_ids);
@@ -49,7 +55,8 @@ export class RelationRepository {
       relation_type: RelationRow["relation_type"];
       direction: "outbound" | "inbound";
     }> = [];
-    let truncated = false;
+    let fanoutObservedCount = 0;
+    let fanoutRetainedCount = 0;
 
     for (
       let depth = 1;
@@ -58,15 +65,15 @@ export class RelationRepository {
     ) {
       const next = new Set<string>();
       for (const revisionId of frontier) {
+        const observed = this.#adjacentCount(revisionId, query);
         const rows = this.#adjacent(
           revisionId,
           query,
-          query.max_fanout + 1,
+          query.max_fanout,
         );
-        if (rows.length > query.max_fanout) {
-          truncated = true;
-        }
-        for (const row of rows.slice(0, query.max_fanout)) {
+        fanoutObservedCount += observed;
+        fanoutRetainedCount += rows.length;
+        for (const row of rows) {
           if (visitedRelations.has(row.relation_revision_id)) {
             continue;
           }
@@ -102,10 +109,72 @@ export class RelationRepository {
       frontier = [...next].sort();
     }
 
+    const fanoutTruncatedCount = Math.max(
+      0,
+      fanoutObservedCount - fanoutRetainedCount,
+    );
     return RelationTraversalResultSchema.parse({
       hits,
-      truncated,
+      truncated: fanoutTruncatedCount > 0,
+      fanout_observed_count: fanoutObservedCount,
+      fanout_retained_count: fanoutRetainedCount,
+      fanout_truncated_count: fanoutTruncatedCount,
     });
+  }
+
+  #adjacentCount(
+    revisionId: string,
+    query: ReturnType<typeof RelationTraversalInputSchema.parse>,
+  ): number {
+    const directionClause =
+      query.direction === "outbound"
+        ? `(r.source_revision_id = ?
+             OR (r.direction = 'undirected' AND r.target_revision_id = ?))`
+        : query.direction === "inbound"
+          ? `(r.target_revision_id = ?
+               OR (r.direction = 'undirected' AND r.source_revision_id = ?))`
+          : `(r.source_revision_id = ? OR r.target_revision_id = ?)`;
+    const relationTypeClause =
+      query.relation_types === undefined
+        ? ""
+        : `AND r.relation_type IN (${query.relation_types
+            .map(() => "?")
+            .join(", ")})`;
+    const row = this.#database
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM relation_revisions AS r
+         JOIN relation_objects AS o
+           ON o.relation_id = r.relation_id
+          AND o.current_relation_revision_id = r.relation_revision_id
+         JOIN projection_revisions AS p
+           ON p.projection_revision_id = r.projection_revision_id
+         WHERE r.principal_id = ?
+           AND r.scope_kind = ?
+           AND r.scope_id = ?
+           AND o.lifecycle = 'active'
+           AND r.lifecycle = 'active'
+           AND p.purged_at IS NULL
+           AND r.valid_from <= ?
+           AND (r.valid_to IS NULL OR r.valid_to > ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM projection_invalidations AS i
+             WHERE i.projection_revision_id = r.projection_revision_id
+           )
+           AND ${directionClause}
+           ${relationTypeClause}`,
+      )
+      .get(
+        query.principal_id,
+        query.scope.kind,
+        query.scope.id,
+        query.as_of,
+        query.as_of,
+        revisionId,
+        revisionId,
+        ...(query.relation_types ?? []),
+      ) as { count: number };
+    return row.count;
   }
 
   #adjacent(

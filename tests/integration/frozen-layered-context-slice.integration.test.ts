@@ -16,6 +16,8 @@ import {
 import {
   GovernedResponseSchema,
   canonicalSha256,
+  receiptHashIsValid,
+  type RetrievalReceipt,
 } from "../../packages/contracts/src/index.js";
 import {
   ConsolidationService,
@@ -625,6 +627,100 @@ describe("frozen layered Context runtime", () => {
     expect(JSON.stringify(data.context_slice.lane_telemetry)).not.toContain(
       "Agent memory must remain governed",
     );
+    await storage.close();
+  });
+
+  it("seals relation start and fanout truncation into Context and receipt telemetry", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-context-relation-bounds"),
+    });
+    await seedLayeredProjectionSources(storage, {
+      prefix: "context_relation_bounds",
+    });
+    await drain(storage, "layered_context_relation_bounds_worker");
+    const base = new LayeredLaneRetrievers(storage);
+    const boundedRetriever: RecallLaneRetriever = {
+      retrieve: async (request) => {
+        if (request.lane !== "relation_sqlite") {
+          return base.retrieve(request);
+        }
+        return {
+          candidates: [],
+          exclusions: [],
+          projection_frontier: null,
+          truncated: true,
+          reason_codes: [
+            "RELATION_FANOUT_LIMIT",
+            "RELATION_START_LIMIT",
+          ],
+          bounded_work: [
+            {
+              boundary: "relation_starts",
+              configured_limit: 100,
+              observed_count: 101,
+              retained_count: 100,
+              truncated_count: 1,
+              complete: false,
+              reason_code: "RELATION_START_LIMIT",
+            },
+            {
+              boundary: "relation_fanout",
+              configured_limit: 5,
+              observed_count: 6,
+              retained_count: 5,
+              truncated_count: 1,
+              complete: false,
+              reason_code: "RELATION_FANOUT_LIMIT",
+            },
+          ],
+        };
+      },
+    };
+    const result = await runtime(storage, {
+      allowedLanes: ["recent_l1", "relation_sqlite"],
+      laneRetriever: boundedRetriever,
+    }).memoryContextCompile(
+      compileRequest("request_layered_context_relation_bounds"),
+    );
+    expect(result.status).toBe("DEGRADED");
+    if (result.status !== "DEGRADED") {
+      throw new Error("truncated relation work must degrade Context");
+    }
+    const data = result.data as {
+      context_slice: {
+        lane_telemetry: Array<{
+          lane: string;
+          status: string;
+          reason_codes: string[];
+          bounded_work?: unknown[];
+        }>;
+      };
+      receipt: RetrievalReceipt;
+    };
+    const relationTelemetry = data.context_slice.lane_telemetry.find(
+      (item) => item.lane === "relation_sqlite",
+    );
+    expect(relationTelemetry).toMatchObject({
+      status: "degraded",
+      reason_codes: [
+        "RELATION_FANOUT_LIMIT",
+        "RELATION_START_LIMIT",
+      ],
+      bounded_work: [
+        expect.objectContaining({
+          boundary: "relation_fanout",
+          truncated_count: 1,
+        }),
+        expect.objectContaining({
+          boundary: "relation_starts",
+          truncated_count: 1,
+        }),
+      ],
+    });
+    expect(data.receipt.lane_telemetry).toEqual(
+      data.context_slice.lane_telemetry,
+    );
+    expect(receiptHashIsValid(data.receipt)).toBe(true);
     await storage.close();
   });
 
