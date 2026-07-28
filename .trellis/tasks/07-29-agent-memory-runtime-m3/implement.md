@@ -427,25 +427,25 @@ pnpm typecheck
 
 **Checklist:**
 
-- [ ] Use the verified U7 commit as the frozen candidate implementation before
+- [x] Use the verified U7 commit as the frozen candidate implementation before
       running final evidence; U8 changes evidence/docs only.
-- [ ] Record Node, pnpm, platform, dependency lock, schema, transform,
+- [x] Record Node, pnpm, platform, dependency lock, schema, transform,
       projection, compiler, and fixture hashes.
-- [ ] Run Small and Expected profiles with declared warm-up/sample counts.
-- [ ] Measure compiler p50/p95, total request p50/p95, disk growth, projection
+- [x] Run Small and Expected profiles with declared warm-up/sample counts.
+- [x] Measure compiler p50/p95, total request p50/p95, disk growth, projection
       rebuild cost, and token-budget adherence.
-- [ ] Verify Small uses 10k evidence, 1k L1, 250 projections, and 1k relations.
-- [ ] Verify Expected uses 250k evidence, 25k L1, 6k projections, and 50k
+- [x] Verify Small uses 10k evidence, 1k L1, 250 projections, and 1k relations.
+- [x] Verify Expected uses 250k evidence, 25k L1, 6k projections, and 50k
       relations.
-- [ ] Verify compiler p50 is at most 100 ms and p95 at most 400 ms.
-- [ ] Run the full contract, storage, governance, recovery, security,
+- [x] Verify compiler p50 is at most 100 ms and p95 at most 400 ms.
+- [x] Run the full contract, storage, governance, recovery, security,
       integration, compiler, and replay suites.
-- [ ] Run lint, typecheck, build, frozen install, and dependency audit.
-- [ ] Report every failed and quarantined case and all unresolved debt.
-- [ ] Issue `GO` only if Arm C has zero governance/budget/rebuild violations,
+- [x] Run lint, typecheck, build, frozen install, and dependency audit.
+- [x] Report every failed and quarantined case and all unresolved debt.
+- [x] Issue `GO` only if Arm C has zero governance/budget/rebuild violations,
       no aggregate/partition regression, and at least one strict designated
       improvement.
-- [ ] Otherwise issue `HOLD` and preserve the accepted lower-layer fallback.
+- [x] Otherwise issue `HOLD` and preserve the accepted lower-layer fallback.
 
 **Final verification:**
 
@@ -460,21 +460,21 @@ pnpm audit --audit-level=high
 
 **Completion evidence:**
 
-- [ ] Reports are hash-bound to the tested implementation commit.
-- [ ] G3 decision is explicit, reproducible, and does not overclaim production
+- [x] Reports are hash-bound to the tested implementation commit.
+- [x] G3 decision is explicit, reproducible, and does not overclaim production
       readiness.
-- [ ] Create the U8 commit.
+- [x] Create the U8 commit.
 
 ## 11. G3 exit and closure
 
 M3 is complete when:
 
-- [ ] U1–U8 commits exist and each focused verification passed.
-- [ ] The final full validation suite passes on Node 24.18.0.
-- [ ] G3 is explicitly `GO` or `HOLD`.
-- [ ] A `GO` authorizes M4A, M4B, and M5 as independent child tasks; it does
+- [x] U1–U8 commits exist and each focused verification passed.
+- [x] The final full validation suite passes on Node 24.18.0.
+- [x] G3 is explicitly `GO` or `HOLD`.
+- [x] A `GO` authorizes M4A, M4B, and M5 as independent child tasks; it does
       not adopt graph, vector, or learning automatically.
-- [ ] A `HOLD` preserves the M2 fallback and records the failed invariant or
+- [x] A `HOLD` preserves the M2 fallback and records the failed invariant or
       insufficient value.
 - [ ] Trellis check and finish workflows pass.
 - [ ] The child task is archived with the tested commit and journal evidence.

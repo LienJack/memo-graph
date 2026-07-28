@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G3",
+  "decision": "GO",
+  "recorded_at": "2026-07-28T21:24:00Z",
+  "tested_implementation": {
+    "commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
+    "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+    "executable_surface_frozen_after_commit": true
+  },
+  "accepted_baseline": {
+    "commit": "31959fc841ddc95f7570e5e0f2028a1e6b00243e",
+    "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+    "isolated_checkout_verification": "PASS"
+  },
+  "environment": {
+    "node": "v24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "macOS 15.5 (24F74)",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "versions": {
+    "storage_schema": "0010",
+    "projection_contract_schema": "1.0.0",
+    "projection_transform": "deterministic-layered-consolidation@1.0.0",
+    "context_compiler": "2.0.0",
+    "context_policy": "2.0.0",
+    "g3_protocol": "1.0.0",
+    "g3_overlay": "1.0.0",
+    "base_corpus": "1.0.0"
+  },
+  "frozen_hashes": {
+    "base_manifest_raw": "sha256:8827b6fd6f1db6df8643faa46cdd5ce1008c10cca092fada555e3896cd7804e3",
+    "base_manifest_canonical": "sha256:4c3b2a658b6f93ac09374d376edcac6f299b4628e891362c5568166d5561de0b",
+    "g3_manifest_raw": "sha256:674f73a1879795bf5b9a38b291c107782228984552ddee2b7460bbe083c5ecb2",
+    "g3_manifest_canonical": "sha256:94c74e54ab560e9b80acf282802a5b485ac685c1cb3fe9c292ed648daffaa813",
+    "projection_contract_source": "sha256:728bf9d10e9a7503eb0c6d2c7da172bd2519ce08aff60a58b613128b225a1b24",
+    "storage_migrations_source": "sha256:6825624d8d9df118857a21cdb1c3e515e779e51685833c3b4a336e1af5e323b2",
+    "projection_policy_source": "sha256:06f9fc5d04b7f719a87d1dee50f347bad90c5aec74a1342b4cf88152434d9598",
+    "context_compiler_source": "sha256:b72331cf88686d2cd1efe79616ed090e726a68697e2e4f142edcbc16295df065",
+    "g3_benchmark_source": "sha256:62414dcb87cab085ef7a8f2dd4d02493f8807de476e9a4fb3fd1085628bc6d9a"
+  },
+  "evidence_reports": {
+    "replay": {
+      "path": "docs/evaluations/g3-replay-report.json",
+      "raw_hash": "sha256:5cb4117d8135b2307199c4398a5a67fe8f92c9164977668520311af796934e51",
+      "canonical_hash": "sha256:a12e041a31b5028e946e1d2af0af3712c80e9de22d322dd0c8d874dada2f19e1"
+    },
+    "performance": {
+      "path": "docs/evaluations/g3-performance-report.json",
+      "raw_hash": "sha256:017912ce11b68f1a7591467e722ba44b0caf97dff3486659eff120ad23aad8b7",
+      "canonical_hash": "sha256:4812cba7421eab5d3425be312d1c75e234f3ac1daee4271c02e111199272fe1f"
+    }
+  },
+  "verification": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm test:g3",
+      "result": "PASS",
+      "detail": "5 targeted files; 10 passed and 1 environment-gated check, followed by 4 accepted-M2 isolated-checkout tests"
+    },
+    {
+      "command": "pnpm test",
+      "result": "PASS",
+      "detail": "44 files; 194 passed and 1 environment-gated check separately exercised by pnpm test:g3:accepted"
+    },
+    {
+      "command": "pnpm lint",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm typecheck",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm build",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm audit --audit-level=high",
+      "result": "PASS",
+      "detail": "No known vulnerabilities; one transient ECONNRESET retry warning recovered"
+    }
+  ],
+  "scope": {
+    "physical_resource_profile": "Small",
+    "compiler_profiles": [
+      "Small",
+      "Expected"
+    ],
+    "production_readiness_claimed": false,
+    "graph_backend_adopted": false,
+    "vector_backend_adopted": false,
+    "learning_release_adopted": false
+  }
+}
