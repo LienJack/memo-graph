@@ -1,0 +1,37 @@
+{
+  "id": "agent-memory-runtime-m4a",
+  "name": "agent-memory-runtime-m4a",
+  "title": "Agent Memory Runtime M4A graph adoption decision",
+  "description": "Evaluate one currently maintained local graph projection against the accepted G3R SQLite adjacency baseline and record a hash-bound G4A GO or NO-GO without changing SQLite authority.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "M4A only: decide whether a maintained local graph projection adds material structural retrieval value over the accepted SQLite adjacency baseline while preserving authority, lineage, purge, rebuild, fallback, privacy, latency, disk, and local operations; exclude vector, learning, and M6",
+  "package": null,
+  "priority": "P0",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-29",
+  "completedAt": null,
+  "branch": "codex/agent-memory-runtime-m4a",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [
+    "docs/brainstorms/2026-07-29-m4a-local-graph-adoption-requirements.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m4a/prd.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m4a/research/research-handoff.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m4a/design.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m4a/implement.md",
+    "docs/plans/2026-07-29-003-feat-local-graph-adoption-plan.md"
+  ],
+  "notes": "Run ce-brainstorm, research-to-article, ce-plan, and ce-work in order under Trellis. Commit every completed unit separately. GO and NO-GO are both complete G4A outcomes.",
+  "meta": {
+    "milestone": "M4A",
+    "gate": "G4A",
+    "implementation_authorized": "true"
+  }
+}
