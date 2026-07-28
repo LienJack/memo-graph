@@ -272,29 +272,29 @@ disabled to return to M2 behavior.
 
 **Test-first checklist:**
 
-- [ ] Reproduce a valid projection whose source revision is beyond the first
+- [x] Reproduce a valid projection whose source revision is beyond the first
       1,000 eligible L1 rows.
-- [ ] Prove exact-ID validation preserves that projection.
-- [ ] Add one test per stable missing/ineligible reason.
-- [ ] Prove correction, usage block, revoke, tombstone, and purge exclude the
+- [x] Prove exact-ID validation preserves that projection.
+- [x] Add one test per stable missing/ineligible reason.
+- [x] Prove correction, usage block, revoke, tombstone, and purge exclude the
       exact descendant on the next recall.
-- [ ] Prove another scope or unrelated descendant remains eligible.
-- [ ] Prove mixed L1/L2 source IDs are validated by their canonical table.
-- [ ] Prove all internal SQL chunks observe one ledger/tombstone snapshot.
-- [ ] Prove over-limit or incomplete batch degrades affected projection
+- [x] Prove another scope or unrelated descendant remains eligible.
+- [x] Prove mixed L1/L2 source IDs are validated by their canonical table.
+- [x] Prove all internal SQL chunks observe one ledger/tombstone snapshot.
+- [x] Prove over-limit or incomplete batch degrades affected projection
       lanes and preserves `recent_l1`.
 
 **Implementation checklist:**
 
-- [ ] Add one-snapshot exact source validation repository method.
-- [ ] Chunk SQL placeholders internally without leaving the read transaction.
-- [ ] Return exactly one ordered typed result per requested revision ID.
-- [ ] Replace `listProjectionSources(limit: 1_000)` in online recall.
-- [ ] Remove prefix-derived `sourceFrontierHash`.
-- [ ] Compare every persisted source envelope to its canonical result.
-- [ ] Use scope-state frontier for freshness and exact batch only for lineage.
-- [ ] Attribute exact-source exclusions and batch degradation to each lane.
-- [ ] Add `source_lineage_batch` bounded-work telemetry.
+- [x] Add one-snapshot exact source validation repository method.
+- [x] Chunk SQL placeholders internally without leaving the read transaction.
+- [x] Return exactly one ordered typed result per requested revision ID.
+- [x] Replace `listProjectionSources(limit: 1_000)` in online recall.
+- [x] Remove prefix-derived `sourceFrontierHash`.
+- [x] Compare every persisted source envelope to its canonical result.
+- [x] Use scope-state frontier for freshness and exact batch only for lineage.
+- [x] Attribute exact-source exclusions and batch degradation to each lane.
+- [x] Add `source_lineage_batch` bounded-work telemetry.
 
 **Focused verification:**
 
@@ -309,9 +309,9 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] No online correctness decision depends on a scope enumeration prefix.
-- [ ] Every returned projection has exact canonical lineage evidence.
-- [ ] Create the U4 commit.
+- [x] No online correctness decision depends on a scope enumeration prefix.
+- [x] Every returned projection has exact canonical lineage evidence.
+- [x] Create the U4 commit.
 
 **Rollback point:** disable projection lanes; M2 L1 recall remains available.
 

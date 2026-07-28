@@ -63,6 +63,7 @@ import {
   ProjectionPageQuerySchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
+  ProjectionSourceBatchQuerySchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   PurgeRunInputSchema,
@@ -98,6 +99,7 @@ import {
   type ProjectionPageResult,
   type ProjectionQueryResult,
   type ProjectionScopeStorageFrontier,
+  type ProjectionSourceBatchResult,
   type ProjectionSourceListResult,
   type RecordProjectionRebuildResult,
   type RelationTraversalResult,
@@ -378,6 +380,12 @@ export class StorageDatabase {
 
   queryProjectionPage(input: unknown): ProjectionPageResult {
     return this.#projections.page(ProjectionPageQuerySchema.parse(input));
+  }
+
+  validateProjectionSources(input: unknown): ProjectionSourceBatchResult {
+    return this.#governedMemory.exactProjectionSources(
+      ProjectionSourceBatchQuerySchema.parse(input),
+    );
   }
 
   listProjectionSources(input: unknown): ProjectionSourceListResult {

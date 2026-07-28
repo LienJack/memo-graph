@@ -9,16 +9,18 @@ import {
   RecallLaneSchema,
   ScopeSchema,
   canonicalJson,
-  canonicalSha256,
   computeEffectiveLaneConfiguration,
   scopeKey,
+  type ProjectionSource,
   type ProjectionRevision,
   type RecallLane,
 } from "@memo-graph/contracts";
 import {
   ProjectionStorageFrontierSchema,
   StorageError,
-  type ProjectionSourceListResult,
+  type MemoryEligibilityResult,
+  type ProjectionScopeStorageFrontier,
+  type ProjectionSourceBatchItem,
   type SqliteStorageClient,
 } from "@memo-graph/storage-sqlite";
 import { z } from "zod";
@@ -141,8 +143,14 @@ function sameStrings(left: readonly string[], right: readonly string[]) {
 }
 
 function exactMemoryMatch(
-  left: ProjectionSourceListResult["items"][number],
-  right: ProjectionSourceListResult["items"][number],
+  left: Extract<
+    MemoryEligibilityResult,
+    { eligible: true }
+  >["item"],
+  right: Extract<
+    MemoryEligibilityResult,
+    { eligible: true }
+  >["item"],
 ): boolean {
   return (
     left.memory_id === right.memory_id &&
@@ -158,32 +166,19 @@ function exactMemoryMatch(
 
 function exactProjectionSourceMatch(
   source: ProjectionRevision["source_revisions"][number],
-  canonical: ProjectionSourceListResult["items"][number],
+  canonical: ProjectionSource,
 ): boolean {
   return (
     source.memory_id === canonical.memory_id &&
     source.revision_id === canonical.revision_id &&
+    source.abstraction === canonical.abstraction &&
+    source.principal_id === canonical.principal_id &&
     source.authority === canonical.authority &&
     source.sensitivity === canonical.sensitivity &&
     source.content_hash === canonical.content_hash &&
     scopeKey(source.scope) === scopeKey(canonical.scope) &&
     canonicalJson(source.validity) === canonicalJson(canonical.validity) &&
     sameStrings(source.evidence_ids, canonical.evidence_ids)
-  );
-}
-
-function sourceFrontierHash(
-  sources: ProjectionSourceListResult["items"],
-): `sha256:${string}` {
-  return canonicalSha256(
-    [...sources]
-      .map((source) => ({
-        revision_id: source.revision_id,
-        content_hash: source.content_hash,
-      }))
-      .sort((left, right) =>
-        left.revision_id.localeCompare(right.revision_id)
-      ),
   );
 }
 
@@ -263,15 +258,120 @@ export class RecallOrchestrator {
       );
     }
 
-    const canonical = await this.#storage.listProjectionSources({
-      principal_id: request.principal_id,
-      scope: request.scope,
-      as_of: request.as_of,
-      include_sensitive: request.include_sensitive,
-      context_scope: request.scope,
-      limit: 1_000,
-    });
-    const health = await this.#storage.health();
+    const rawMemoryCandidates = [...laneStates.values()].flatMap((state) =>
+      state.result?.candidates.filter(
+        (candidate) => candidate.kind === "memory",
+      ) ?? []
+    );
+    const canonicalMemoryResults = await Promise.all(
+      rawMemoryCandidates.map((candidate) =>
+        this.#storage.checkMemoryEligibility({
+          memory_id: candidate.memory.memory_id,
+          revision_id: candidate.memory.revision_id,
+          principal_id: request.principal_id,
+          scope: request.scope,
+          as_of: request.as_of,
+          include_sensitive: request.include_sensitive,
+          context_scope: request.scope,
+        })
+      ),
+    );
+    const canonicalMemoryByRevision = new Map(
+      canonicalMemoryResults.flatMap((result) =>
+        result.eligible
+          ? [[result.item.revision_id, result.item] as const]
+          : []
+      ),
+    );
+    const projectionSourceIdsByLane = new Map<RecallLane, string[]>();
+    for (const lane of effective.enabled_lanes) {
+      const state = laneStates.get(lane);
+      const revisionIds = [
+        ...new Set(
+          state?.result?.candidates.flatMap((candidate) =>
+            candidate.kind === "projection"
+              ? candidate.projection.source_revisions.map(
+                  (source) => source.revision_id,
+                )
+              : []
+          ) ?? [],
+        ),
+      ].sort();
+      if (revisionIds.length > 0) {
+        projectionSourceIdsByLane.set(lane, revisionIds);
+      }
+    }
+    const projectionSourceIds = [
+      ...new Set([...projectionSourceIdsByLane.values()].flat()),
+    ].sort();
+    const sourceBatchLimit =
+      effective.limits.max_source_revisions_per_batch ??
+      DEFAULT_BOUNDED_RECALL_LIMITS.max_source_revisions_per_batch;
+    const lineageBatchLimited =
+      projectionSourceIds.length > sourceBatchLimit;
+    const exactSourceBatch =
+      projectionSourceIds.length === 0 || lineageBatchLimited
+        ? null
+        : await this.#storage.validateProjectionSources({
+            principal_id: request.principal_id,
+            scope: request.scope,
+            as_of: request.as_of,
+            include_sensitive: request.include_sensitive,
+            context_scope: request.scope,
+            revision_ids: projectionSourceIds,
+          });
+    const [health, scopeFrontier] = await Promise.all([
+      this.#storage.health(),
+      this.#storage.projectionScopeFrontier({
+        principal_id: request.principal_id,
+        scope: request.scope,
+      }),
+    ]);
+    const sourceSnapshotMismatch =
+      exactSourceBatch !== null &&
+      scopeFrontier.status === "ready" &&
+      (exactSourceBatch.ledger_epoch !== scopeFrontier.ledger_epoch ||
+        exactSourceBatch.tombstone_epoch !==
+          scopeFrontier.tombstone_epoch);
+    for (const [lane, revisionIds] of projectionSourceIdsByLane) {
+      const state = laneStates.get(lane);
+      if (state?.result === null || state?.result === undefined) {
+        continue;
+      }
+      const incomplete = lineageBatchLimited || sourceSnapshotMismatch;
+      const reasonCode = lineageBatchLimited
+        ? "SOURCE_LINEAGE_BATCH_LIMIT"
+        : sourceSnapshotMismatch
+          ? "SOURCE_FRONTIER_EPOCH_MISMATCH"
+          : null;
+      laneStates.set(lane, {
+        ...state,
+        result: {
+          ...state.result,
+          truncated: state.result.truncated || incomplete,
+          reason_codes: [
+            ...new Set([
+              ...state.result.reason_codes,
+              ...(reasonCode === null ? [] : [reasonCode]),
+            ]),
+          ].sort(),
+          bounded_work: [
+            ...(state.result.bounded_work ?? []),
+            {
+              boundary: "source_lineage_batch",
+              configured_limit: sourceBatchLimit,
+              observed_count: revisionIds.length,
+              retained_count: incomplete ? 0 : revisionIds.length,
+              truncated_count: incomplete ? revisionIds.length : 0,
+              complete: !incomplete,
+              ...(reasonCode === null
+                ? {}
+                : { reason_code: reasonCode }),
+            },
+          ],
+        },
+      });
+    }
     if (
       health.layered_projection_state === "rebuilding" ||
       health.layered_projection_state === "unavailable"
@@ -287,10 +387,12 @@ export class RecallOrchestrator {
         });
       }
     }
-    const canonicalByRevision = new Map(
-      canonical.items.map((item) => [item.revision_id, item]),
+    const exactSourceByRevision = new Map(
+      exactSourceBatch?.results.map((result) => [
+        result.revision_id,
+        result,
+      ]) ?? [],
     );
-    const frozenSourceHash = sourceFrontierHash(canonical.items);
     const candidates: RevalidatedRecallCandidate[] = [];
     const exclusions: LayeredRecallExclusion[] = [];
     const byLaneCandidates = new Map<RecallLane, number>();
@@ -316,8 +418,11 @@ export class RecallOrchestrator {
         const revalidated = this.#revalidate({
           raw,
           request,
-          canonicalByRevision,
-          frozenSourceHash,
+          canonicalMemoryByRevision,
+          exactSourceByRevision,
+          scopeFrontier,
+          lineageBatchLimited,
+          sourceSnapshotMismatch,
         });
         if ("reason_code" in revalidated) {
           exclusions.push(revalidated);
@@ -388,10 +493,12 @@ export class RecallOrchestrator {
       const candidateCount = byLaneCandidates.get(lane) ?? 0;
       const eligibleCount = byLaneEligible.get(lane) ?? 0;
       const reasonCodes = [
-        ...(state?.result?.reason_codes ?? []),
-        ...new Set(laneExclusions.map(
-          (exclusion) => exclusion.reason_code,
-        )),
+        ...new Set([
+          ...(state?.result?.reason_codes ?? []),
+          ...laneExclusions.map(
+            (exclusion) => exclusion.reason_code,
+          ),
+        ]),
       ].sort();
       const stale =
         eligibleCount === 0 &&
@@ -517,15 +624,23 @@ export class RecallOrchestrator {
   #revalidate(options: {
     raw: RawLaneCandidate;
     request: z.output<typeof LayeredRecallInputSchema>;
-    canonicalByRevision: Map<
+    canonicalMemoryByRevision: Map<
       string,
-      ProjectionSourceListResult["items"][number]
+      Extract<
+        MemoryEligibilityResult,
+        { eligible: true }
+      >["item"]
     >;
-    frozenSourceHash: `sha256:${string}`;
+    exactSourceByRevision: Map<string, ProjectionSourceBatchItem>;
+    scopeFrontier: ProjectionScopeStorageFrontier;
+    lineageBatchLimited: boolean;
+    sourceSnapshotMismatch: boolean;
   }): RevalidatedRecallCandidate | LayeredRecallExclusion {
-    const { raw, request, canonicalByRevision } = options;
+    const { raw, request } = options;
     if (raw.kind === "memory") {
-      const canonical = canonicalByRevision.get(raw.memory.revision_id);
+      const canonical = options.canonicalMemoryByRevision.get(
+        raw.memory.revision_id,
+      );
       if (
         canonical === undefined ||
         !exactMemoryMatch(raw.memory, canonical)
@@ -558,6 +673,12 @@ export class RecallOrchestrator {
         reason_code: reasonCode,
         score: raw.rank,
       });
+    if (options.lineageBatchLimited) {
+      return exclusion("SOURCE_LINEAGE_BATCH_LIMIT");
+    }
+    if (options.sourceSnapshotMismatch) {
+      return exclusion("SOURCE_FRONTIER_EPOCH_MISMATCH");
+    }
     if (
       projection.principal_id !== request.principal_id ||
       scopeKey(projection.scope) !== scopeKey(request.scope)
@@ -565,17 +686,36 @@ export class RecallOrchestrator {
       return exclusion("PROJECTION_SCOPE_MISMATCH");
     }
     if (
+      options.scopeFrontier.status !== "ready" ||
+      projection.frontier.ledger_epoch !==
+        options.scopeFrontier.ledger_epoch ||
+      projection.frontier.tombstone_epoch !==
+        options.scopeFrontier.tombstone_epoch ||
+      projection.frontier.projection_epoch !==
+        options.scopeFrontier.projection_epoch ||
       projection.frontier.source_frontier_hash !==
-      options.frozenSourceHash
+        options.scopeFrontier.source_frontier_hash ||
+      projection.frontier.projection_frontier_hash !==
+        options.scopeFrontier.projection_frontier_hash ||
+      !options.scopeFrontier.transform_versions.some(
+        (transform) =>
+          transform.name === projection.transform.name &&
+          transform.version === projection.transform.version,
+      )
     ) {
       return exclusion("PROJECTION_STALE_FRONTIER");
     }
     for (const source of projection.source_revisions) {
-      const canonical = canonicalByRevision.get(source.revision_id);
+      const canonical = options.exactSourceByRevision.get(
+        source.revision_id,
+      );
       if (canonical === undefined) {
-        return exclusion("PROJECTION_SOURCE_INELIGIBLE");
+        return exclusion("SOURCE_MISSING");
       }
-      if (!exactProjectionSourceMatch(source, canonical)) {
+      if (canonical.status === "ineligible") {
+        return exclusion(canonical.reason_code);
+      }
+      if (!exactProjectionSourceMatch(source, canonical.source)) {
         return exclusion("PROJECTION_SOURCE_MISMATCH");
       }
     }

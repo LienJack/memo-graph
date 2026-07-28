@@ -60,6 +60,8 @@ import {
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
   ProjectionScopeStorageFrontierSchema,
+  ProjectionSourceBatchQuerySchema,
+  ProjectionSourceBatchResultSchema,
   ProjectionSourceListInputSchema,
   ProjectionSourceListResultSchema,
   ProjectionRebuildReceiptSchema,
@@ -119,6 +121,8 @@ import {
   type ProjectionQueryResult,
   type ProjectionScopeFrontierInput,
   type ProjectionScopeStorageFrontier,
+  type ProjectionSourceBatchQuery,
+  type ProjectionSourceBatchResult,
   type ProjectionSourceListInput,
   type ProjectionSourceListResult,
   type ProjectionRebuildReceipt,
@@ -277,6 +281,17 @@ export class SqliteStorageClient {
       "query_projection_page",
       query,
       ProjectionPageResultSchema,
+    );
+  }
+
+  validateProjectionSources(
+    input: ProjectionSourceBatchQuery,
+  ): Promise<ProjectionSourceBatchResult> {
+    const query = ProjectionSourceBatchQuerySchema.parse(input);
+    return this.#request(
+      "validate_projection_sources",
+      query,
+      ProjectionSourceBatchResultSchema,
     );
   }
 

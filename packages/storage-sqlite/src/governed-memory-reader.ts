@@ -2,11 +2,17 @@ import type Database from "better-sqlite3";
 
 import {
   GovernedSearchItemSchema,
+  ProjectionRevisionSchema,
+  canonicalJson,
+  type ProjectionSource,
   type Scope,
 } from "@memo-graph/contracts";
 
 import {
   MemoryEligibilityInputSchema,
+  ProjectionSourceBatchItemSchema,
+  ProjectionSourceBatchQuerySchema,
+  ProjectionSourceBatchResultSchema,
   type EligibilityReasonCode,
   type GovernedMemorySearchResult,
   type GovernedMemoryLookupResult,
@@ -15,6 +21,10 @@ import {
   type ParsedGovernedMemoryLookupInput,
   type ParsedMemoryEligibilityInput,
   type ParsedProjectionSourceListInput,
+  type ParsedProjectionSourceBatchQuery,
+  type ProjectionSourceBatchItem,
+  type ProjectionSourceBatchResult,
+  type ProjectionSourceEligibilityReason,
   type ProjectionSourceListResult,
 } from "./protocol.js";
 import { StorageError } from "./errors.js";
@@ -65,6 +75,80 @@ type RawSearchHit = {
   rank: number;
   lane: "memory_fts" | "sqlite_canonical";
 };
+
+type ProjectionEligibilityRow = {
+  projection_id: string;
+  revision_json: string;
+  revision_lifecycle: string;
+  purged_at: string | null;
+  object_lifecycle: string;
+  current_revision_id: string | null;
+  invalidated: number;
+};
+
+type ExactSourceRows = {
+  preloaded_revision_ids: Set<string>;
+  memory_by_revision: Map<string, string>;
+  projection_by_revision: Map<string, ProjectionEligibilityRow>;
+};
+
+const EXACT_SOURCE_SQL_CHUNK = 500;
+const PROJECTION_ELIGIBILITY_SELECT = `
+  SELECT r.projection_revision_id, r.projection_id, r.revision_json,
+         r.lifecycle AS revision_lifecycle, r.purged_at,
+         o.lifecycle AS object_lifecycle, o.current_revision_id,
+         EXISTS (
+           SELECT 1 FROM projection_invalidations AS i
+           WHERE i.projection_revision_id = r.projection_revision_id
+         ) AS invalidated
+  FROM projection_revisions AS r
+  JOIN projection_objects AS o
+    ON o.projection_id = r.projection_id`;
+
+export function projectionSourceReason(
+  reason: EligibilityReasonCode,
+): ProjectionSourceEligibilityReason {
+  return (
+    {
+      NOT_FOUND: "SOURCE_MISSING",
+      WRONG_PRINCIPAL: "SOURCE_PRINCIPAL_MISMATCH",
+      WRONG_SCOPE: "SOURCE_SCOPE_MISMATCH",
+      SUPERSEDED: "SOURCE_SUPERSEDED",
+      CANDIDATE_ONLY: "SOURCE_INACTIVE",
+      QUARANTINED: "SOURCE_INACTIVE",
+      REVOKED: "SOURCE_REVOKED",
+      TOMBSTONED: "SOURCE_TOMBSTONED",
+      NO_LIVE_EVIDENCE: "SOURCE_NO_LIVE_EVIDENCE",
+      NO_ACTIVATION: "SOURCE_NO_ACTIVATION",
+      NOT_YET_VALID: "SOURCE_NOT_YET_VALID",
+      EXPIRED: "SOURCE_EXPIRED",
+      OPEN_CONFLICT: "SOURCE_CONFLICT",
+      USAGE_BLOCKED: "SOURCE_USAGE_BLOCKED",
+      SENSITIVE_EXCLUDED: "SOURCE_SENSITIVE_EXCLUDED",
+      SECRET_EXCLUDED: "SOURCE_SECRET_EXCLUDED",
+      CONTENT_NOT_INLINE: "SOURCE_INACTIVE",
+      CORRUPT_LINEAGE: "SOURCE_INVALIDATED",
+    } as const
+  )[reason];
+}
+
+function ineligible(
+  revisionId: string,
+  reasonCode: ProjectionSourceEligibilityReason,
+): ProjectionSourceBatchItem {
+  return ProjectionSourceBatchItemSchema.parse({
+    revision_id: revisionId,
+    status: "ineligible",
+    reason_code: reasonCode,
+  });
+}
+
+function sameProjectionSource(
+  left: ProjectionSource,
+  right: ProjectionSource,
+): boolean {
+  return canonicalJson(left) === canonicalJson(right);
+}
 
 function terms(query: string): string[] {
   return (query.toLocaleLowerCase().match(/[\p{L}\p{N}_-]+/gu) ?? []).slice(
@@ -197,6 +281,48 @@ export class GovernedMemoryReader {
       tombstone_epoch: tombstoneEpoch,
       items,
     };
+  }
+
+  exactProjectionSources(input: unknown): ProjectionSourceBatchResult {
+    const query = ProjectionSourceBatchQuerySchema.parse(input);
+    return this.#database
+      .transaction(() => {
+        const sourceRows = this.#preloadExactSourceRows(
+          query.revision_ids,
+        );
+        const ledgerEpoch = (
+          this.#database
+            .prepare(
+              "SELECT ledger_epoch FROM ledger_state WHERE singleton = 1",
+            )
+            .get() as { ledger_epoch: number }
+        ).ledger_epoch;
+        const tombstoneEpoch = (
+          this.#database
+            .prepare(
+              `SELECT tombstone_epoch
+               FROM tombstone_state WHERE singleton = 1`,
+            )
+            .get() as { tombstone_epoch: number }
+        ).tombstone_epoch;
+        const results = query.revision_ids.map((revisionId) =>
+          this.#exactProjectionSource(
+            revisionId,
+            query,
+            new Set(),
+            sourceRows,
+          )
+        );
+        return ProjectionSourceBatchResultSchema.parse({
+          ledger_epoch: ledgerEpoch,
+          tombstone_epoch: tombstoneEpoch,
+          requested_revision_ids: query.revision_ids,
+          requested_count: query.revision_ids.length,
+          complete: true,
+          results,
+        });
+      })
+      .deferred();
   }
 
   checkEligibility(
@@ -340,6 +466,233 @@ export class GovernedMemoryReader {
       reason_codes: ["CANONICAL_CURRENT", "ACTIVATED", "LIVE_EVIDENCE"],
     });
     return { eligible: true, item };
+  }
+
+  #exactProjectionSource(
+    revisionId: string,
+    query: ParsedProjectionSourceBatchQuery,
+    seen: Set<string>,
+    sourceRows: ExactSourceRows,
+  ): ProjectionSourceBatchItem {
+    if (seen.has(revisionId)) {
+      return ineligible(revisionId, "SOURCE_INVALIDATED");
+    }
+    seen.add(revisionId);
+    const preloaded = sourceRows.preloaded_revision_ids.has(revisionId);
+    const memoryId =
+      sourceRows.memory_by_revision.get(revisionId) ??
+      (preloaded
+        ? undefined
+        : (this.#database
+            .prepare(
+              `SELECT memory_id
+               FROM memory_revisions
+               WHERE revision_id = ?`,
+            )
+            .get(revisionId) as { memory_id: string } | undefined)
+            ?.memory_id);
+    if (memoryId !== undefined) {
+      const result = this.checkEligibility(
+        MemoryEligibilityInputSchema.parse({
+          memory_id: memoryId,
+          revision_id: revisionId,
+          principal_id: query.principal_id,
+          scope: query.scope,
+          as_of: query.as_of,
+          include_sensitive: query.include_sensitive,
+          context_scope: query.context_scope,
+        }),
+      );
+      if (!result.eligible) {
+        return ineligible(
+          revisionId,
+          projectionSourceReason(result.reason_code),
+        );
+      }
+      return ProjectionSourceBatchItemSchema.parse({
+        revision_id: revisionId,
+        status: "eligible",
+        source: {
+          memory_id: result.item.memory_id,
+          revision_id: result.item.revision_id,
+          abstraction: "l1_memory",
+          principal_id: query.principal_id,
+          scope: result.item.scope,
+          authority: result.item.authority,
+          sensitivity: result.item.sensitivity,
+          validity: result.item.validity,
+          content_hash: result.item.content_hash,
+          evidence_ids: result.item.evidence_ids,
+        },
+      });
+    }
+
+    const row =
+      sourceRows.projection_by_revision.get(revisionId) ??
+      (preloaded
+        ? undefined
+        : this.#database
+            .prepare(
+              `${PROJECTION_ELIGIBILITY_SELECT}
+               WHERE r.projection_revision_id = ?`,
+            )
+            .get(revisionId) as ProjectionEligibilityRow | undefined);
+    if (row === undefined) {
+      const tombstone = this.#database
+        .prepare(
+          `SELECT 1 FROM memory_tombstones WHERE revision_id = ?`,
+        )
+        .get(revisionId);
+      return ineligible(
+        revisionId,
+        tombstone === undefined
+          ? "SOURCE_MISSING"
+          : "SOURCE_TOMBSTONED",
+      );
+    }
+    if (
+      row.purged_at !== null ||
+      row.revision_lifecycle === "purged" ||
+      row.object_lifecycle === "purged"
+    ) {
+      return ineligible(revisionId, "SOURCE_PURGED");
+    }
+    if (
+      row.revision_lifecycle === "revoked" ||
+      row.object_lifecycle === "revoked"
+    ) {
+      return ineligible(revisionId, "SOURCE_REVOKED");
+    }
+    if (row.current_revision_id !== revisionId) {
+      return ineligible(revisionId, "SOURCE_SUPERSEDED");
+    }
+    if (
+      row.revision_lifecycle !== "active" ||
+      row.object_lifecycle !== "active"
+    ) {
+      return ineligible(revisionId, "SOURCE_INACTIVE");
+    }
+    if (row.invalidated !== 0) {
+      return ineligible(revisionId, "SOURCE_INVALIDATED");
+    }
+    let projection: ReturnType<typeof ProjectionRevisionSchema.parse>;
+    try {
+      projection = ProjectionRevisionSchema.parse(
+        JSON.parse(row.revision_json) as unknown,
+      );
+    } catch {
+      return ineligible(revisionId, "SOURCE_INVALIDATED");
+    }
+    if (projection.principal_id !== query.principal_id) {
+      return ineligible(revisionId, "SOURCE_PRINCIPAL_MISMATCH");
+    }
+    if (
+      projection.scope.kind !== query.scope.kind ||
+      projection.scope.id !== query.scope.id
+    ) {
+      return ineligible(revisionId, "SOURCE_SCOPE_MISMATCH");
+    }
+    if (Date.parse(projection.validity.valid_from) > Date.parse(query.as_of)) {
+      return ineligible(revisionId, "SOURCE_NOT_YET_VALID");
+    }
+    if (
+      projection.validity.valid_to !== null &&
+      Date.parse(projection.validity.valid_to) < Date.parse(query.as_of)
+    ) {
+      return ineligible(revisionId, "SOURCE_EXPIRED");
+    }
+    if (projection.sensitivity === "secret") {
+      return ineligible(revisionId, "SOURCE_SECRET_EXCLUDED");
+    }
+    if (
+      projection.sensitivity === "sensitive" &&
+      !query.include_sensitive
+    ) {
+      return ineligible(revisionId, "SOURCE_SENSITIVE_EXCLUDED");
+    }
+    for (const source of projection.source_revisions) {
+      const canonical = this.#exactProjectionSource(
+        source.revision_id,
+        query,
+        new Set(seen),
+        sourceRows,
+      );
+      if (canonical.status === "ineligible") {
+        return ineligible(revisionId, canonical.reason_code);
+      }
+      if (!sameProjectionSource(source, canonical.source)) {
+        return ineligible(revisionId, "SOURCE_INVALIDATED");
+      }
+    }
+    if (projection.abstraction === "l3_core") {
+      return ineligible(revisionId, "SOURCE_INVALIDATED");
+    }
+    return ProjectionSourceBatchItemSchema.parse({
+      revision_id: revisionId,
+      status: "eligible",
+      source: {
+        memory_id: projection.projection_id,
+        revision_id: projection.projection_revision_id,
+        abstraction: projection.abstraction,
+        principal_id: projection.principal_id,
+        scope: projection.scope,
+        authority: projection.authority,
+        sensitivity: projection.sensitivity,
+        validity: projection.validity,
+        content_hash: projection.content_hash,
+        evidence_ids: projection.evidence_ids,
+      },
+    });
+  }
+
+  #preloadExactSourceRows(
+    revisionIds: readonly string[],
+  ): ExactSourceRows {
+    const memoryByRevision = new Map<string, string>();
+    const projectionByRevision = new Map<
+      string,
+      ProjectionEligibilityRow
+    >();
+    for (
+      let offset = 0;
+      offset < revisionIds.length;
+      offset += EXACT_SOURCE_SQL_CHUNK
+    ) {
+      const chunk = revisionIds.slice(
+        offset,
+        offset + EXACT_SOURCE_SQL_CHUNK,
+      );
+      const placeholders = chunk.map(() => "?").join(", ");
+      const memoryRows = this.#database
+        .prepare(
+          `SELECT revision_id, memory_id
+           FROM memory_revisions
+           WHERE revision_id IN (${placeholders})`,
+        )
+        .all(...chunk) as Array<{
+        revision_id: string;
+        memory_id: string;
+      }>;
+      for (const row of memoryRows) {
+        memoryByRevision.set(row.revision_id, row.memory_id);
+      }
+      const projectionRows = this.#database
+        .prepare(
+          `${PROJECTION_ELIGIBILITY_SELECT}
+           WHERE r.projection_revision_id IN (${placeholders})`,
+        )
+        .all(...chunk) as Array<
+        ProjectionEligibilityRow & { projection_revision_id: string }
+      >;
+      for (const row of projectionRows) {
+        projectionByRevision.set(row.projection_revision_id, row);
+      }
+    }
+    return {
+      preloaded_revision_ids: new Set(revisionIds),
+      memory_by_revision: memoryByRevision,
+      projection_by_revision: projectionByRevision,
+    };
   }
 
   search(

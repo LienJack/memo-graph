@@ -15,6 +15,7 @@ import {
   ProjectionRevisionSchema,
   canonicalSha256,
 } from "../../packages/contracts/src/index.js";
+import { projectionSourceReason } from "../../packages/storage-sqlite/src/governed-memory-reader.js";
 
 import {
   projectionFrontier,
@@ -84,6 +85,32 @@ afterEach(() => {
 });
 
 describe("layered projection storage", () => {
+  it.each([
+    ["NOT_FOUND", "SOURCE_MISSING"],
+    ["WRONG_PRINCIPAL", "SOURCE_PRINCIPAL_MISMATCH"],
+    ["WRONG_SCOPE", "SOURCE_SCOPE_MISMATCH"],
+    ["SUPERSEDED", "SOURCE_SUPERSEDED"],
+    ["CANDIDATE_ONLY", "SOURCE_INACTIVE"],
+    ["QUARANTINED", "SOURCE_INACTIVE"],
+    ["REVOKED", "SOURCE_REVOKED"],
+    ["TOMBSTONED", "SOURCE_TOMBSTONED"],
+    ["NO_LIVE_EVIDENCE", "SOURCE_NO_LIVE_EVIDENCE"],
+    ["NO_ACTIVATION", "SOURCE_NO_ACTIVATION"],
+    ["NOT_YET_VALID", "SOURCE_NOT_YET_VALID"],
+    ["EXPIRED", "SOURCE_EXPIRED"],
+    ["OPEN_CONFLICT", "SOURCE_CONFLICT"],
+    ["USAGE_BLOCKED", "SOURCE_USAGE_BLOCKED"],
+    ["SENSITIVE_EXCLUDED", "SOURCE_SENSITIVE_EXCLUDED"],
+    ["SECRET_EXCLUDED", "SOURCE_SECRET_EXCLUDED"],
+    ["CONTENT_NOT_INLINE", "SOURCE_INACTIVE"],
+    ["CORRUPT_LINEAGE", "SOURCE_INVALIDATED"],
+  ] as const)(
+    "maps canonical eligibility reason %s to stable exact-source reason %s",
+    (input, expected) => {
+      expect(projectionSourceReason(input)).toBe(expected);
+    },
+  );
+
   it("upgrades an existing M2 database and exposes the empty frontier", async () => {
     const dataRoot = temporaryRoot("projection-upgrade");
     const migrationRoot = temporaryRoot("projection-migrations");
@@ -192,6 +219,112 @@ describe("layered projection storage", () => {
       projection_revisions: 1,
       projection_sources: 2,
     });
+  });
+
+  it("validates exact mixed L1/L2 source revision identities in one complete batch", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("projection-exact-sources"),
+    });
+    const sources = await seedProjectionSources(storage);
+    const health = await storage.health();
+    const frontier = projectionFrontier({
+      ledgerEpoch: health.ledger_epoch,
+      tombstoneEpoch: health.tombstone_epoch,
+      projectionEpoch: 1,
+    });
+    const projection = topicProjection(sources, frontier);
+    await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      idempotency_key: "projection-exact-sources-0001",
+      expected_projection_epoch: 0,
+      projections: [projection],
+      applied_at: "2026-07-28T12:05:00.000Z",
+    });
+    const exact = await storage.validateProjectionSources({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      as_of: "2026-07-28T12:06:00.000Z",
+      include_sensitive: false,
+      context_scope: { kind: "workspace", id: "workspace_local" },
+      revision_ids: [
+        sources[0].revision_id,
+        projection.projection_revision_id,
+        "revision_missing_exact_source",
+      ],
+    });
+    expect(exact).toMatchObject({
+      requested_count: 3,
+      complete: true,
+      results: [
+        {
+          revision_id: sources[0].revision_id,
+          status: "eligible",
+          source: { abstraction: "l1_memory" },
+        },
+        {
+          revision_id: projection.projection_revision_id,
+          status: "eligible",
+          source: { abstraction: "l2_topic" },
+        },
+        {
+          revision_id: "revision_missing_exact_source",
+          status: "ineligible",
+          reason_code: "SOURCE_MISSING",
+        },
+      ],
+    });
+    expect(
+      (
+        await storage.validateProjectionSources({
+          principal_id: "user_other",
+          scope: { kind: "workspace", id: "workspace_local" },
+          as_of: "2026-07-28T12:06:00.000Z",
+          revision_ids: [sources[0].revision_id],
+        })
+      ).results[0],
+    ).toMatchObject({
+      status: "ineligible",
+      reason_code: "SOURCE_PRINCIPAL_MISMATCH",
+    });
+    expect(
+      (
+        await storage.validateProjectionSources({
+          principal_id: "user_local",
+          scope: { kind: "workspace", id: "workspace_other" },
+          as_of: "2026-07-28T12:06:00.000Z",
+          revision_ids: [sources[0].revision_id],
+        })
+      ).results[0],
+    ).toMatchObject({
+      status: "ineligible",
+      reason_code: "SOURCE_SCOPE_MISMATCH",
+    });
+    const chunkedIds = Array.from(
+      { length: 1_001 },
+      (_, index) =>
+        `revision_chunked_missing_${String(index).padStart(4, "0")}`,
+    );
+    const chunked = await storage.validateProjectionSources({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      as_of: "2026-07-28T12:06:00.000Z",
+      revision_ids: chunkedIds,
+    });
+    expect(chunked).toMatchObject({
+      requested_count: 1_001,
+      complete: true,
+      requested_revision_ids: chunkedIds,
+    });
+    expect(chunked.results).toHaveLength(1_001);
+    expect(
+      chunked.results.every(
+        (result) =>
+          result.status === "ineligible" &&
+          result.reason_code === "SOURCE_MISSING",
+      ),
+    ).toBe(true);
+    await storage.close();
   });
 
   it("persists independent exact-scope frontiers while the global epoch advances", async () => {

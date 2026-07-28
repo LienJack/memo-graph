@@ -1394,6 +1394,7 @@ export const WorkerOperationSchema = z.enum([
   "get_projection_scope_frontier",
   "query_projections",
   "query_projection_page",
+  "validate_projection_sources",
   "list_projection_sources",
   "traverse_relations",
   "enqueue_projection_job",
@@ -1475,6 +1476,9 @@ export type ParsedProjectionSourceBatchQuery = z.output<
 >;
 export type ProjectionSourceBatchItem = z.infer<
   typeof ProjectionSourceBatchItemSchema
+>;
+export type ProjectionSourceEligibilityReason = z.infer<
+  typeof ProjectionSourceEligibilityReasonSchema
 >;
 export type ProjectionSourceBatchResult = z.infer<
   typeof ProjectionSourceBatchResultSchema

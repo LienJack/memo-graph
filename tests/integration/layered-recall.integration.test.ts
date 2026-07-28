@@ -5,6 +5,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -61,6 +62,69 @@ function temporaryRoot(prefix: string): string {
   return root;
 }
 
+function insertPrefixOnlyMemoryRows(
+  dataRoot: string,
+  count: number,
+): void {
+  const database = new DatabaseSync(
+    join(dataRoot, "ledger", "memory.db"),
+  );
+  database.exec("PRAGMA foreign_keys = ON");
+  const insertObject = database.prepare(
+    `INSERT INTO memory_objects (
+       memory_id, logical_key_hash, principal_id, scope_kind, scope_id,
+       kind, lifecycle, current_revision_id, pinned, context_eligible,
+       created_at, updated_at
+     ) VALUES (?, ?, 'user_local', 'workspace', 'workspace_local',
+               'semantic', 'candidate', ?, 0, 0, ?, ?)`,
+  );
+  const insertRevision = database.prepare(
+    `INSERT INTO memory_revisions (
+       revision_id, memory_id, revision, abstraction, lifecycle, kind,
+       scope_kind, scope_id, authority, sensitivity, valid_from, valid_to,
+       recorded_at, inferred, content_storage, content_inline,
+       content_blob_hash, media_type, content_hash,
+       supersedes_revision_id, transform_name, transform_version,
+       created_at, purged_at
+     ) VALUES (?, ?, 1, 'l1_memory', 'candidate', 'semantic',
+               'workspace', 'workspace_local', 'user_stated', 'personal',
+               ?, NULL, ?, 0, 'inline', ?, NULL, 'text/plain', ?,
+               NULL, 'test-prefix', '1.0.0', ?, NULL)`,
+  );
+  const recordedAt = "2026-07-28T11:00:00.000Z";
+  database.exec("BEGIN DEFERRED TRANSACTION");
+  try {
+    for (let index = 0; index < count; index += 1) {
+      const suffix = String(index).padStart(4, "0");
+      const memoryId = `0000:memory:${suffix}`;
+      const revisionId = `0000:revision:${suffix}`;
+      const content = `prefix-only candidate ${suffix}`;
+      insertObject.run(
+        memoryId,
+        canonicalSha256({ logical_key: memoryId }),
+        revisionId,
+        recordedAt,
+        recordedAt,
+      );
+      insertRevision.run(
+        revisionId,
+        memoryId,
+        recordedAt,
+        recordedAt,
+        content,
+        canonicalSha256({ content }),
+        recordedAt,
+      );
+    }
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  } finally {
+    database.close();
+  }
+}
+
 function lanePolicy(
   allowedLanes: typeof ALL_LANES[number][] = [...ALL_LANES],
 ) {
@@ -102,7 +166,7 @@ async function seedLateRelevantProjections(
   const projections = [
     ["projection_topic_early_a", "irrelevant alpha"],
     ["projection_topic_early_b", "irrelevant beta"],
-    ["projection_topic_late_relevant", "needle appears late"],
+    ["projection_topic_late_relevant", "canonical needle appears late"],
   ].map(([projectionId, text]) => {
     const content = {
       storage: "inline",
@@ -202,6 +266,14 @@ describe("governed layered recall", () => {
         truncated_count: 0,
         complete: true,
       },
+      {
+        boundary: "source_lineage_batch",
+        configured_limit: 10_000,
+        observed_count: 2,
+        retained_count: 2,
+        truncated_count: 0,
+        complete: true,
+      },
     ]);
 
     const missed = await new RecallOrchestrator({ storage }).recall({
@@ -223,6 +295,49 @@ describe("governed layered recall", () => {
       truncated_count: 0,
       complete: true,
     });
+    await storage.close();
+  });
+
+  it("validates a projection source beyond a 1,000-row scope prefix by exact revision identity", async () => {
+    const dataRoot = temporaryRoot("layered-recall-exact-source-prefix");
+    let storage = await SqliteStorageClient.open({ dataRoot });
+    await seedLateRelevantProjections(storage);
+    await storage.close();
+    insertPrefixOnlyMemoryRows(dataRoot, 1_000);
+    storage = await SqliteStorageClient.open({ dataRoot });
+
+    const recalled = await new RecallOrchestrator({ storage }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "needle",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: {
+        ...lanePolicy(["topic"]),
+        limits: {
+          ...lanePolicy(["topic"]).limits,
+          max_projection_scan_per_lane: 10,
+          max_source_revisions_per_batch: 10,
+        },
+      },
+      lane_overrides: {
+        requested_lanes: ["topic"],
+        limits: {
+          max_candidates_per_lane: 1,
+          max_projection_scan_per_lane: 10,
+          max_source_revisions_per_batch: 10,
+          max_concurrent_lanes: 1,
+        },
+      },
+    });
+    expect(recalled.status).toBe("OK");
+    expect(
+      recalled.candidates.map((candidate) =>
+        candidate.kind === "projection"
+          ? candidate.projection.projection_id
+          : ""
+      ),
+    ).toEqual(["projection_topic_late_relevant"]);
     await storage.close();
   });
 
@@ -280,6 +395,61 @@ describe("governed layered recall", () => {
           complete: true,
         },
       ],
+    });
+    await storage.close();
+  });
+
+  it("preserves recent L1 and degrades projection lanes when exact lineage exceeds the operator batch cap", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-source-batch-limit"),
+    });
+    await seedLateRelevantProjections(storage);
+    const recalled = await new RecallOrchestrator({ storage }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "canonical",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: {
+        ...lanePolicy(["recent_l1", "topic"]),
+        limits: {
+          ...lanePolicy(["recent_l1", "topic"]).limits,
+          max_projection_scan_per_lane: 10,
+          max_source_revisions_per_batch: 1,
+        },
+      },
+      lane_overrides: {
+        requested_lanes: ["recent_l1", "topic"],
+        limits: {
+          max_candidates_per_lane: 2,
+          max_projection_scan_per_lane: 10,
+          max_source_revisions_per_batch: 1,
+          max_concurrent_lanes: 1,
+        },
+      },
+    });
+    expect(recalled.status).toBe("DEGRADED");
+    expect(
+      recalled.candidates.every(
+        (candidate) => candidate.kind === "memory",
+      ),
+    ).toBe(true);
+    expect(
+      recalled.telemetry.find((item) => item.lane === "topic"),
+    ).toMatchObject({
+      status: "degraded",
+      reason_codes: ["SOURCE_LINEAGE_BATCH_LIMIT"],
+      bounded_work: expect.arrayContaining([
+        {
+          boundary: "source_lineage_batch",
+          configured_limit: 1,
+          observed_count: 2,
+          retained_count: 0,
+          truncated_count: 2,
+          complete: false,
+          reason_code: "SOURCE_LINEAGE_BATCH_LIMIT",
+        },
+      ]),
     });
     await storage.close();
   });

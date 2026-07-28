@@ -364,15 +364,15 @@ describe("correction and canonical eligibility", () => {
   });
 
   it.each([
-    ["working", "CANDIDATE_ONLY"],
-    ["candidate", "CANDIDATE_ONLY"],
-    ["superseded", "SUPERSEDED"],
-    ["quarantined", "QUARANTINED"],
-    ["revoked", "REVOKED"],
-    ["purged", "TOMBSTONED"],
+    ["working", "CANDIDATE_ONLY", "SOURCE_INACTIVE"],
+    ["candidate", "CANDIDATE_ONLY", "SOURCE_INACTIVE"],
+    ["superseded", "SUPERSEDED", "SOURCE_SUPERSEDED"],
+    ["quarantined", "QUARANTINED", "SOURCE_INACTIVE"],
+    ["revoked", "REVOKED", "SOURCE_REVOKED"],
+    ["purged", "TOMBSTONED", "SOURCE_TOMBSTONED"],
   ] as const)(
     "returns a stable reason for %s lifecycle",
-    async (lifecycle, reasonCode) => {
+    async (lifecycle, reasonCode, sourceReasonCode) => {
       const dataRoot = temporaryRoot(`eligibility-${lifecycle}`);
       const storage = await SqliteStorageClient.open({ dataRoot });
       await storage.commitEpisode(inlineEpisode({}));
@@ -410,6 +410,19 @@ describe("correction and canonical eligibility", () => {
         memory_id: admitted.memory_id,
         revision_id: admitted.current_revision_id,
         reason_code: reasonCode,
+      });
+      expect(
+        (
+          await reopened.validateProjectionSources({
+            principal_id: "user_local",
+            scope: { kind: "workspace", id: "workspace_local" },
+            as_of: AS_OF,
+            revision_ids: [admitted.current_revision_id],
+          })
+        ).results[0],
+      ).toMatchObject({
+        status: "ineligible",
+        reason_code: sourceReasonCode,
       });
       await reopened.close();
     },
@@ -566,6 +579,23 @@ describe("correction and canonical eligibility", () => {
     expect(eligibility).toMatchObject({
       eligible: false,
       reason_code: "USAGE_BLOCKED",
+    });
+    expect(
+      (
+        await reopened.validateProjectionSources({
+          principal_id: "user_local",
+          scope: { kind: "workspace", id: "workspace_local" },
+          as_of: AS_OF,
+          context_scope: {
+            kind: "workspace",
+            id: "workspace_local",
+          },
+          revision_ids: [admitted.current_revision_id],
+        })
+      ).results[0],
+    ).toMatchObject({
+      status: "ineligible",
+      reason_code: "SOURCE_USAGE_BLOCKED",
     });
     await reopened.close();
   });

@@ -31,6 +31,7 @@ import {
   ProjectionPageQuerySchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
+  ProjectionSourceBatchQuerySchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   RecordRecallCommandSchema,
@@ -119,6 +120,11 @@ port.on("message", (message: unknown) => {
         case "query_projection_page":
           result = database.queryProjectionPage(
             ProjectionPageQuerySchema.parse(request.payload),
+          );
+          break;
+        case "validate_projection_sources":
+          result = database.validateProjectionSources(
+            ProjectionSourceBatchQuerySchema.parse(request.payload),
           );
           break;
         case "list_projection_sources":

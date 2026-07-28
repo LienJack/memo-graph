@@ -151,6 +151,19 @@ describe("derived projection invalidation", () => {
         idempotencyKey: "projection-source-a-correction-0001",
       }),
     );
+    expect(
+      (
+        await storage.validateProjectionSources({
+          principal_id: "user_local",
+          scope: PURGE_SCOPE,
+          as_of: "2026-07-28T12:03:00.000Z",
+          revision_ids: [sourceA.revision_id],
+        })
+      ).results[0],
+    ).toMatchObject({
+      status: "ineligible",
+      reason_code: "SOURCE_SUPERSEDED",
+    });
 
     const immediatelyVisible = await storage.queryProjections({
       principal_id: "user_local",
@@ -230,6 +243,17 @@ describe("derived projection invalidation", () => {
       claimed_at: "2026-07-28T12:02:00.000Z",
       lease_expires_at: "2026-07-28T12:03:00.000Z",
     });
+    const derivedBeforePurge = await storage.queryProjections({
+      principal_id: "user_local",
+      scope: PURGE_SCOPE,
+      as_of: "2026-07-28T12:02:30.000Z",
+      limit: 100,
+    });
+    const derivedRevisionId =
+      derivedBeforePurge.items[0]?.projection_revision_id;
+    if (derivedRevisionId === undefined) {
+      throw new Error("purge fixture requires one derived revision");
+    }
 
     const approvals = new TestApprovalRegistry();
     const kernel = runtime(storage, approvals);
@@ -244,6 +268,19 @@ describe("derived projection invalidation", () => {
     if (deleted.status !== "OK") {
       throw new Error("projection source deletion must succeed");
     }
+    expect(
+      (
+        await storage.validateProjectionSources({
+          principal_id: "user_local",
+          scope: PURGE_SCOPE,
+          as_of: PURGE_NOW,
+          revision_ids: [sourceA.revision_id],
+        })
+      ).results[0],
+    ).toMatchObject({
+      status: "ineligible",
+      reason_code: "SOURCE_TOMBSTONED",
+    });
     expect(
       (
         await storage.queryProjections({
@@ -262,6 +299,19 @@ describe("derived projection invalidation", () => {
     ).toMatchObject({
       completed: true,
       residual_hashes: [],
+    });
+    expect(
+      (
+        await storage.validateProjectionSources({
+          principal_id: "user_local",
+          scope: PURGE_SCOPE,
+          as_of: PURGE_NOW,
+          revision_ids: [derivedRevisionId],
+        })
+      ).results[0],
+    ).toMatchObject({
+      status: "ineligible",
+      reason_code: "SOURCE_PURGED",
     });
     await service.drain({
       worker_id: "projection_worker_after_purge",

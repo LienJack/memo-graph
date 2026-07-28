@@ -137,6 +137,7 @@ export {
   type ProjectionScopeFrontierInput,
   type ProjectionScopeStorageFrontier,
   type ProjectionSourceBatchItem,
+  type ProjectionSourceEligibilityReason,
   type ProjectionSourceBatchQuery,
   type ProjectionSourceBatchResult,
   type ProjectionSourceListInput,
