@@ -270,6 +270,21 @@ export class RecallOrchestrator {
       limit: 1_000,
     });
     const health = await this.#storage.health();
+    if (
+      health.layered_projection_state === "rebuilding" ||
+      health.layered_projection_state === "unavailable"
+    ) {
+      for (const lane of effective.enabled_lanes) {
+        if (lane === "recent_l1") {
+          continue;
+        }
+        laneStates.set(lane, {
+          result: null,
+          failure_reason:
+            `PROJECTION_STATE_${health.layered_projection_state.toUpperCase()}`,
+        });
+      }
+    }
     const canonicalByRevision = new Map(
       canonical.items.map((item) => [item.revision_id, item]),
     );

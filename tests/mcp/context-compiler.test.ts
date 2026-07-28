@@ -10,6 +10,9 @@ import {
   compileContext,
   estimateContextTokens,
 } from "../../packages/context-compiler/src/index.js";
+import {
+  MemoryServerConfigSchema,
+} from "../../packages/mcp-server/src/index.js";
 
 import { inlineEpisode } from "../helpers/storage-examples.js";
 import { NOW } from "../helpers/examples.js";
@@ -247,5 +250,41 @@ describe("baseline context compiler", () => {
         reason_codes: ["REVOKED"],
       }),
     ]);
+  });
+});
+
+describe("MCP Context lane configuration", () => {
+  it("keeps projection lanes operator-owned and defaults to the L1 baseline", () => {
+    const base = {
+      data_root: "/tmp/memo-graph-context-config",
+      principal_id: "user_local",
+      allowed_scopes: [{ kind: "workspace", id: "workspace_local" }],
+      allowed_authorities: ["user_stated"],
+    } as const;
+    expect(
+      MemoryServerConfigSchema.parse(base).lane_policy.allowed_lanes,
+    ).toEqual(["recent_l1"]);
+    expect(
+      MemoryServerConfigSchema.parse({
+        ...base,
+        lane_policy: {
+          allowed_lanes: ["recent_l1", "topic"],
+          limits: {
+            max_candidates_per_lane: 12,
+            relation_max_depth: 1,
+            relation_max_fanout: 3,
+            max_concurrent_lanes: 2,
+          },
+        },
+      }).lane_policy,
+    ).toEqual({
+      allowed_lanes: ["recent_l1", "topic"],
+      limits: {
+        max_candidates_per_lane: 12,
+        relation_max_depth: 1,
+        relation_max_fanout: 3,
+        max_concurrent_lanes: 2,
+      },
+    });
   });
 });

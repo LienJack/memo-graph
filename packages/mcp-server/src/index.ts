@@ -1,5 +1,6 @@
 import {
   GovernedResponseSchema,
+  LanePolicySchema,
   MemoryContextCompileInputSchema,
   MemoryCorrectInputSchema,
   MemoryDeleteInputSchema,
@@ -52,6 +53,15 @@ export const MemoryServerConfigSchema = z
       .positive()
       .max(32_000)
       .default(1_800),
+    lane_policy: LanePolicySchema.default({
+      allowed_lanes: ["recent_l1"],
+      limits: {
+        max_candidates_per_lane: 100,
+        relation_max_depth: 2,
+        relation_max_fanout: 20,
+        max_concurrent_lanes: 2,
+      },
+    }),
   })
   .strict();
 
@@ -284,7 +294,7 @@ export function createMemoryMcpServer(options: {
     {
       title: "Compile frozen governed context",
       description:
-        "Search authorized L0 evidence and freeze a hard-budget Context slice with a retrieval receipt.",
+        "Compile an exact-scope, hard-budget Context from operator-enabled memory lanes; request overrides may only narrow the configured policy.",
       inputSchema: MemoryContextCompileInputSchema,
       outputSchema: GovernedResponseSchema,
       annotations: annotations("memory_context_compile"),
@@ -490,6 +500,7 @@ export async function openMemoryRuntime(configInput: unknown): Promise<{
           destructive_tools_enabled: config.destructive_tools_enabled,
         },
         default_token_budget: config.default_token_budget,
+        lane_policy: config.lane_policy,
       },
     }),
   };

@@ -4,12 +4,15 @@ import {
   CONTEXT_COMPILER_VERSION,
   CONTEXT_POLICY_VERSION,
   compileContext,
+  compileLayeredContext,
   l0MemoryIdentity,
   type ContextCandidate,
   type ContextExclusion,
 } from "@memo-graph/context-compiler";
 import {
   GovernedResponseSchema,
+  LanePolicySchema,
+  LaneTelemetrySchema,
   LocalPrincipalSchema,
   MemoryContextCompileInputSchema,
   MemoryCorrectInputSchema,
@@ -47,6 +50,12 @@ import type { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 import { z } from "zod";
 
 import { evaluateAdmission } from "./governance.js";
+import {
+  RecallOrchestrator,
+} from "./recall-orchestrator.js";
+import type {
+  RecallLaneRetriever,
+} from "./lane-retrievers.js";
 import {
   ApprovalBindingSchema,
   ApprovalError,
@@ -104,6 +113,15 @@ export const MemoryRuntimePolicySchema = z
   .object({
     principal: LocalPrincipalSchema,
     default_token_budget: z.number().int().positive().max(32_000).default(1_800),
+    lane_policy: LanePolicySchema.default({
+      allowed_lanes: ["recent_l1"],
+      limits: {
+        max_candidates_per_lane: 100,
+        relation_max_depth: 2,
+        relation_max_fanout: 20,
+        max_concurrent_lanes: 2,
+      },
+    }),
   })
   .strict();
 
@@ -234,18 +252,26 @@ export class MemoryRuntime {
   readonly #policy: z.output<typeof MemoryRuntimePolicySchema>;
   readonly #approvalRegistry: ApprovalRegistry;
   readonly #clock: () => string;
+  readonly #recallOrchestrator: RecallOrchestrator;
 
   constructor(options: {
     storage: SqliteStorageClient;
     policy: MemoryRuntimePolicy;
     approvalRegistry?: ApprovalRegistry;
     clock?: () => string;
+    laneRetriever?: RecallLaneRetriever;
   }) {
     this.#storage = options.storage;
     this.#policy = MemoryRuntimePolicySchema.parse(options.policy);
     this.#approvalRegistry =
       options.approvalRegistry ?? new DenyAllApprovalRegistry();
     this.#clock = options.clock ?? (() => new Date().toISOString());
+    this.#recallOrchestrator = new RecallOrchestrator({
+      storage: options.storage,
+      ...(options.laneRetriever === undefined
+        ? {}
+        : { retriever: options.laneRetriever }),
+    });
   }
 
   memorySearch(input: unknown): Promise<GovernedResponse> {
@@ -413,22 +439,14 @@ export class MemoryRuntime {
       if (unauthorized !== null) {
         return unauthorized;
       }
-      const searched = await this.#searchContextScopes(
-        request.recall.query,
-        request.recall.scopes,
-        100,
-        request.recall.as_of,
-        request.recall.include_sensitive,
+      const layeredMode = this.#policy.lane_policy.allowed_lanes.some(
+        (lane) => lane !== "recent_l1",
       );
-      const compiled = compileContext({
-        request: request.recall,
-        candidates: searched.candidates,
-        exclusions: searched.exclusions,
-        created_at: request.envelope.requested_at,
-        degraded_lanes: searched.degraded,
-      });
+      const compiled = layeredMode
+        ? await this.#compileLayeredContext(request)
+        : await this.#compileLegacyContext(request);
       const stored = await this.#storage.recordRecall({
-        principal_id: request.envelope.actor_claim.principal_id,
+        principal_id: this.#policy.principal.principal_id,
         request: request.recall,
         receipt: compiled.receipt,
         ...(compiled.context_slice === null
@@ -440,13 +458,14 @@ export class MemoryRuntime {
         receipt: stored.receipt,
         replayed: stored.replayed,
       };
+      const fallbackLane = layeredMode ? "recent_l1" : "partial_sqlite_fts";
       if (stored.replayed) {
         if (stored.receipt.state === "partial") {
           return GovernedResponseSchema.parse({
             status: "DEGRADED",
             receipt_id: stored.receipt.receipt_id,
             fallback_lane:
-              stored.context_slice === null ? "none" : "partial_sqlite_fts",
+              stored.context_slice === null ? "none" : fallbackLane,
             warnings: ["frozen replay of a partial retrieval"],
             data,
           });
@@ -484,7 +503,7 @@ export class MemoryRuntime {
           status: "DEGRADED",
           receipt_id: stored.receipt.receipt_id,
           fallback_lane:
-            stored.context_slice === null ? "none" : "partial_sqlite_fts",
+            stored.context_slice === null ? "none" : fallbackLane,
           warnings: compiled.warnings,
           data,
         });
@@ -509,6 +528,152 @@ export class MemoryRuntime {
         receipt_id: stored.receipt.receipt_id,
         reason: "no exact-scope evidence matched the recall request",
       });
+    });
+  }
+
+  async #compileLegacyContext(
+    request: z.output<typeof MemoryContextCompileInputSchema>,
+  ) {
+    const searched = await this.#searchContextScopes(
+      request.recall.query,
+      request.recall.scopes,
+      100,
+      request.recall.as_of,
+      request.recall.include_sensitive,
+    );
+    return compileContext({
+      request: request.recall,
+      candidates: searched.candidates,
+      exclusions: searched.exclusions,
+      created_at: request.envelope.requested_at,
+      degraded_lanes: searched.degraded,
+    });
+  }
+
+  async #compileLayeredContext(
+    request: z.output<typeof MemoryContextCompileInputSchema>,
+  ) {
+    const recalls = await Promise.all(
+      request.recall.scopes.map((scope) =>
+        this.#recallOrchestrator.recall({
+          principal_id: this.#policy.principal.principal_id,
+          scope,
+          query: request.recall.query,
+          as_of: request.recall.as_of,
+          include_sensitive: request.recall.include_sensitive,
+          lane_policy: this.#policy.lane_policy,
+          ...(request.recall.lane_overrides === undefined
+            ? {}
+            : { lane_overrides: request.recall.lane_overrides }),
+        })
+      ),
+    );
+    const first = recalls[0];
+    if (first === undefined) {
+      throw new Error("layered recall requires at least one exact scope");
+    }
+    const projection = recalls
+      .flatMap((recall) => recall.candidates)
+      .find((candidate) => candidate.kind === "projection");
+    const storageFrontier = first.projection_frontier;
+    const frontier =
+      projection?.kind === "projection"
+        ? {
+            schema_version: projection.projection.frontier.schema_version,
+            ledger_epoch: projection.projection.frontier.ledger_epoch,
+            tombstone_epoch:
+              projection.projection.frontier.tombstone_epoch,
+            projection_epoch:
+              projection.projection.frontier.projection_epoch,
+            source_frontier_hash:
+              projection.projection.frontier.source_frontier_hash,
+            projection_frontier_hash:
+              projection.projection.frontier.projection_frontier_hash,
+            transform_versions: [projection.projection.transform],
+          }
+        : {
+            schema_version: "1.0.0" as const,
+            ledger_epoch: storageFrontier.ledger_epoch,
+            tombstone_epoch: storageFrontier.tombstone_epoch,
+            projection_epoch: storageFrontier.projection_epoch,
+            source_frontier_hash:
+              storageFrontier.source_frontier_hash ?? canonicalSha256([]),
+            projection_frontier_hash:
+              storageFrontier.projection_frontier_hash ??
+                canonicalSha256([]),
+            transform_versions:
+              storageFrontier.transform_versions.length > 0
+                ? storageFrontier.transform_versions
+                : [
+                    {
+                      name: "deterministic-layered-consolidation",
+                      version: "1.0.0",
+                    },
+                  ],
+          };
+    const telemetry = LaneTelemetrySchema.array().parse(
+      first.telemetry.map((item) => {
+        const laneRows = recalls.map((recall) =>
+          recall.telemetry.find((row) => row.lane === item.lane)
+        ).filter(
+          (row): row is NonNullable<typeof row> => row !== undefined,
+        );
+        const statusOrder = [
+          "unavailable",
+          "degraded",
+          "stale",
+          "eligible",
+          "empty",
+          "disabled_by_policy",
+          "disabled_by_request",
+        ] as const;
+        return {
+          lane: item.lane,
+          status:
+            statusOrder.find((status) =>
+              laneRows.some((row) => row.status === status)
+            ) ?? item.status,
+          duration_ms: laneRows.reduce(
+            (sum, row) => sum + row.duration_ms,
+            0,
+          ),
+          candidate_count: laneRows.reduce(
+            (sum, row) => sum + row.candidate_count,
+            0,
+          ),
+          eligible_count: laneRows.reduce(
+            (sum, row) => sum + row.eligible_count,
+            0,
+          ),
+          selected_count: 0,
+          exclusion_counts: Object.fromEntries(
+            [...new Set(
+              laneRows.flatMap((row) =>
+                Object.keys(row.exclusion_counts)
+              ),
+            )].sort().map((reason) => [
+              reason,
+              laneRows.reduce(
+                (sum, row) =>
+                  sum + (row.exclusion_counts[reason] ?? 0),
+                0,
+              ),
+            ]),
+          ),
+          reason_codes: [
+            ...new Set(laneRows.flatMap((row) => row.reason_codes)),
+          ].sort(),
+        };
+      }),
+    );
+    return compileLayeredContext({
+      request: request.recall,
+      candidates: recalls.flatMap((recall) => recall.candidates),
+      exclusions: recalls.flatMap((recall) => recall.exclusions),
+      frontier,
+      effective_configuration: first.effective_configuration,
+      telemetry,
+      created_at: request.envelope.requested_at,
     });
   }
 

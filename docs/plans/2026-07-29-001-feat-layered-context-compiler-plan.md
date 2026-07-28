@@ -49,9 +49,9 @@ stores authoritative.
 without synchronous M3 plan confirmation. These are reviewable implementation
 bets, not new Product Contract requirements.*
 
-- M3 will use one immutable `0008` migration for the complete layered storage
-  model. If implementation exposes a compatibility need for another forward
-  migration, it may add `0009`; existing migrations remain untouched.
+- M3 uses immutable forward migrations `0008` through `0010`: layered storage,
+  derived-payload purge redaction, and projection-lineage Context redaction.
+  Existing migrations remain untouched.
 - Projection transforms are deterministic and fixture-driven for G3. Model
   generation quality and autonomous projection publication are not required.
 - Projection semantics and orchestration belong in `memory-kernel`; SQLite
@@ -536,7 +536,7 @@ worker-decoded repository operations.
 - **Error path:** missing/foreign-scope source revisions, stale projection
   epoch, partial relation endpoints, or mutation of immutable rows rolls back.
 - **Integration:** restart preserves live state and health reports schema
-  `0009`, projection counts, queue debt, and frontiers.
+  `0010`, projection counts, queue debt, and frontiers.
 - **Covers AE4:** a tombstoned source cannot satisfy a projection write even
   when a stale queued batch still exists.
 
@@ -756,7 +756,8 @@ while preserving immutable replay, deletion, and recovery guarantees.
   eligibility without silently recompiling. Ordinary changes never rewrite an
   issued slice; a registered purge may redact prohibited payload fields under
   the existing purge guard while retaining tombstone/hash/audit evidence and
-  making exact replay return a purged/unavailable outcome.
+  preventing plaintext replay. A caller may receive the resealed redacted
+  historical slice, never the deleted payload.
 - Register projection and relation payloads in purge residual checks and
   restore verification.
 
@@ -956,8 +957,9 @@ flowchart TB
 
 ### Compatibility and rollout
 
-- Migrations `0008` and `0009` are forward-only and additive. `0008` owns the
-  layered schema; `0009` adds purge-only redaction guards without editing
+- Migrations `0008`, `0009`, and `0010` are forward-only and additive. `0008`
+  owns the layered schema, `0009` adds derived-payload purge guards, and `0010`
+  extends guarded redaction to frozen projection Context items without editing
   migration history. Existing M2 databases must open, migrate, and continue in
   all-projection-lanes-disabled mode before any projection is admitted to
   Context.

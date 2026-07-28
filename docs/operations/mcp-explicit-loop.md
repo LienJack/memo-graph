@@ -48,12 +48,30 @@ Create a private JSON file outside the repository:
     "tool_result"
   ],
   "destructive_tools_enabled": false,
-  "default_token_budget": 1800
+  "default_token_budget": 1800,
+  "lane_policy": {
+    "allowed_lanes": [
+      "recent_l1",
+      "topic",
+      "scenario_procedure",
+      "core",
+      "relation_sqlite"
+    ],
+    "limits": {
+      "max_candidates_per_lane": 20,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 5,
+      "max_concurrent_lanes": 2
+    }
+  }
 }
 ```
 
 The data root must satisfy the local storage safety contract. Secret evidence
 and known cloud-synchronized or removable paths fail closed in M1.
+If `lane_policy` is omitted, the runtime preserves the accepted L0/L1
+baseline. A request-level `lane_overrides` may disable lanes or reduce limits,
+but it cannot enable a lane or raise a limit beyond this operator policy.
 
 Configure Codex with absolute paths:
 

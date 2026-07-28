@@ -118,6 +118,12 @@ append-only guards only while a matching purge job and redaction guard are
 active. This permits physical redaction of derived projection and relation
 plaintext without opening a general mutation path.
 
+Forward migration `0010-layered-context-purge.sql` extends that same guarded
+exception to frozen Context items whose projection lineage reaches the
+tombstoned L1 revision. The purge changes only the content reference to the
+redaction marker and reseals the slice hash; identity, lineage, receipt, and
+audit evidence remain immutable.
+
 The intended logical records are:
 
 - projection objects and immutable projection revisions;
@@ -264,15 +270,15 @@ The packer:
 Already issued slices remain immutable after later mutations.
 Ordinary source changes never rewrite their bytes. The existing guarded purge
 path is the sole exception: it canonically redacts prohibited payload fields,
-retains tombstone/hash/audit evidence, and makes exact replay report a
-purged/unavailable result.
+retains tombstone/hash/audit evidence, and prevents replay of the deleted
+plaintext. A caller may receive the resealed redacted historical slice.
 
 ## 9. Runtime and MCP integration
 
 The memory kernel orchestrates storage, lane reads, canonical revalidation, and
-the pure compiler. The MCP surface preserves existing safe behavior and extends
-`memory_context_compile`, `memory_search`, `memory_explain`, and receipt reads
-with typed M3 detail.
+the pure compiler. The MCP surface preserves existing safe search/explain
+behavior and extends `memory_context_compile` plus receipt reads with typed M3
+lane, frontier, score, exclusion, and telemetry detail.
 
 No request may self-assert principal, scope authority, or sensitivity access.
 Diagnostics remain content-free. Named lane degradation is returned in the
@@ -280,6 +286,11 @@ normal typed response rather than emitted as unstructured logs.
 
 Delete, purge, backup/restore, and rebuild integration must cover projection
 tables and derived plaintext without weakening M2 receipts or recovery.
+Restore verification counts structurally coherent active projection and
+relation rows and reports `projection_rebuild_required` whenever the restored
+projection frontier is not ready or lags the canonical ledger/tombstone
+epochs. Projection reads still perform canonical source revalidation while
+that rebuild marker is present.
 
 ## 10. G3 evaluation
 

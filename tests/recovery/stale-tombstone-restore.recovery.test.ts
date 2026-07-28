@@ -9,7 +9,10 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { MemoryRuntime } from "../../packages/memory-kernel/src/index.js";
+import {
+  ConsolidationService,
+  MemoryRuntime,
+} from "../../packages/memory-kernel/src/index.js";
 import {
   SqliteStorageClient,
   restoreBackupToEmptyDataRoot,
@@ -19,7 +22,11 @@ import { TestApprovalRegistry } from "../helpers/approval.js";
 import {
   memoryCandidate,
   memoryProposal,
+  revisionCommand,
 } from "../helpers/governance-examples.js";
+import {
+  seedLayeredProjectionSources,
+} from "../helpers/projection-examples.js";
 import {
   PURGE_NOW,
   PURGE_SCOPE,
@@ -164,5 +171,148 @@ describe("restore tombstone frontier", () => {
       },
     });
     expect(existsSync(currentTarget)).toBe(true);
+  });
+
+  it("preserves ready projections and marks a stale frontier for deterministic rebuild", async () => {
+    const dataRoot = temporaryRoot("projection-restore-source");
+    const restoreParent = temporaryRoot("projection-restore-target");
+    const readyTarget = join(restoreParent, "ready");
+    const pendingTarget = join(restoreParent, "pending");
+    const storage = await SqliteStorageClient.open({ dataRoot });
+    const admitted = await seedLayeredProjectionSources(storage);
+    const consolidation = new ConsolidationService({ storage });
+    await consolidation.drain({
+      worker_id: "projection_restore_ready_worker",
+      claimed_at: "2026-07-28T12:10:00.000Z",
+      lease_expires_at: "2026-07-28T12:11:00.000Z",
+    });
+    const readyBackup = await storage.createBackup();
+    const ready = await restoreBackupToEmptyDataRoot({
+      backup: readyBackup,
+      dataRoot: readyTarget,
+      minimumTombstoneEpoch: 0,
+    });
+    expect(ready.verification).toMatchObject({
+      active_projections_verified: expect.any(Number),
+      active_relations_verified: expect.any(Number),
+      projection_rebuild_required: false,
+    });
+    expect(
+      ready.verification.active_projections_verified,
+    ).toBeGreaterThan(0);
+    expect(
+      ready.verification.active_relations_verified,
+    ).toBeGreaterThan(0);
+
+    await storage.commitEpisode(
+      inlineEpisode({
+        episodeId: "episode_projection_restore_correction",
+        evidenceId: "evidence_projection_restore_correction",
+        idempotencyKey: "commit:projection-restore-correction:0001",
+        text: "Agent memory restore correction is current.",
+      }),
+    );
+    const source = admitted[0];
+    if (source === undefined) {
+      throw new Error("restore fixture requires one projection source");
+    }
+    await storage.applyMemoryRevision(
+      revisionCommand({
+        memoryId: source.memory_id,
+        expectedRevisionId: source.current_revision_id,
+        candidate: memoryCandidate({
+          candidateId: "candidate_projection_restore_correction",
+          logicalKey: "projection.layered_semantic_a",
+          scope: PURGE_SCOPE,
+          text: "Agent memory restore correction is current.",
+          evidenceIds: ["evidence_projection_restore_correction"],
+        }),
+        idempotencyKey: "projection-restore-correction-0001",
+      }),
+    );
+    const pendingBackup = await storage.createBackup();
+    await storage.close();
+
+    const pending = await restoreBackupToEmptyDataRoot({
+      backup: pendingBackup,
+      dataRoot: pendingTarget,
+      minimumTombstoneEpoch: 0,
+    });
+    expect(pending.verification).toMatchObject({
+      active_projections_verified: expect.any(Number),
+      active_relations_verified: expect.any(Number),
+      projection_rebuild_required: true,
+    });
+    const pendingStorage = await SqliteStorageClient.open({
+      dataRoot: pendingTarget,
+    });
+    const pendingRuntime = new MemoryRuntime({
+      storage: pendingStorage,
+      policy: {
+        principal: {
+          principal_id: "user_local",
+          allowed_scopes: [PURGE_SCOPE],
+          allowed_authorities: ["user_stated"],
+          destructive_tools_enabled: false,
+        },
+        lane_policy: {
+          allowed_lanes: [
+            "recent_l1",
+            "topic",
+            "scenario_procedure",
+            "core",
+            "relation_sqlite",
+          ],
+          limits: {
+            max_candidates_per_lane: 20,
+            relation_max_depth: 2,
+            relation_max_fanout: 5,
+            max_concurrent_lanes: 2,
+          },
+        },
+      },
+    });
+    const recalled = await pendingRuntime.memoryContextCompile({
+      envelope: {
+        schema_version: "1.0.0",
+        request_id: "request_projection_restore_pending",
+        tool: "memory_context_compile",
+        actor_claim: {
+          principal_id: "user_local",
+          authority: "user_stated",
+        },
+        scopes: [PURGE_SCOPE],
+        purpose: "verify pending restore fallback",
+        reason: "projection reads require canonical revalidation",
+        requested_at: PURGE_NOW,
+        safety_class: "read_only",
+      },
+      recall: {
+        schema_version: "1.0.0",
+        request_id: "request_projection_restore_pending",
+        goal: "recall the current corrected source",
+        query: "Agent memory restore correction",
+        scopes: [PURGE_SCOPE],
+        as_of: PURGE_NOW,
+        token_budget: 1_800,
+        include_sensitive: false,
+      },
+    });
+    expect(recalled.status).toBe("OK");
+    if (recalled.status !== "OK") {
+      throw new Error("pending restore must preserve canonical L1");
+    }
+    expect(
+      (
+        recalled.data as {
+          context_slice: {
+            items: Array<{ abstraction: string }>;
+          };
+        }
+      ).context_slice.items.every(
+        (item) => item.abstraction === "l1_memory",
+      ),
+    ).toBe(true);
+    await pendingStorage.close();
   });
 });

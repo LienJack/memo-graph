@@ -17,6 +17,7 @@ import {
   EpisodeSchema,
   EvidenceRecordSchema,
   MutationReceiptSchema,
+  ProjectionRevisionSchema,
   RecallRequestSchema,
   ReceiptSchema,
   RetrievalReceiptSchema,
@@ -27,6 +28,7 @@ import {
   sealReceipt,
 } from "@memo-graph/contracts";
 import Database from "better-sqlite3";
+import type { z } from "zod";
 
 import { BlobStore, type StoredBlob } from "./blob-store.js";
 import { ControlRepository } from "./control-repository.js";
@@ -154,6 +156,12 @@ type ExistingRecall = {
   receipt_json: string;
   slice_json: string | null;
 };
+
+type ParsedContextSlice = z.output<typeof ContextSliceSchema>;
+type ParsedProjectionRevision = z.output<typeof ProjectionRevisionSchema>;
+type ProjectionEligibility =
+  | { status: "eligible"; projection: ParsedProjectionRevision }
+  | { status: "changed" | "tombstoned" };
 
 function now(): string {
   return new Date().toISOString();
@@ -859,6 +867,27 @@ export class StorageDatabase {
                      OR content_blob_hash IS NOT NULL
                      OR media_type <> 'application/x.memo-graph-redacted'
                    )
+               ) +
+               (
+                 SELECT count(*) FROM projection_revisions
+                 WHERE purged_at IS NOT NULL
+                   AND (
+                     lifecycle <> 'purged'
+                     OR payload_json IS NOT NULL
+                     OR content_json IS NOT NULL
+                     OR json_extract(revision_json, '$.lifecycle')
+                       <> 'purged'
+                     OR json_type(revision_json, '$.payload') <> 'null'
+                     OR json_type(revision_json, '$.content') <> 'null'
+                   )
+               ) +
+               (
+                 SELECT count(*) FROM relation_revisions
+                 WHERE lifecycle = 'purged'
+                   AND (
+                     description IS NOT NULL
+                     OR json_type(relation_json, '$.description') <> 'null'
+                   )
                ) AS count`,
           )
           .get() as { count: number }
@@ -867,6 +896,238 @@ export class StorageDatabase {
     if (memoryViolations !== 0 || redactionViolations !== 0) {
       throw new StorageError("CORRUPTION");
     }
+
+    const activeProjectionRows = this.#database
+      .prepare(
+        `SELECT o.projection_id, o.current_revision_id, r.revision_json
+         FROM projection_objects AS o
+         JOIN projection_revisions AS r
+           ON r.projection_revision_id = o.current_revision_id
+         WHERE o.lifecycle = 'active'
+           AND r.lifecycle = 'active'
+           AND r.purged_at IS NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM projection_invalidations AS i
+             WHERE i.projection_revision_id = r.projection_revision_id
+           )
+         ORDER BY o.projection_id`,
+      )
+      .all() as Array<{
+        projection_id: string;
+        current_revision_id: string;
+        revision_json: string;
+      }>;
+    const activeProjectionObjectCount = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count FROM projection_objects
+             WHERE lifecycle = 'active'`,
+          )
+          .get() as { count: number }
+      ).count,
+    );
+    if (activeProjectionRows.length !== activeProjectionObjectCount) {
+      throw new StorageError("CORRUPTION");
+    }
+    for (const row of activeProjectionRows) {
+      let projection: ParsedProjectionRevision;
+      try {
+        projection = ProjectionRevisionSchema.parse(
+          JSON.parse(row.revision_json) as unknown,
+        );
+      } catch {
+        throw new StorageError("CORRUPTION");
+      }
+      if (
+        projection.projection_id !== row.projection_id ||
+        projection.projection_revision_id !== row.current_revision_id ||
+        projection.lifecycle !== "active" ||
+        projection.payload === null ||
+        projection.content === null
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+      const sourceRows = this.#database
+        .prepare(
+          `SELECT ordinal, source_revision_id,
+                  coalesce(source_memory_id, source_projection_id)
+                    AS source_identity_id,
+                  source_abstraction, source_content_hash,
+                  source_principal_id, source_scope_kind, source_scope_id,
+                  source_authority, source_sensitivity,
+                  source_valid_from, source_valid_to,
+                  source_recorded_at, evidence_ids_json
+           FROM projection_revision_sources
+           WHERE projection_revision_id = ?
+           ORDER BY ordinal`,
+        )
+        .all(row.current_revision_id) as Array<{
+          ordinal: number;
+          source_revision_id: string;
+          source_identity_id: string;
+          source_abstraction: string;
+          source_content_hash: string;
+          source_principal_id: string;
+          source_scope_kind: string;
+          source_scope_id: string;
+          source_authority: string;
+          source_sensitivity: string;
+          source_valid_from: string;
+          source_valid_to: string | null;
+          source_recorded_at: string;
+          evidence_ids_json: string;
+        }>;
+      if (
+        sourceRows.length !== projection.source_revisions.length ||
+        sourceRows.some((sourceRow, index) => {
+          const source = projection.source_revisions[index];
+          return (
+            source === undefined ||
+            sourceRow.ordinal !== index ||
+            sourceRow.source_identity_id !== source.memory_id ||
+            sourceRow.source_revision_id !== source.revision_id ||
+            sourceRow.source_abstraction !== source.abstraction ||
+            sourceRow.source_content_hash !== source.content_hash ||
+            sourceRow.source_principal_id !== source.principal_id ||
+            sourceRow.source_scope_kind !== source.scope.kind ||
+            sourceRow.source_scope_id !== source.scope.id ||
+            sourceRow.source_authority !== source.authority ||
+            sourceRow.source_sensitivity !== source.sensitivity ||
+            sourceRow.source_valid_from !== source.validity.valid_from ||
+            sourceRow.source_valid_to !== source.validity.valid_to ||
+            sourceRow.source_recorded_at !== source.validity.recorded_at ||
+            canonicalJson(
+              JSON.parse(sourceRow.evidence_ids_json) as unknown,
+            ) !== canonicalJson(source.evidence_ids)
+          );
+        })
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+      for (const source of projection.source_revisions) {
+        const sourceRow =
+          source.abstraction === "l1_memory"
+            ? this.#database
+                .prepare(
+                  `SELECT o.current_revision_id, o.lifecycle,
+                          r.lifecycle AS revision_lifecycle,
+                          r.content_hash
+                   FROM memory_objects AS o
+                   JOIN memory_revisions AS r
+                     ON r.revision_id = o.current_revision_id
+                   WHERE o.memory_id = ? AND r.revision_id = ?`,
+                )
+                .get(source.memory_id, source.revision_id)
+            : this.#database
+                .prepare(
+                  `SELECT o.current_revision_id, o.lifecycle,
+                          r.lifecycle AS revision_lifecycle,
+                          r.content_hash
+                   FROM projection_objects AS o
+                   JOIN projection_revisions AS r
+                     ON r.projection_revision_id =
+                       o.current_revision_id
+                   WHERE o.projection_id = ?
+                     AND r.projection_revision_id = ?
+                     AND r.purged_at IS NULL
+                     AND NOT EXISTS (
+                       SELECT 1
+                       FROM projection_invalidations AS i
+                       WHERE i.projection_revision_id =
+                         r.projection_revision_id
+                     )`,
+                )
+                .get(source.memory_id, source.revision_id);
+        const parsedSource = sourceRow as
+          | {
+              current_revision_id: string;
+              lifecycle: string;
+              revision_lifecycle: string;
+              content_hash: string;
+            }
+          | undefined;
+        if (
+          parsedSource === undefined ||
+          parsedSource.current_revision_id !== source.revision_id ||
+          parsedSource.lifecycle !== "active" ||
+          parsedSource.revision_lifecycle !== "active" ||
+          parsedSource.content_hash !== source.content_hash
+        ) {
+          throw new StorageError("CORRUPTION");
+        }
+      }
+    }
+
+    const activeRelationRows = this.#database
+      .prepare(
+        `SELECT ro.relation_id, rr.relation_revision_id,
+                rr.relation_json, pr.revision_json
+         FROM relation_objects AS ro
+         JOIN relation_revisions AS rr
+           ON rr.relation_revision_id =
+             ro.current_relation_revision_id
+         JOIN projection_objects AS po
+           ON po.projection_id = rr.relation_id
+          AND po.current_revision_id = rr.projection_revision_id
+         JOIN projection_revisions AS pr
+           ON pr.projection_revision_id = rr.projection_revision_id
+         WHERE ro.lifecycle = 'active'
+           AND rr.lifecycle = 'active'
+           AND po.lifecycle = 'active'
+           AND pr.lifecycle = 'active'
+           AND pr.purged_at IS NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM projection_invalidations AS i
+             WHERE i.projection_revision_id =
+               rr.projection_revision_id
+           )
+         ORDER BY ro.relation_id`,
+      )
+      .all() as Array<{
+        relation_id: string;
+        relation_revision_id: string;
+        relation_json: string;
+        revision_json: string;
+      }>;
+    const activeRelationObjectCount = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count FROM relation_objects
+             WHERE lifecycle = 'active'`,
+          )
+          .get() as { count: number }
+      ).count,
+    );
+    if (activeRelationRows.length !== activeRelationObjectCount) {
+      throw new StorageError("CORRUPTION");
+    }
+    for (const row of activeRelationRows) {
+      let projection: ParsedProjectionRevision;
+      try {
+        projection = ProjectionRevisionSchema.parse(
+          JSON.parse(row.revision_json) as unknown,
+        );
+      } catch {
+        throw new StorageError("CORRUPTION");
+      }
+      if (
+        projection.projection_id !== row.relation_id ||
+        projection.projection_revision_id !==
+          row.relation_revision_id ||
+        projection.payload?.kind !== "relation" ||
+        canonicalJson(projection.payload) !==
+          canonicalJson(JSON.parse(row.relation_json) as unknown)
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+    const projectionState = this.#projections.state();
+    const projectionRebuildRequired =
+      projectionState.status !== "ready" ||
+      projectionState.ledger_epoch !== this.#ledgerEpoch() ||
+      projectionState.tombstone_epoch !== this.#purge.tombstoneEpoch();
 
     const contextRows = this.#database
       .prepare(
@@ -994,6 +1255,9 @@ export class StorageDatabase {
             .get() as { count: number }
         ).count,
       ),
+      active_projections_verified: activeProjectionRows.length,
+      active_relations_verified: activeRelationRows.length,
+      projection_rebuild_required: projectionRebuildRequired,
       context_slices_verified: contextRows.length,
       receipts_verified: receiptRows.length,
       purge_jobs_verified: purgeJobs.length,
@@ -1284,6 +1548,17 @@ export class StorageDatabase {
       receipt.context_slice_id !== contextSlice.context_slice_id ||
       contextSlice.compiler_version !== receipt.compiler_version ||
       contextSlice.token_budget !== request.token_budget ||
+      (contextSlice.policy_version !== undefined &&
+        contextSlice.policy_version !== receipt.policy_version) ||
+      canonicalJson(contextSlice.frontier ?? null) !==
+        canonicalJson(receipt.frontier ?? null) ||
+      canonicalJson(
+        contextSlice.effective_lane_configuration ?? null,
+      ) !== canonicalJson(
+        receipt.effective_lane_configuration ?? null,
+      ) ||
+      canonicalJson(contextSlice.lane_telemetry ?? null) !==
+        canonicalJson(receipt.lane_telemetry ?? null) ||
       canonicalSha256Omitting(contextSlice, ["frozen_hash"]) !==
         contextSlice.frozen_hash
     ) {
@@ -1299,9 +1574,18 @@ export class StorageDatabase {
         .map((item) => `${item.memory_id}:${item.revision_id}`),
     );
     for (const item of contextSlice.items) {
+      const receiptItem = receipt.items.find(
+        (candidate) =>
+          candidate.decision === "included" &&
+          candidate.memory_id === item.memory_id &&
+          candidate.revision_id === item.revision_id,
+      );
       if (
         !allowedScopes.has(`${item.scope.kind}:${item.scope.id}`) ||
-        !includedMemoryIds.has(`${item.memory_id}:${item.revision_id}`)
+        !includedMemoryIds.has(`${item.memory_id}:${item.revision_id}`) ||
+        receiptItem === undefined ||
+        canonicalJson(receiptItem.projection ?? null) !==
+          canonicalJson(item.projection ?? null)
       ) {
         throw new StorageError("INVALID_INPUT");
       }
@@ -1319,6 +1603,27 @@ export class StorageDatabase {
             command.principal_id,
           );
         if (found === undefined) {
+          throw new StorageError("INVALID_INPUT");
+        }
+      }
+      if (item.projection !== undefined) {
+        const eligibility = this.#projectionContextEligibility(
+          item.projection.projection_id,
+          item.projection.projection_revision_id,
+          command.principal_id,
+          item.scope,
+          request.as_of,
+          request.include_sensitive,
+          new Set(),
+        );
+        if (
+          eligibility.status !== "eligible" ||
+          !this.#contextItemMatchesProjection(
+            item,
+            eligibility.projection,
+            contextSlice.frontier,
+          )
+        ) {
           throw new StorageError("INVALID_INPUT");
         }
       }
@@ -1370,7 +1675,18 @@ export class StorageDatabase {
         (contextSlice.request_id !== existing.request_id ||
           receipt.context_slice_id !== contextSlice.context_slice_id ||
           canonicalSha256Omitting(contextSlice, ["frozen_hash"]) !==
-            contextSlice.frozen_hash))
+            contextSlice.frozen_hash ||
+          (contextSlice.policy_version !== undefined &&
+            contextSlice.policy_version !== receipt.policy_version) ||
+          canonicalJson(contextSlice.frontier ?? null) !==
+            canonicalJson(receipt.frontier ?? null) ||
+          canonicalJson(
+            contextSlice.effective_lane_configuration ?? null,
+          ) !== canonicalJson(
+            receipt.effective_lane_configuration ?? null,
+          ) ||
+          canonicalJson(contextSlice.lane_telemetry ?? null) !==
+            canonicalJson(receipt.lane_telemetry ?? null)))
     ) {
       throw new StorageError("CORRUPTION");
     }
@@ -1397,7 +1713,7 @@ export class StorageDatabase {
   }
 
   #assertGovernedContextReplayEligible(
-    contextSlice: ReturnType<typeof ContextSliceSchema.parse>,
+    contextSlice: ParsedContextSlice,
     principalId: string,
     asOf: string,
     includeSensitive: boolean,
@@ -1409,6 +1725,32 @@ export class StorageDatabase {
         item.content.media_type ===
           "application/x.memo-graph-redacted";
       if (item.abstraction !== "l1_memory" || isRedacted) {
+        if (item.projection === undefined || isRedacted) {
+          continue;
+        }
+        const eligibility = this.#projectionContextEligibility(
+          item.projection.projection_id,
+          item.projection.projection_revision_id,
+          principalId,
+          item.scope,
+          asOf,
+          includeSensitive,
+          new Set(),
+        );
+        if (
+          eligibility.status !== "eligible" ||
+          !this.#contextItemMatchesProjection(
+            item,
+            eligibility.projection,
+            contextSlice.frontier,
+          )
+        ) {
+          throw new StorageError(
+            eligibility.status === "tombstoned"
+              ? "INCOMPLETE_PURGE"
+              : "CONFLICT",
+          );
+        }
         continue;
       }
       const eligibility = this.#governedMemory.checkEligibility(
@@ -1430,6 +1772,201 @@ export class StorageDatabase {
         );
       }
     }
+  }
+
+  #contextItemMatchesProjection(
+    item: ParsedContextSlice["items"][number],
+    projection: ParsedProjectionRevision,
+    contextFrontier: ParsedContextSlice["frontier"],
+  ): boolean {
+    if (
+      projection.content === null ||
+      item.projection === undefined ||
+      contextFrontier === undefined
+    ) {
+      return false;
+    }
+    const lineage = {
+      projection_id: projection.projection_id,
+      projection_revision_id: projection.projection_revision_id,
+      source_revision_ids: projection.source_revisions.map(
+        (source) => source.revision_id,
+      ),
+      source_content_hashes: projection.source_revisions.map(
+        (source) => source.content_hash,
+      ),
+      transform: projection.transform,
+      frontier: projection.frontier,
+    };
+    return (
+      item.memory_id === projection.projection_id &&
+      item.revision_id === projection.projection_revision_id &&
+      item.abstraction === projection.abstraction &&
+      item.lifecycle === projection.lifecycle &&
+      item.authority === projection.authority &&
+      item.sensitivity === projection.sensitivity &&
+      item.scope.kind === projection.scope.kind &&
+      item.scope.id === projection.scope.id &&
+      canonicalJson(item.content) === canonicalJson(projection.content) &&
+      canonicalJson([...item.evidence_ids].sort()) ===
+      canonicalJson([...projection.evidence_ids].sort()) &&
+      canonicalJson(item.projection) === canonicalJson(lineage) &&
+      projection.frontier.ledger_epoch ===
+        contextFrontier.ledger_epoch &&
+      projection.frontier.tombstone_epoch ===
+        contextFrontier.tombstone_epoch &&
+      projection.frontier.projection_epoch ===
+        contextFrontier.projection_epoch &&
+      projection.frontier.source_frontier_hash ===
+        contextFrontier.source_frontier_hash &&
+      projection.frontier.projection_frontier_hash ===
+        contextFrontier.projection_frontier_hash &&
+      contextFrontier.transform_versions.some(
+        (transform) =>
+          transform.name === projection.transform.name &&
+          transform.version === projection.transform.version,
+      )
+    );
+  }
+
+  #projectionContextEligibility(
+    projectionId: string,
+    projectionRevisionId: string,
+    principalId: string,
+    scope: ParsedContextSlice["items"][number]["scope"],
+    asOf: string,
+    includeSensitive: boolean,
+    seen: Set<string>,
+  ): ProjectionEligibility {
+    if (seen.has(projectionRevisionId)) {
+      return { status: "changed" };
+    }
+    seen.add(projectionRevisionId);
+    const row = this.#database
+      .prepare(
+        `SELECT r.revision_json, r.lifecycle AS revision_lifecycle,
+                r.purged_at, o.lifecycle AS object_lifecycle,
+                o.current_revision_id,
+                EXISTS (
+                  SELECT 1 FROM projection_invalidations AS i
+                  WHERE i.projection_revision_id = r.projection_revision_id
+                ) AS invalidated
+         FROM projection_revisions AS r
+         JOIN projection_objects AS o ON o.projection_id = r.projection_id
+         WHERE r.projection_id = ? AND r.projection_revision_id = ?`,
+      )
+      .get(projectionId, projectionRevisionId) as
+        | {
+            revision_json: string;
+            revision_lifecycle: string;
+            purged_at: string | null;
+            object_lifecycle: string;
+            current_revision_id: string | null;
+            invalidated: number;
+          }
+        | undefined;
+    if (row === undefined) {
+      return { status: "changed" };
+    }
+    if (
+      row.purged_at !== null ||
+      row.revision_lifecycle === "purged" ||
+      row.object_lifecycle === "purged"
+    ) {
+      return { status: "tombstoned" };
+    }
+    if (
+      row.current_revision_id !== projectionRevisionId ||
+      row.revision_lifecycle !== "active" ||
+      row.object_lifecycle !== "active" ||
+      row.invalidated !== 0
+    ) {
+      return { status: "changed" };
+    }
+    let projection: ParsedProjectionRevision;
+    try {
+      projection = ProjectionRevisionSchema.parse(
+        JSON.parse(row.revision_json) as unknown,
+      );
+    } catch {
+      return { status: "changed" };
+    }
+    if (
+      projection.principal_id !== principalId ||
+      projection.scope.kind !== scope.kind ||
+      projection.scope.id !== scope.id ||
+      projection.lifecycle !== "active" ||
+      projection.payload === null ||
+      projection.content === null ||
+      Date.parse(projection.validity.valid_from) > Date.parse(asOf) ||
+      (projection.validity.valid_to !== null &&
+        Date.parse(projection.validity.valid_to) < Date.parse(asOf)) ||
+      projection.sensitivity === "secret" ||
+      (projection.sensitivity === "sensitive" && !includeSensitive)
+    ) {
+      return { status: "changed" };
+    }
+    for (const source of projection.source_revisions) {
+      if (source.abstraction === "l1_memory") {
+        const eligibility = this.#governedMemory.checkEligibility(
+          MemoryEligibilityInputSchema.parse({
+            memory_id: source.memory_id,
+            revision_id: source.revision_id,
+            principal_id: principalId,
+            scope,
+            as_of: asOf,
+            include_sensitive: includeSensitive,
+            context_scope: scope,
+          }),
+        );
+        if (!eligibility.eligible) {
+          return {
+            status:
+              eligibility.reason_code === "TOMBSTONED"
+                ? "tombstoned"
+                : "changed",
+          };
+        }
+        const canonical = eligibility.item;
+        if (
+          source.authority !== canonical.authority ||
+          source.sensitivity !== canonical.sensitivity ||
+          source.content_hash !== canonical.content_hash ||
+          canonicalJson(source.validity) !==
+            canonicalJson(canonical.validity) ||
+          canonicalJson([...source.evidence_ids].sort()) !==
+            canonicalJson([...canonical.evidence_ids].sort())
+        ) {
+          return { status: "changed" };
+        }
+        continue;
+      }
+      const nested = this.#projectionContextEligibility(
+        source.memory_id,
+        source.revision_id,
+        principalId,
+        scope,
+        asOf,
+        includeSensitive,
+        new Set(seen),
+      );
+      if (nested.status !== "eligible") {
+        return nested;
+      }
+      if (
+        source.abstraction !== nested.projection.abstraction ||
+        source.authority !== nested.projection.authority ||
+        source.sensitivity !== nested.projection.sensitivity ||
+        source.content_hash !== nested.projection.content_hash ||
+        canonicalJson(source.validity) !==
+          canonicalJson(nested.projection.validity) ||
+        canonicalJson([...source.evidence_ids].sort()) !==
+          canonicalJson([...nested.projection.evidence_ids].sort())
+      ) {
+        return { status: "changed" };
+      }
+    }
+    return { status: "eligible", projection };
   }
 
   #recallContainsUnredactedTombstone(requestId: string): boolean {
@@ -1484,6 +2021,34 @@ export class StorageDatabase {
                      WHERE other_re.evidence_id = cie.evidence_id
                        AND other_m.lifecycle <> 'purged'
                    )
+               )
+               OR EXISTS (
+                 WITH RECURSIVE ancestry(
+                   source_revision_id,
+                   source_memory_id
+                 ) AS (
+                   SELECT source.source_revision_id,
+                          source.source_memory_id
+                   FROM projection_revision_sources AS source
+                   WHERE source.projection_revision_id = json_extract(
+                     i.item_json,
+                     '$.projection.projection_revision_id'
+                   )
+                   UNION ALL
+                   SELECT source.source_revision_id,
+                          source.source_memory_id
+                   FROM projection_revision_sources AS source
+                   JOIN ancestry
+                     ON source.projection_revision_id =
+                       ancestry.source_revision_id
+                 )
+                 SELECT 1
+                 FROM ancestry
+                 JOIN memory_objects AS source_memory
+                   ON source_memory.memory_id =
+                     ancestry.source_memory_id
+                 WHERE source_memory.lifecycle = 'purged'
+                 LIMIT 1
                )
              )
            LIMIT 1`,

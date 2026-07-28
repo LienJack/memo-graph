@@ -320,24 +320,24 @@ pnpm typecheck
 
 **Checklist:**
 
-- [ ] Wire storage queries, lane orchestration, canonical revalidation, and the
+- [x] Wire storage queries, lane orchestration, canonical revalidation, and the
       pure compiler through the kernel.
-- [ ] Extend Context compile/search/explain/receipt MCP results with typed M3
-      lane and frontier detail.
-- [ ] Prove MCP lane configuration can only narrow operator policy.
-- [ ] Preserve configured-principal authority; reject self-asserted request
+- [x] Extend Context compile/receipt MCP results with typed M3 lane and
+      frontier detail while preserving governed search/explain behavior.
+- [x] Prove MCP lane configuration can only narrow operator policy.
+- [x] Preserve configured-principal authority; reject self-asserted request
       authority.
-- [ ] Keep diagnostics content-free and degradation structured.
-- [ ] Cover projection tables and payloads in purge/residual scans.
-- [ ] Extend backup/restore so derived state is coherent or deterministically
+- [x] Keep diagnostics content-free and degradation structured.
+- [x] Cover projection tables and payloads in purge/residual scans.
+- [x] Extend backup/restore so derived state is coherent or deterministically
       rebuilt.
-- [ ] Preserve immutable historical Context slices after later mutations.
-- [ ] Preserve the guarded purge exception: redact prohibited Context payload
+- [x] Preserve immutable historical Context slices after later mutations.
+- [x] Preserve the guarded purge exception: redact prohibited Context payload
       fields while retaining tombstone/hash/audit evidence and disabling exact
-      replay.
-- [ ] Verify the next compile reflects corrections, revoke, purge, and
+      plaintext replay.
+- [x] Verify the next compile reflects corrections, revoke, purge, and
       tombstone immediately.
-- [ ] Prove projection failure does not break startup, mutation, delete, or
+- [x] Prove projection failure does not break startup, mutation, delete, or
       lower-layer Context.
 
 **Focused verification:**
@@ -354,9 +354,9 @@ pnpm build
 
 **Completion evidence:**
 
-- [ ] End-to-end MCP behavior returns explainable frozen artifacts.
-- [ ] M0–M2 regression suite remains green.
-- [ ] Create the U6 commit.
+- [x] End-to-end MCP behavior returns explainable frozen artifacts.
+- [x] M0–M2 regression suite remains green.
+- [x] Create the U6 commit.
 
 ## 9. U7 — Frozen G3 three-arm replay
 

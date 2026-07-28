@@ -568,9 +568,34 @@ export class PurgeRepository {
               )
               AND e.purged_at IS NOT NULL
             )
+            OR EXISTS (
+              WITH RECURSIVE ancestry(
+                source_revision_id,
+                source_memory_id
+              ) AS (
+                SELECT source.source_revision_id,
+                       source.source_memory_id
+                FROM projection_revision_sources AS source
+                WHERE source.projection_revision_id = json_extract(
+                  i.item_json,
+                  '$.projection.projection_revision_id'
+                )
+                UNION ALL
+                SELECT source.source_revision_id,
+                       source.source_memory_id
+                FROM projection_revision_sources AS source
+                JOIN ancestry
+                  ON source.projection_revision_id =
+                    ancestry.source_revision_id
+              )
+              SELECT 1
+              FROM ancestry
+              WHERE ancestry.source_memory_id = ?
+              LIMIT 1
+            )
          ORDER BY i.context_slice_id, i.ordinal`,
       )
-      .all(job.memory_id, job.memory_id) as ContextItemRow[];
+      .all(job.memory_id, job.memory_id, job.memory_id) as ContextItemRow[];
     const bySlice = new Map<string, Set<number>>();
     for (const item of items) {
       const parsed = JSON.parse(item.item_json) as Record<string, unknown>;

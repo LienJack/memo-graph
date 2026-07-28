@@ -32,13 +32,28 @@ a reviewed delete:
   ],
   "destructive_tools_enabled": false,
   "approval_manifest_path": "/absolute/private/path/approvals.json",
-  "default_token_budget": 1800
+  "default_token_budget": 1800,
+  "lane_policy": {
+    "allowed_lanes": [
+      "recent_l1"
+    ],
+    "limits": {
+      "max_candidates_per_lane": 100,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 20,
+      "max_concurrent_lanes": 2
+    }
+  }
 }
 ```
 
 `destructive_tools_enabled` defaults to `false`. Setting it to `true` is only
 one half of delete authorization: every effect-bearing delete still requires
 an exact, unexpired, single-use approval.
+
+The default `lane_policy` keeps the accepted M2 L0/L1 Context path. Enabling
+L2/L3 lanes is an operator decision; tool requests may only narrow the
+configured lane set and limits.
 
 If `approval_manifest_path` is omitted, the runtime uses a deny-all approval
 registry. The configured file must be:
