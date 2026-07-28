@@ -190,6 +190,7 @@ describe("FTS projection and backup", () => {
 
     expect(backup.integrity_check).toBe("ok");
     expect(backup.ledger_epoch).toBe(receipt.resulting_epoch);
+    expect(backup.tombstone_epoch).toBe(0);
     expect(backup.latest_receipt_hash).toBe(receipt.receipt_hash);
     expect(backup.blob_hashes).toHaveLength(1);
     expect(statSync(backup.path).mode & 0o777).toBe(0o600);

@@ -49,6 +49,29 @@ export const MigrationEvidenceSchema = z
   })
   .strict();
 
+export const GovernanceCountsSchema = z
+  .object({
+    memory_candidates: z.number().int().nonnegative(),
+    memory_objects: z.number().int().nonnegative(),
+    memory_revisions: z.number().int().nonnegative(),
+    admission_decisions: z.number().int().nonnegative(),
+    conflict_groups: z.number().int().nonnegative(),
+    status_events: z.number().int().nonnegative(),
+    pin_events: z.number().int().nonnegative(),
+    usage_rules: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const PurgeCountsSchema = z
+  .object({
+    memory_tombstones: z.number().int().nonnegative(),
+    purge_jobs: z.number().int().nonnegative(),
+    purge_store_outcomes: z.number().int().nonnegative(),
+    purge_receipts: z.number().int().nonnegative(),
+    approval_consumptions: z.number().int().nonnegative(),
+  })
+  .strict();
+
 export const StorageCountsSchema = z
   .object({
     evidence_events: z.number().int().nonnegative(),
@@ -62,6 +85,8 @@ export const StorageCountsSchema = z
     retrieval_receipts: z.number().int().nonnegative(),
     context_slices: z.number().int().nonnegative(),
     receipt_access_scopes: z.number().int().nonnegative(),
+    ...GovernanceCountsSchema.shape,
+    ...PurgeCountsSchema.shape,
   })
   .strict();
 
@@ -69,6 +94,7 @@ export const StorageHealthSchema = z
   .object({
     schema_version: z.string().regex(/^\d{4}$/),
     ledger_epoch: z.number().int().nonnegative(),
+    tombstone_epoch: z.number().int().nonnegative(),
     latest_receipt_hash: z
       .string()
       .regex(/^sha256:[a-f0-9]{64}$/)
@@ -76,6 +102,7 @@ export const StorageHealthSchema = z
     sqlite_version: z.string().min(1),
     journal_mode: z.literal("wal"),
     foreign_keys: z.literal(true),
+    secure_delete: z.literal(true),
     projection_state: z.enum([
       "ready",
       "pending",
@@ -85,6 +112,32 @@ export const StorageHealthSchema = z
     filesystem_type: z.number().int(),
     migrations: z.array(MigrationEvidenceSchema),
     counts: StorageCountsSchema,
+  })
+  .strict();
+
+export const GovernanceStorageStatusSchema = z
+  .object({
+    tombstone_epoch: z.number().int().nonnegative(),
+    governance: GovernanceCountsSchema,
+    purge: PurgeCountsSchema,
+  })
+  .strict();
+
+export const ContentReferenceCountsInputSchema = z
+  .object({
+    content_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  })
+  .strict();
+
+export const ContentReferenceCountsSchema = z
+  .object({
+    content_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+    evidence_events: z.number().int().nonnegative(),
+    memory_candidates: z.number().int().nonnegative(),
+    memory_revisions: z.number().int().nonnegative(),
+    live_revision_links: z.number().int().nonnegative(),
+    artifacts: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
   })
   .strict();
 
@@ -155,6 +208,7 @@ export const BackupResultSchema = z
     directory: z.string().min(1),
     path: z.string().min(1),
     ledger_epoch: z.number().int().nonnegative(),
+    tombstone_epoch: z.number().int().nonnegative(),
     latest_receipt_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/).nullable(),
     blob_hashes: z.array(z.string().regex(/^sha256:[a-f0-9]{64}$/)),
     integrity_check: z.literal("ok"),
@@ -223,6 +277,8 @@ export const BlockWorkerResultSchema = z
 
 export const WorkerOperationSchema = z.enum([
   "health",
+  "governance_status",
+  "count_content_references",
   "commit_episode",
   "drain_fts",
   "search_evidence",
@@ -275,11 +331,18 @@ export const WorkerResponseSchema = z.discriminatedUnion("ok", [
 export type BackupResult = z.infer<typeof BackupResultSchema>;
 export type BlockWorkerResult = z.infer<typeof BlockWorkerResultSchema>;
 export type CheckpointResult = z.infer<typeof CheckpointResultSchema>;
+export type ContentReferenceCounts = z.infer<
+  typeof ContentReferenceCountsSchema
+>;
 export type CommitEpisodeCommand = z.input<typeof CommitEpisodeCommandSchema>;
 export type ParsedCommitEpisodeCommand = z.output<
   typeof CommitEpisodeCommandSchema
 >;
 export type DrainFtsResult = z.infer<typeof DrainFtsResultSchema>;
+export type GovernanceCounts = z.infer<typeof GovernanceCountsSchema>;
+export type GovernanceStorageStatus = z.infer<
+  typeof GovernanceStorageStatusSchema
+>;
 export type MigrationEvidence = z.infer<typeof MigrationEvidenceSchema>;
 export type EvidenceExplanation = z.infer<typeof EvidenceExplanationSchema>;
 export type EvidenceLookupInput = z.input<typeof EvidenceLookupInputSchema>;
@@ -296,6 +359,7 @@ export type ParsedRecordRecallCommand = z.output<
 >;
 export type RecordRecallResult = z.infer<typeof RecordRecallResultSchema>;
 export type RebuildFtsResult = z.infer<typeof RebuildFtsResultSchema>;
+export type PurgeCounts = z.infer<typeof PurgeCountsSchema>;
 export type SearchEvidenceQuery = z.input<typeof SearchEvidenceQuerySchema>;
 export type ParsedSearchEvidenceQuery = z.output<
   typeof SearchEvidenceQuerySchema

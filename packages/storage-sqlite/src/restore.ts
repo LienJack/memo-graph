@@ -111,6 +111,7 @@ export async function restoreBackupToEmptyDataRoot(
     const artifacts = await client.verifyArtifacts();
     if (
       health.ledger_epoch !== backup.ledger_epoch ||
+      health.tombstone_epoch !== backup.tombstone_epoch ||
       health.latest_receipt_hash !== backup.latest_receipt_hash ||
       artifacts.verified !== backup.blob_hashes.length
     ) {

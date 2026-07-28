@@ -2,6 +2,9 @@ export const STORAGE_ERROR_CODES = [
   "INVALID_DATA_ROOT",
   "INVALID_INPUT",
   "CONFLICT",
+  "STALE_REVISION",
+  "INCOMPLETE_PURGE",
+  "STALE_TOMBSTONE_FRONTIER",
   "CORRUPTION",
   "MIGRATION_DRIFT",
   "ENCRYPTION_REQUIRED",
@@ -22,6 +25,10 @@ const PUBLIC_MESSAGES: Record<StorageErrorCode, string> = {
   INVALID_DATA_ROOT: "the configured data root is unsafe or unsupported",
   INVALID_INPUT: "the storage request is invalid",
   CONFLICT: "the storage request conflicts with durable state",
+  STALE_REVISION: "the expected memory revision is no longer current",
+  INCOMPLETE_PURGE: "the purge still has residual or failed stores",
+  STALE_TOMBSTONE_FRONTIER:
+    "the backup predates the required tombstone frontier",
   CORRUPTION: "stored content failed an integrity check",
   MIGRATION_DRIFT: "the migration history differs from the applied schema",
   ENCRYPTION_REQUIRED:

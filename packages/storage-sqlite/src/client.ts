@@ -16,10 +16,13 @@ import {
   BlockWorkerResultSchema,
   CheckpointResultSchema,
   CommitEpisodeCommandSchema,
+  ContentReferenceCountsInputSchema,
+  ContentReferenceCountsSchema,
   DrainFtsResultSchema,
   EvidenceExplanationResultSchema,
   EvidenceLookupInputSchema,
   EvidenceLookupResultSchema,
+  GovernanceStorageStatusSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RebuildFtsResultSchema,
@@ -33,9 +36,11 @@ import {
   type BackupResult,
   type BlockWorkerResult,
   type CheckpointResult,
+  type ContentReferenceCounts,
   type DrainFtsResult,
   type DurableEpisodeReceipt,
   type EvidenceExplanation,
+  type GovernanceStorageStatus,
   type RecordRecallResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
@@ -127,6 +132,23 @@ export class SqliteStorageClient {
       ...result,
       writer_queue: this.#writerQueue.metrics(),
     };
+  }
+
+  governanceStatus(): Promise<GovernanceStorageStatus> {
+    return this.#request(
+      "governance_status",
+      null,
+      GovernanceStorageStatusSchema,
+    );
+  }
+
+  contentReferenceCounts(input: unknown): Promise<ContentReferenceCounts> {
+    const query = ContentReferenceCountsInputSchema.parse(input);
+    return this.#request(
+      "count_content_references",
+      query,
+      ContentReferenceCountsSchema,
+    );
   }
 
   commitEpisode(

@@ -23,19 +23,19 @@
 
 ## 2. U2 — SQLite governance schema
 
-- [ ] Add immutable migration `0004-l1-governance.sql`.
-- [ ] Add immutable migration `0005-tombstone-purge.sql`.
-- [ ] Add strict constraints/triggers for immutable revision and append-only
+- [x] Add immutable migration `0004-l1-governance.sql`.
+- [x] Add immutable migration `0005-tombstone-purge.sql`.
+- [x] Add strict constraints/triggers for immutable revision and append-only
       event/receipt history.
-- [ ] Add a narrow purge-job guard for exclusive content-only L0/L1/Context
+- [x] Add a narrow purge-job guard for exclusive content-only L0/L1/Context
       redaction while preserving identity/hash/lineage/receipt fields.
-- [ ] Add governance and purge repositories behind the storage worker.
-- [ ] Add decoded worker operations and storage health counts/frontiers.
-- [ ] Prove forward migration, restart, immutability, reference counts, and
+- [x] Add governance and purge repositories behind the storage worker.
+- [x] Add decoded worker operations and storage health counts/frontiers.
+- [x] Prove forward migration, restart, immutability, reference counts, and
       monotonic tombstone epoch.
-- [ ] Validate with:
+- [x] Validate with:
       `pnpm test:storage -- governance-schema.integration.test.ts`.
-- [ ] Commit U2 only after storage, recovery, lint, and typecheck pass.
+- [x] Commit U2 only after storage, recovery, lint, and typecheck pass.
 
 ## 3. U3 — admission, identity, conflict, CAS
 

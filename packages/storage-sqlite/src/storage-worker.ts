@@ -10,6 +10,7 @@ import {
 } from "./errors.js";
 import {
   CommitEpisodeCommandSchema,
+  ContentReferenceCountsInputSchema,
   EvidenceLookupInputSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
@@ -68,6 +69,16 @@ port.on("message", (message: unknown) => {
         case "health":
           result = database.health();
           break;
+        case "governance_status":
+          result = database.governanceStatus();
+          break;
+        case "count_content_references": {
+          const input = ContentReferenceCountsInputSchema.parse(
+            request.payload,
+          );
+          result = database.contentReferenceCounts(input.content_hash);
+          break;
+        }
         case "commit_episode": {
           const committed = database.commitEpisode(
             CommitEpisodeCommandSchema.parse(request.payload),

@@ -32,7 +32,9 @@ import { BlobStore, type StoredBlob } from "./blob-store.js";
 import type { DataRootLayout } from "./data-root.js";
 import { StorageError } from "./errors.js";
 import { FtsIndex } from "./fts-index.js";
+import { GovernanceRepository } from "./governance-repository.js";
 import { applyMigrations } from "./migrations.js";
+import { PurgeRepository } from "./purge-repository.js";
 import {
   CommitEpisodeCommandSchema,
   EvidenceExplanationSchema,
@@ -42,6 +44,7 @@ import {
   SearchEvidenceQuerySchema,
   type BackupResult,
   type CheckpointResult,
+  type ContentReferenceCounts,
   type DrainFtsResult,
   type DurableEpisodeReceipt,
   type EvidenceExplanation,
@@ -51,6 +54,7 @@ import {
   type RecordRecallResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
+  type GovernanceStorageStatus,
   type StorageHealth,
 } from "./protocol.js";
 
@@ -174,6 +178,8 @@ export class StorageDatabase {
   readonly #migrations: MigrationEvidence[];
   readonly #blobStore: BlobStore;
   readonly #fts: FtsIndex;
+  readonly #governance: GovernanceRepository;
+  readonly #purge: PurgeRepository;
   readonly #journalMode: string;
 
   constructor(options: {
@@ -187,6 +193,7 @@ export class StorageDatabase {
     this.#database.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
     this.#database.pragma("foreign_keys = ON");
     this.#database.pragma("synchronous = FULL");
+    this.#database.pragma("secure_delete = ON");
     this.#database.pragma("temp_store = MEMORY");
     this.#database.pragma("trusted_schema = OFF");
     this.#database.pragma("recursive_triggers = ON");
@@ -202,10 +209,14 @@ export class StorageDatabase {
     this.#migrations = applyMigrations(this.#database, options.migrationsDir);
     this.#blobStore = new BlobStore(options.layout.blobs);
     this.#fts = new FtsIndex(this.#database);
+    this.#governance = new GovernanceRepository(this.#database);
+    this.#purge = new PurgeRepository(this.#database);
   }
 
   health(): StorageHealth {
     const projection = this.#fts.state();
+    const governance = this.#governance.counts();
+    const purge = this.#purge.counts();
     const count = (table: string, where = ""): number =>
       Number(
         (
@@ -226,10 +237,16 @@ export class StorageDatabase {
     ) {
       throw new StorageError("STORAGE_UNAVAILABLE");
     }
+    if (
+      Number(this.#database.pragma("secure_delete", { simple: true })) !== 1
+    ) {
+      throw new StorageError("STORAGE_UNAVAILABLE");
+    }
 
     return {
       schema_version: schemaVersion,
       ledger_epoch: this.#ledgerEpoch(),
+      tombstone_epoch: this.#purge.tombstoneEpoch(),
       latest_receipt_hash: this.#latestReceipt()?.receipt_hash ?? null,
       sqlite_version: String(
         (
@@ -240,6 +257,7 @@ export class StorageDatabase {
       ),
       journal_mode: "wal",
       foreign_keys: true,
+      secure_delete: true,
       projection_state: projection.status,
       filesystem_type: this.#layout.filesystem_type,
       migrations: this.#migrations,
@@ -258,8 +276,22 @@ export class StorageDatabase {
         retrieval_receipts: count("retrieval_receipts"),
         context_slices: count("context_slices"),
         receipt_access_scopes: count("receipt_access_scopes"),
+        ...governance,
+        ...purge,
       },
     };
+  }
+
+  governanceStatus(): GovernanceStorageStatus {
+    return {
+      tombstone_epoch: this.#purge.tombstoneEpoch(),
+      governance: this.#governance.counts(),
+      purge: this.#purge.counts(),
+    };
+  }
+
+  contentReferenceCounts(contentHash: string): ContentReferenceCounts {
+    return this.#governance.contentReferenceCounts(contentHash);
   }
 
   commitEpisode(input: unknown): CommitResult {
@@ -384,6 +416,7 @@ export class StorageDatabase {
 
   async createBackup(): Promise<BackupResult> {
     const epoch = this.#ledgerEpoch();
+    const tombstoneEpoch = this.#purge.tombstoneEpoch();
     const backupId = `backup:${randomUUID()}`;
     const directory = join(
       this.#layout.backups,
@@ -456,6 +489,16 @@ export class StorageDatabase {
            ORDER BY resulting_epoch DESC, receipt_id DESC LIMIT 1`,
         )
         .get() as LatestReceipt;
+      const backupTombstoneEpoch = Number(
+        (
+          backup
+            .prepare(
+              `SELECT tombstone_epoch
+               FROM tombstone_state WHERE singleton = 1`,
+            )
+            .get() as { tombstone_epoch: number }
+        ).tombstone_epoch,
+      );
       const backupMigrations = backup
         .prepare(
           "SELECT version, name, hash, applied_at FROM schema_migrations ORDER BY version",
@@ -465,6 +508,7 @@ export class StorageDatabase {
       if (
         integrityCheck !== "ok" ||
         backupEpoch !== epoch ||
+        backupTombstoneEpoch !== tombstoneEpoch ||
         backupReceipt?.receipt_hash !== latestReceipt?.receipt_hash ||
         canonicalJson(backupMigrations) !== canonicalJson(this.#migrations)
       ) {
@@ -479,15 +523,17 @@ export class StorageDatabase {
       .prepare(
         `INSERT INTO backup_manifests (
            backup_id, relative_path, created_at, ledger_epoch,
+           tombstone_epoch,
            latest_receipt_hash, migration_hashes_json, blob_hashes_json,
            size_bytes, integrity_check
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         backupId,
         `backups/${basename(directory)}/memory.db`,
         now(),
         epoch,
+        tombstoneEpoch,
         latestReceipt?.receipt_hash ?? null,
         canonicalJson(this.#migrations),
         canonicalJson(artifacts.map((artifact) => artifact.content_hash)),
@@ -500,6 +546,7 @@ export class StorageDatabase {
       directory,
       path,
       ledger_epoch: epoch,
+      tombstone_epoch: tombstoneEpoch,
       latest_receipt_hash: latestReceipt?.receipt_hash ?? null,
       blob_hashes: artifacts.map((artifact) => artifact.content_hash),
       integrity_check: "ok",
