@@ -337,30 +337,30 @@ pnpm typecheck
 
 **Test-first checklist:**
 
-- [ ] Build two exact scopes with distinct verified frontiers and candidates.
-- [ ] Prove both candidates survive only against their own scope frontier.
-- [ ] Reject a candidate when its scope entry is absent or duplicated.
-- [ ] Prove scope request permutations yield one V2 aggregate, receipt hash,
+- [x] Build two exact scopes with distinct verified frontiers and candidates.
+- [x] Prove both candidates survive only against their own scope frontier.
+- [x] Reject a candidate when its scope entry is absent or duplicated.
+- [x] Prove scope request permutations yield one V2 aggregate, receipt hash,
       Context identity, and ordered item set.
-- [ ] Prove a second cross-scope epoch mismatch drops projection candidates
+- [x] Prove a second cross-scope epoch mismatch drops projection candidates
       and records safe degradation after exactly one retry.
-- [ ] Prove correction/tombstone in scope A changes only A eligibility and V2
+- [x] Prove correction/tombstone in scope A changes only A eligibility and V2
       frontier entry.
-- [ ] Parse and replay V1 Context/receipt fixtures without adding V2 fields or
+- [x] Parse and replay V1 Context/receipt fixtures without adding V2 fields or
       changing hashes.
-- [ ] Prove projection lanes disabled remains semantically compatible with
+- [x] Prove projection lanes disabled remains semantically compatible with
       accepted M2.
 
 **Implementation checklist:**
 
-- [ ] Build V2 frontiers from canonical scope order.
-- [ ] Retry the full scope recall set once on epoch mismatch.
-- [ ] Degrade safely when any scope frontier is missing/not ready.
-- [ ] Select candidate frontier by `scopeKey` in pure hard filters.
-- [ ] Bump layered compiler artifact version for V2.
-- [ ] Seal aggregate frontier and bounded-work telemetry into Context/receipt.
-- [ ] Preserve V1 parsing, hashing, stored lookup, and replay.
-- [ ] Keep MCP response status and fallback lane honest on degradation.
+- [x] Build V2 frontiers from canonical scope order.
+- [x] Retry the full scope recall set once on epoch mismatch.
+- [x] Degrade safely when any scope frontier is missing/not ready.
+- [x] Select candidate frontier by `scopeKey` in pure hard filters.
+- [x] Bump layered compiler artifact version for V2.
+- [x] Seal aggregate frontier and bounded-work telemetry into Context/receipt.
+- [x] Preserve V1 parsing, hashing, stored lookup, and replay.
+- [x] Keep MCP response status and fallback lane honest on degradation.
 
 **Focused verification:**
 
@@ -378,9 +378,9 @@ pnpm build
 
 **Completion evidence:**
 
-- [ ] Multi-scope frontiers are order independent and candidate local.
-- [ ] Old issued slices remain immutable and replayable.
-- [ ] Create the U5 commit.
+- [x] Multi-scope frontiers are order independent and candidate local.
+- [x] Old issued slices remain immutable and replayable.
+- [x] Create the U5 commit.
 
 **Rollback point:** keep V2 data stored but return to disabled projection
 lanes and the accepted M2 compiler.

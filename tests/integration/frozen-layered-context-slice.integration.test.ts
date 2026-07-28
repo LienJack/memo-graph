@@ -15,6 +15,7 @@ import {
 
 import {
   GovernedResponseSchema,
+  canonicalSha256,
 } from "../../packages/contracts/src/index.js";
 import {
   ConsolidationService,
@@ -36,6 +37,10 @@ import { inlineEpisode } from "../helpers/storage-examples.js";
 const cleanupPaths: string[] = [];
 const NOW = "2026-07-28T12:12:00.000Z";
 const SCOPE = { kind: "workspace", id: "workspace_local" } as const;
+const SCOPE_B = {
+  kind: "workspace",
+  id: "workspace_secondary",
+} as const;
 const ALL_LANES = [
   "recent_l1",
   "topic",
@@ -57,6 +62,7 @@ function runtime(
   options: {
     allowedLanes?: typeof ALL_LANES[number][];
     laneRetriever?: RecallLaneRetriever;
+    allowedScopes?: Array<typeof SCOPE | typeof SCOPE_B>;
   } = {},
 ) {
   return new MemoryRuntime({
@@ -67,7 +73,7 @@ function runtime(
     policy: {
       principal: {
         principal_id: "user_local",
-        allowed_scopes: [SCOPE],
+        allowed_scopes: options.allowedScopes ?? [SCOPE],
         allowed_authorities: ["user_stated"],
         destructive_tools_enabled: false,
       },
@@ -85,7 +91,11 @@ function runtime(
   });
 }
 
-function compileRequest(requestId: string, query = "agent memory") {
+function compileRequest(
+  requestId: string,
+  query = "agent memory",
+  scopes: Array<typeof SCOPE | typeof SCOPE_B> = [SCOPE],
+) {
   return {
     envelope: {
       schema_version: "1.0.0",
@@ -95,7 +105,7 @@ function compileRequest(requestId: string, query = "agent memory") {
         principal_id: "user_local",
         authority: "user_stated",
       },
-      scopes: [SCOPE],
+      scopes,
       purpose: "compile exact-scope layered context",
       reason: "verify frozen runtime integration",
       requested_at: NOW,
@@ -106,7 +116,7 @@ function compileRequest(requestId: string, query = "agent memory") {
       request_id: requestId,
       goal: "restore governed agent memory",
       query,
-      scopes: [SCOPE],
+      scopes,
       as_of: NOW,
       token_budget: 1_800,
       include_sensitive: false,
@@ -311,6 +321,244 @@ describe("frozen layered Context runtime", () => {
     await storage.close();
   });
 
+  it("seals two exact scopes into one canonical V2 frontier", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-context-multi-scope"),
+    });
+    const admittedA = await seedLayeredProjectionSources(storage, {
+      prefix: "layered_scope_a",
+    });
+    await seedLayeredProjectionSources(storage, {
+      prefix: "layered_scope_b",
+      scopeId: SCOPE_B.id,
+    });
+    await drain(storage, "layered_context_multi_scope_worker");
+    const result = await runtime(storage, {
+      allowedScopes: [SCOPE, SCOPE_B],
+    }).memoryContextCompile(
+      compileRequest(
+        "request_layered_context_multi_scope",
+        "agent memory",
+        [SCOPE_B, SCOPE],
+      ),
+    );
+    if (result.status !== "OK") {
+      throw new Error(
+        `both ready scopes must compile: ${JSON.stringify(result)}`,
+      );
+    }
+    expect(result.status).toBe("OK");
+    const data = result.data as {
+      context_slice: {
+        compiler_version: string;
+        frontier: {
+          schema_version: string;
+          scope_frontiers: Array<{
+            scope: { kind: string; id: string };
+            projection_epoch: number;
+            source_frontier_hash: string;
+            projection_frontier_hash: string;
+          }>;
+          aggregate_frontier_hash: string;
+        };
+        items: Array<{ scope: { kind: string; id: string } }>;
+        lane_telemetry: Array<{
+          lane: string;
+          bounded_work?: Array<{ boundary: string }>;
+        }>;
+      };
+      receipt: { frontier?: unknown; lane_telemetry?: unknown };
+    };
+    const frontier = data.context_slice.frontier;
+    expect(frontier.schema_version).toBe("2.0.0");
+    expect(data.context_slice.compiler_version).toBe("3.0.0");
+    expect(frontier.scope_frontiers.map((item) => item.scope.id)).toEqual([
+      SCOPE.id,
+      SCOPE_B.id,
+    ]);
+    expect(frontier.aggregate_frontier_hash).toBe(
+      canonicalSha256(frontier.scope_frontiers),
+    );
+    expect(
+      new Set(data.context_slice.items.map((item) => item.scope.id)),
+    ).toEqual(new Set([SCOPE.id, SCOPE_B.id]));
+    expect(data.receipt.frontier).toEqual(frontier);
+    expect(data.receipt.lane_telemetry).toEqual(
+      data.context_slice.lane_telemetry,
+    );
+    expect(
+      data.context_slice.lane_telemetry.find(
+        (item) => item.lane === "topic",
+      )?.bounded_work,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ boundary: "projection_scan" }),
+        expect.objectContaining({ boundary: "projection_return" }),
+        expect.objectContaining({ boundary: "source_lineage_batch" }),
+      ]),
+    );
+    const sourceA = admittedA[0];
+    if (sourceA === undefined) {
+      throw new Error("scope A requires one correctable source");
+    }
+    await storage.commitEpisode(
+      inlineEpisode({
+        episodeId: "episode_multi_scope_correction",
+        evidenceId: "evidence_multi_scope_correction",
+        idempotencyKey: "commit:multi-scope-correction:0001",
+        text: "Only scope A changed.",
+      }),
+    );
+    await storage.applyMemoryRevision(
+      revisionCommand({
+        memoryId: sourceA.memory_id,
+        expectedRevisionId: sourceA.current_revision_id,
+        candidate: memoryCandidate({
+          candidateId: "candidate_multi_scope_correction",
+          logicalKey: "projection.layered_scope_a_semantic_a",
+          scope: SCOPE,
+          text: "Only scope A changed.",
+          evidenceIds: ["evidence_multi_scope_correction"],
+        }),
+        idempotencyKey: "multi-scope-correction-0001",
+      }),
+    );
+    const corrected = await runtime(storage, {
+      allowedScopes: [SCOPE, SCOPE_B],
+    }).memoryContextCompile(
+      compileRequest(
+        "request_layered_context_multi_scope_corrected",
+        "agent memory",
+        [SCOPE, SCOPE_B],
+      ),
+    );
+    expect(corrected.status).toBe("DEGRADED");
+    if (corrected.status !== "DEGRADED") {
+      throw new Error("scope A correction must fail projections to L1");
+    }
+    const correctedContext = (
+      corrected.data as {
+        context_slice: {
+          frontier: typeof frontier;
+          items: Array<{
+            abstraction: string;
+            revision_id: string;
+            scope: { id: string };
+          }>;
+        };
+      }
+    ).context_slice;
+    const beforeA = frontier.scope_frontiers.find(
+      (item) => item.scope.id === SCOPE.id,
+    );
+    const beforeB = frontier.scope_frontiers.find(
+      (item) => item.scope.id === SCOPE_B.id,
+    );
+    const afterA = correctedContext.frontier.scope_frontiers.find(
+      (item) => item.scope.id === SCOPE.id,
+    );
+    const afterB = correctedContext.frontier.scope_frontiers.find(
+      (item) => item.scope.id === SCOPE_B.id,
+    );
+    expect(afterA).not.toEqual(beforeA);
+    expect(afterB).toEqual(beforeB);
+    expect(
+      correctedContext.items.every(
+        (item) => item.abstraction === "l1_memory",
+      ),
+    ).toBe(true);
+    expect(
+      correctedContext.items.some(
+        (item) => item.revision_id === sourceA.current_revision_id,
+      ),
+    ).toBe(false);
+    expect(
+      correctedContext.items.some((item) => item.scope.id === SCOPE_B.id),
+    ).toBe(true);
+    await storage.close();
+  });
+
+  it("retries every scope once and degrades projections on a second epoch mismatch", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-context-epoch-mismatch"),
+    });
+    await seedLayeredProjectionSources(storage, {
+      prefix: "epoch_scope_a",
+    });
+    await seedLayeredProjectionSources(storage, {
+      prefix: "epoch_scope_b",
+      scopeId: SCOPE_B.id,
+    });
+    await drain(storage, "layered_context_epoch_mismatch_worker");
+    const original = storage.projectionScopeFrontier.bind(storage);
+    storage.projectionScopeFrontier = async (input) => {
+      const frontier = await original(input);
+      return input.scope.id === SCOPE_B.id
+        ? { ...frontier, ledger_epoch: frontier.ledger_epoch + 1 }
+        : frontier;
+    };
+    const base = new LayeredLaneRetrievers(storage);
+    const recallPasses = new Map<string, number>();
+    const countingRetriever: RecallLaneRetriever = {
+      retrieve: async (input) => {
+        if (input.lane === "recent_l1") {
+          recallPasses.set(
+            input.scope.id,
+            (recallPasses.get(input.scope.id) ?? 0) + 1,
+          );
+        }
+        return base.retrieve(input);
+      },
+    };
+    const result = await runtime(storage, {
+      allowedScopes: [SCOPE, SCOPE_B],
+      laneRetriever: countingRetriever,
+    }).memoryContextCompile(
+      compileRequest(
+        "request_layered_context_epoch_mismatch",
+        "agent memory",
+        [SCOPE, SCOPE_B],
+      ),
+    );
+    expect(result.status).toBe("DEGRADED");
+    if (result.status !== "DEGRADED") {
+      throw new Error("a repeated epoch mismatch must degrade");
+    }
+    expect(result.fallback_lane).toBe("recent_l1");
+    expect(recallPasses).toEqual(new Map([
+      [SCOPE.id, 2],
+      [SCOPE_B.id, 2],
+    ]));
+    const context = (
+      result.data as {
+        context_slice: {
+          frontier: { schema_version: string };
+          items: Array<{ abstraction: string }>;
+          lane_telemetry: Array<{
+            lane: string;
+            status: string;
+            reason_codes: string[];
+          }>;
+        };
+      }
+    ).context_slice;
+    expect(context.frontier.schema_version).toBe("2.0.0");
+    expect(
+      context.items.every(
+        (item) => item.abstraction === "l1_memory",
+      ),
+    ).toBe(true);
+    expect(
+      context.lane_telemetry.find((item) => item.lane === "topic"),
+    ).toMatchObject({
+      status: "degraded",
+      reason_codes: expect.arrayContaining([
+        "SCOPE_FRONTIER_EPOCH_MISMATCH",
+      ]),
+    });
+    await storage.close();
+  });
+
   it("clamps MCP lane expansion and degrades to revalidated L1 on lane failure", async () => {
     const storage = await SqliteStorageClient.open({
       dataRoot: temporaryRoot("layered-context-degraded"),
@@ -428,10 +676,13 @@ describe("frozen layered Context runtime", () => {
         "Agent memory correction",
       ),
     );
-    expect(next.status).toBe("OK");
-    if (next.status !== "OK") {
-      throw new Error("corrected canonical L1 must remain available");
+    expect(next.status).toBe("DEGRADED");
+    if (next.status !== "DEGRADED") {
+      throw new Error(
+        "a pending projection frontier must degrade to canonical L1",
+      );
     }
+    expect(next.fallback_lane).toBe("recent_l1");
     const items = (
       next.data as {
         context_slice: {

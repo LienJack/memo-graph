@@ -298,10 +298,11 @@ describe("restore tombstone frontier", () => {
         include_sensitive: false,
       },
     });
-    expect(recalled.status).toBe("OK");
-    if (recalled.status !== "OK") {
+    expect(recalled.status).toBe("DEGRADED");
+    if (recalled.status !== "DEGRADED") {
       throw new Error("pending restore must preserve canonical L1");
     }
+    expect(recalled.fallback_lane).toBe("recent_l1");
     expect(
       (
         recalled.data as {

@@ -16,6 +16,7 @@ import {
   type RecallLane,
 } from "@memo-graph/contracts";
 import {
+  ProjectionScopeStorageFrontierSchema,
   ProjectionStorageFrontierSchema,
   StorageError,
   type MemoryEligibilityResult,
@@ -102,6 +103,7 @@ export const LayeredRecallResultSchema = z
     status: z.enum(["OK", "NO_MATCH", "POLICY_EXCLUDED", "DEGRADED"]),
     effective_configuration: EffectiveLaneConfigurationSchema,
     projection_frontier: ProjectionStorageFrontierSchema,
+    projection_scope_frontier: ProjectionScopeStorageFrontierSchema,
     candidates: z.array(RevalidatedRecallCandidateSchema),
     exclusions: z.array(LayeredRecallExclusionSchema),
     telemetry: z.array(LaneTelemetrySchema),
@@ -571,6 +573,7 @@ export class RecallOrchestrator {
       status,
       effective_configuration: effective,
       projection_frontier: health.projection_frontier,
+      projection_scope_frontier: scopeFrontier,
       candidates: orderedCandidates,
       exclusions: orderedExclusions,
       telemetry,

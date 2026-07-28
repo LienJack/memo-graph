@@ -4,6 +4,7 @@ import {
   ContextConflictSetSchema,
   LaneTelemetrySchema,
   ProjectionRevisionSchema,
+  buildContextFrontierV2,
   canonicalJson,
   canonicalSha256,
   canonicalSha256Omitting,
@@ -20,6 +21,10 @@ const AS_OF = "2026-07-28T12:30:00.000Z";
 const SCOPE = {
   kind: "workspace",
   id: "workspace_local",
+} as const;
+const SCOPE_B = {
+  kind: "workspace",
+  id: "workspace_secondary",
 } as const;
 const TRANSFORM = {
   name: "deterministic-layered-consolidation",
@@ -183,6 +188,34 @@ function projection(
     created_at: NOW,
     invalidated_at: null,
     invalidation_reason: null,
+  });
+}
+
+function projectionInSecondScope() {
+  const base = projection("topic");
+  const sourceRevisions = base.source_revisions.map((item) => ({
+    ...item,
+    memory_id: `${item.memory_id}_scope_b`,
+    revision_id: `${item.revision_id}_scope_b`,
+    scope: SCOPE_B,
+    evidence_ids: item.evidence_ids.map((id) => `${id}_scope_b`),
+  }));
+  const frontier = {
+    ...base.frontier,
+    projection_epoch: base.frontier.projection_epoch + 4,
+    source_frontier_hash: canonicalSha256(sourceRevisions),
+    projection_frontier_hash: canonicalSha256([
+      "projection_topic_scope_b",
+    ]),
+  };
+  return ProjectionRevisionSchema.parse({
+    ...base,
+    projection_id: "projection_topic_scope_b",
+    projection_revision_id: "projection_revision_topic_scope_b_1",
+    scope: SCOPE_B,
+    frontier,
+    source_revisions: sourceRevisions,
+    evidence_ids: sourceRevisions.flatMap((item) => item.evidence_ids),
   });
 }
 
@@ -372,6 +405,112 @@ describe("layered Context Compiler", () => {
     expect(result.context_slice?.token_used ?? 0).toBeLessThanOrEqual(
       input.request.token_budget,
     );
+  });
+
+  it("binds each projection to its own canonical V2 scope frontier", () => {
+    const input = layeredInput();
+    const scopeA = input.candidates.find(
+      (candidate) =>
+        candidate.kind === "projection" &&
+        candidate.lane === "topic",
+    );
+    if (scopeA === undefined || scopeA.kind !== "projection") {
+      throw new Error("scope A topic fixture is missing");
+    }
+    const scopeBProjection = projectionInSecondScope();
+    const scopeB = {
+      kind: "projection",
+      abstraction: "l2_topic",
+      lane: "topic",
+      scope: SCOPE_B,
+      rank: 0,
+      canonical_revalidated: true,
+      projection: scopeBProjection,
+    } as const;
+    const frontier = buildContextFrontierV2({
+      ledger_epoch: PROJECTION_FRONTIER.ledger_epoch,
+      tombstone_epoch: PROJECTION_FRONTIER.tombstone_epoch,
+      scope_frontiers: [
+        {
+          scope: SCOPE_B,
+          projection_epoch:
+            scopeBProjection.frontier.projection_epoch,
+          source_frontier_hash:
+            scopeBProjection.frontier.source_frontier_hash,
+          projection_frontier_hash:
+            scopeBProjection.frontier.projection_frontier_hash,
+          transform_versions: [scopeBProjection.transform],
+        },
+        {
+          scope: SCOPE,
+          projection_epoch: PROJECTION_FRONTIER.projection_epoch,
+          source_frontier_hash:
+            PROJECTION_FRONTIER.source_frontier_hash,
+          projection_frontier_hash:
+            PROJECTION_FRONTIER.projection_frontier_hash,
+          transform_versions: [TRANSFORM],
+        },
+      ],
+    });
+    const compile = (reverse: boolean) =>
+      compileLayeredContext({
+        ...input,
+        request: {
+          ...input.request,
+          request_id: "layered_compile_multi_scope",
+          scopes: reverse ? [SCOPE_B, SCOPE] : [SCOPE, SCOPE_B],
+        },
+        candidates: reverse ? [scopeB, scopeA] : [scopeA, scopeB],
+        frontier,
+      });
+    const first = compile(false);
+    const permuted = compile(true);
+
+    expect(first).toEqual(permuted);
+    expect(
+      first.context_slice?.items.map((item) => item.revision_id),
+    ).toEqual([
+      "projection_revision_topic_1",
+      "projection_revision_topic_scope_b_1",
+    ]);
+    expect(first.context_slice?.frontier).toEqual(frontier);
+    expect(first.receipt.frontier).toEqual(frontier);
+
+    const missingScope = compileLayeredContext({
+      ...input,
+      request: {
+        ...input.request,
+        request_id: "layered_compile_missing_scope",
+        scopes: [SCOPE, SCOPE_B],
+      },
+      candidates: [scopeB],
+      frontier: buildContextFrontierV2({
+        ledger_epoch: PROJECTION_FRONTIER.ledger_epoch,
+        tombstone_epoch: PROJECTION_FRONTIER.tombstone_epoch,
+        scope_frontiers: frontier.scope_frontiers.slice(0, 1),
+      }),
+    });
+    expect(missingScope).toMatchObject({
+      status: "POLICY_EXCLUDED",
+      reason_codes: ["PROJECTION_STALE_FRONTIER"],
+    });
+    expect(() =>
+      compileLayeredContext({
+        ...input,
+        candidates: [scopeA],
+        frontier: {
+          ...frontier,
+          scope_frontiers: [
+            frontier.scope_frontiers[0],
+            frontier.scope_frontiers[0],
+          ],
+          aggregate_frontier_hash: canonicalSha256([
+            frontier.scope_frontiers[0],
+            frontier.scope_frontiers[0],
+          ]),
+        },
+      }),
+    ).toThrow(/unique/u);
   });
 
   it("preserves competing claims as an explicit conflict set", () => {

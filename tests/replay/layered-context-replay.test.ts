@@ -3,8 +3,12 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import {
+  ContextSliceSchema,
+  RetrievalReceiptSchema,
   canonicalJson,
+  canonicalSha256,
   canonicalSha256Omitting,
+  sealReceipt,
   type EvaluationPartition,
 } from "../../packages/contracts/src/index.js";
 import {
@@ -38,6 +42,70 @@ function comparableIdentity(
 }
 
 describe("frozen G3 layered Context replay", () => {
+  it("parses V1 layered artifacts without adding V2 fields or changing bytes", () => {
+    const createdAt = "2026-07-28T12:00:00.000Z";
+    const frontier = {
+      schema_version: "1.0.0",
+      ledger_epoch: 7,
+      tombstone_epoch: 2,
+      projection_epoch: 5,
+      source_frontier_hash: canonicalSha256(["source"]),
+      projection_frontier_hash: canonicalSha256(["projection"]),
+      transform_versions: [{
+        name: "deterministic-layered-consolidation",
+        version: "1.0.0",
+      }],
+    } as const;
+    const unsealedContext = {
+      schema_version: "1.0.0",
+      context_slice_id: "context_v1_replay",
+      request_id: "request_v1_replay",
+      compiler_version: "2.0.0",
+      created_at: createdAt,
+      token_budget: 1_800,
+      token_used: 0,
+      items: [],
+      frozen_hash: `sha256:${"0".repeat(64)}`,
+      policy_version: "2.0.0",
+      frontier,
+    } as const;
+    const context = ContextSliceSchema.parse({
+      ...unsealedContext,
+      frozen_hash: canonicalSha256Omitting(unsealedContext, [
+        "frozen_hash",
+      ]),
+    });
+    const receipt = RetrievalReceiptSchema.parse(
+      sealReceipt({
+        schema_version: "1.0.0",
+        receipt_id: "retrieval_v1_replay",
+        created_at: createdAt,
+        state: "durable",
+        request_hash: canonicalSha256({ request_id: "request_v1_replay" }),
+        receipt_hash: `sha256:${"0".repeat(64)}`,
+        kind: "retrieval",
+        context_slice_id: context.context_slice_id,
+        compiler_version: "2.0.0",
+        policy_version: "2.0.0",
+        frontier,
+        items: [],
+      }),
+    );
+    const frozenBytes = canonicalJson({ context, receipt });
+    const replayedBytes = canonicalJson({
+      context: ContextSliceSchema.parse(
+        JSON.parse(canonicalJson(context)),
+      ),
+      receipt: RetrievalReceiptSchema.parse(
+        JSON.parse(canonicalJson(receipt)),
+      ),
+    });
+
+    expect(replayedBytes).toBe(frozenBytes);
+    expect(replayedBytes).not.toContain("scope_frontiers");
+    expect(replayedBytes).not.toContain("aggregate_frontier_hash");
+  });
+
   it("binds every immutable M0 case and keeps partitions isolated", async () => {
     const manifests = await loadG3Manifest();
     expect(

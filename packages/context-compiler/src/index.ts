@@ -44,7 +44,7 @@ import {
 
 export const CONTEXT_COMPILER_VERSION = "1.0.0";
 export const CONTEXT_POLICY_VERSION = "1.0.0";
-export const LAYERED_CONTEXT_COMPILER_VERSION = "2.0.0";
+export const LAYERED_CONTEXT_COMPILER_VERSION = "3.0.0";
 export const LAYERED_CONTEXT_POLICY_VERSION = "2.0.0";
 export {
   estimateContextTokens,
@@ -615,11 +615,17 @@ export function compileLayeredContext(
   input: unknown,
 ): CompileContextResult {
   const parsed = CompileLayeredContextInputSchema.parse(input);
+  const request = RecallRequestSchema.parse({
+    ...parsed.request,
+    scopes: [...parsed.request.scopes].sort((left, right) =>
+      scopeKey(left).localeCompare(scopeKey(right))
+    ),
+  });
   const filtered = hardFilterLayeredCandidates({
     candidates: parsed.candidates as LayeredCompilerCandidate[],
-    allowed_scopes: parsed.request.scopes,
-    as_of: parsed.request.as_of,
-    include_sensitive: parsed.request.include_sensitive,
+    allowed_scopes: request.scopes,
+    as_of: request.as_of,
+    include_sensitive: request.include_sensitive,
     frontier: parsed.frontier,
   });
   const resolved = resolveConflictsAndDedupe({
@@ -628,8 +634,8 @@ export function compileLayeredContext(
   });
   const ranked = rankLayeredCandidates({
     candidates: resolved.candidates,
-    query: parsed.request.query,
-    as_of: parsed.request.as_of,
+    query: request.query,
+    as_of: request.as_of,
   });
   const itemByRevision = new Map(
     ranked.map((rankedCandidate) => {
@@ -683,7 +689,7 @@ export function compileLayeredContext(
         item,
       };
     }),
-    parsed.request.token_budget,
+    request.token_budget,
   );
   const rankedByRevision = new Map(
     ranked.map((candidate) => [
@@ -739,7 +745,7 @@ export function compileLayeredContext(
     .map((item) => item.lane)
     .sort();
   const artifacts = buildLayeredArtifacts({
-    request: parsed.request,
+    request,
     created_at: parsed.created_at,
     compiler_version: LAYERED_CONTEXT_COMPILER_VERSION,
     policy_version: LAYERED_CONTEXT_POLICY_VERSION,

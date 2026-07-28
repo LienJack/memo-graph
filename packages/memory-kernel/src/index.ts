@@ -28,9 +28,11 @@ import {
   MemorySearchInputSchema,
   MemoryProposeInputSchema,
   MemoryUsageSetInputSchema,
+  RecallLaneSchema,
   RecallRequestSchema,
   RetrievalReceiptSchema,
   authorizeRequestClaims,
+  buildContextFrontierV2,
   canonicalJson,
   canonicalSha256,
   scopeKey,
@@ -42,6 +44,8 @@ import type {
   ProposalRequestEnvelopeSchema,
   ReadRequestEnvelopeSchema,
   ScopeSchema,
+  BoundedWorkTelemetry,
+  LaneTelemetry,
 } from "@memo-graph/contracts";
 import {
   StorageError,
@@ -52,6 +56,7 @@ import { z } from "zod";
 import { evaluateAdmission } from "./governance.js";
 import {
   RecallOrchestrator,
+  type LayeredRecallResult,
 } from "./recall-orchestrator.js";
 import type {
   RecallLaneRetriever,
@@ -260,8 +265,221 @@ function approvalFailureCode(
   return null;
 }
 
-function sameScope(left: z.input<typeof ScopeSchema>, right: z.input<typeof ScopeSchema>): boolean {
+function sameScope(
+  left: z.input<typeof ScopeSchema>,
+  right: z.input<typeof ScopeSchema>,
+): boolean {
   return left.kind === right.kind && left.id === right.id;
+}
+
+const EMPTY_FRONTIER_HASH = canonicalSha256([]);
+const DEFAULT_PROJECTION_TRANSFORM = {
+  name: "deterministic-layered-consolidation",
+  version: "1.0.0",
+} as const;
+
+function recallEpochsAgree(recalls: LayeredRecallResult[]): boolean {
+  const epochs = new Set(
+    recalls.map((recall) =>
+      `${recall.projection_scope_frontier.ledger_epoch}:${
+        recall.projection_scope_frontier.tombstone_epoch
+      }`
+    ),
+  );
+  return epochs.size === 1;
+}
+
+function aggregateBoundedWork(
+  rows: LaneTelemetry[],
+): BoundedWorkTelemetry[] | undefined {
+  const byBoundary = new Map<
+    BoundedWorkTelemetry["boundary"],
+    BoundedWorkTelemetry[]
+  >();
+  for (const row of rows) {
+    for (const item of row.bounded_work ?? []) {
+      const current = byBoundary.get(item.boundary) ?? [];
+      current.push(item);
+      byBoundary.set(item.boundary, current);
+    }
+  }
+  const aggregated = [...byBoundary.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([boundary, items]) => {
+      const complete = items.every((item) => item.complete);
+      const reasonCode = [
+        ...new Set(
+          items.flatMap((item) =>
+            item.reason_code === undefined ? [] : [item.reason_code]
+          ),
+        ),
+      ].sort()[0];
+      return {
+        boundary,
+        configured_limit: items.reduce(
+          (sum, item) => sum + item.configured_limit,
+          0,
+        ),
+        observed_count: items.reduce(
+          (sum, item) => sum + item.observed_count,
+          0,
+        ),
+        retained_count: items.reduce(
+          (sum, item) => sum + item.retained_count,
+          0,
+        ),
+        truncated_count: items.reduce(
+          (sum, item) => sum + item.truncated_count,
+          0,
+        ),
+        complete,
+        ...(complete || reasonCode === undefined
+          ? {}
+          : { reason_code: reasonCode }),
+      };
+    });
+  return aggregated.length === 0 ? undefined : aggregated;
+}
+
+function aggregateRecallTelemetry(options: {
+  recalls: LayeredRecallResult[];
+  projectionFallbackReason: string | null;
+}): LaneTelemetry[] {
+  const statusOrder = [
+    "unavailable",
+    "degraded",
+    "stale",
+    "eligible",
+    "empty",
+    "disabled_by_policy",
+    "disabled_by_request",
+  ] as const;
+  return LaneTelemetrySchema.array().parse(
+    RecallLaneSchema.options.map((lane) => {
+      const rows = options.recalls.map((recall) => {
+        const row = recall.telemetry.find((item) => item.lane === lane);
+        if (row === undefined) {
+          throw new Error(`recall telemetry is missing lane ${lane}`);
+        }
+        return row;
+      });
+      const disabled = rows.every((row) =>
+        row.status === "disabled_by_policy" ||
+        row.status === "disabled_by_request"
+      );
+      const projectionFallback =
+        lane !== "recent_l1" &&
+        options.projectionFallbackReason !== null &&
+        !disabled;
+      const removedCandidates = projectionFallback
+        ? options.recalls.reduce(
+            (sum, recall) =>
+              sum +
+              recall.candidates.filter(
+                (candidate) =>
+                  candidate.kind === "projection" &&
+                  candidate.lane === lane,
+              ).length,
+            0,
+          )
+        : 0;
+      const exclusionCounts = Object.fromEntries(
+        [
+          ...new Set(
+            rows.flatMap((row) => Object.keys(row.exclusion_counts)),
+          ),
+          ...(removedCandidates > 0 &&
+              options.projectionFallbackReason !== null
+            ? [options.projectionFallbackReason]
+            : []),
+        ].sort().map((reason) => [
+          reason,
+          rows.reduce(
+            (sum, row) => sum + (row.exclusion_counts[reason] ?? 0),
+            0,
+          ) +
+            (reason === options.projectionFallbackReason
+              ? removedCandidates
+              : 0),
+        ]),
+      );
+      const boundedWork = aggregateBoundedWork(rows);
+      return {
+        lane,
+        status: projectionFallback
+          ? "degraded"
+          : statusOrder.find((status) =>
+              rows.some((row) => row.status === status)
+            ) ?? rows[0]?.status ?? "empty",
+        duration_ms: rows.reduce(
+          (sum, row) => sum + row.duration_ms,
+          0,
+        ),
+        candidate_count: rows.reduce(
+          (sum, row) => sum + row.candidate_count,
+          0,
+        ),
+        eligible_count: projectionFallback
+          ? 0
+          : rows.reduce(
+              (sum, row) => sum + row.eligible_count,
+              0,
+            ),
+        selected_count: 0,
+        exclusion_counts: exclusionCounts,
+        reason_codes: [
+          ...new Set([
+            ...rows.flatMap((row) => row.reason_codes),
+            ...(projectionFallback &&
+                options.projectionFallbackReason !== null
+              ? [options.projectionFallbackReason]
+              : []),
+          ]),
+        ].sort(),
+        ...(boundedWork === undefined
+          ? {}
+          : { bounded_work: boundedWork }),
+      };
+    }),
+  );
+}
+
+function buildRecallFrontier(recalls: LayeredRecallResult[]) {
+  if (recalls.length === 0) {
+    throw new Error("layered recall requires at least one exact scope");
+  }
+  return buildContextFrontierV2({
+    ledger_epoch: Math.max(
+      ...recalls.map(
+        (recall) => recall.projection_scope_frontier.ledger_epoch,
+      ),
+    ),
+    tombstone_epoch: Math.max(
+      ...recalls.map(
+        (recall) => recall.projection_scope_frontier.tombstone_epoch,
+      ),
+    ),
+    scope_frontiers: recalls.map((recall) => {
+      const frontier = recall.projection_scope_frontier;
+      const ready = frontier.status === "ready";
+      return {
+        scope: frontier.scope,
+        projection_epoch: frontier.projection_epoch,
+        source_frontier_hash:
+          ready
+            ? frontier.source_frontier_hash ?? EMPTY_FRONTIER_HASH
+            : EMPTY_FRONTIER_HASH,
+        projection_frontier_hash:
+          ready
+            ? frontier.projection_frontier_hash ?? EMPTY_FRONTIER_HASH
+            : EMPTY_FRONTIER_HASH,
+        transform_versions:
+          ready && frontier.transform_versions.length > 0
+            ? frontier.transform_versions
+            : [DEFAULT_PROJECTION_TRANSFORM],
+      };
+    }),
+  });
 }
 
 export class MemoryRuntime {
@@ -459,12 +677,23 @@ export class MemoryRuntime {
       const layeredMode = this.#policy.lane_policy.allowed_lanes.some(
         (lane) => lane !== "recent_l1",
       );
+      const compileRequest = layeredMode
+        ? MemoryContextCompileInputSchema.parse({
+            ...request,
+            recall: {
+              ...request.recall,
+              scopes: [...request.recall.scopes].sort((left, right) =>
+                scopeKey(left).localeCompare(scopeKey(right))
+              ),
+            },
+          })
+        : request;
       const compiled = layeredMode
-        ? await this.#compileLayeredContext(request)
-        : await this.#compileLegacyContext(request);
+        ? await this.#compileLayeredContext(compileRequest)
+        : await this.#compileLegacyContext(compileRequest);
       const stored = await this.#storage.recordRecall({
         principal_id: this.#policy.principal.principal_id,
-        request: request.recall,
+        request: compileRequest.recall,
         receipt: compiled.receipt,
         ...(compiled.context_slice === null
           ? {}
@@ -570,123 +799,74 @@ export class MemoryRuntime {
   async #compileLayeredContext(
     request: z.output<typeof MemoryContextCompileInputSchema>,
   ) {
-    const recalls = await Promise.all(
-      request.recall.scopes.map((scope) =>
-        this.#recallOrchestrator.recall({
-          principal_id: this.#policy.principal.principal_id,
-          scope,
-          query: request.recall.query,
-          as_of: request.recall.as_of,
-          include_sensitive: request.recall.include_sensitive,
-          lane_policy: this.#policy.lane_policy,
-          ...(request.recall.lane_overrides === undefined
-            ? {}
-            : { lane_overrides: request.recall.lane_overrides }),
-        })
-      ),
+    const scopes = [...request.recall.scopes].sort((left, right) =>
+      scopeKey(left).localeCompare(scopeKey(right))
     );
+    const recallAllScopes = () =>
+      Promise.all(
+        scopes.map((scope) =>
+          this.#recallOrchestrator.recall({
+            principal_id: this.#policy.principal.principal_id,
+            scope,
+            query: request.recall.query,
+            as_of: request.recall.as_of,
+            include_sensitive: request.recall.include_sensitive,
+            lane_policy: this.#policy.lane_policy,
+            ...(request.recall.lane_overrides === undefined
+              ? {}
+              : { lane_overrides: request.recall.lane_overrides }),
+          })
+        ),
+      );
+    let recalls = await recallAllScopes();
+    if (!recallEpochsAgree(recalls)) {
+      recalls = await recallAllScopes();
+    }
     const first = recalls[0];
     if (first === undefined) {
       throw new Error("layered recall requires at least one exact scope");
     }
-    const projection = recalls
-      .flatMap((recall) => recall.candidates)
-      .find((candidate) => candidate.kind === "projection");
-    const storageFrontier = first.projection_frontier;
-    const frontier =
-      projection?.kind === "projection"
-        ? {
-            schema_version: projection.projection.frontier.schema_version,
-            ledger_epoch: projection.projection.frontier.ledger_epoch,
-            tombstone_epoch:
-              projection.projection.frontier.tombstone_epoch,
-            projection_epoch:
-              projection.projection.frontier.projection_epoch,
-            source_frontier_hash:
-              projection.projection.frontier.source_frontier_hash,
-            projection_frontier_hash:
-              projection.projection.frontier.projection_frontier_hash,
-            transform_versions: [projection.projection.transform],
-          }
-        : {
-            schema_version: "1.0.0" as const,
-            ledger_epoch: storageFrontier.ledger_epoch,
-            tombstone_epoch: storageFrontier.tombstone_epoch,
-            projection_epoch: storageFrontier.projection_epoch,
-            source_frontier_hash:
-              storageFrontier.source_frontier_hash ?? canonicalSha256([]),
-            projection_frontier_hash:
-              storageFrontier.projection_frontier_hash ??
-                canonicalSha256([]),
-            transform_versions:
-              storageFrontier.transform_versions.length > 0
-                ? storageFrontier.transform_versions
-                : [
-                    {
-                      name: "deterministic-layered-consolidation",
-                      version: "1.0.0",
-                    },
-                  ],
-          };
-    const telemetry = LaneTelemetrySchema.array().parse(
-      first.telemetry.map((item) => {
-        const laneRows = recalls.map((recall) =>
-          recall.telemetry.find((row) => row.lane === item.lane)
-        ).filter(
-          (row): row is NonNullable<typeof row> => row !== undefined,
-        );
-        const statusOrder = [
-          "unavailable",
-          "degraded",
-          "stale",
-          "eligible",
-          "empty",
-          "disabled_by_policy",
-          "disabled_by_request",
-        ] as const;
-        return {
-          lane: item.lane,
-          status:
-            statusOrder.find((status) =>
-              laneRows.some((row) => row.status === status)
-            ) ?? item.status,
-          duration_ms: laneRows.reduce(
-            (sum, row) => sum + row.duration_ms,
-            0,
-          ),
-          candidate_count: laneRows.reduce(
-            (sum, row) => sum + row.candidate_count,
-            0,
-          ),
-          eligible_count: laneRows.reduce(
-            (sum, row) => sum + row.eligible_count,
-            0,
-          ),
-          selected_count: 0,
-          exclusion_counts: Object.fromEntries(
-            [...new Set(
-              laneRows.flatMap((row) =>
-                Object.keys(row.exclusion_counts)
-              ),
-            )].sort().map((reason) => [
-              reason,
-              laneRows.reduce(
-                (sum, row) =>
-                  sum + (row.exclusion_counts[reason] ?? 0),
-                0,
-              ),
-            ]),
-          ),
-          reason_codes: [
-            ...new Set(laneRows.flatMap((row) => row.reason_codes)),
-          ].sort(),
-        };
-      }),
+    const epochMismatch = !recallEpochsAgree(recalls);
+    const scopeFrontierNotReady = recalls.some(
+      (recall) => recall.projection_scope_frontier.status !== "ready",
     );
+    const projectionFallbackReason = epochMismatch
+      ? "SCOPE_FRONTIER_EPOCH_MISMATCH"
+      : scopeFrontierNotReady
+        ? "PROJECTION_SCOPE_NOT_READY"
+        : null;
+    const candidates = recalls.flatMap((recall) => recall.candidates);
+    const retainedCandidates =
+      projectionFallbackReason === null
+        ? candidates
+        : candidates.filter((candidate) => candidate.kind === "memory");
+    const runtimeExclusions =
+      projectionFallbackReason === null
+        ? []
+        : candidates.flatMap((candidate) =>
+            candidate.kind === "projection"
+              ? [{
+                  memory_id: candidate.projection.projection_id,
+                  revision_id:
+                    candidate.projection.projection_revision_id,
+                  lane: candidate.lane,
+                  reason_code: projectionFallbackReason,
+                  score: candidate.rank,
+                }]
+              : []
+          );
+    const frontier = buildRecallFrontier(recalls);
+    const telemetry = aggregateRecallTelemetry({
+      recalls,
+      projectionFallbackReason,
+    });
     return compileLayeredContext({
       request: request.recall,
-      candidates: recalls.flatMap((recall) => recall.candidates),
-      exclusions: recalls.flatMap((recall) => recall.exclusions),
+      candidates: retainedCandidates,
+      exclusions: [
+        ...recalls.flatMap((recall) => recall.exclusions),
+        ...runtimeExclusions,
+      ],
       frontier,
       effective_configuration: first.effective_configuration,
       telemetry,
