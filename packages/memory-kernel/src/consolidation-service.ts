@@ -317,6 +317,8 @@ export class ConsolidationService {
     }
 
     await this.#storage.applyProjectionBatch({
+      principal_id: options.principal_id,
+      scope: options.scope,
       idempotency_key: options.idempotency_key,
       expected_projection_epoch:
         health.projection_frontier.projection_epoch,

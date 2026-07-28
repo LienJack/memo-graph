@@ -111,6 +111,8 @@ describe("layered projection storage", () => {
       projectionEpoch: 1,
     });
     const command = {
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" } as const,
       idempotency_key: "projection-batch-0001",
       expected_projection_epoch: 0,
       projections: [topicProjection(sources, frontier)],
@@ -159,6 +161,8 @@ describe("layered projection storage", () => {
     });
     const projection = topicProjection(sources, frontier);
     await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
       idempotency_key: "projection-batch-valid-0001",
       expected_projection_epoch: 0,
       projections: [projection],
@@ -167,6 +171,8 @@ describe("layered projection storage", () => {
 
     await expect(
       storage.applyProjectionBatch({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
         idempotency_key: "projection-batch-stale-0002",
         expected_projection_epoch: 0,
         projections: [
@@ -186,6 +192,8 @@ describe("layered projection storage", () => {
     });
     await expect(
       storage.applyProjectionBatch({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
         idempotency_key: "projection-batch-foreign-0003",
         expected_projection_epoch: 1,
         projections: [
@@ -230,6 +238,8 @@ describe("layered projection storage", () => {
     });
     expect(() =>
       storage.applyProjectionBatch({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
         idempotency_key: "projection-invalid",
         expected_projection_epoch: -1,
         projections: [],
@@ -327,6 +337,8 @@ describe("layered projection storage", () => {
 
     const projection = topicProjection(sources, frontier);
     await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
       idempotency_key: "projection-batch-outbox-0001",
       expected_projection_epoch: 0,
       projections: [projection],

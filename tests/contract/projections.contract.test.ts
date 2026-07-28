@@ -1,15 +1,27 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BoundedWorkTelemetrySchema,
+  ContextFrontierV1Schema,
+  ContextFrontierV2Schema,
   ContextFrontierSchema,
   ContextSliceSchema,
   G3OverlayCaseSchema,
   G3OverlayManifestSchema,
   LaneTelemetrySchema,
   ProjectionRevisionSchema,
+  buildContextFrontierV2,
   computeEffectiveLaneConfiguration,
   deriveProjectionIdentity,
 } from "../../packages/contracts/src/index.js";
+import {
+  ApplyProjectionBatchCommandSchema,
+  ProjectionPageCursorSchema,
+  ProjectionPageQuerySchema,
+  ProjectionPageResultSchema,
+  ProjectionSourceBatchQuerySchema,
+  ProjectionSourceBatchResultSchema,
+} from "../../packages/storage-sqlite/src/protocol.js";
 import {
   HASH_A,
   HASH_B,
@@ -163,6 +175,11 @@ const LANE_POLICY = {
     relation_max_fanout: 10,
     max_concurrent_lanes: 2,
   },
+} as const;
+
+const WORKSPACE_SCOPE = {
+  kind: "workspace",
+  id: "workspace_local",
 } as const;
 
 describe("layered projection contracts", () => {
@@ -323,6 +340,299 @@ describe("lane and frontier contracts", () => {
         source_frontier_hash: FRONTIER.source_frontier_hash,
         projection_frontier_hash: FRONTIER.projection_frontier_hash,
         transform_versions: [TRANSFORM, TRANSFORM],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("builds one canonical V2 frontier independent of scope input order", () => {
+    const scopeFrontiers = [
+      {
+        scope: WORKSPACE_SCOPE,
+        projection_epoch: 8,
+        source_frontier_hash: HASH_B,
+        projection_frontier_hash: HASH_A,
+        transform_versions: [TRANSFORM],
+      },
+      {
+        scope: USER_SCOPE,
+        projection_epoch: 4,
+        source_frontier_hash: HASH_A,
+        projection_frontier_hash: HASH_B,
+        transform_versions: [TRANSFORM],
+      },
+    ] as const;
+    const forward = buildContextFrontierV2({
+      ledger_epoch: 10,
+      tombstone_epoch: 2,
+      scope_frontiers: scopeFrontiers,
+    });
+    const reversed = buildContextFrontierV2({
+      ledger_epoch: 10,
+      tombstone_epoch: 2,
+      scope_frontiers: [...scopeFrontiers].reverse(),
+    });
+
+    expect(forward).toEqual(reversed);
+    expect(forward.scope_frontiers.map((item) => item.scope)).toEqual([
+      USER_SCOPE,
+      WORKSPACE_SCOPE,
+    ]);
+    expect(ContextFrontierSchema.parse(forward)).toEqual(forward);
+  });
+
+  it("preserves V1 frontier parsing and rejects ambiguous V2 frontiers", () => {
+    const v1 = {
+      schema_version: FRONTIER.schema_version,
+      ledger_epoch: FRONTIER.ledger_epoch,
+      tombstone_epoch: FRONTIER.tombstone_epoch,
+      projection_epoch: FRONTIER.projection_epoch,
+      source_frontier_hash: FRONTIER.source_frontier_hash,
+      projection_frontier_hash: FRONTIER.projection_frontier_hash,
+      transform_versions: [TRANSFORM],
+    } as const;
+    expect(ContextFrontierV1Schema.parse(v1)).toEqual(v1);
+    expect(ContextFrontierSchema.parse(v1)).toEqual(v1);
+
+    const validV2 = buildContextFrontierV2({
+      ledger_epoch: 10,
+      tombstone_epoch: 2,
+      scope_frontiers: [
+        {
+          scope: USER_SCOPE,
+          projection_epoch: 4,
+          source_frontier_hash: HASH_A,
+          projection_frontier_hash: HASH_B,
+          transform_versions: [TRANSFORM],
+        },
+        {
+          scope: WORKSPACE_SCOPE,
+          projection_epoch: 8,
+          source_frontier_hash: HASH_B,
+          projection_frontier_hash: HASH_A,
+          transform_versions: [TRANSFORM],
+        },
+      ],
+    });
+    expect(
+      ContextFrontierV2Schema.safeParse({
+        ...validV2,
+        aggregate_frontier_hash: HASH_A,
+      }).success,
+    ).toBe(false);
+    expect(
+      ContextFrontierV2Schema.safeParse({
+        ...validV2,
+        scope_frontiers: [...validV2.scope_frontiers].reverse(),
+      }).success,
+    ).toBe(false);
+    expect(
+      ContextFrontierV2Schema.safeParse({
+        ...validV2,
+        scope_frontiers: [
+          validV2.scope_frontiers[0],
+          validV2.scope_frontiers[0],
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("enforces typed bounded-work counts and operator-owned caps", () => {
+    expect(
+      BoundedWorkTelemetrySchema.safeParse({
+        boundary: "projection_scan",
+        configured_limit: 100,
+        observed_count: 120,
+        retained_count: 80,
+        truncated_count: 30,
+        complete: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      LaneTelemetrySchema.safeParse({
+        lane: "topic",
+        status: "eligible",
+        duration_ms: 1,
+        candidate_count: 1,
+        eligible_count: 1,
+        selected_count: 1,
+        exclusion_counts: {},
+        reason_codes: [],
+        bounded_work: [
+          {
+            boundary: "projection_scan",
+            configured_limit: 100,
+            observed_count: 101,
+            retained_count: 100,
+            truncated_count: 1,
+            complete: false,
+            reason_code: "PROJECTION_SCAN_LIMIT",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+
+    const effective = computeEffectiveLaneConfiguration(
+      {
+        allowed_lanes: ["recent_l1", "topic", "relation_sqlite"],
+        limits: {
+          ...LANE_POLICY.limits,
+          max_projection_scan_per_lane: 4_000,
+          max_source_revisions_per_batch: 8_000,
+          relation_max_starts: 80,
+        },
+      },
+      {
+        requested_lanes: ["topic", "relation_sqlite"],
+        limits: {
+          max_projection_scan_per_lane: 5_000,
+          max_source_revisions_per_batch: 4_000,
+          relation_max_starts: 100,
+        },
+      },
+    );
+
+    expect(effective.limits).toMatchObject({
+      max_projection_scan_per_lane: 4_000,
+      max_source_revisions_per_batch: 4_000,
+      relation_max_starts: 80,
+    });
+    expect(effective.reason_codes).toContain(
+      "LIMIT_CLAMPED_BY_POLICY:max_projection_scan_per_lane",
+    );
+    expect(effective.reason_codes).toContain(
+      "LIMIT_CLAMPED_BY_POLICY:relation_max_starts",
+    );
+  });
+});
+
+describe("bounded projection storage contracts", () => {
+  it("requires a query-bound projection cursor and complete page evidence", () => {
+    const scopeFrontier = {
+      schema_version: "1.0.0" as const,
+      principal_id: "user_local",
+      scope: USER_SCOPE,
+      status: "ready" as const,
+      ledger_epoch: 10,
+      tombstone_epoch: 2,
+      projection_epoch: 4,
+      source_frontier_hash: HASH_A,
+      projection_frontier_hash: HASH_B,
+      transform_versions: [TRANSFORM],
+    };
+    const cursor = ProjectionPageCursorSchema.parse({
+      schema_version: "1.0.0",
+      projection_type: "topic",
+      projection_id: "projection_topic",
+      query_hash: HASH_A,
+      scope_frontier_hash: HASH_B,
+    });
+    const query = ProjectionPageQuerySchema.parse({
+      principal_id: "user_local",
+      scope: USER_SCOPE,
+      projection_types: ["topic"],
+      as_of: NOW,
+      limit: 20,
+      cursor,
+    });
+    expect(query.cursor).toEqual(cursor);
+    expect(
+      ProjectionPageResultSchema.parse({
+        scope_frontier: scopeFrontier,
+        items: [validProjection()],
+        examined_count: 1,
+        total_count: 1,
+        next_cursor: null,
+        exhausted: true,
+      }).exhausted,
+    ).toBe(true);
+    expect(
+      ProjectionPageResultSchema.safeParse({
+        scope_frontier: scopeFrontier,
+        items: [validProjection()],
+        examined_count: 1,
+        total_count: 2,
+        next_cursor: null,
+        exhausted: false,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires a complete exact-source result for every requested revision", () => {
+    const query = ProjectionSourceBatchQuerySchema.parse({
+      principal_id: "user_local",
+      scope: USER_SCOPE,
+      as_of: NOW,
+      include_sensitive: false,
+      context_scope: USER_SCOPE,
+      revision_ids: [SOURCE_A.revision_id, SOURCE_B.revision_id],
+    });
+    expect(query.revision_ids).toEqual([
+      SOURCE_A.revision_id,
+      SOURCE_B.revision_id,
+    ]);
+    expect(
+      ProjectionSourceBatchResultSchema.safeParse({
+        ledger_epoch: 10,
+        tombstone_epoch: 2,
+        requested_revision_ids: query.revision_ids,
+        requested_count: 2,
+        complete: true,
+        results: [
+          {
+            revision_id: SOURCE_A.revision_id,
+            status: "eligible",
+            source: SOURCE_A,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      ProjectionSourceBatchResultSchema.safeParse({
+        ledger_epoch: 10,
+        tombstone_epoch: 2,
+        requested_revision_ids: query.revision_ids,
+        requested_count: 2,
+        complete: true,
+        results: [
+          {
+            revision_id: SOURCE_A.revision_id,
+            status: "eligible",
+            source: SOURCE_A,
+          },
+          {
+            revision_id: SOURCE_B.revision_id,
+            status: "ineligible",
+            reason_code: "SOURCE_REVOKED",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("binds every projection batch to one explicit principal and exact scope", () => {
+    const projection = validProjection();
+    const command = {
+      principal_id: "user_local",
+      scope: USER_SCOPE,
+      idempotency_key: "projection-batch-001",
+      expected_projection_epoch: 3,
+      projections: [projection],
+      frontier: projection.frontier,
+      applied_at: NOW,
+    } as const;
+    expect(ApplyProjectionBatchCommandSchema.safeParse(command).success).toBe(
+      true,
+    );
+    expect(
+      ApplyProjectionBatchCommandSchema.safeParse({
+        ...command,
+        principal_id: "other_principal",
+      }).success,
+    ).toBe(false);
+    expect(
+      ApplyProjectionBatchCommandSchema.safeParse({
+        ...command,
+        scope: WORKSPACE_SCOPE,
       }).success,
     ).toBe(false);
   });

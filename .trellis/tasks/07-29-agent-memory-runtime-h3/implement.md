@@ -66,36 +66,36 @@ Before each commit:
 
 **Test-first checklist:**
 
-- [ ] Add invalid tests for duplicate or unsorted V2 scope frontiers.
-- [ ] Add invalid tests for wrong aggregate hash, null scope hashes, and
+- [x] Add invalid tests for duplicate or unsorted V2 scope frontiers.
+- [x] Add invalid tests for wrong aggregate hash, null scope hashes, and
       cross-entry ledger/tombstone mismatch.
-- [ ] Prove current scalar V1 frontier fixtures still parse unchanged.
-- [ ] Add policy tests proving request scan/batch caps can only narrow
+- [x] Prove current scalar V1 frontier fixtures still parse unchanged.
+- [x] Add policy tests proving request scan/batch caps can only narrow
       operator limits.
-- [ ] Add bounded-work telemetry tests for count invariants and mandatory
+- [x] Add bounded-work telemetry tests for count invariants and mandatory
       reason codes on incomplete boundaries.
-- [ ] Add projection cursor tests for a valid stable key and malformed cursor.
-- [ ] Add exact-source result tests proving one result per requested ID and
+- [x] Add projection cursor tests for a valid stable key and malformed cursor.
+- [x] Add exact-source result tests proving one result per requested ID and
       rejecting duplicate/missing results.
-- [ ] Add apply-batch tests requiring explicit principal and exact scope.
-- [ ] Export all new public types and canonical builders.
+- [x] Add apply-batch tests requiring explicit principal and exact scope.
+- [x] Export all new public types and canonical builders.
 
 **Implementation checklist:**
 
-- [ ] Define `ContextFrontierV1Schema` as the current scalar schema.
-- [ ] Define `ContextScopeFrontierSchema` and
+- [x] Define `ContextFrontierV1Schema` as the current scalar schema.
+- [x] Define `ContextScopeFrontierSchema` and
       `ContextFrontierV2Schema`.
-- [ ] Export `ContextFrontierSchema` as the V1/V2 union.
-- [ ] Implement canonical V2 sorting and aggregate-hash construction.
-- [ ] Add optional `bounded_work` to `LaneTelemetry` without defaulting old
+- [x] Export `ContextFrontierSchema` as the V1/V2 union.
+- [x] Implement canonical V2 sorting and aggregate-hash construction.
+- [x] Add optional `bounded_work` to `LaneTelemetry` without defaulting old
       artifacts.
-- [ ] Add scan and source-batch policy limits plus narrowing semantics.
-- [ ] Add an operator-owned relation start cap; remove the hidden literal as
+- [x] Add scan and source-batch policy limits plus narrowing semantics.
+- [x] Add an operator-owned relation start cap; remove the hidden literal as
       the effective policy source.
-- [ ] Define projection page cursor/result completeness schemas.
-- [ ] Define exact source batch input/result and stable eligibility reasons.
-- [ ] Extend apply-batch input with `principal_id` and `scope`.
-- [ ] Keep all legacy Context/receipt contract fields backward compatible.
+- [x] Define projection page cursor/result completeness schemas.
+- [x] Define exact source batch input/result and stable eligibility reasons.
+- [x] Extend apply-batch input with `principal_id` and `scope`.
+- [x] Keep all legacy Context/receipt contract fields backward compatible.
 
 **Focused verification:**
 
@@ -110,9 +110,9 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] V1 compatibility, V2 invalid cases, and canonical hash cases pass.
-- [ ] Storage protocol rejects partial/ambiguous batch results.
-- [ ] Create the U1 commit.
+- [x] V1 compatibility, V2 invalid cases, and canonical hash cases pass.
+- [x] Storage protocol rejects partial/ambiguous batch results.
+- [x] Create the U1 commit.
 
 **Rollback point:** revert only U1; no storage state exists yet.
 

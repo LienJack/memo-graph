@@ -99,6 +99,26 @@ function sameProjectionFrontier(
   projection: ProjectionRevision,
   frontier: ContextFrontier,
 ): boolean {
+  if ("scope_frontiers" in frontier) {
+    const scoped = frontier.scope_frontiers.find(
+      (candidate) => scopeKey(candidate.scope) === scopeKey(projection.scope),
+    );
+    return (
+      scoped !== undefined &&
+      projection.frontier.ledger_epoch === frontier.ledger_epoch &&
+      projection.frontier.tombstone_epoch === frontier.tombstone_epoch &&
+      projection.frontier.projection_epoch === scoped.projection_epoch &&
+      projection.frontier.source_frontier_hash ===
+        scoped.source_frontier_hash &&
+      projection.frontier.projection_frontier_hash ===
+        scoped.projection_frontier_hash &&
+      scoped.transform_versions.some(
+        (transform) =>
+          transform.name === projection.transform.name &&
+          transform.version === projection.transform.version,
+      )
+    );
+  }
   return (
     projection.frontier.ledger_epoch === frontier.ledger_epoch &&
     projection.frontier.tombstone_epoch === frontier.tombstone_epoch &&

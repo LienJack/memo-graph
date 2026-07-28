@@ -22,6 +22,7 @@ import {
   PurgeReceiptSchema,
   ProjectionFrontierSchema,
   ProjectionRevisionSchema,
+  ProjectionSourceSchema,
   ProjectionTypeSchema,
   RecallRequestSchema,
   ReceiptSchema,
@@ -32,6 +33,7 @@ import {
   TransformRefSchema,
   UtcTimestampSchema,
   canonicalSha256,
+  scopeKey,
 } from "@memo-graph/contracts";
 
 import { STORAGE_ERROR_CODES } from "./errors.js";
@@ -139,6 +141,44 @@ export const ProjectionStorageFrontierSchema = z
         code: "custom",
         path: ["transform_versions"],
         message: "projection frontier transforms must be unique",
+      });
+    }
+  });
+
+export const ProjectionScopeStorageFrontierSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    status: z.enum(["ready", "pending", "rebuilding", "unavailable"]),
+    ledger_epoch: z.number().int().nonnegative(),
+    tombstone_epoch: z.number().int().nonnegative(),
+    projection_epoch: z.number().int().nonnegative(),
+    source_frontier_hash: CanonicalHashSchema.nullable(),
+    projection_frontier_hash: CanonicalHashSchema.nullable(),
+    transform_versions: z.array(TransformRefSchema),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const identities = value.transform_versions.map(
+      (transform) => `${transform.name}:${transform.version}`,
+    );
+    if (new Set(identities).size !== identities.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["transform_versions"],
+        message: "scope projection frontier transforms must be unique",
+      });
+    }
+    if (
+      value.status === "ready" &&
+      (value.source_frontier_hash === null ||
+        value.projection_frontier_hash === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "a ready scope projection frontier requires both hashes",
       });
     }
   });
@@ -768,6 +808,8 @@ export const RecordRecallResultSchema = z
 
 export const ApplyProjectionBatchCommandSchema = z
   .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
     idempotency_key: z.string().trim().min(8).max(200),
     expected_projection_epoch: z.number().int().nonnegative(),
     projections: z.array(ProjectionRevisionSchema).max(100_000),
@@ -827,6 +869,17 @@ export const ApplyProjectionBatchCommandSchema = z
       });
     }
     for (const [index, projection] of value.projections.entries()) {
+      if (
+        projection.principal_id !== value.principal_id ||
+        scopeKey(projection.scope) !== scopeKey(value.scope)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["projections", index, "scope"],
+          message:
+            "projection batches must bind the declared principal and exact scope",
+        });
+      }
       if (projection.lifecycle !== "active") {
         context.addIssue({
           code: "custom",
@@ -914,6 +967,216 @@ export const ProjectionQueryResultSchema = z
     items: z.array(ProjectionRevisionSchema),
   })
   .strict();
+
+export const ProjectionPageCursorSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    projection_type: ProjectionTypeSchema,
+    projection_id: IdentifierSchema,
+    query_hash: CanonicalHashSchema,
+    scope_frontier_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const ProjectionPageQuerySchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    projection_types: z.array(ProjectionTypeSchema).min(1).optional(),
+    projection_revision_ids: z
+      .array(IdentifierSchema)
+      .min(1)
+      .max(100_000)
+      .optional(),
+    include_inactive: z.boolean().default(false),
+    as_of: UtcTimestampSchema,
+    limit: z.number().int().min(1).max(100_000).default(100),
+    cursor: ProjectionPageCursorSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.projection_types !== undefined &&
+      new Set(value.projection_types).size !== value.projection_types.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["projection_types"],
+        message: "projection page types must be unique",
+      });
+    }
+    if (
+      value.projection_revision_ids !== undefined &&
+      new Set(value.projection_revision_ids).size !==
+        value.projection_revision_ids.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["projection_revision_ids"],
+        message: "projection page revision ids must be unique",
+      });
+    }
+  });
+
+export const ProjectionPageResultSchema = z
+  .object({
+    scope_frontier: ProjectionScopeStorageFrontierSchema,
+    items: z.array(ProjectionRevisionSchema),
+    examined_count: z.number().int().nonnegative(),
+    total_count: z.number().int().nonnegative(),
+    next_cursor: ProjectionPageCursorSchema.nullable(),
+    exhausted: z.boolean(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.scope_frontier.status !== "ready") {
+      context.addIssue({
+        code: "custom",
+        path: ["scope_frontier", "status"],
+        message: "projection pages require a ready exact-scope frontier",
+      });
+    }
+    if (
+      value.examined_count !== value.items.length ||
+      value.examined_count > value.total_count
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["examined_count"],
+        message: "projection page counts must match returned rows",
+      });
+    }
+    if (value.exhausted !== (value.next_cursor === null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["exhausted"],
+        message: "projection page exhaustion and next cursor must agree",
+      });
+    }
+    if (
+      value.next_cursor !== null &&
+      value.next_cursor.scope_frontier_hash !==
+        canonicalSha256(value.scope_frontier)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["next_cursor", "scope_frontier_hash"],
+        message: "projection cursor must bind the exact scope frontier",
+      });
+    }
+  });
+
+export const ProjectionSourceEligibilityReasonSchema = z.enum([
+  "SOURCE_MISSING",
+  "SOURCE_SUPERSEDED",
+  "SOURCE_INACTIVE",
+  "SOURCE_USAGE_BLOCKED",
+  "SOURCE_REVOKED",
+  "SOURCE_TOMBSTONED",
+  "SOURCE_PURGED",
+  "SOURCE_INVALIDATED",
+  "SOURCE_NOT_YET_VALID",
+  "SOURCE_EXPIRED",
+  "SOURCE_SCOPE_MISMATCH",
+  "SOURCE_PRINCIPAL_MISMATCH",
+  "SOURCE_SENSITIVE_EXCLUDED",
+  "SOURCE_SECRET_EXCLUDED",
+  "SOURCE_CONFLICT",
+  "SOURCE_NO_LIVE_EVIDENCE",
+  "SOURCE_NO_ACTIVATION",
+]);
+
+export const ProjectionSourceBatchQuerySchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    as_of: UtcTimestampSchema,
+    include_sensitive: z.boolean().default(false),
+    context_scope: ScopeSchema.nullable().default(null),
+    revision_ids: z.array(IdentifierSchema).min(1).max(100_000),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (new Set(value.revision_ids).size !== value.revision_ids.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["revision_ids"],
+        message: "exact projection source revision ids must be unique",
+      });
+    }
+  });
+
+const EligibleProjectionSourceBatchItemSchema = z
+  .object({
+    revision_id: IdentifierSchema,
+    status: z.literal("eligible"),
+    source: ProjectionSourceSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.revision_id !== value.source.revision_id) {
+      context.addIssue({
+        code: "custom",
+        path: ["source", "revision_id"],
+        message: "eligible exact source identity must match the requested id",
+      });
+    }
+  });
+
+const IneligibleProjectionSourceBatchItemSchema = z
+  .object({
+    revision_id: IdentifierSchema,
+    status: z.literal("ineligible"),
+    reason_code: ProjectionSourceEligibilityReasonSchema,
+  })
+  .strict();
+
+export const ProjectionSourceBatchItemSchema = z.discriminatedUnion(
+  "status",
+  [
+    EligibleProjectionSourceBatchItemSchema,
+    IneligibleProjectionSourceBatchItemSchema,
+  ],
+);
+
+export const ProjectionSourceBatchResultSchema = z
+  .object({
+    ledger_epoch: z.number().int().nonnegative(),
+    tombstone_epoch: z.number().int().nonnegative(),
+    requested_revision_ids: z.array(IdentifierSchema).min(1).max(100_000),
+    requested_count: z.number().int().positive(),
+    complete: z.literal(true),
+    results: z.array(ProjectionSourceBatchItemSchema).min(1).max(100_000),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const resultIds = value.results.map((result) => result.revision_id);
+    if (
+      value.requested_count !== value.requested_revision_ids.length ||
+      value.results.length !== value.requested_revision_ids.length ||
+      resultIds.some(
+        (revisionId, index) =>
+          revisionId !== value.requested_revision_ids[index],
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["results"],
+        message:
+          "exact projection source batch must return one ordered result per request id",
+      });
+    }
+    if (
+      new Set(value.requested_revision_ids).size !==
+        value.requested_revision_ids.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["requested_revision_ids"],
+        message: "exact projection source result ids must be unique",
+      });
+    }
+  });
 
 export const RelationTraversalInputSchema = z
   .object({
@@ -1183,6 +1446,30 @@ export type ParsedProjectionQuery = z.output<typeof ProjectionQuerySchema>;
 export type ProjectionQueryResult = z.infer<
   typeof ProjectionQueryResultSchema
 >;
+export type ProjectionPageCursor = z.infer<
+  typeof ProjectionPageCursorSchema
+>;
+export type ProjectionPageQuery = z.input<
+  typeof ProjectionPageQuerySchema
+>;
+export type ParsedProjectionPageQuery = z.output<
+  typeof ProjectionPageQuerySchema
+>;
+export type ProjectionPageResult = z.infer<
+  typeof ProjectionPageResultSchema
+>;
+export type ProjectionSourceBatchQuery = z.input<
+  typeof ProjectionSourceBatchQuerySchema
+>;
+export type ParsedProjectionSourceBatchQuery = z.output<
+  typeof ProjectionSourceBatchQuerySchema
+>;
+export type ProjectionSourceBatchItem = z.infer<
+  typeof ProjectionSourceBatchItemSchema
+>;
+export type ProjectionSourceBatchResult = z.infer<
+  typeof ProjectionSourceBatchResultSchema
+>;
 export type ProjectionSourceListInput = z.input<
   typeof ProjectionSourceListInputSchema
 >;
@@ -1194,6 +1481,9 @@ export type ProjectionSourceListResult = z.infer<
 >;
 export type ProjectionStorageFrontier = z.infer<
   typeof ProjectionStorageFrontierSchema
+>;
+export type ProjectionScopeStorageFrontier = z.infer<
+  typeof ProjectionScopeStorageFrontierSchema
 >;
 export type RelationTraversalInput = z.input<
   typeof RelationTraversalInputSchema

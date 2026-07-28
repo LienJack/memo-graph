@@ -5,6 +5,7 @@ import {
   PurgeReceiptSchema,
   ReceiptSchema,
   RetrievalReceiptSchema,
+  buildContextFrontierV2,
   receiptHashIsValid,
   sealReceipt,
 } from "../../packages/contracts/src/index.js";
@@ -145,6 +146,88 @@ describe("receipt contracts", () => {
 
     expect(receiptHashIsValid(receipt)).toBe(true);
     expect(receipt.lane_telemetry?.[0]?.selected_count).toBe(1);
+  });
+
+  it("seals canonical V2 scoped frontier and bounded-work evidence", () => {
+    const frontier = buildContextFrontierV2({
+      ledger_epoch: 10,
+      tombstone_epoch: 2,
+      scope_frontiers: [
+        {
+          scope: { kind: "workspace", id: "workspace_local" },
+          projection_epoch: 7,
+          source_frontier_hash: HASH_A,
+          projection_frontier_hash: HASH_B,
+          transform_versions: [
+            {
+              name: "deterministic-g3-projection",
+              version: "1.0.0",
+            },
+          ],
+        },
+      ],
+    });
+    const receipt = RetrievalReceiptSchema.parse(
+      sealReceipt({
+        schema_version: "1.1.0",
+        receipt_id: "receipt_layered_v2_1",
+        created_at: NOW,
+        state: "partial",
+        request_hash: HASH_A,
+        kind: "retrieval",
+        context_slice_id: "context_layered_v2_1",
+        compiler_version: "1.1.0",
+        policy_version: "1.0.0",
+        frontier,
+        effective_lane_configuration: {
+          policy_hash: HASH_A,
+          requested_lanes: ["topic"],
+          enabled_lanes: ["topic"],
+          limits: {
+            max_candidates_per_lane: 20,
+            relation_max_depth: 2,
+            relation_max_fanout: 10,
+            max_concurrent_lanes: 1,
+            max_projection_scan_per_lane: 100,
+            max_source_revisions_per_batch: 1_000,
+            relation_max_starts: 50,
+          },
+          reason_codes: [],
+        },
+        lane_telemetry: [
+          {
+            lane: "topic",
+            status: "degraded",
+            duration_ms: 1,
+            candidate_count: 1,
+            eligible_count: 1,
+            selected_count: 1,
+            exclusion_counts: {},
+            reason_codes: ["PROJECTION_SCAN_LIMIT"],
+            bounded_work: [
+              {
+                boundary: "projection_scan",
+                configured_limit: 100,
+                observed_count: 101,
+                retained_count: 100,
+                truncated_count: 1,
+                complete: false,
+                reason_code: "PROJECTION_SCAN_LIMIT",
+              },
+            ],
+          },
+        ],
+        items: [],
+      }),
+    );
+
+    expect(receiptHashIsValid(receipt)).toBe(true);
+    expect(receipt.frontier).toEqual(frontier);
+    expect(receipt.lane_telemetry?.[0]?.bounded_work?.[0]).toMatchObject({
+      boundary: "projection_scan",
+      truncated_count: 1,
+      complete: false,
+    });
   });
 
   it("cannot complete a purge while residual content remains", () => {

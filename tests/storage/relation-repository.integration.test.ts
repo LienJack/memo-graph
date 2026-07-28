@@ -49,6 +49,8 @@ describe("SQLite relation repository", () => {
     });
     const relation = relationProjection(sources, frontier);
     await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
       idempotency_key: "relation-batch-0001",
       expected_projection_epoch: 0,
       projections: [relation],
@@ -104,6 +106,8 @@ describe("SQLite relation repository", () => {
       projectionEpoch: 1,
     });
     await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_local" },
       idempotency_key: "relation-batch-scope-0001",
       expected_projection_epoch: 0,
       projections: [relationProjection(sources, frontier)],

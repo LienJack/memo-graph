@@ -1798,6 +1798,17 @@ export class StorageDatabase {
       transform: projection.transform,
       frontier: projection.frontier,
     };
+    const scopedFrontier =
+      "scope_frontiers" in contextFrontier
+        ? contextFrontier.scope_frontiers.find(
+            (frontier) =>
+              frontier.scope.kind === projection.scope.kind &&
+              frontier.scope.id === projection.scope.id,
+          )
+        : contextFrontier;
+    if (scopedFrontier === undefined) {
+      return false;
+    }
     return (
       item.memory_id === projection.projection_id &&
       item.revision_id === projection.projection_revision_id &&
@@ -1816,12 +1827,12 @@ export class StorageDatabase {
       projection.frontier.tombstone_epoch ===
         contextFrontier.tombstone_epoch &&
       projection.frontier.projection_epoch ===
-        contextFrontier.projection_epoch &&
+        scopedFrontier.projection_epoch &&
       projection.frontier.source_frontier_hash ===
-        contextFrontier.source_frontier_hash &&
+        scopedFrontier.source_frontier_hash &&
       projection.frontier.projection_frontier_hash ===
-        contextFrontier.projection_frontier_hash &&
-      contextFrontier.transform_versions.some(
+        scopedFrontier.projection_frontier_hash &&
+      scopedFrontier.transform_versions.some(
         (transform) =>
           transform.name === projection.transform.name &&
           transform.version === projection.transform.version,

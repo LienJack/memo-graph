@@ -162,9 +162,9 @@ export const ProjectionFrontierSchema = z
   })
   .strict();
 
-export const ContextFrontierSchema = z
+export const ContextFrontierV1Schema = z
   .object({
-    schema_version: ContractVersionSchema,
+    schema_version: z.literal("1.0.0"),
     ledger_epoch: z.number().int().nonnegative(),
     tombstone_epoch: z.number().int().nonnegative(),
     projection_epoch: z.number().int().nonnegative(),
@@ -185,6 +185,131 @@ export const ContextFrontierSchema = z
       });
     }
   });
+
+export const ContextScopeFrontierSchema = z
+  .object({
+    scope: ScopeSchema,
+    projection_epoch: z.number().int().nonnegative(),
+    source_frontier_hash: CanonicalHashSchema,
+    projection_frontier_hash: CanonicalHashSchema,
+    transform_versions: z.array(TransformRefSchema).min(1),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const identities = value.transform_versions.map(
+      (transform) => `${transform.name}:${transform.version}`,
+    );
+    if (new Set(identities).size !== identities.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["transform_versions"],
+        message: "scope frontier transform versions must be unique",
+      });
+    }
+    if (
+      identities.some(
+        (identity, index) =>
+          index > 0 && identity.localeCompare(identities[index - 1] ?? "") < 0,
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["transform_versions"],
+        message: "scope frontier transform versions must be canonical",
+      });
+    }
+  });
+
+export const ContextFrontierV2Schema = z
+  .object({
+    schema_version: z.literal("2.0.0"),
+    ledger_epoch: z.number().int().nonnegative(),
+    tombstone_epoch: z.number().int().nonnegative(),
+    scope_frontiers: z.array(ContextScopeFrontierSchema).min(1),
+    aggregate_frontier_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const scopeKeys = value.scope_frontiers.map((frontier) =>
+      scopeKey(frontier.scope)
+    );
+    if (new Set(scopeKeys).size !== scopeKeys.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["scope_frontiers"],
+        message: "Context scope frontiers must be unique",
+      });
+    }
+    if (
+      scopeKeys.some(
+        (key, index) =>
+          index > 0 && key.localeCompare(scopeKeys[index - 1] ?? "") < 0,
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["scope_frontiers"],
+        message: "Context scope frontiers must use canonical scope order",
+      });
+    }
+    if (
+      value.aggregate_frontier_hash !==
+        canonicalSha256(value.scope_frontiers)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["aggregate_frontier_hash"],
+        message: "Context aggregate frontier hash must seal scope frontiers",
+      });
+    }
+  });
+
+export const ContextFrontierSchema = z.union([
+  ContextFrontierV1Schema,
+  ContextFrontierV2Schema,
+]);
+
+export function buildContextFrontierV2(input: unknown): z.infer<
+  typeof ContextFrontierV2Schema
+> {
+  const unorderedScopeFrontierSchema = z
+    .object({
+      scope: ScopeSchema,
+      projection_epoch: z.number().int().nonnegative(),
+      source_frontier_hash: CanonicalHashSchema,
+      projection_frontier_hash: CanonicalHashSchema,
+      transform_versions: z.array(TransformRefSchema).min(1),
+    })
+    .strict();
+  const value = z
+    .object({
+      ledger_epoch: z.number().int().nonnegative(),
+      tombstone_epoch: z.number().int().nonnegative(),
+      scope_frontiers: z.array(unorderedScopeFrontierSchema).min(1),
+    })
+    .strict()
+    .parse(input);
+  const scopeFrontiers = value.scope_frontiers
+    .map((frontier) => ({
+      ...frontier,
+      transform_versions: [...frontier.transform_versions].sort(
+        (left, right) =>
+          `${left.name}:${left.version}`.localeCompare(
+            `${right.name}:${right.version}`,
+          ),
+      ),
+    }))
+    .sort((left, right) =>
+      scopeKey(left.scope).localeCompare(scopeKey(right.scope))
+    );
+  return ContextFrontierV2Schema.parse({
+    schema_version: "2.0.0",
+    ledger_epoch: value.ledger_epoch,
+    tombstone_epoch: value.tombstone_epoch,
+    scope_frontiers: scopeFrontiers,
+    aggregate_frontier_hash: canonicalSha256(scopeFrontiers),
+  });
+}
 
 const PROJECTION_ABSTRACTION = {
   topic: "l2_topic",
@@ -512,6 +637,19 @@ export const LaneLimitsSchema = z
     max_concurrent_lanes: z.number().int().min(1).max(
       RecallLaneSchema.options.length,
     ),
+    max_projection_scan_per_lane: z
+      .number()
+      .int()
+      .min(1)
+      .max(100_000)
+      .optional(),
+    max_source_revisions_per_batch: z
+      .number()
+      .int()
+      .min(1)
+      .max(100_000)
+      .optional(),
+    relation_max_starts: z.number().int().min(1).max(100).optional(),
   })
   .strict();
 
@@ -581,12 +719,24 @@ export const EffectiveLaneConfigurationSchema = z
     }
   });
 
-const LIMIT_KEYS = [
+const REQUIRED_LIMIT_KEYS = [
   "max_candidates_per_lane",
   "max_concurrent_lanes",
   "relation_max_depth",
   "relation_max_fanout",
 ] as const;
+
+const OPTIONAL_LIMIT_KEYS = [
+  "max_projection_scan_per_lane",
+  "max_source_revisions_per_batch",
+  "relation_max_starts",
+] as const;
+
+export const DEFAULT_BOUNDED_RECALL_LIMITS = {
+  max_projection_scan_per_lane: 10_000,
+  max_source_revisions_per_batch: 10_000,
+  relation_max_starts: 100,
+} as const;
 
 export function computeEffectiveLaneConfiguration(
   policyInput: unknown,
@@ -610,12 +760,25 @@ export function computeEffectiveLaneConfiguration(
     .map((lane) => `LANE_DENIED_BY_POLICY:${lane}`);
 
   const limits = { ...policy.limits };
-  for (const key of LIMIT_KEYS) {
+  for (const key of REQUIRED_LIMIT_KEYS) {
     const requestedLimit = overrides.limits[key];
     if (requestedLimit === undefined) {
       continue;
     }
     if (requestedLimit > policy.limits[key]) {
+      reasonCodes.push(`LIMIT_CLAMPED_BY_POLICY:${key}`);
+      continue;
+    }
+    limits[key] = requestedLimit;
+  }
+  for (const key of OPTIONAL_LIMIT_KEYS) {
+    const requestedLimit = overrides.limits[key];
+    if (requestedLimit === undefined) {
+      continue;
+    }
+    const policyLimit =
+      policy.limits[key] ?? DEFAULT_BOUNDED_RECALL_LIMITS[key];
+    if (requestedLimit > policyLimit) {
       reasonCodes.push(`LIMIT_CLAMPED_BY_POLICY:${key}`);
       continue;
     }
@@ -641,6 +804,42 @@ export const LaneStatusSchema = z.enum([
   "degraded",
 ]);
 
+export const BoundedWorkBoundarySchema = z.enum([
+  "projection_scan",
+  "projection_return",
+  "source_lineage_batch",
+  "relation_starts",
+  "relation_fanout",
+]);
+
+export const BoundedWorkTelemetrySchema = z
+  .object({
+    boundary: BoundedWorkBoundarySchema,
+    configured_limit: z.number().int().positive(),
+    observed_count: z.number().int().nonnegative(),
+    retained_count: z.number().int().nonnegative(),
+    truncated_count: z.number().int().nonnegative(),
+    complete: z.boolean(),
+    reason_code: z.string().trim().min(1).max(200).optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.retained_count + value.truncated_count > value.observed_count) {
+      context.addIssue({
+        code: "custom",
+        path: ["truncated_count"],
+        message: "retained and truncated work cannot exceed observed work",
+      });
+    }
+    if (!value.complete && value.reason_code === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["reason_code"],
+        message: "incomplete bounded work requires a stable reason code",
+      });
+    }
+  });
+
 export const LaneTelemetrySchema = z
   .object({
     lane: RecallLaneSchema,
@@ -654,6 +853,7 @@ export const LaneTelemetrySchema = z
       z.number().int().nonnegative(),
     ),
     reason_codes: z.array(z.string().trim().min(1).max(200)),
+    bounded_work: z.array(BoundedWorkTelemetrySchema).min(1).optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -687,6 +887,27 @@ export const LaneTelemetrySchema = z
         code: "custom",
         path: ["reason_codes"],
         message: "failed or degraded lanes require a stable reason code",
+      });
+    }
+    const boundedWork = value.bounded_work ?? [];
+    const boundaries = boundedWork.map((item) => item.boundary);
+    if (new Set(boundaries).size !== boundaries.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["bounded_work"],
+        message: "lane bounded-work boundaries must be unique",
+      });
+    }
+    if (
+      boundedWork.some((item) => !item.complete) &&
+      value.status !== "degraded" &&
+      value.status !== "unavailable" &&
+      value.status !== "stale"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "incomplete bounded work requires a degraded lane status",
       });
     }
   });
@@ -736,6 +957,11 @@ export const ContextConflictSetSchema = z
 
 export type ContextConflictSet = z.infer<typeof ContextConflictSetSchema>;
 export type ContextFrontier = z.infer<typeof ContextFrontierSchema>;
+export type ContextFrontierV1 = z.infer<typeof ContextFrontierV1Schema>;
+export type ContextFrontierV2 = z.infer<typeof ContextFrontierV2Schema>;
+export type ContextScopeFrontier = z.infer<
+  typeof ContextScopeFrontierSchema
+>;
 export type ContextScoreComponents = z.infer<
   typeof ContextScoreComponentsSchema
 >;
@@ -749,6 +975,9 @@ export type LaneRequestOverrides = z.infer<
 >;
 export type LaneStatus = z.infer<typeof LaneStatusSchema>;
 export type LaneTelemetry = z.infer<typeof LaneTelemetrySchema>;
+export type BoundedWorkTelemetry = z.infer<
+  typeof BoundedWorkTelemetrySchema
+>;
 export type ProjectionFrontier = z.infer<typeof ProjectionFrontierSchema>;
 export type ProjectionLineageRef = z.infer<
   typeof ProjectionLineageRefSchema
