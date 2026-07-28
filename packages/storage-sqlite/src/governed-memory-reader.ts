@@ -290,21 +290,36 @@ export class GovernedMemoryReader {
         const sourceRows = this.#preloadExactSourceRows(
           query.revision_ids,
         );
-        const ledgerEpoch = (
-          this.#database
+        const scopeState = this.#database
+          .prepare(
+            `SELECT ledger_epoch, tombstone_epoch
+             FROM layered_projection_scope_state
+             WHERE principal_id = ?
+               AND scope_kind = ?
+               AND scope_id = ?`,
+          )
+          .get(
+            query.principal_id,
+            query.scope.kind,
+            query.scope.id,
+          ) as {
+          ledger_epoch: number;
+          tombstone_epoch: number;
+        } | undefined;
+        const canonicalState =
+          scopeState ??
+          (this.#database
             .prepare(
-              "SELECT ledger_epoch FROM ledger_state WHERE singleton = 1",
+              `SELECT
+                 (SELECT ledger_epoch FROM ledger_state
+                  WHERE singleton = 1) AS ledger_epoch,
+                 (SELECT tombstone_epoch FROM tombstone_state
+                  WHERE singleton = 1) AS tombstone_epoch`,
             )
-            .get() as { ledger_epoch: number }
-        ).ledger_epoch;
-        const tombstoneEpoch = (
-          this.#database
-            .prepare(
-              `SELECT tombstone_epoch
-               FROM tombstone_state WHERE singleton = 1`,
-            )
-            .get() as { tombstone_epoch: number }
-        ).tombstone_epoch;
+            .get() as {
+            ledger_epoch: number;
+            tombstone_epoch: number;
+          });
         const results = query.revision_ids.map((revisionId) =>
           this.#exactProjectionSource(
             revisionId,
@@ -314,8 +329,8 @@ export class GovernedMemoryReader {
           )
         );
         return ProjectionSourceBatchResultSchema.parse({
-          ledger_epoch: ledgerEpoch,
-          tombstone_epoch: tombstoneEpoch,
+          ledger_epoch: canonicalState.ledger_epoch,
+          tombstone_epoch: canonicalState.tombstone_epoch,
           requested_revision_ids: query.revision_ids,
           requested_count: query.revision_ids.length,
           complete: true,

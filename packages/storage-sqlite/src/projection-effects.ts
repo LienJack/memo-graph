@@ -82,11 +82,17 @@ function markScopePending(
   database: Database.Database,
   effect: ProjectionEffect,
 ): void {
+  // Governance writes install projection effects before sealing the same
+  // transaction, which advances the canonical ledger exactly once.
   const state = database
     .prepare(
-      `SELECT ledger_epoch, tombstone_epoch, projection_epoch
-       FROM layered_projection_state
-       WHERE singleton = 1`,
+      `SELECT
+         (SELECT ledger_epoch + 1 FROM ledger_state WHERE singleton = 1)
+           AS ledger_epoch,
+         (SELECT tombstone_epoch FROM tombstone_state WHERE singleton = 1)
+           AS tombstone_epoch,
+         (SELECT projection_epoch FROM layered_projection_state
+          WHERE singleton = 1) AS projection_epoch`,
     )
     .get() as {
     ledger_epoch: number;
@@ -103,6 +109,11 @@ function markScopePending(
        ) VALUES (?, ?, ?, 'pending', ?, ?, ?, NULL, NULL, ?, ?, NULL)
        ON CONFLICT (principal_id, scope_kind, scope_id) DO UPDATE SET
          status = 'pending',
+         ledger_epoch = excluded.ledger_epoch,
+         tombstone_epoch = excluded.tombstone_epoch,
+         source_frontier_hash = NULL,
+         projection_frontier_hash = NULL,
+         transform_versions_json = excluded.transform_versions_json,
          updated_at = excluded.updated_at,
          error_code = NULL`,
     )

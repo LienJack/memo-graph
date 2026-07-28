@@ -128,6 +128,11 @@ describe("derived projection invalidation", () => {
       projections: [],
       applied_at: "2026-07-28T12:02:45.000Z",
     });
+    const unaffectedBeforeCorrection =
+      await storage.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_unaffected" },
+      });
 
     await storage.commitEpisode(
       inlineEpisode({
@@ -172,21 +177,26 @@ describe("derived projection invalidation", () => {
       limit: 100,
     });
     expect(immediatelyVisible.items).toEqual([]);
-    expect((await storage.health()).layered_projection_state).toBe(
-      "pending",
-    );
+    const healthAfterCorrection = await storage.health();
+    expect(healthAfterCorrection.layered_projection_state).toBe("pending");
     expect(
       await storage.projectionScopeFrontier({
         principal_id: "user_local",
         scope: PURGE_SCOPE,
       }),
-    ).toMatchObject({ status: "pending" });
+    ).toMatchObject({
+      status: "pending",
+      ledger_epoch: healthAfterCorrection.ledger_epoch,
+      tombstone_epoch: healthAfterCorrection.tombstone_epoch,
+      source_frontier_hash: null,
+      projection_frontier_hash: null,
+    });
     expect(
       await storage.projectionScopeFrontier({
         principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_unaffected" },
       }),
-    ).toMatchObject({ status: "ready" });
+    ).toEqual(unaffectedBeforeCorrection);
 
     expect(
       await service.drain({

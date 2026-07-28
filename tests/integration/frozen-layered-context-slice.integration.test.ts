@@ -465,10 +465,19 @@ describe("frozen layered Context runtime", () => {
     expect(afterA).not.toEqual(beforeA);
     expect(afterB).toEqual(beforeB);
     expect(
-      correctedContext.items.every(
-        (item) => item.abstraction === "l1_memory",
+      correctedContext.items.some(
+        (item) =>
+          item.scope.id === SCOPE_B.id &&
+          item.abstraction !== "l1_memory",
       ),
     ).toBe(true);
+    expect(
+      correctedContext.items.some(
+        (item) =>
+          item.scope.id === SCOPE.id &&
+          item.abstraction !== "l1_memory",
+      ),
+    ).toBe(false);
     expect(
       correctedContext.items.some(
         (item) => item.revision_id === sourceA.current_revision_id,

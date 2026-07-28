@@ -279,8 +279,11 @@ const DEFAULT_PROJECTION_TRANSFORM = {
 } as const;
 
 function recallEpochsAgree(recalls: LayeredRecallResult[]): boolean {
+  const ready = recalls.filter(
+    (recall) => recall.projection_scope_frontier.status === "ready",
+  );
   const epochs = new Set(
-    recalls.map((recall) =>
+    ready.map((recall) =>
       `${recall.projection_scope_frontier.ledger_epoch}:${
         recall.projection_scope_frontier.tombstone_epoch
       }`
@@ -343,7 +346,8 @@ function aggregateBoundedWork(
 
 function aggregateRecallTelemetry(options: {
   recalls: LayeredRecallResult[];
-  projectionFallbackReason: string | null;
+  projectionDegradationReason: string | null;
+  dropProjectionCandidates: boolean;
 }): LaneTelemetry[] {
   const statusOrder = [
     "unavailable",
@@ -369,9 +373,10 @@ function aggregateRecallTelemetry(options: {
       );
       const projectionFallback =
         lane !== "recent_l1" &&
-        options.projectionFallbackReason !== null &&
+        options.projectionDegradationReason !== null &&
         !disabled;
-      const removedCandidates = projectionFallback
+      const removedCandidates =
+        projectionFallback && options.dropProjectionCandidates
         ? options.recalls.reduce(
             (sum, recall) =>
               sum +
@@ -389,8 +394,8 @@ function aggregateRecallTelemetry(options: {
             rows.flatMap((row) => Object.keys(row.exclusion_counts)),
           ),
           ...(removedCandidates > 0 &&
-              options.projectionFallbackReason !== null
-            ? [options.projectionFallbackReason]
+              options.projectionDegradationReason !== null
+            ? [options.projectionDegradationReason]
             : []),
         ].sort().map((reason) => [
           reason,
@@ -398,7 +403,7 @@ function aggregateRecallTelemetry(options: {
             (sum, row) => sum + (row.exclusion_counts[reason] ?? 0),
             0,
           ) +
-            (reason === options.projectionFallbackReason
+            (reason === options.projectionDegradationReason
               ? removedCandidates
               : 0),
         ]),
@@ -419,7 +424,8 @@ function aggregateRecallTelemetry(options: {
           (sum, row) => sum + row.candidate_count,
           0,
         ),
-        eligible_count: projectionFallback
+        eligible_count:
+          projectionFallback && options.dropProjectionCandidates
           ? 0
           : rows.reduce(
               (sum, row) => sum + row.eligible_count,
@@ -431,8 +437,8 @@ function aggregateRecallTelemetry(options: {
           ...new Set([
             ...rows.flatMap((row) => row.reason_codes),
             ...(projectionFallback &&
-                options.projectionFallbackReason !== null
-              ? [options.projectionFallbackReason]
+                options.projectionDegradationReason !== null
+              ? [options.projectionDegradationReason]
               : []),
           ]),
         ].sort(),
@@ -448,14 +454,18 @@ function buildRecallFrontier(recalls: LayeredRecallResult[]) {
   if (recalls.length === 0) {
     throw new Error("layered recall requires at least one exact scope");
   }
+  const ready = recalls.filter(
+    (recall) => recall.projection_scope_frontier.status === "ready",
+  );
+  const epochSources = ready.length > 0 ? ready : recalls;
   return buildContextFrontierV2({
     ledger_epoch: Math.max(
-      ...recalls.map(
+      ...epochSources.map(
         (recall) => recall.projection_scope_frontier.ledger_epoch,
       ),
     ),
     tombstone_epoch: Math.max(
-      ...recalls.map(
+      ...epochSources.map(
         (recall) => recall.projection_scope_frontier.tombstone_epoch,
       ),
     ),
@@ -830,18 +840,19 @@ export class MemoryRuntime {
     const scopeFrontierNotReady = recalls.some(
       (recall) => recall.projection_scope_frontier.status !== "ready",
     );
-    const projectionFallbackReason = epochMismatch
+    const projectionDegradationReason = epochMismatch
       ? "SCOPE_FRONTIER_EPOCH_MISMATCH"
       : scopeFrontierNotReady
         ? "PROJECTION_SCOPE_NOT_READY"
         : null;
+    const dropProjectionCandidates = epochMismatch;
     const candidates = recalls.flatMap((recall) => recall.candidates);
     const retainedCandidates =
-      projectionFallbackReason === null
-        ? candidates
-        : candidates.filter((candidate) => candidate.kind === "memory");
+      dropProjectionCandidates
+        ? candidates.filter((candidate) => candidate.kind === "memory")
+        : candidates;
     const runtimeExclusions =
-      projectionFallbackReason === null
+      !dropProjectionCandidates
         ? []
         : candidates.flatMap((candidate) =>
             candidate.kind === "projection"
@@ -850,7 +861,7 @@ export class MemoryRuntime {
                   revision_id:
                     candidate.projection.projection_revision_id,
                   lane: candidate.lane,
-                  reason_code: projectionFallbackReason,
+                  reason_code: "SCOPE_FRONTIER_EPOCH_MISMATCH",
                   score: candidate.rank,
                 }]
               : []
@@ -858,7 +869,8 @@ export class MemoryRuntime {
     const frontier = buildRecallFrontier(recalls);
     const telemetry = aggregateRecallTelemetry({
       recalls,
-      projectionFallbackReason,
+      projectionDegradationReason,
+      dropProjectionCandidates,
     });
     return compileLayeredContext({
       request: request.recall,
