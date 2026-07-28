@@ -4,6 +4,7 @@ import {
   AuthoritySchema,
   ApprovalBindingSchema,
   ApprovalGrantSchema,
+  CanonicalHashSchema,
   EpisodeSchema,
   EvidenceRecordSchema,
   GovernedSearchItemSchema,
@@ -19,8 +20,11 @@ import {
   MemoryRevokeInputSchema,
   MutationReceiptSchema,
   PurgeReceiptSchema,
+  ProjectionRevisionSchema,
+  ProjectionTypeSchema,
   RecallRequestSchema,
   ReceiptSchema,
+  RelationTypeSchema,
   RetrievalReceiptSchema,
   ScopeSchema,
   SensitivitySchema,
@@ -101,10 +105,41 @@ export const StorageCountsSchema = z
     retrieval_receipts: z.number().int().nonnegative(),
     context_slices: z.number().int().nonnegative(),
     receipt_access_scopes: z.number().int().nonnegative(),
+    projection_objects: z.number().int().nonnegative(),
+    projection_revisions: z.number().int().nonnegative(),
+    projection_sources: z.number().int().nonnegative(),
+    relation_objects: z.number().int().nonnegative(),
+    relation_revisions: z.number().int().nonnegative(),
+    projection_outbox_pending: z.number().int().nonnegative(),
+    projection_rebuild_receipts: z.number().int().nonnegative(),
     ...GovernanceCountsSchema.shape,
     ...PurgeCountsSchema.shape,
   })
   .strict();
+
+export const ProjectionStorageFrontierSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    ledger_epoch: z.number().int().nonnegative(),
+    tombstone_epoch: z.number().int().nonnegative(),
+    projection_epoch: z.number().int().nonnegative(),
+    source_frontier_hash: CanonicalHashSchema.nullable(),
+    projection_frontier_hash: CanonicalHashSchema.nullable(),
+    transform_versions: z.array(TransformRefSchema),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const identities = value.transform_versions.map(
+      (transform) => `${transform.name}:${transform.version}`,
+    );
+    if (new Set(identities).size !== identities.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["transform_versions"],
+        message: "projection frontier transforms must be unique",
+      });
+    }
+  });
 
 export const StorageHealthSchema = z
   .object({
@@ -125,6 +160,13 @@ export const StorageHealthSchema = z
       "rebuilding",
       "unavailable",
     ]),
+    layered_projection_state: z.enum([
+      "ready",
+      "pending",
+      "rebuilding",
+      "unavailable",
+    ]),
+    projection_frontier: ProjectionStorageFrontierSchema,
     filesystem_type: z.number().int(),
     migrations: z.array(MigrationEvidenceSchema),
     counts: StorageCountsSchema,
@@ -700,6 +742,272 @@ export const RecordRecallResultSchema = z
   })
   .strict();
 
+export const ApplyProjectionBatchCommandSchema = z
+  .object({
+    idempotency_key: z.string().trim().min(8).max(200),
+    expected_projection_epoch: z.number().int().nonnegative(),
+    projections: z.array(ProjectionRevisionSchema).min(1).max(1_000),
+    applied_at: UtcTimestampSchema,
+    claimed_job: z
+      .object({
+        job_id: IdentifierSchema,
+        worker_id: IdentifierSchema,
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const revisionIds = value.projections.map(
+      (projection) => projection.projection_revision_id,
+    );
+    if (new Set(revisionIds).size !== revisionIds.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["projections"],
+        message: "projection batch revision ids must be unique",
+      });
+    }
+    for (const [index, projection] of value.projections.entries()) {
+      if (projection.lifecycle !== "active") {
+        context.addIssue({
+          code: "custom",
+          path: ["projections", index, "lifecycle"],
+          message: "projection batches may install only active revisions",
+        });
+      }
+      if (
+        projection.frontier.projection_epoch !==
+        value.expected_projection_epoch + 1
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["projections", index, "frontier", "projection_epoch"],
+          message: "projection batch must advance the frontier exactly once",
+        });
+      }
+      const first = value.projections[0];
+      if (
+        first !== undefined &&
+        (projection.frontier.ledger_epoch !== first.frontier.ledger_epoch ||
+          projection.frontier.tombstone_epoch !==
+            first.frontier.tombstone_epoch ||
+          projection.frontier.source_frontier_hash !==
+            first.frontier.source_frontier_hash ||
+          projection.frontier.projection_frontier_hash !==
+            first.frontier.projection_frontier_hash)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["projections", index, "frontier"],
+          message: "one projection batch must bind one exact frontier",
+        });
+      }
+    }
+  });
+
+export const ProjectionBatchResultSchema = z
+  .object({
+    replayed: z.boolean(),
+    projection_epoch: z.number().int().positive(),
+    projection_revision_ids: z.array(IdentifierSchema),
+    relation_revision_ids: z.array(IdentifierSchema),
+    frontier: ProjectionStorageFrontierSchema,
+  })
+  .strict();
+
+export const ProjectionQuerySchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    projection_types: z.array(ProjectionTypeSchema).min(1).optional(),
+    as_of: UtcTimestampSchema,
+    limit: z.number().int().min(1).max(1_000).default(100),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.projection_types !== undefined &&
+      new Set(value.projection_types).size !== value.projection_types.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["projection_types"],
+        message: "projection query types must be unique",
+      });
+    }
+  });
+
+export const ProjectionQueryResultSchema = z
+  .object({
+    frontier: ProjectionStorageFrontierSchema,
+    items: z.array(ProjectionRevisionSchema),
+  })
+  .strict();
+
+export const RelationTraversalInputSchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    start_revision_ids: z.array(IdentifierSchema).min(1).max(100),
+    direction: z.enum(["outbound", "inbound", "both"]),
+    relation_types: z.array(RelationTypeSchema).min(1).optional(),
+    max_depth: z.number().int().min(0).max(4),
+    max_fanout: z.number().int().min(1).max(100),
+    as_of: UtcTimestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      new Set(value.start_revision_ids).size !==
+      value.start_revision_ids.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["start_revision_ids"],
+        message: "relation traversal starts must be unique",
+      });
+    }
+    if (
+      value.relation_types !== undefined &&
+      new Set(value.relation_types).size !== value.relation_types.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["relation_types"],
+        message: "relation traversal types must be unique",
+      });
+    }
+  });
+
+export const RelationTraversalHitSchema = z
+  .object({
+    depth: z.number().int().positive().max(4),
+    from_revision_id: IdentifierSchema,
+    to_revision_id: IdentifierSchema,
+    relation_id: IdentifierSchema,
+    relation_revision_id: IdentifierSchema,
+    relation_type: RelationTypeSchema,
+    direction: z.enum(["outbound", "inbound"]),
+  })
+  .strict();
+
+export const RelationTraversalResultSchema = z
+  .object({
+    hits: z.array(RelationTraversalHitSchema),
+    truncated: z.boolean(),
+  })
+  .strict();
+
+export const ProjectionOutboxJobSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    kind: z.enum(["refresh", "invalidate", "rebuild"]),
+    aggregate_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    source_revision_ids: z.array(IdentifierSchema),
+    status: z.enum(["pending", "processing", "processed", "failed"]),
+    attempts: z.number().int().nonnegative(),
+    available_at: UtcTimestampSchema,
+    claimed_by: IdentifierSchema.nullable(),
+    lease_expires_at: UtcTimestampSchema.nullable(),
+    created_at: UtcTimestampSchema,
+    processed_at: UtcTimestampSchema.nullable(),
+    last_error_code: z.string().trim().min(1).nullable(),
+  })
+  .strict();
+
+export const EnqueueProjectionJobCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    kind: z.enum(["refresh", "invalidate", "rebuild"]),
+    aggregate_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    source_revision_ids: z.array(IdentifierSchema),
+    available_at: UtcTimestampSchema,
+    created_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const ClaimProjectionJobsInputSchema = z
+  .object({
+    worker_id: IdentifierSchema,
+    claimed_at: UtcTimestampSchema,
+    lease_expires_at: UtcTimestampSchema,
+    limit: z.number().int().min(1).max(100),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      Date.parse(value.lease_expires_at) <= Date.parse(value.claimed_at)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["lease_expires_at"],
+        message: "projection job lease must expire after claim time",
+      });
+    }
+  });
+
+export const ClaimProjectionJobsResultSchema = z
+  .object({
+    jobs: z.array(ProjectionOutboxJobSchema),
+  })
+  .strict();
+
+export const FailProjectionJobCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    worker_id: IdentifierSchema,
+    error_code: z.string().trim().min(1).max(200),
+    retry_at: UtcTimestampSchema,
+    failed_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const ProjectionJobMutationResultSchema = z
+  .object({
+    job: ProjectionOutboxJobSchema,
+    replayed: z.boolean(),
+  })
+  .strict();
+
+export const InvalidateProjectionDescendantsCommandSchema = z
+  .object({
+    source_revision_ids: z.array(IdentifierSchema).min(1).max(1_000),
+    reason: z.string().trim().min(1).max(2_000),
+    invalidated_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const InvalidateProjectionDescendantsResultSchema = z
+  .object({
+    projection_ids: z.array(IdentifierSchema),
+    projection_revision_ids: z.array(IdentifierSchema),
+  })
+  .strict();
+
+export const ProjectionRebuildReceiptSchema = z
+  .object({
+    rebuild_receipt_id: IdentifierSchema,
+    mode: z.enum(["incremental", "full"]),
+    projection_epoch: z.number().int().nonnegative(),
+    structural_digest: CanonicalHashSchema,
+    projection_count: z.number().int().nonnegative(),
+    relation_count: z.number().int().nonnegative(),
+    completed_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const RecordProjectionRebuildResultSchema = z
+  .object({
+    receipt: ProjectionRebuildReceiptSchema,
+    replayed: z.boolean(),
+  })
+  .strict();
+
 export const BlockWorkerResultSchema = z
   .object({
     blocked_ms: z.number().int().min(1).max(2_000),
@@ -734,6 +1042,14 @@ export const WorkerOperationSchema = z.enum([
   "explain_evidence",
   "get_receipt",
   "record_recall",
+  "apply_projection_batch",
+  "query_projections",
+  "traverse_relations",
+  "enqueue_projection_job",
+  "claim_projection_jobs",
+  "fail_projection_job",
+  "invalidate_projection_descendants",
+  "record_projection_rebuild",
   "test_block",
   "test_hold_write_lock",
   "close",
@@ -773,6 +1089,65 @@ export const WorkerResponseSchema = z.discriminatedUnion("ok", [
 ]);
 
 export type BackupResult = z.infer<typeof BackupResultSchema>;
+export type ApplyProjectionBatchCommand = z.input<
+  typeof ApplyProjectionBatchCommandSchema
+>;
+export type ParsedApplyProjectionBatchCommand = z.output<
+  typeof ApplyProjectionBatchCommandSchema
+>;
+export type ProjectionBatchResult = z.infer<
+  typeof ProjectionBatchResultSchema
+>;
+export type ProjectionQuery = z.input<typeof ProjectionQuerySchema>;
+export type ParsedProjectionQuery = z.output<typeof ProjectionQuerySchema>;
+export type ProjectionQueryResult = z.infer<
+  typeof ProjectionQueryResultSchema
+>;
+export type ProjectionStorageFrontier = z.infer<
+  typeof ProjectionStorageFrontierSchema
+>;
+export type RelationTraversalInput = z.input<
+  typeof RelationTraversalInputSchema
+>;
+export type ParsedRelationTraversalInput = z.output<
+  typeof RelationTraversalInputSchema
+>;
+export type RelationTraversalResult = z.infer<
+  typeof RelationTraversalResultSchema
+>;
+export type EnqueueProjectionJobCommand = z.input<
+  typeof EnqueueProjectionJobCommandSchema
+>;
+export type ClaimProjectionJobsInput = z.input<
+  typeof ClaimProjectionJobsInputSchema
+>;
+export type ParsedClaimProjectionJobsInput = z.output<
+  typeof ClaimProjectionJobsInputSchema
+>;
+export type ClaimProjectionJobsResult = z.infer<
+  typeof ClaimProjectionJobsResultSchema
+>;
+export type FailProjectionJobCommand = z.input<
+  typeof FailProjectionJobCommandSchema
+>;
+export type ProjectionJobMutationResult = z.infer<
+  typeof ProjectionJobMutationResultSchema
+>;
+export type ProjectionOutboxJob = z.infer<
+  typeof ProjectionOutboxJobSchema
+>;
+export type InvalidateProjectionDescendantsCommand = z.input<
+  typeof InvalidateProjectionDescendantsCommandSchema
+>;
+export type InvalidateProjectionDescendantsResult = z.infer<
+  typeof InvalidateProjectionDescendantsResultSchema
+>;
+export type ProjectionRebuildReceipt = z.input<
+  typeof ProjectionRebuildReceiptSchema
+>;
+export type RecordProjectionRebuildResult = z.infer<
+  typeof RecordProjectionRebuildResultSchema
+>;
 export type AdmitMemoryCommand = z.input<typeof AdmitMemoryCommandSchema>;
 export type ParsedAdmitMemoryCommand = z.output<
   typeof AdmitMemoryCommandSchema

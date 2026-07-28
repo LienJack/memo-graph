@@ -12,14 +12,18 @@ import {
   deserializeStorageError,
 } from "./errors.js";
 import {
+  ApplyProjectionBatchCommandSchema,
   AdmitMemoryCommandSchema,
   BackupResultSchema,
   BlockWorkerResultSchema,
   CheckpointResultSchema,
+  ClaimProjectionJobsInputSchema,
+  ClaimProjectionJobsResultSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
   ContentReferenceCountsSchema,
   DrainFtsResultSchema,
+  EnqueueProjectionJobCommandSchema,
   EvidenceExplanationResultSchema,
   EvidenceLookupInputSchema,
   EvidenceLookupResultSchema,
@@ -31,6 +35,9 @@ import {
   GovernanceMutationResultSchema,
   GovernanceReplayInputSchema,
   GovernanceReplayResultSchema,
+  FailProjectionJobCommandSchema,
+  InvalidateProjectionDescendantsCommandSchema,
+  InvalidateProjectionDescendantsResultSchema,
   MemoryRevisionCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryEligibilityResultSchema,
@@ -44,8 +51,16 @@ import {
   MemoryDeleteResultSchema,
   PurgeRunInputSchema,
   PurgeRunResultSchema,
+  ProjectionBatchResultSchema,
+  ProjectionJobMutationResultSchema,
+  ProjectionQueryResultSchema,
+  ProjectionQuerySchema,
+  ProjectionRebuildReceiptSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
+  RecordProjectionRebuildResultSchema,
+  RelationTraversalInputSchema,
+  RelationTraversalResultSchema,
   RebuildFtsResultSchema,
   ReceiptLookupInputSchema,
   ReceiptLookupResultSchema,
@@ -56,11 +71,15 @@ import {
   VerifyArtifactsResultSchema,
   WorkerResponseSchema,
   type BackupResult,
+  type ApplyProjectionBatchCommand,
   type AdmitMemoryCommand,
   type BlockWorkerResult,
   type CheckpointResult,
+  type ClaimProjectionJobsInput,
+  type ClaimProjectionJobsResult,
   type ContentReferenceCounts,
   type DrainFtsResult,
+  type EnqueueProjectionJobCommand,
   type DurableEpisodeReceipt,
   type EvidenceExplanation,
   type GovernanceStorageStatus,
@@ -70,6 +89,9 @@ import {
   type GovernedMemoryLookupInput,
   type GovernedMemoryLookupResult,
   type GovernanceReplayInput,
+  type FailProjectionJobCommand,
+  type InvalidateProjectionDescendantsCommand,
+  type InvalidateProjectionDescendantsResult,
   type MemoryRevisionCommand,
   type MemoryEligibilityInput,
   type MemoryEligibilityResult,
@@ -81,7 +103,15 @@ import {
   type MemoryDeleteResult,
   type PurgeRunInput,
   type PurgeRunResult,
+  type ProjectionBatchResult,
+  type ProjectionJobMutationResult,
+  type ProjectionQuery,
+  type ProjectionQueryResult,
+  type ProjectionRebuildReceipt,
   type RecordRecallResult,
+  type RecordProjectionRebuildResult,
+  type RelationTraversalInput,
+  type RelationTraversalResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
   type StorageHealth,
@@ -189,6 +219,105 @@ export class SqliteStorageClient {
       "count_content_references",
       query,
       ContentReferenceCountsSchema,
+    );
+  }
+
+  applyProjectionBatch(
+    input: ApplyProjectionBatchCommand,
+  ): Promise<ProjectionBatchResult> {
+    const command = ApplyProjectionBatchCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "apply_projection_batch",
+        command,
+        ProjectionBatchResultSchema,
+      ),
+    );
+  }
+
+  queryProjections(input: ProjectionQuery): Promise<ProjectionQueryResult> {
+    const query = ProjectionQuerySchema.parse(input);
+    return this.#request(
+      "query_projections",
+      query,
+      ProjectionQueryResultSchema,
+    );
+  }
+
+  traverseRelations(
+    input: RelationTraversalInput,
+  ): Promise<RelationTraversalResult> {
+    const query = RelationTraversalInputSchema.parse(input);
+    return this.#request(
+      "traverse_relations",
+      query,
+      RelationTraversalResultSchema,
+    );
+  }
+
+  enqueueProjectionJob(
+    input: EnqueueProjectionJobCommand,
+  ): Promise<ProjectionJobMutationResult> {
+    const command = EnqueueProjectionJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "enqueue_projection_job",
+        command,
+        ProjectionJobMutationResultSchema,
+      ),
+    );
+  }
+
+  claimProjectionJobs(
+    input: ClaimProjectionJobsInput,
+  ): Promise<ClaimProjectionJobsResult> {
+    const request = ClaimProjectionJobsInputSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "claim_projection_jobs",
+        request,
+        ClaimProjectionJobsResultSchema,
+      ),
+    );
+  }
+
+  failProjectionJob(
+    input: FailProjectionJobCommand,
+  ): Promise<ProjectionJobMutationResult> {
+    const command = FailProjectionJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "fail_projection_job",
+        command,
+        ProjectionJobMutationResultSchema,
+      ),
+    );
+  }
+
+  invalidateProjectionDescendants(
+    input: InvalidateProjectionDescendantsCommand,
+  ): Promise<InvalidateProjectionDescendantsResult> {
+    const command =
+      InvalidateProjectionDescendantsCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "invalidate_projection_descendants",
+        command,
+        InvalidateProjectionDescendantsResultSchema,
+      ),
+    );
+  }
+
+  recordProjectionRebuild(
+    input: ProjectionRebuildReceipt,
+  ): Promise<RecordProjectionRebuildResult> {
+    const receipt = ProjectionRebuildReceiptSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "record_projection_rebuild",
+        receipt,
+        RecordProjectionRebuildResultSchema,
+      ),
     );
   }
 

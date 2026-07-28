@@ -9,21 +9,29 @@ import {
   serializeStorageError,
 } from "./errors.js";
 import {
+  ApplyProjectionBatchCommandSchema,
   AdmitMemoryCommandSchema,
+  ClaimProjectionJobsInputSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
+  EnqueueProjectionJobCommandSchema,
   EvidenceLookupInputSchema,
   GovernanceReplayInputSchema,
   GovernedMemoryLookupInputSchema,
   GovernedMemorySearchQuerySchema,
+  FailProjectionJobCommandSchema,
+  InvalidateProjectionDescendantsCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryControlCommandSchema,
   MemoryCorrectionBasisInputSchema,
   MemoryDeleteCommandSchema,
   MemoryRevisionCommandSchema,
   PurgeRunInputSchema,
+  ProjectionQuerySchema,
+  ProjectionRebuildReceiptSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
+  RelationTraversalInputSchema,
   SearchEvidenceQuerySchema,
   WorkerRequestSchema,
 } from "./protocol.js";
@@ -89,6 +97,48 @@ port.on("message", (message: unknown) => {
           result = database.contentReferenceCounts(input.content_hash);
           break;
         }
+        case "apply_projection_batch":
+          result = database.applyProjectionBatch(
+            ApplyProjectionBatchCommandSchema.parse(request.payload),
+          );
+          break;
+        case "query_projections":
+          result = database.queryProjections(
+            ProjectionQuerySchema.parse(request.payload),
+          );
+          break;
+        case "traverse_relations":
+          result = database.traverseRelations(
+            RelationTraversalInputSchema.parse(request.payload),
+          );
+          break;
+        case "enqueue_projection_job":
+          result = database.enqueueProjectionJob(
+            EnqueueProjectionJobCommandSchema.parse(request.payload),
+          );
+          break;
+        case "claim_projection_jobs":
+          result = database.claimProjectionJobs(
+            ClaimProjectionJobsInputSchema.parse(request.payload),
+          );
+          break;
+        case "fail_projection_job":
+          result = database.failProjectionJob(
+            FailProjectionJobCommandSchema.parse(request.payload),
+          );
+          break;
+        case "invalidate_projection_descendants":
+          result = database.invalidateProjectionDescendants(
+            InvalidateProjectionDescendantsCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "record_projection_rebuild":
+          result = database.recordProjectionRebuild(
+            ProjectionRebuildReceiptSchema.parse(request.payload),
+          );
+          break;
         case "admit_memory":
           result = database.admitMemory(
             AdmitMemoryCommandSchema.parse(request.payload),

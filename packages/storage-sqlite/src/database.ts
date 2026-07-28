@@ -36,10 +36,15 @@ import { FtsIndex } from "./fts-index.js";
 import { GovernanceRepository } from "./governance-repository.js";
 import { GovernedMemoryReader } from "./governed-memory-reader.js";
 import { applyMigrations } from "./migrations.js";
+import { ProjectionRepository } from "./projection-repository.js";
 import { PurgeRepository } from "./purge-repository.js";
+import { RelationRepository } from "./relation-repository.js";
 import {
+  ApplyProjectionBatchCommandSchema,
   AdmitMemoryCommandSchema,
+  ClaimProjectionJobsInputSchema,
   CommitEpisodeCommandSchema,
+  EnqueueProjectionJobCommandSchema,
   EvidenceExplanationSchema,
   EvidenceLookupInputSchema,
   GovernanceReplayInputSchema,
@@ -50,17 +55,24 @@ import {
   MemoryCorrectionBasisInputSchema,
   MemoryDeleteCommandSchema,
   MemoryRevisionCommandSchema,
+  FailProjectionJobCommandSchema,
+  InvalidateProjectionDescendantsCommandSchema,
+  ProjectionQuerySchema,
+  ProjectionRebuildReceiptSchema,
   PurgeRunInputSchema,
   RecordRecallCommandSchema,
+  RelationTraversalInputSchema,
   ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
   type BackupResult,
+  type ClaimProjectionJobsResult,
   type CheckpointResult,
   type ContentReferenceCounts,
   type DrainFtsResult,
   type DurableEpisodeReceipt,
   type EvidenceExplanation,
   type MigrationEvidence,
+  type InvalidateProjectionDescendantsResult,
   type ParsedCommitEpisodeCommand,
   type ParsedRecordRecallCommand,
   type RecordRecallResult,
@@ -75,6 +87,11 @@ import {
   type MemoryCorrectionBasis,
   type MemoryDeleteResult,
   type PurgeRunResult,
+  type ProjectionBatchResult,
+  type ProjectionJobMutationResult,
+  type ProjectionQueryResult,
+  type RecordProjectionRebuildResult,
+  type RelationTraversalResult,
   type RestoreVerificationResult,
   type StorageHealth,
 } from "./protocol.js";
@@ -204,6 +221,8 @@ export class StorageDatabase {
   readonly #governedMemory: GovernedMemoryReader;
   readonly #control: ControlRepository;
   readonly #purge: PurgeRepository;
+  readonly #projections: ProjectionRepository;
+  readonly #relations: RelationRepository;
   readonly #journalMode: string;
 
   constructor(options: {
@@ -237,12 +256,15 @@ export class StorageDatabase {
     this.#governedMemory = new GovernedMemoryReader(this.#database);
     this.#control = new ControlRepository(this.#database);
     this.#purge = new PurgeRepository(this.#database, this.#blobStore);
+    this.#projections = new ProjectionRepository(this.#database);
+    this.#relations = new RelationRepository(this.#database);
   }
 
   health(): StorageHealth {
     const projection = this.#fts.state();
     const governance = this.#governance.counts();
     const purge = this.#purge.counts();
+    const layeredProjection = this.#projections.state();
     const count = (table: string, where = ""): number =>
       Number(
         (
@@ -285,6 +307,8 @@ export class StorageDatabase {
       foreign_keys: true,
       secure_delete: true,
       projection_state: projection.status,
+      layered_projection_state: layeredProjection.status,
+      projection_frontier: this.#projections.frontier(),
       filesystem_type: this.#layout.filesystem_type,
       migrations: this.#migrations,
       counts: {
@@ -302,6 +326,7 @@ export class StorageDatabase {
         retrieval_receipts: count("retrieval_receipts"),
         context_slices: count("context_slices"),
         receipt_access_scopes: count("receipt_access_scopes"),
+        ...this.#projections.counts(),
         ...governance,
         ...purge,
       },
@@ -318,6 +343,54 @@ export class StorageDatabase {
 
   contentReferenceCounts(contentHash: string): ContentReferenceCounts {
     return this.#governance.contentReferenceCounts(contentHash);
+  }
+
+  applyProjectionBatch(input: unknown): ProjectionBatchResult {
+    return this.#projections.applyBatch(
+      ApplyProjectionBatchCommandSchema.parse(input),
+    );
+  }
+
+  queryProjections(input: unknown): ProjectionQueryResult {
+    return this.#projections.query(ProjectionQuerySchema.parse(input));
+  }
+
+  traverseRelations(input: unknown): RelationTraversalResult {
+    return this.#relations.traverse(
+      RelationTraversalInputSchema.parse(input),
+    );
+  }
+
+  enqueueProjectionJob(input: unknown): ProjectionJobMutationResult {
+    return this.#projections.enqueue(
+      EnqueueProjectionJobCommandSchema.parse(input),
+    );
+  }
+
+  claimProjectionJobs(input: unknown): ClaimProjectionJobsResult {
+    return this.#projections.claim(
+      ClaimProjectionJobsInputSchema.parse(input),
+    );
+  }
+
+  failProjectionJob(input: unknown): ProjectionJobMutationResult {
+    return this.#projections.fail(
+      FailProjectionJobCommandSchema.parse(input),
+    );
+  }
+
+  invalidateProjectionDescendants(
+    input: unknown,
+  ): InvalidateProjectionDescendantsResult {
+    return this.#projections.invalidateDescendants(
+      InvalidateProjectionDescendantsCommandSchema.parse(input),
+    );
+  }
+
+  recordProjectionRebuild(input: unknown): RecordProjectionRebuildResult {
+    return this.#projections.recordRebuild(
+      ProjectionRebuildReceiptSchema.parse(input),
+    );
   }
 
   admitMemory(input: unknown): GovernanceMutationResult {
