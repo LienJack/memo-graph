@@ -170,7 +170,8 @@ export class MemoryRuntime {
         return GovernedResponseSchema.parse({
           status: "DEGRADED",
           receipt_id: audit.receipt.receipt_id,
-          fallback_lane: "sqlite_authority_without_fts",
+          fallback_lane:
+            allowed.length > 0 ? "partial_sqlite_fts" : "none",
           warnings: searched.degraded,
           data,
         });
@@ -275,7 +276,8 @@ export class MemoryRuntime {
         return GovernedResponseSchema.parse({
           status: "DEGRADED",
           receipt_id: stored.receipt.receipt_id,
-          fallback_lane: "sqlite_authority_without_fts",
+          fallback_lane:
+            stored.context_slice === null ? "none" : "partial_sqlite_fts",
           warnings: compiled.warnings,
           data,
         });

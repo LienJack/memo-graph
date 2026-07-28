@@ -241,7 +241,7 @@ describe("principal-bound memory kernel", () => {
 
     expect(response).toMatchObject({
       status: "DEGRADED",
-      fallback_lane: "sqlite_authority_without_fts",
+      fallback_lane: "none",
     });
     const database = new DatabaseSync(join(dataRoot, "ledger", "memory.db"));
     database.exec("DROP TABLE evidence_fts");
@@ -260,7 +260,7 @@ describe("principal-bound memory kernel", () => {
 
     expect(unavailable).toMatchObject({
       status: "DEGRADED",
-      fallback_lane: "sqlite_authority_without_fts",
+      fallback_lane: "none",
     });
     expect(health.ledger_epoch).toBe(1);
     expect(health.counts.recall_requests).toBe(2);
