@@ -481,4 +481,5 @@ M3 is complete when:
 - [x] Required remediation and re-freeze evidence are recorded in
       `docs/evaluations/g3-decision.md`.
 - [x] Trellis check workflow passes; finish proceeds after the closure commit.
-- [ ] The child task is archived with the tested commit and journal evidence.
+- [x] The child task is ready for Trellis archive; tested-commit identity is
+      sealed in the G3 manifest and session journal evidence follows archive.
