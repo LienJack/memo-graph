@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 4
+- **Total Sessions**: 5
 - **Last Active**: 2026-07-29
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~139 | Active |
+| `journal-1.md` | ~171 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 5 | 2026-07-29 | M3 layered Context Compiler HOLD | `135f322`, `f6c10e4`, `c4472dd`, `da4bde7`, `7246c13`, `9767351`, `7314408`, `693218e`, `603f851`, `cc6b55f`, `5e4c754`, `ba20974` | `codex/agent-memory-runtime-m3` |
 | 4 | 2026-07-29 | M2 Versioned L1 Governance G2 | `8e15401`, `cfa659a`, `e0de085`, `f537586`, `f07126b`, `1b3deb6`, `d949b40`, `c7cf1c2`, `31959fc`, `66a954a`, `c273972` | `codex/agent-memory-runtime-m2` |
 | 3 | 2026-07-28 | M1B governed stdio memory loop and G1 | `9f510e5`, `cd10577`, `d097ca2` | `codex/agent-memory-runtime-m1b` |
 | 2 | 2026-07-28 | Close M1A canonical SQLite storage | `11ed78a`, `365918b`, `335fcf2`, `97c66d1` | `codex/agent-memory-runtime-m1a` |

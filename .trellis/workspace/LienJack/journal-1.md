@@ -137,3 +137,35 @@ Completed the mandated brainstorm, research, plan, and work pipeline for M2; imp
 ### Status
 
 [OK] **Completed**
+
+
+## Session 5: M3 layered Context Compiler HOLD
+
+**Date**: 2026-07-29
+**Task**: M3 layered Context Compiler HOLD
+**Branch**: `codex/agent-memory-runtime-m3`
+
+### Summary
+
+Completed the Trellis-governed M3 requirements, research, plan, layered projection/runtime implementation, frozen G3 replay, and Tier 2 review. G3 is HOLD after three P1 retrieval/frontier defects and one P2 telemetry defect; M2 L0/L1 remains the accepted fallback and M4A/M4B/M5 stay closed.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `135f322` | (see git log) |
+| `f6c10e4` | (see git log) |
+| `c4472dd` | (see git log) |
+| `da4bde7` | (see git log) |
+| `7246c13` | (see git log) |
+| `9767351` | (see git log) |
+| `7314408` | (see git log) |
+| `693218e` | (see git log) |
+| `603f851` | (see git log) |
+| `cc6b55f` | (see git log) |
+| `5e4c754` | (see git log) |
+| `ba20974` | (see git log) |
+
+### Status
+
+[OK] **Completed**
