@@ -50,4 +50,4 @@
   frozen-install, audit, and baseline benchmark gates.
 - [x] Record tested commit, lock/schema/migration/fixture hashes, stdio
   transcript evidence, performance, and debt in `g1-decision.md`.
-- [ ] Commit, archive, and journal M1B before activating M2.
+- [x] Commit, archive, and journal M1B before activating M2.
