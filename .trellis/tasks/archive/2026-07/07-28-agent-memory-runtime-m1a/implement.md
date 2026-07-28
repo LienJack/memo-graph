@@ -66,5 +66,5 @@
 - [x] Record implementation commit, lock/migration hashes, platform, test,
   recovery, performance, and open debt in
   `docs/evaluations/g1a-storage-decision.md`.
-- [ ] Commit the completed M1A task, archive it, and record the Trellis session
+- [x] Commit the completed M1A task, archive it, and record the Trellis session
   before activating M1B.
