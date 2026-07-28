@@ -21,19 +21,23 @@ import { StorageError } from "./errors.js";
 import {
   BackupResultSchema,
   type BackupResult,
+  type RestoreVerificationResult,
   type StorageHealth,
 } from "./protocol.js";
 
 export type RestoreBackupOptions = {
   backup: BackupResult;
   dataRoot: string;
+  minimumTombstoneEpoch: number;
   migrationsDir?: string;
 };
 
 export type RestoreBackupResult = {
   data_root: string;
+  minimum_tombstone_epoch: number;
   health: StorageHealth;
   verified_blobs: number;
+  verification: RestoreVerificationResult;
 };
 
 function fsyncPath(path: string): void {
@@ -49,6 +53,15 @@ export async function restoreBackupToEmptyDataRoot(
   options: RestoreBackupOptions,
 ): Promise<RestoreBackupResult> {
   const backup = BackupResultSchema.parse(options.backup);
+  if (
+    !Number.isSafeInteger(options.minimumTombstoneEpoch) ||
+    options.minimumTombstoneEpoch < 0
+  ) {
+    throw new StorageError("INVALID_INPUT");
+  }
+  if (backup.tombstone_epoch < options.minimumTombstoneEpoch) {
+    throw new StorageError("STALE_TOMBSTONE_FRONTIER");
+  }
   const target = resolve(options.dataRoot);
   if (
     !isAbsolute(options.dataRoot) ||
@@ -108,12 +121,12 @@ export async function restoreBackupToEmptyDataRoot(
         : { migrationsDir: options.migrationsDir }),
     });
     const health = await client.health();
-    const artifacts = await client.verifyArtifacts();
+    const verification = await client.verifyRestoreCandidate();
     if (
       health.ledger_epoch !== backup.ledger_epoch ||
       health.tombstone_epoch !== backup.tombstone_epoch ||
       health.latest_receipt_hash !== backup.latest_receipt_hash ||
-      artifacts.verified !== backup.blob_hashes.length
+      verification.verified_artifacts !== backup.blob_hashes.length
     ) {
       throw new StorageError("CORRUPTION");
     }
@@ -123,8 +136,10 @@ export async function restoreBackupToEmptyDataRoot(
 
     return {
       data_root: target,
+      minimum_tombstone_epoch: options.minimumTombstoneEpoch,
       health,
-      verified_blobs: artifacts.verified,
+      verified_blobs: verification.verified_artifacts,
+      verification,
     };
   } catch (error) {
     if (client !== undefined) {

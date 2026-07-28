@@ -56,6 +56,7 @@ export {
   SearchEvidenceQuerySchema,
   SearchEvidenceResultSchema,
   StorageHealthSchema,
+  RestoreVerificationResultSchema,
   VerifyArtifactsResultSchema,
   type BackupResult,
   type AdmissionEvaluation,
@@ -94,6 +95,7 @@ export {
   type SearchEvidenceQuery,
   type SearchEvidenceResult,
   type StorageHealth,
+  type RestoreVerificationResult,
   type VerifyArtifactsResult,
 } from "./protocol.js";
 export { WriterQueue, type WriterQueueMetrics } from "./writer-queue.js";

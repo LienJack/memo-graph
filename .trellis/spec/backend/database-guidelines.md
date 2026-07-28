@@ -239,6 +239,49 @@ storage.runPurge(input: PurgeRunInput): Promise<PurgeReceipt>
 - Security scans the isolated data root for deleted plaintext and proves direct
   append-only rewrites still fail outside the purge guard.
 
+## Scenario: Verified Restore Frontier
+
+### 1. Scope / Trigger
+
+Use this contract whenever publishing a backup into a new data root.
+
+### 2. Signatures
+
+```ts
+restoreBackupToEmptyDataRoot({
+  backup,
+  dataRoot,
+  minimumTombstoneEpoch,
+}): Promise<RestoreBackupResult>
+```
+
+### 3. Contracts
+
+- `minimumTombstoneEpoch` is required trusted state from outside the snapshot.
+  A backup below it fails before staging is created.
+- Restore never overwrites an existing target. It copies into a private
+  sibling staging root and publishes by atomic rename only after verification.
+- Opening staging applies and verifies the immutable migration chain through
+  the ordinary storage boundary.
+- Publication requires SQLite `integrity_check`, zero foreign-key violations,
+  verified content-addressed blobs, canonical memory/redaction invariants,
+  valid Context item/frozen hashes, valid receipt hashes, and honest purge
+  outcomes.
+- Pending, running, or failed purge jobs make a snapshot unpublishable.
+  A partial job is allowed only when its latest valid receipt names non-empty
+  residual hashes and no store failed. The tombstone remains authoritative.
+- Any failure closes the worker and removes staging; the requested target must
+  remain absent.
+
+### 4. Tests Required
+
+- A current L0 snapshot restores at frontier zero.
+- A pre-delete snapshot fails with `STALE_TOMBSTONE_FRONTIER`.
+- A post-tombstone snapshot without a terminal purge outcome fails with
+  `INCOMPLETE_PURGE`.
+- A current snapshot with honestly named backup debt restores, while corrupt
+  backup evidence fails before target publication.
+
 ## Scenario: Canonical Eligibility and Governed L1 FTS
 
 ### 1. Scope / Trigger

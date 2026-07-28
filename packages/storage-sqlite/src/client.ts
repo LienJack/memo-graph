@@ -52,6 +52,7 @@ import {
   SearchEvidenceQuerySchema,
   SearchEvidenceResultSchema,
   StorageHealthSchema,
+  RestoreVerificationResultSchema,
   VerifyArtifactsResultSchema,
   WorkerResponseSchema,
   type BackupResult,
@@ -84,6 +85,7 @@ import {
   type RebuildFtsResult,
   type SearchEvidenceResult,
   type StorageHealth,
+  type RestoreVerificationResult,
   type VerifyArtifactsResult,
   type WorkerOperation,
 } from "./protocol.js";
@@ -373,6 +375,14 @@ export class SqliteStorageClient {
       "verify_artifacts",
       null,
       VerifyArtifactsResultSchema,
+    );
+  }
+
+  verifyRestoreCandidate(): Promise<RestoreVerificationResult> {
+    return this.#request(
+      "verify_restore_candidate",
+      null,
+      RestoreVerificationResultSchema,
     );
   }
 

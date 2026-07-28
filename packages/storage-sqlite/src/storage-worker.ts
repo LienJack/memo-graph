@@ -180,6 +180,9 @@ port.on("message", (message: unknown) => {
         case "verify_artifacts":
           result = database.verifyArtifacts();
           break;
+        case "verify_restore_candidate":
+          result = database.verifyRestoreCandidate();
+          break;
         case "get_evidence":
           result = database.getEvidence(
             EvidenceLookupInputSchema.parse(request.payload),

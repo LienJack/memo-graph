@@ -115,15 +115,15 @@
 
 ## 7. U7 — backup/restore tombstone frontier
 
-- [ ] Add tombstone epoch to backup evidence and stored manifest.
-- [ ] Require a trusted minimum frontier in restore.
-- [ ] Reject stale/corrupt snapshots before publishing the destination.
-- [ ] Run integrity, migration, blob, eligibility, and residual verification on
+- [x] Add tombstone epoch to backup evidence and stored manifest.
+- [x] Require a trusted minimum frontier in restore.
+- [x] Reject stale/corrupt snapshots before publishing the destination.
+- [x] Run integrity, migration, blob, eligibility, and residual verification on
       staging.
-- [ ] Prove passing current restore and failing pre-delete restore.
-- [ ] Validate with:
+- [x] Prove passing current restore and failing pre-delete restore.
+- [x] Validate with:
       `pnpm vitest run tests/recovery/stale-tombstone-restore.recovery.test.ts tests/storage/fts-and-backup.integration.test.ts`.
-- [ ] Commit U7 only after storage/recovery regression tests pass.
+- [x] Commit U7 only after storage/recovery regression tests pass.
 
 ## 8. U8 — G2 evidence
 

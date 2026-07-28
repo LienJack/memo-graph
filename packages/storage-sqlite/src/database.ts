@@ -75,6 +75,7 @@ import {
   type MemoryCorrectionBasis,
   type MemoryDeleteResult,
   type PurgeRunResult,
+  type RestoreVerificationResult,
   type StorageHealth,
 } from "./protocol.js";
 
@@ -670,6 +671,246 @@ export class StorageDatabase {
       );
     }
     return { verified: artifacts.length };
+  }
+
+  verifyRestoreCandidate(): RestoreVerificationResult {
+    try {
+      return this.#verifyRestoreCandidate();
+    } catch (error) {
+      if (error instanceof StorageError) {
+        throw error;
+      }
+      throw new StorageError("CORRUPTION");
+    }
+  }
+
+  #verifyRestoreCandidate(): RestoreVerificationResult {
+    const integrityRows = this.#database.pragma(
+      "integrity_check",
+    ) as Array<Record<string, unknown>>;
+    if (
+      integrityRows.length !== 1 ||
+      Object.values(integrityRows[0] ?? {})[0] !== "ok"
+    ) {
+      throw new StorageError("CORRUPTION");
+    }
+    const foreignKeyViolations = (
+      this.#database.pragma("foreign_key_check") as unknown[]
+    ).length;
+    if (foreignKeyViolations !== 0) {
+      throw new StorageError("CORRUPTION");
+    }
+
+    const artifacts = this.verifyArtifacts();
+    const memoryViolations = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count
+             FROM memory_objects AS o
+             LEFT JOIN memory_revisions AS r
+               ON r.revision_id = o.current_revision_id
+             WHERE (
+               o.lifecycle = 'active'
+               AND (
+                 o.current_revision_id IS NULL
+                 OR r.revision_id IS NULL
+                 OR r.memory_id <> o.memory_id
+                 OR r.lifecycle <> 'active'
+                 OR r.purged_at IS NOT NULL
+               )
+             )
+                OR (
+                  o.lifecycle = 'purged'
+                  AND (
+                    o.current_revision_id IS NOT NULL
+                    OR o.context_eligible <> 0
+                  )
+                )
+                OR (
+                  r.revision_id IS NOT NULL
+                  AND r.memory_id <> o.memory_id
+                )`,
+          )
+          .get() as { count: number }
+      ).count,
+    );
+    const redactionViolations = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT
+               (
+                 SELECT count(*) FROM evidence_events
+                 WHERE purged_at IS NOT NULL
+                   AND (
+                     payload_storage <> 'inline'
+                     OR payload_inline <> '[PURGED]'
+                     OR payload_blob_hash IS NOT NULL
+                     OR media_type <> 'application/x.memo-graph-redacted'
+                   )
+               ) +
+               (
+                 SELECT count(*) FROM memory_revisions
+                 WHERE purged_at IS NOT NULL
+                   AND (
+                     lifecycle <> 'purged'
+                     OR content_storage <> 'redacted'
+                     OR content_inline IS NOT NULL
+                     OR content_blob_hash IS NOT NULL
+                     OR media_type <> 'application/x.memo-graph-redacted'
+                   )
+               ) +
+               (
+                 SELECT count(*) FROM memory_candidates
+                 WHERE purged_at IS NOT NULL
+                   AND (
+                     content_storage <> 'redacted'
+                     OR content_inline IS NOT NULL
+                     OR content_blob_hash IS NOT NULL
+                     OR media_type <> 'application/x.memo-graph-redacted'
+                   )
+               ) AS count`,
+          )
+          .get() as { count: number }
+      ).count,
+    );
+    if (memoryViolations !== 0 || redactionViolations !== 0) {
+      throw new StorageError("CORRUPTION");
+    }
+
+    const contextRows = this.#database
+      .prepare(
+        `SELECT context_slice_id, slice_json
+         FROM context_slices ORDER BY context_slice_id`,
+      )
+      .all() as Array<{ context_slice_id: string; slice_json: string }>;
+    for (const row of contextRows) {
+      const slice = ContextSliceSchema.parse(
+        JSON.parse(row.slice_json) as unknown,
+      );
+      if (
+        slice.context_slice_id !== row.context_slice_id ||
+        canonicalSha256Omitting(slice, ["frozen_hash"]) !== slice.frozen_hash
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+      const itemRows = this.#database
+        .prepare(
+          `SELECT ordinal, item_json
+           FROM context_slice_items
+           WHERE context_slice_id = ?
+           ORDER BY ordinal`,
+        )
+        .all(row.context_slice_id) as Array<{
+        ordinal: number;
+        item_json: string;
+      }>;
+      if (
+        itemRows.length !== slice.items.length ||
+        itemRows.some(
+          (item, index) =>
+            item.ordinal !== index ||
+            canonicalJson(JSON.parse(item.item_json) as unknown) !==
+              canonicalJson(slice.items[index]),
+        )
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+
+    const receiptRows = this.#database
+      .prepare(
+        `SELECT receipt_json FROM mutation_receipts
+         UNION ALL
+         SELECT receipt_json FROM retrieval_receipts
+         UNION ALL
+         SELECT receipt_json FROM purge_receipts`,
+      )
+      .all() as Array<{ receipt_json: string }>;
+    for (const row of receiptRows) {
+      const receipt = ReceiptSchema.parse(
+        JSON.parse(row.receipt_json) as unknown,
+      );
+      if (!receiptHashIsValid(receipt)) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+
+    const purgeJobs = this.#database
+      .prepare(
+        `SELECT purge_job_id, status
+         FROM purge_jobs ORDER BY tombstone_epoch`,
+      )
+      .all() as Array<{
+      purge_job_id: string;
+      status: "pending" | "running" | "partial" | "completed" | "failed";
+    }>;
+    let incompletePurgeJobs = 0;
+    const residualHashes: string[] = [];
+    for (const job of purgeJobs) {
+      const receiptRow = this.#database
+        .prepare(
+          `SELECT receipt_json FROM purge_receipts
+           WHERE purge_job_id = ?
+           ORDER BY created_at DESC, receipt_id DESC LIMIT 1`,
+        )
+        .get(job.purge_job_id) as { receipt_json: string } | undefined;
+      if (
+        job.status === "pending" ||
+        job.status === "running" ||
+        job.status === "failed" ||
+        receiptRow === undefined
+      ) {
+        throw new StorageError("INCOMPLETE_PURGE");
+      }
+      const receipt = ReceiptSchema.parse(
+        JSON.parse(receiptRow.receipt_json) as unknown,
+      );
+      if (
+        receipt.kind !== "purge" ||
+        receipt.purge_job_id !== job.purge_job_id ||
+        !receiptHashIsValid(receipt)
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+      if (job.status === "completed") {
+        if (!receipt.completed || receipt.residual_hashes.length !== 0) {
+          throw new StorageError("CORRUPTION");
+        }
+        continue;
+      }
+      if (
+        receipt.completed ||
+        receipt.residual_hashes.length === 0 ||
+        receipt.store_outcomes.some((outcome) => outcome.status === "failed")
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+      incompletePurgeJobs += 1;
+      residualHashes.push(...receipt.residual_hashes);
+    }
+
+    return {
+      integrity_check: "ok",
+      foreign_key_violations: 0,
+      verified_artifacts: artifacts.verified,
+      active_memories_verified: Number(
+        (
+          this.#database
+            .prepare(
+              `SELECT count(*) AS count FROM memory_objects
+               WHERE lifecycle = 'active'`,
+            )
+            .get() as { count: number }
+        ).count,
+      ),
+      context_slices_verified: contextRows.length,
+      receipts_verified: receiptRows.length,
+      purge_jobs_verified: purgeJobs.length,
+      incomplete_purge_jobs: incompletePurgeJobs,
+      residual_hashes: [...new Set(residualHashes)].sort(),
+    };
   }
 
   getEvidence(

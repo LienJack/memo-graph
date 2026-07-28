@@ -186,6 +186,7 @@ describe("FTS projection and backup", () => {
     const restored = await restoreBackupToEmptyDataRoot({
       backup,
       dataRoot: restoredRoot,
+      minimumTombstoneEpoch: 0,
     });
 
     expect(backup.integrity_check).toBe("ok");
@@ -197,6 +198,11 @@ describe("FTS projection and backup", () => {
     expect(restored.health.ledger_epoch).toBe(receipt.resulting_epoch);
     expect(restored.health.counts.evidence_events).toBe(1);
     expect(restored.verified_blobs).toBe(1);
+    expect(restored.verification).toMatchObject({
+      integrity_check: "ok",
+      foreign_key_violations: 0,
+      incomplete_purge_jobs: 0,
+    });
   });
 
   it("never emits content or search queries in diagnostics", async () => {

@@ -637,6 +637,22 @@ export const VerifyArtifactsResultSchema = z
   })
   .strict();
 
+export const RestoreVerificationResultSchema = z
+  .object({
+    integrity_check: z.literal("ok"),
+    foreign_key_violations: z.literal(0),
+    verified_artifacts: z.number().int().nonnegative(),
+    active_memories_verified: z.number().int().nonnegative(),
+    context_slices_verified: z.number().int().nonnegative(),
+    receipts_verified: z.number().int().nonnegative(),
+    purge_jobs_verified: z.number().int().nonnegative(),
+    incomplete_purge_jobs: z.number().int().nonnegative(),
+    residual_hashes: z.array(
+      z.string().regex(/^sha256:[a-f0-9]{64}$/),
+    ),
+  })
+  .strict();
+
 export const EvidenceLookupInputSchema = z
   .object({
     evidence_id: z.string().min(1).max(160),
@@ -713,6 +729,7 @@ export const WorkerOperationSchema = z.enum([
   "checkpoint",
   "backup",
   "verify_artifacts",
+  "verify_restore_candidate",
   "get_evidence",
   "explain_evidence",
   "get_receipt",
@@ -872,6 +889,9 @@ export type GovernedMemorySearchResult = z.infer<
 >;
 export type StorageHealth = z.infer<typeof StorageHealthSchema>;
 export type VerifyArtifactsResult = z.infer<typeof VerifyArtifactsResultSchema>;
+export type RestoreVerificationResult = z.infer<
+  typeof RestoreVerificationResultSchema
+>;
 export type WorkerOperation = z.infer<typeof WorkerOperationSchema>;
 export type WorkerResponse = z.infer<typeof WorkerResponseSchema>;
 export type DurableEpisodeReceipt = z.infer<typeof MutationReceiptSchema>;
