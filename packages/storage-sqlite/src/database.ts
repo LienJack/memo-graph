@@ -61,6 +61,7 @@ import {
   FailProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   ProjectionQuerySchema,
+  ProjectionScopeFrontierInputSchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   PurgeRunInputSchema,
@@ -94,6 +95,7 @@ import {
   type ProjectionBatchResult,
   type ProjectionJobMutationResult,
   type ProjectionQueryResult,
+  type ProjectionScopeStorageFrontier,
   type ProjectionSourceListResult,
   type RecordProjectionRebuildResult,
   type RelationTraversalResult,
@@ -359,6 +361,12 @@ export class StorageDatabase {
   applyProjectionBatch(input: unknown): ProjectionBatchResult {
     return this.#projections.applyBatch(
       ApplyProjectionBatchCommandSchema.parse(input),
+    );
+  }
+
+  projectionScopeFrontier(input: unknown): ProjectionScopeStorageFrontier {
+    return this.#projections.scopeFrontier(
+      ProjectionScopeFrontierInputSchema.parse(input),
     );
   }
 

@@ -149,6 +149,90 @@ describe("layered projection storage", () => {
     });
   });
 
+  it("persists independent exact-scope frontiers while the global epoch advances", async () => {
+    const dataRoot = temporaryRoot("projection-scope-frontiers");
+    const storage = await SqliteStorageClient.open({ dataRoot });
+    const scopeA = { kind: "workspace", id: "workspace_a" } as const;
+    const scopeB = { kind: "workspace", id: "workspace_b" } as const;
+    const initial = await storage.health();
+    const frontierA = projectionFrontier({
+      ledgerEpoch: initial.ledger_epoch,
+      tombstoneEpoch: initial.tombstone_epoch,
+      projectionEpoch: 1,
+    });
+    await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: scopeA,
+      idempotency_key: "projection-scope-a-empty-0001",
+      expected_projection_epoch: 0,
+      frontier: frontierA,
+      projections: [],
+      applied_at: "2026-07-28T12:05:00.000Z",
+    });
+    const frontierB = projectionFrontier({
+      ledgerEpoch: initial.ledger_epoch,
+      tombstoneEpoch: initial.tombstone_epoch,
+      projectionEpoch: 2,
+    });
+    await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: scopeB,
+      idempotency_key: "projection-scope-b-empty-0001",
+      expected_projection_epoch: 1,
+      frontier: frontierB,
+      projections: [],
+      applied_at: "2026-07-28T12:05:01.000Z",
+    });
+
+    const [storedA, storedB, after] = await Promise.all([
+      storage.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: scopeA,
+      }),
+      storage.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: scopeB,
+      }),
+      storage.health(),
+    ]);
+    expect(storedA).toMatchObject({
+      status: "ready",
+      projection_epoch: 1,
+      source_frontier_hash: frontierA.source_frontier_hash,
+      projection_frontier_hash: frontierA.projection_frontier_hash,
+    });
+    expect(storedB).toMatchObject({
+      status: "ready",
+      projection_epoch: 2,
+      source_frontier_hash: frontierB.source_frontier_hash,
+      projection_frontier_hash: frontierB.projection_frontier_hash,
+    });
+    expect(after.projection_frontier.projection_epoch).toBe(2);
+    await storage.close();
+
+    const database = new DatabaseSync(
+      join(dataRoot, "ledger", "memory.db"),
+    );
+    database.exec(
+      `INSERT INTO projection_write_guard (
+         singleton, operation, opened_at
+       ) VALUES (1, 'test-regression', '2026-07-28T12:06:00.000Z')`,
+    );
+    expect(() =>
+      database.exec(
+        `UPDATE layered_projection_scope_state
+         SET projection_epoch = 0
+         WHERE principal_id = 'user_local'
+           AND scope_kind = 'workspace'
+           AND scope_id = 'workspace_a'`,
+      ),
+    ).toThrow(/PROJECTION_TRANSACTION_REQUIRED/);
+    database.exec(
+      "DELETE FROM projection_write_guard WHERE singleton = 1",
+    );
+    database.close();
+  });
+
   it("rejects stale frontiers, foreign scope, and immutable row mutation", async () => {
     const dataRoot = temporaryRoot("projection-invalid");
     const storage = await SqliteStorageClient.open({ dataRoot });
@@ -215,6 +299,20 @@ describe("layered projection storage", () => {
         applied_at: "2026-07-28T12:05:02.000Z",
       }),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(
+      storage.applyProjectionBatch({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_other" },
+        idempotency_key: "projection-batch-retire-other-0004",
+        expected_projection_epoch: 1,
+        frontier: nextFrontier,
+        projections: [],
+        retire_projection_revision_ids: [
+          projection.projection_revision_id,
+        ],
+        applied_at: "2026-07-28T12:05:03.000Z",
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
     await storage.close();
 
     const database = new DatabaseSync(

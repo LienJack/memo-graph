@@ -24,7 +24,10 @@ import {
   memoryCandidate,
   revisionCommand,
 } from "../helpers/governance-examples.js";
-import { seedProjectionSources } from "../helpers/projection-examples.js";
+import {
+  projectionFrontier,
+  seedProjectionSources,
+} from "../helpers/projection-examples.js";
 import {
   PURGE_NOW,
   PURGE_SCOPE,
@@ -109,6 +112,22 @@ describe("derived projection invalidation", () => {
         ? before.items[0].content.text
         : "",
     ).toContain(ORIGINAL_TEXT);
+    const initialHealth = await storage.health();
+    await storage.applyProjectionBatch({
+      principal_id: "user_local",
+      scope: { kind: "workspace", id: "workspace_unaffected" },
+      idempotency_key: "projection-unaffected-scope-0001",
+      expected_projection_epoch:
+        initialHealth.projection_frontier.projection_epoch,
+      frontier: projectionFrontier({
+        ledgerEpoch: initialHealth.ledger_epoch,
+        tombstoneEpoch: initialHealth.tombstone_epoch,
+        projectionEpoch:
+          initialHealth.projection_frontier.projection_epoch + 1,
+      }),
+      projections: [],
+      applied_at: "2026-07-28T12:02:45.000Z",
+    });
 
     await storage.commitEpisode(
       inlineEpisode({
@@ -143,6 +162,18 @@ describe("derived projection invalidation", () => {
     expect((await storage.health()).layered_projection_state).toBe(
       "pending",
     );
+    expect(
+      await storage.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: PURGE_SCOPE,
+      }),
+    ).toMatchObject({ status: "pending" });
+    expect(
+      await storage.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_unaffected" },
+      }),
+    ).toMatchObject({ status: "ready" });
 
     expect(
       await service.drain({

@@ -29,6 +29,7 @@ import {
   MemoryRevisionCommandSchema,
   PurgeRunInputSchema,
   ProjectionQuerySchema,
+  ProjectionScopeFrontierInputSchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   RecordRecallCommandSchema,
@@ -102,6 +103,11 @@ port.on("message", (message: unknown) => {
         case "apply_projection_batch":
           result = database.applyProjectionBatch(
             ApplyProjectionBatchCommandSchema.parse(request.payload),
+          );
+          break;
+        case "get_projection_scope_frontier":
+          result = database.projectionScopeFrontier(
+            ProjectionScopeFrontierInputSchema.parse(request.payload),
           );
           break;
         case "query_projections":

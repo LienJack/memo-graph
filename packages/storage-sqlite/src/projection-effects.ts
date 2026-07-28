@@ -78,6 +78,46 @@ function closeGuard(database: Database.Database): void {
     .run();
 }
 
+function markScopePending(
+  database: Database.Database,
+  effect: ProjectionEffect,
+): void {
+  const state = database
+    .prepare(
+      `SELECT ledger_epoch, tombstone_epoch, projection_epoch
+       FROM layered_projection_state
+       WHERE singleton = 1`,
+    )
+    .get() as {
+    ledger_epoch: number;
+    tombstone_epoch: number;
+    projection_epoch: number;
+  };
+  database
+    .prepare(
+      `INSERT INTO layered_projection_scope_state (
+         principal_id, scope_kind, scope_id, status, ledger_epoch,
+         tombstone_epoch, projection_epoch, source_frontier_hash,
+         projection_frontier_hash, transform_versions_json, updated_at,
+         error_code
+       ) VALUES (?, ?, ?, 'pending', ?, ?, ?, NULL, NULL, ?, ?, NULL)
+       ON CONFLICT (principal_id, scope_kind, scope_id) DO UPDATE SET
+         status = 'pending',
+         updated_at = excluded.updated_at,
+         error_code = NULL`,
+    )
+    .run(
+      effect.principalId,
+      effect.scope.kind,
+      effect.scope.id,
+      state.ledger_epoch,
+      state.tombstone_epoch,
+      state.projection_epoch,
+      canonicalJson([]),
+      effect.occurredAt,
+    );
+}
+
 export function enqueueProjectionRefresh(
   database: Database.Database,
   effect: ProjectionEffect,
@@ -92,6 +132,7 @@ export function enqueueProjectionRefresh(
          WHERE singleton = 1`,
       )
       .run(effect.occurredAt);
+    markScopePending(database, effect);
   } finally {
     closeGuard(database);
   }
@@ -177,6 +218,7 @@ export function suppressProjectionDescendants(
          WHERE singleton = 1`,
       )
       .run(effect.occurredAt);
+    markScopePending(database, effect);
   } finally {
     closeGuard(database);
   }

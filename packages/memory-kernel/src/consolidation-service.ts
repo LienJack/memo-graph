@@ -192,11 +192,15 @@ export class ConsolidationService {
       as_of: options.as_of,
       limit: PROJECTION_MAINTENANCE_LIMIT,
     });
+    const scopeFrontier = await this.#storage.projectionScopeFrontier({
+      principal_id: options.principal_id,
+      scope: options.scope,
+    });
     const digest = projectionStructuralDigest(query.items);
     await this.#storage.recordProjectionRebuild({
       rebuild_receipt_id: options.rebuild_receipt_id,
       mode: "full",
-      projection_epoch: query.frontier.projection_epoch,
+      projection_epoch: scopeFrontier.projection_epoch,
       structural_digest: digest,
       projection_count: query.items.length,
       relation_count: query.items.filter(
@@ -207,9 +211,9 @@ export class ConsolidationService {
     return {
       applied: reconciled.applied,
       frontier: {
-        ledger_epoch: query.frontier.ledger_epoch,
-        tombstone_epoch: query.frontier.tombstone_epoch,
-        projection_epoch: query.frontier.projection_epoch,
+        ledger_epoch: scopeFrontier.ledger_epoch,
+        tombstone_epoch: scopeFrontier.tombstone_epoch,
+        projection_epoch: scopeFrontier.projection_epoch,
       },
       projections: query.items,
       structural_digest: digest,
@@ -233,6 +237,10 @@ export class ConsolidationService {
       limit: PROJECTION_MAINTENANCE_LIMIT,
     });
     const health = await this.#storage.health();
+    const scopeFrontier = await this.#storage.projectionScopeFrontier({
+      principal_id: options.principal_id,
+      scope: options.scope,
+    });
     const projectionEpoch =
       health.projection_frontier.projection_epoch + 1;
     const desired = this.#projector({
@@ -257,10 +265,9 @@ export class ConsolidationService {
       limit: PROJECTION_MAINTENANCE_LIMIT,
     });
     const currentAtCanonicalFrontier =
-      health.layered_projection_state === "ready" &&
-      health.projection_frontier.ledger_epoch === sources.ledger_epoch &&
-      health.projection_frontier.tombstone_epoch ===
-        sources.tombstone_epoch &&
+      scopeFrontier.status === "ready" &&
+      scopeFrontier.ledger_epoch === sources.ledger_epoch &&
+      scopeFrontier.tombstone_epoch === sources.tombstone_epoch &&
       active.items.every(
         (projection) =>
           projection.frontier.ledger_epoch === sources.ledger_epoch &&

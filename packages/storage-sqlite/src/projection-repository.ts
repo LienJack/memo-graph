@@ -21,6 +21,8 @@ import {
   ProjectionQueryResultSchema,
   ProjectionQuerySchema,
   ProjectionRebuildReceiptSchema,
+  ProjectionScopeFrontierInputSchema,
+  ProjectionScopeStorageFrontierSchema,
   ProjectionStorageFrontierSchema,
   RecordProjectionRebuildResultSchema,
   type ClaimProjectionJobsResult,
@@ -29,6 +31,7 @@ import {
   type ProjectionBatchResult,
   type ProjectionJobMutationResult,
   type ProjectionQueryResult,
+  type ProjectionScopeStorageFrontier,
   type ProjectionStorageFrontier,
   type RecordProjectionRebuildResult,
 } from "./protocol.js";
@@ -215,6 +218,52 @@ export class ProjectionRepository {
       source_frontier_hash: state.source_frontier_hash,
       projection_frontier_hash: state.projection_frontier_hash,
       transform_versions: JSON.parse(state.transform_versions_json),
+    });
+  }
+
+  scopeFrontier(input: unknown): ProjectionScopeStorageFrontier {
+    const query = ProjectionScopeFrontierInputSchema.parse(input);
+    const tableAvailable = this.#database
+      .prepare(
+        `SELECT 1 FROM sqlite_schema
+         WHERE type = 'table'
+           AND name = 'layered_projection_scope_state'`,
+      )
+      .get();
+    const row =
+      tableAvailable === undefined
+        ? undefined
+        : (this.#database
+            .prepare(
+              `SELECT status, ledger_epoch, tombstone_epoch,
+                      projection_epoch, source_frontier_hash,
+                      projection_frontier_hash, transform_versions_json
+               FROM layered_projection_scope_state
+               WHERE principal_id = ?
+                 AND scope_kind = ?
+                 AND scope_id = ?`,
+            )
+            .get(
+              query.principal_id,
+              query.scope.kind,
+              query.scope.id,
+            ) as ProjectionStateRow | undefined);
+    const state = row ?? this.state();
+    return ProjectionScopeStorageFrontierSchema.parse({
+      schema_version: "1.0.0",
+      principal_id: query.principal_id,
+      scope: query.scope,
+      status: row?.status ?? "pending",
+      ledger_epoch: state.ledger_epoch,
+      tombstone_epoch: state.tombstone_epoch,
+      projection_epoch: row?.projection_epoch ?? 0,
+      source_frontier_hash: row?.source_frontier_hash ?? null,
+      projection_frontier_hash:
+        row?.projection_frontier_hash ?? null,
+      transform_versions:
+        row === undefined
+          ? []
+          : JSON.parse(row.transform_versions_json),
     });
   }
 
@@ -733,12 +782,20 @@ export class ProjectionRepository {
       if (
         job === undefined ||
         job.status !== "processing" ||
-        job.claimed_by !== command.claimed_job.worker_id
+        job.claimed_by !== command.claimed_job.worker_id ||
+        job.principal_id !== command.principal_id ||
+        job.scope_kind !== command.scope.kind ||
+        job.scope_id !== command.scope.id
       ) {
         throw new StorageError("CONFLICT");
       }
     }
 
+    this.#assertRetirements(
+      command.retire_projection_revision_ids ?? [],
+      command.principal_id,
+      command.scope,
+    );
     for (const projection of command.projections) {
       this.#assertSources(projection);
     }
@@ -747,13 +804,10 @@ export class ProjectionRepository {
     try {
       for (const projectionRevisionId of
         command.retire_projection_revision_ids ?? []) {
-        if (first === undefined) {
-          throw new StorageError("INVALID_INPUT");
-        }
         this.#retireProjection(
           projectionRevisionId,
-          first.principal_id,
-          first.scope,
+          command.principal_id,
+          command.scope,
           command.applied_at,
         );
       }
@@ -793,6 +847,39 @@ export class ProjectionRepository {
            WHERE singleton = 1`,
         )
         .run(
+          batchFrontier.ledger_epoch,
+          batchFrontier.tombstone_epoch,
+          batchFrontier.projection_epoch,
+          batchFrontier.source_frontier_hash,
+          batchFrontier.projection_frontier_hash,
+          canonicalJson(transforms),
+          command.applied_at,
+        );
+      this.#database
+        .prepare(
+          `INSERT INTO layered_projection_scope_state (
+             principal_id, scope_kind, scope_id, status, ledger_epoch,
+             tombstone_epoch, projection_epoch, source_frontier_hash,
+             projection_frontier_hash, transform_versions_json, updated_at,
+             error_code
+           ) VALUES (?, ?, ?, 'ready', ?, ?, ?, ?, ?, ?, ?, NULL)
+           ON CONFLICT (principal_id, scope_kind, scope_id) DO UPDATE SET
+             status = excluded.status,
+             ledger_epoch = excluded.ledger_epoch,
+             tombstone_epoch = excluded.tombstone_epoch,
+             projection_epoch = excluded.projection_epoch,
+             source_frontier_hash = excluded.source_frontier_hash,
+             projection_frontier_hash =
+               excluded.projection_frontier_hash,
+             transform_versions_json =
+               excluded.transform_versions_json,
+             updated_at = excluded.updated_at,
+             error_code = NULL`,
+        )
+        .run(
+          command.principal_id,
+          command.scope.kind,
+          command.scope.id,
           batchFrontier.ledger_epoch,
           batchFrontier.tombstone_epoch,
           batchFrontier.projection_epoch,
@@ -846,6 +933,36 @@ export class ProjectionRepository {
         command.applied_at,
       );
     return result;
+  }
+
+  #assertRetirements(
+    projectionRevisionIds: readonly string[],
+    principalId: string,
+    scope: { kind: string; id: string },
+  ): void {
+    const read = this.#database.prepare(
+      `SELECT 1
+       FROM projection_revisions AS r
+       JOIN projection_objects AS o
+         ON o.projection_id = r.projection_id
+        AND o.current_revision_id = r.projection_revision_id
+       WHERE r.projection_revision_id = ?
+         AND o.principal_id = ?
+         AND o.scope_kind = ?
+         AND o.scope_id = ?`,
+    );
+    for (const projectionRevisionId of projectionRevisionIds) {
+      if (
+        read.get(
+          projectionRevisionId,
+          principalId,
+          scope.kind,
+          scope.id,
+        ) === undefined
+      ) {
+        throw new StorageError("CONFLICT");
+      }
+    }
   }
 
   #retireProjection(

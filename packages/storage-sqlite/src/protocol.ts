@@ -183,6 +183,13 @@ export const ProjectionScopeStorageFrontierSchema = z
     }
   });
 
+export const ProjectionScopeFrontierInputSchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+  })
+  .strict();
+
 export const StorageHealthSchema = z
   .object({
     schema_version: z.string().regex(/^\d{4}$/),
@@ -1384,6 +1391,7 @@ export const WorkerOperationSchema = z.enum([
   "get_receipt",
   "record_recall",
   "apply_projection_batch",
+  "get_projection_scope_frontier",
   "query_projections",
   "list_projection_sources",
   "traverse_relations",
@@ -1484,6 +1492,9 @@ export type ProjectionStorageFrontier = z.infer<
 >;
 export type ProjectionScopeStorageFrontier = z.infer<
   typeof ProjectionScopeStorageFrontierSchema
+>;
+export type ProjectionScopeFrontierInput = z.input<
+  typeof ProjectionScopeFrontierInputSchema
 >;
 export type RelationTraversalInput = z.input<
   typeof RelationTraversalInputSchema

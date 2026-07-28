@@ -56,6 +56,8 @@ import {
   ProjectionJobMutationResultSchema,
   ProjectionQueryResultSchema,
   ProjectionQuerySchema,
+  ProjectionScopeFrontierInputSchema,
+  ProjectionScopeStorageFrontierSchema,
   ProjectionSourceListInputSchema,
   ProjectionSourceListResultSchema,
   ProjectionRebuildReceiptSchema,
@@ -111,6 +113,8 @@ import {
   type ProjectionJobMutationResult,
   type ProjectionQuery,
   type ProjectionQueryResult,
+  type ProjectionScopeFrontierInput,
+  type ProjectionScopeStorageFrontier,
   type ProjectionSourceListInput,
   type ProjectionSourceListResult,
   type ProjectionRebuildReceipt,
@@ -238,6 +242,17 @@ export class SqliteStorageClient {
         command,
         ProjectionBatchResultSchema,
       ),
+    );
+  }
+
+  projectionScopeFrontier(
+    input: ProjectionScopeFrontierInput,
+  ): Promise<ProjectionScopeStorageFrontier> {
+    const query = ProjectionScopeFrontierInputSchema.parse(input);
+    return this.#request(
+      "get_projection_scope_frontier",
+      query,
+      ProjectionScopeStorageFrontierSchema,
     );
   }
 

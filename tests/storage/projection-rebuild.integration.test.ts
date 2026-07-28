@@ -192,6 +192,17 @@ describe("deterministic projection rebuild", () => {
     expect(rebuiltAfterRestart.frontier).toEqual(
       incrementalAfterRestart.frontier,
     );
+    expect(
+      await rebuilt.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: SCOPE,
+      }),
+    ).toEqual(
+      await incremental.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: SCOPE,
+      }),
+    );
     await incremental.close();
     await rebuilt.close();
   });

@@ -19,6 +19,7 @@ import {
   SqliteStorageClient,
   StorageError,
 } from "@memo-graph/storage-sqlite";
+import { inlineEpisode } from "../helpers/storage-examples.js";
 
 const cleanupPaths: string[] = [];
 
@@ -48,10 +49,10 @@ describe("data-root and migration contract", () => {
     const health = await storage.health();
     await storage.close();
 
-    expect(health.schema_version).toBe("0010");
+    expect(health.schema_version).toBe("0011");
     expect(health.journal_mode).toBe("wal");
     expect(health.foreign_keys).toBe(true);
-    expect(health.migrations).toHaveLength(10);
+    expect(health.migrations).toHaveLength(11);
     expect(health.migrations.every((migration) =>
       /^sha256:[a-f0-9]{64}$/.test(migration.hash),
     )).toBe(true);
@@ -59,6 +60,67 @@ describe("data-root and migration contract", () => {
     expect(statSync(join(dataRoot, "ledger", "memory.db")).mode & 0o777).toBe(
       0o600,
     );
+  });
+
+  it("adds scope frontier state after 0010 without fabricating populated rows", async () => {
+    const dataRoot = temporaryRoot("scope-frontier-upgrade");
+    const migrationRoot = temporaryRoot("scope-frontier-migrations");
+    for (let version = 1; version <= 10; version += 1) {
+      const prefix = String(version).padStart(4, "0");
+      const name = (
+        await import("node:fs")
+      ).readdirSync(join(process.cwd(), "migrations")).find((entry) =>
+        entry.startsWith(`${prefix}-`)
+      );
+      if (name === undefined) {
+        throw new Error(`missing migration ${prefix}`);
+      }
+      cpSync(
+        join(process.cwd(), "migrations", name),
+        join(migrationRoot, name),
+      );
+    }
+
+    const before = await SqliteStorageClient.open({
+      dataRoot,
+      migrationsDir: migrationRoot,
+    });
+    await before.commitEpisode(
+      inlineEpisode({
+        episodeId: "episode_before_scope_frontier_migration",
+        evidenceId: "evidence_before_scope_frontier_migration",
+        idempotencyKey: "commit:before:scope-frontier:0001",
+        text: "The ledger was populated before migration 0011.",
+      }),
+    );
+    expect((await before.health()).schema_version).toBe("0010");
+    await before.close();
+
+    cpSync(
+      join(
+        process.cwd(),
+        "migrations",
+        "0011-scope-projection-frontiers.sql",
+      ),
+      join(migrationRoot, "0011-scope-projection-frontiers.sql"),
+    );
+    const upgraded = await SqliteStorageClient.open({
+      dataRoot,
+      migrationsDir: migrationRoot,
+    });
+    expect((await upgraded.health()).schema_version).toBe("0011");
+    expect(
+      await upgraded.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
+      }),
+    ).toMatchObject({
+      status: "pending",
+      projection_epoch: 0,
+      source_frontier_hash: null,
+      projection_frontier_hash: null,
+    });
+    await upgraded.close();
   });
 
   it.each([

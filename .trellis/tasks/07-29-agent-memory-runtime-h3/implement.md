@@ -140,32 +140,32 @@ pnpm typecheck
 
 **Test-first checklist:**
 
-- [ ] Prove migration `0011` applies after `0010` on empty and populated
+- [x] Prove migration `0011` applies after `0010` on empty and populated
       databases.
-- [ ] Prove the new primary key permits distinct rows for two exact scopes.
-- [ ] Prove scope A and scope B batches advance the global epoch while only
+- [x] Prove the new primary key permits distinct rows for two exact scopes.
+- [x] Prove scope A and scope B batches advance the global epoch while only
       updating their own scope row.
-- [ ] Prove an empty batch can advance the named scope frontier.
-- [ ] Reject mixed-principal, mixed-scope, or mismatched-retirement batches.
-- [ ] Prove global and scope projection epochs never move backward.
-- [ ] Prove governance mutation marks only the affected scope pending.
-- [ ] Prove rebuild establishes the same scope rows and hashes
+- [x] Prove an empty batch can advance the named scope frontier.
+- [x] Reject mixed-principal, mixed-scope, or mismatched-retirement batches.
+- [x] Prove global and scope projection epochs never move backward.
+- [x] Prove governance mutation marks only the affected scope pending.
+- [x] Prove rebuild establishes the same scope rows and hashes
       deterministically.
 
 **Implementation checklist:**
 
-- [ ] Add `layered_projection_scope_state` and required exact lookup index.
-- [ ] Guard updates with `projection_write_guard`.
-- [ ] Preserve the global singleton as health/CAS state.
-- [ ] Add repository `scopeFrontier(principal, scope)` access.
-- [ ] Validate explicit command principal/scope before any mutation.
-- [ ] Upsert exact scope state in the existing immediate batch transaction.
-- [ ] Update projection effects for per-scope pending/unavailable state.
-- [ ] Make consolidation compare the requested scope frontier, not the global
+- [x] Add `layered_projection_scope_state` and required exact lookup index.
+- [x] Guard updates with `projection_write_guard`.
+- [x] Preserve the global singleton as health/CAS state.
+- [x] Add repository `scopeFrontier(principal, scope)` access.
+- [x] Validate explicit command principal/scope before any mutation.
+- [x] Upsert exact scope state in the existing immediate batch transaction.
+- [x] Update projection effects for per-scope pending/unavailable state.
+- [x] Make consolidation compare the requested scope frontier, not the global
       singleton, for no-op detection.
-- [ ] Keep old projections intact; missing verified scope state fails closed
+- [x] Keep old projections intact; missing verified scope state fails closed
       until consolidation/rebuild.
-- [ ] Runtime-decode all new client/worker responses.
+- [x] Runtime-decode all new client/worker responses.
 
 **Focused verification:**
 
@@ -181,9 +181,9 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] Scope B cannot overwrite scope A.
-- [ ] Existing migration history and M2 storage tests remain green.
-- [ ] Create the U2 commit.
+- [x] Scope B cannot overwrite scope A.
+- [x] Existing migration history and M2 storage tests remain green.
+- [x] Create the U2 commit.
 
 **Rollback point:** code may ignore `0011`; the additive table remains safe.
 
