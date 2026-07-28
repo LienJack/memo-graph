@@ -1,0 +1,35 @@
+{
+  "overlay_schema_version": "1.0.0",
+  "case_id": "cal_privacy_scope",
+  "base_case_hash": "sha256:fd6c6be68b785cea81de51e0a635b2ea99affcae883c8e48a237eb9ef307f6cb",
+  "partition": "calibration",
+  "projection_seeds": [],
+  "transform_inputs": [
+    {
+      "seed_id": "g3_workspace_policy_topic",
+      "projection_type": "topic",
+      "source_memory_ids": ["mem_workspace_a"],
+      "evidence_ids": ["evidence_workspace_a"],
+      "task_units": ["Use pnpm"]
+    }
+  ],
+  "rubric": {
+    "required_task_units": ["Use pnpm"],
+    "required_evidence_units": ["evidence_workspace_a"],
+    "prohibited_pollution": ["cross_scope", "policy_denied"]
+  },
+  "lane_policy": {
+    "allowed_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {
+      "max_candidates_per_lane": 20,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 5,
+      "max_concurrent_lanes": 2
+    }
+  },
+  "lane_overrides": {
+    "requested_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {}
+  },
+  "token_budgets": [512, 1800]
+}

@@ -653,7 +653,7 @@ export const ProjectionSourceListInputSchema = z
     as_of: UtcTimestampSchema,
     include_sensitive: z.boolean().default(false),
     context_scope: ScopeSchema.nullable().default(null),
-    limit: z.number().int().min(1).max(1_000).default(1_000),
+    limit: z.number().int().min(1).max(100_000).default(1_000),
   })
   .strict();
 
@@ -770,11 +770,11 @@ export const ApplyProjectionBatchCommandSchema = z
   .object({
     idempotency_key: z.string().trim().min(8).max(200),
     expected_projection_epoch: z.number().int().nonnegative(),
-    projections: z.array(ProjectionRevisionSchema).max(1_000),
+    projections: z.array(ProjectionRevisionSchema).max(100_000),
     frontier: ProjectionFrontierSchema.optional(),
     retire_projection_revision_ids: z
       .array(IdentifierSchema)
-      .max(1_000)
+      .max(100_000)
       .optional(),
     applied_at: UtcTimestampSchema,
     claimed_job: z
@@ -892,7 +892,7 @@ export const ProjectionQuerySchema = z
     projection_types: z.array(ProjectionTypeSchema).min(1).optional(),
     include_inactive: z.boolean().default(false),
     as_of: UtcTimestampSchema,
-    limit: z.number().int().min(1).max(1_000).default(100),
+    limit: z.number().int().min(1).max(100_000).default(100),
   })
   .strict()
   .superRefine((value, context) => {

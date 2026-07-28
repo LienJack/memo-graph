@@ -1,0 +1,35 @@
+{
+  "overlay_schema_version": "1.0.0",
+  "case_id": "cal_correction_lineage",
+  "base_case_hash": "sha256:60925368f038c8ca9cd8d4b8c2e4108e8ae2b33fe23c7a161a0fa92e923aa4fe",
+  "partition": "calibration",
+  "projection_seeds": [],
+  "transform_inputs": [
+    {
+      "seed_id": "g3_runtime_current_core",
+      "projection_type": "core",
+      "source_memory_ids": ["mem_runtime_node24"],
+      "evidence_ids": ["evidence_runtime_node24"],
+      "task_units": ["Use Node 24 LTS"]
+    }
+  ],
+  "rubric": {
+    "required_task_units": ["Use Node 24 LTS"],
+    "required_evidence_units": ["evidence_runtime_node24"],
+    "prohibited_pollution": ["stale_projection", "invalid_lineage"]
+  },
+  "lane_policy": {
+    "allowed_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {
+      "max_candidates_per_lane": 20,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 5,
+      "max_concurrent_lanes": 2
+    }
+  },
+  "lane_overrides": {
+    "requested_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {}
+  },
+  "token_budgets": [512, 1800]
+}

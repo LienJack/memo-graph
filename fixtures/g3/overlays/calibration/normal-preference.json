@@ -1,0 +1,35 @@
+{
+  "overlay_schema_version": "1.0.0",
+  "case_id": "cal_normal_preference",
+  "base_case_hash": "sha256:79a9da05cf8203bfe9fd7eb9e38428bbfa29d8f6e93ca9e5a746136dc46d43f2",
+  "partition": "calibration",
+  "projection_seeds": [],
+  "transform_inputs": [
+    {
+      "seed_id": "g3_normal_preference_topic",
+      "projection_type": "topic",
+      "source_memory_ids": ["mem_pref_typescript"],
+      "evidence_ids": ["evidence_pref_typescript"],
+      "task_units": ["Use TypeScript for implementation examples"]
+    }
+  ],
+  "rubric": {
+    "required_task_units": ["Use TypeScript for implementation examples"],
+    "required_evidence_units": ["evidence_pref_typescript"],
+    "prohibited_pollution": ["cross_scope", "unsupported_inference"]
+  },
+  "lane_policy": {
+    "allowed_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {
+      "max_candidates_per_lane": 20,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 5,
+      "max_concurrent_lanes": 2
+    }
+  },
+  "lane_overrides": {
+    "requested_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {}
+  },
+  "token_budgets": [512, 1800]
+}

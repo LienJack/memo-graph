@@ -1,0 +1,35 @@
+{
+  "overlay_schema_version": "1.0.0",
+  "case_id": "hold_multi_hop_lineage",
+  "base_case_hash": "sha256:0dc00c5f8519d8762185489f4f9e04dded29621ab39174bbedc5ce368fc44624",
+  "partition": "holdout",
+  "projection_seeds": [],
+  "transform_inputs": [
+    {
+      "seed_id": "g3_optional_graph_core",
+      "projection_type": "core",
+      "source_memory_ids": ["mem_sqlite_authority", "mem_graph_projection_rule", "mem_graph_no_go_allowed"],
+      "evidence_ids": ["evidence_r8", "evidence_r20"],
+      "task_units": ["Graph backend remains optional"]
+    }
+  ],
+  "rubric": {
+    "required_task_units": ["Graph backend remains optional"],
+    "required_evidence_units": ["evidence_r8", "evidence_r20"],
+    "prohibited_pollution": ["invalid_lineage", "unsupported_inference"]
+  },
+  "lane_policy": {
+    "allowed_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {
+      "max_candidates_per_lane": 20,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 5,
+      "max_concurrent_lanes": 2
+    }
+  },
+  "lane_overrides": {
+    "requested_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {}
+  },
+  "token_budgets": [512, 1800]
+}

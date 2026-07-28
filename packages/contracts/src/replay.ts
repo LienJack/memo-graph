@@ -14,6 +14,8 @@ import {
   LanePolicySchema,
   LaneRequestOverridesSchema,
   ProjectionRevisionSchema,
+  ProjectionTypeSchema,
+  RecallLaneSchema,
 } from "./projections.js";
 
 export const ReplayRiskFamilySchema = z.enum([
@@ -156,6 +158,31 @@ export const G3RubricSchema = z
     }
   });
 
+export const G3ProjectionTransformInputSchema = z
+  .object({
+    seed_id: IdentifierSchema,
+    projection_type: ProjectionTypeSchema,
+    source_memory_ids: z.array(IdentifierSchema).min(1),
+    evidence_ids: z.array(IdentifierSchema).min(1),
+    task_units: z.array(NonEmptyReasonSchema).min(1),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    for (const [field, entries] of [
+      ["source_memory_ids", value.source_memory_ids],
+      ["evidence_ids", value.evidence_ids],
+      ["task_units", value.task_units],
+    ] as const) {
+      if (new Set(entries).size !== entries.length) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: "G3 transform input entries must be unique",
+        });
+      }
+    }
+  });
+
 export const G3OverlayCaseSchema = z
   .object({
     overlay_schema_version: ContractVersionSchema,
@@ -163,10 +190,12 @@ export const G3OverlayCaseSchema = z
     base_case_hash: CanonicalHashSchema,
     partition: EvaluationPartitionSchema,
     projection_seeds: z.array(ProjectionRevisionSchema),
+    transform_inputs: z.array(G3ProjectionTransformInputSchema).default([]),
     rubric: G3RubricSchema,
     lane_policy: LanePolicySchema,
     lane_overrides: LaneRequestOverridesSchema,
     token_budgets: z.array(z.number().int().positive().max(32_000)).min(1),
+    failure_lane: RecallLaneSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -262,6 +291,51 @@ export const G3OverlayManifestSchema = z
     }
   });
 
+export const G3ProtocolIdentitySchema = z
+  .object({
+    protocol_version: z.literal("1.0.0"),
+    arm: G3ArmSchema,
+    case_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    base_case_hash: CanonicalHashSchema,
+    overlay_hash: CanonicalHashSchema,
+    request_hash: CanonicalHashSchema,
+    token_budget: z.number().int().positive().max(32_000),
+    ablation_lane: RecallLaneSchema.nullable(),
+    implementation_commit: z.string().regex(/^[a-f0-9]{40}$/),
+    dependency_lock_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const G3CaseMetricsSchema = z
+  .object({
+    status: RecallStatusSchema,
+    task_units_required: z.number().int().nonnegative(),
+    task_units_included: z.number().int().nonnegative(),
+    evidence_units_required: z.number().int().nonnegative(),
+    evidence_units_included: z.number().int().nonnegative(),
+    pollution_categories: z.array(G3PollutionCategorySchema),
+    governance_violations: z.array(z.string().trim().min(1)),
+    budget_overflow: z.boolean(),
+    abstention_correct: z.boolean(),
+    conflict_explanations: z.number().int().nonnegative(),
+    rebuild_equal: z.boolean(),
+    degraded_lanes: z.array(RecallLaneSchema),
+    included_source_memory_ids: z.array(IdentifierSchema),
+    excluded_reason_codes: z.array(z.string().trim().min(1)),
+  })
+  .strict();
+
+export const G3CaseResultSchema = z
+  .object({
+    identity: G3ProtocolIdentitySchema,
+    metrics: G3CaseMetricsSchema,
+    context_frozen_hash: CanonicalHashSchema.nullable(),
+    receipt_hash: CanonicalHashSchema,
+    result_hash: CanonicalHashSchema,
+  })
+  .strict();
+
 export type G3Arm = z.infer<typeof G3ArmSchema>;
 export type G3OverlayCase = z.infer<typeof G3OverlayCaseSchema>;
 export type G3OverlayDescriptor = z.infer<
@@ -272,6 +346,14 @@ export type G3PollutionCategory = z.infer<
   typeof G3PollutionCategorySchema
 >;
 export type G3Rubric = z.infer<typeof G3RubricSchema>;
+export type G3ProjectionTransformInput = z.infer<
+  typeof G3ProjectionTransformInputSchema
+>;
+export type G3ProtocolIdentity = z.infer<
+  typeof G3ProtocolIdentitySchema
+>;
+export type G3CaseMetrics = z.infer<typeof G3CaseMetricsSchema>;
+export type G3CaseResult = z.infer<typeof G3CaseResultSchema>;
 export type ReplayCaseBody = z.infer<typeof ReplayCaseBodySchema>;
 export type ReplayCaseDescriptor = z.infer<typeof ReplayCaseDescriptorSchema>;
 export type ReplayManifest = z.infer<typeof ReplayManifestSchema>;

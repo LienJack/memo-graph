@@ -378,21 +378,21 @@ pnpm build
 
 **Checklist:**
 
-- [ ] Reference every M0 case by immutable case ID and hash.
-- [ ] Add projection seeds/transform inputs, required evidence units, task and
+- [x] Reference every M0 case by immutable case ID and hash.
+- [x] Add projection seeds/transform inputs, required evidence units, task and
       pollution rubrics, lane configuration, and budgets only in the overlay.
-- [ ] Keep calibration, holdout, and transfer partitions isolated.
-- [ ] Implement Arm A accepted M2, Arm B M3 with projections disabled, and Arm
+- [x] Keep calibration, holdout, and transfer partitions isolated.
+- [x] Implement Arm A accepted M2, Arm B M3 with projections disabled, and Arm
       C layered M3 on identical cases and budgets.
-- [ ] Run Arm A from the exact G2-tested commit in an isolated checkout through
+- [x] Run Arm A from the exact G2-tested commit in an isolated checkout through
       the same versioned JSON evaluation protocol as B/C.
-- [ ] Prove Arm B semantic compatibility with Arm A.
-- [ ] Measure utility/evidence inclusion, context pollution, abstention,
+- [x] Prove Arm B semantic compatibility with Arm A.
+- [x] Measure utility/evidence inclusion, context pollution, abstention,
       conflicts, governance, budgets, rebuild, and lane degradation.
-- [ ] Add leave-one-lane-out diagnostics for attribution.
-- [ ] Add the final Small/Expected benchmark and full-regression harness before
+- [x] Add leave-one-lane-out diagnostics for attribution.
+- [x] Add the final Small/Expected benchmark and full-regression harness before
       freezing the U7 executable commit.
-- [ ] Fail on any holdout leakage, corpus/hash mutation, governance violation,
+- [x] Fail on any holdout leakage, corpus/hash mutation, governance violation,
       or budget overflow.
 
 **Focused verification:**
@@ -408,9 +408,9 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] Frozen base manifest and case hashes are unchanged.
-- [ ] Three-arm outputs and per-lane attribution are deterministic.
-- [ ] Create the U7 commit.
+- [x] Frozen base manifest and case hashes are unchanged.
+- [x] Three-arm outputs and per-lane attribution are deterministic.
+- [x] Create the U7 commit.
 
 ## 10. U8 — Performance evidence and G3 decision
 

@@ -1,0 +1,35 @@
+{
+  "overlay_schema_version": "1.0.0",
+  "case_id": "cal_conflict_supersession",
+  "base_case_hash": "sha256:a2c326551bf3803149ea2e7f67a3d5bf57fcc6fb038acefaea2fd979aa4c5205",
+  "partition": "calibration",
+  "projection_seeds": [],
+  "transform_inputs": [
+    {
+      "seed_id": "g3_conflict_current_topic",
+      "projection_type": "topic",
+      "source_memory_ids": ["mem_project_current"],
+      "evidence_ids": ["evidence_project_current"],
+      "task_units": ["M0 implementation is authorized"]
+    }
+  ],
+  "rubric": {
+    "required_task_units": ["M0 implementation is authorized"],
+    "required_evidence_units": ["evidence_project_current"],
+    "prohibited_pollution": ["conflict_hidden", "stale_projection"]
+  },
+  "lane_policy": {
+    "allowed_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {
+      "max_candidates_per_lane": 20,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 5,
+      "max_concurrent_lanes": 2
+    }
+  },
+  "lane_overrides": {
+    "requested_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {}
+  },
+  "token_budgets": [512, 1800]
+}

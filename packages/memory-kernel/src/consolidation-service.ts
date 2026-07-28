@@ -18,6 +18,7 @@ import {
 } from "./projection-policy.js";
 
 type Projector = (input: ProjectionPolicyInput) => ProjectionRevision[];
+const PROJECTION_MAINTENANCE_LIMIT = 100_000;
 
 export type ProjectionDrainResult = {
   claimed: number;
@@ -189,7 +190,7 @@ export class ConsolidationService {
       principal_id: options.principal_id,
       scope: options.scope,
       as_of: options.as_of,
-      limit: 1_000,
+      limit: PROJECTION_MAINTENANCE_LIMIT,
     });
     const digest = projectionStructuralDigest(query.items);
     await this.#storage.recordProjectionRebuild({
@@ -229,7 +230,7 @@ export class ConsolidationService {
       as_of: options.as_of,
       include_sensitive: options.include_sensitive,
       context_scope: options.scope,
-      limit: 1_000,
+      limit: PROJECTION_MAINTENANCE_LIMIT,
     });
     const health = await this.#storage.health();
     const projectionEpoch =
@@ -247,13 +248,13 @@ export class ConsolidationService {
       scope: options.scope,
       include_inactive: true,
       as_of: options.as_of,
-      limit: 1_000,
+      limit: PROJECTION_MAINTENANCE_LIMIT,
     });
     const active = await this.#storage.queryProjections({
       principal_id: options.principal_id,
       scope: options.scope,
       as_of: options.as_of,
-      limit: 1_000,
+      limit: PROJECTION_MAINTENANCE_LIMIT,
     });
     const currentAtCanonicalFrontier =
       health.layered_projection_state === "ready" &&
@@ -339,7 +340,7 @@ export class ConsolidationService {
           principal_id: options.principal_id,
           scope: options.scope,
           as_of: options.as_of,
-          limit: 1_000,
+          limit: PROJECTION_MAINTENANCE_LIMIT,
         })
       ).items,
     };

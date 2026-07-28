@@ -108,6 +108,23 @@ export {
   type ApprovalRegistry,
   type VerifiedApproval,
 } from "./approval.js";
+export {
+  G3_ACCEPTED_M2_COMMIT,
+  G3_ACCEPTED_M2_LOCK_HASH,
+  G3_BENCHMARK_PROFILES,
+  G3_PROTOCOL_VERSION,
+  benchmarkG3ReplayCase,
+  benchmarkLayeredCompiler,
+  runG3ReplayCase,
+  type G3BaselineCompiler,
+  type G3ComparableInput,
+  type G3ReplayOptions,
+} from "./layered-benchmark.js";
+export {
+  buildG3ProfileProjections,
+  runG3ResourceBenchmark,
+  type G3ResourceBenchmarkOptions,
+} from "./layered-resource-benchmark.js";
 
 export const MemoryRuntimePolicySchema = z
   .object({
