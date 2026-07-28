@@ -14,9 +14,11 @@ import {
   MemoryProposeInputSchema,
   MemoryPinInputSchema,
   MemoryDemoteInputSchema,
+  MemoryDeleteInputSchema,
   MemoryUsageSetInputSchema,
   MemoryRevokeInputSchema,
   MutationReceiptSchema,
+  PurgeReceiptSchema,
   RecallRequestSchema,
   ReceiptSchema,
   RetrievalReceiptSchema,
@@ -365,6 +367,63 @@ export const MemoryControlResultSchema = z
 export const MemoryControlReplayResultSchema =
   MemoryControlResultSchema.nullable();
 
+export const MemoryDeleteCommandSchema = z
+  .object({
+    request: MemoryDeleteInputSchema,
+    approval: VerifiedApprovalCommandSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.request.envelope.dry_run !== (value.approval === null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["approval"],
+        message:
+          "delete dry runs omit approval; effect-bearing deletion requires verified approval",
+      });
+    }
+  });
+
+export const MemoryDeleteResultSchema = z
+  .object({
+    receipt: MutationReceiptSchema,
+    replayed: z.boolean(),
+    outcome: z.enum(["DRY_RUN", "TOMBSTONED"]),
+    memory_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+    tombstone_epoch: z.number().int().positive().nullable(),
+    purge_job_id: IdentifierSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const hasEffect =
+      value.tombstone_epoch !== null && value.purge_job_id !== null;
+    if (
+      (value.outcome === "TOMBSTONED") !== hasEffect ||
+      (value.outcome === "DRY_RUN" &&
+        (value.receipt.affected_memory_ids.length > 0 ||
+          value.receipt.affected_revision_ids.length > 0))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["outcome"],
+        message:
+          "only a tombstone result may name a tombstone epoch and purge job",
+      });
+    }
+  });
+
+export const MemoryDeleteReplayResultSchema =
+  MemoryDeleteResultSchema.nullable();
+
+export const PurgeRunInputSchema = z
+  .object({
+    purge_job_id: IdentifierSchema,
+  })
+  .strict();
+
+export const PurgeRunResultSchema = PurgeReceiptSchema;
+
 export const DrainFtsResultSchema = z
   .object({
     processed: z.number().int().nonnegative(),
@@ -641,6 +700,9 @@ export const WorkerOperationSchema = z.enum([
   "governance_replay",
   "memory_control_replay",
   "apply_memory_control",
+  "memory_delete_replay",
+  "delete_memory",
+  "run_purge",
   "check_memory_eligibility",
   "get_governed_memory",
   "search_governed_memory",
@@ -727,6 +789,17 @@ export type ParsedMemoryControlCommand = z.output<
 export type MemoryControlResult = z.infer<
   typeof MemoryControlResultSchema
 >;
+export type MemoryDeleteCommand = z.input<
+  typeof MemoryDeleteCommandSchema
+>;
+export type ParsedMemoryDeleteCommand = z.output<
+  typeof MemoryDeleteCommandSchema
+>;
+export type MemoryDeleteResult = z.infer<
+  typeof MemoryDeleteResultSchema
+>;
+export type PurgeRunInput = z.input<typeof PurgeRunInputSchema>;
+export type PurgeRunResult = z.infer<typeof PurgeRunResultSchema>;
 export type GovernanceStorageStatus = z.infer<
   typeof GovernanceStorageStatusSchema
 >;

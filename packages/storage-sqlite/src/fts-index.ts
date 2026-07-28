@@ -127,7 +127,9 @@ export class FtsIndex {
     const readEvidence = this.#database.prepare(
       `SELECT evidence_id, scope_kind, scope_id, source, occurred_at, payload_inline
        FROM evidence_events
-       WHERE evidence_id = ? AND payload_storage = 'inline'`,
+       WHERE evidence_id = ?
+         AND payload_storage = 'inline'
+         AND purged_at IS NULL`,
     );
     const insertMemoryFts = this.#database.prepare(
       `INSERT INTO memory_fts (
@@ -344,6 +346,7 @@ export class FtsIndex {
              AND e.principal_id = ?
              AND f.scope_kind = ?
              AND f.scope_id = ?
+             AND e.purged_at IS NULL
            ORDER BY rank, f.occurred_at DESC, f.evidence_id
            LIMIT ?`,
         )
@@ -419,6 +422,7 @@ export class FtsIndex {
                    payload_inline
             FROM evidence_events
             WHERE payload_storage = 'inline'
+              AND purged_at IS NULL
             ORDER BY evidence_id
           `);
           this.#database.exec(`

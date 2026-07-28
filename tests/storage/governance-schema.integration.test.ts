@@ -53,8 +53,8 @@ describe("versioned L1 governance schema", () => {
     const governance = await storage.governanceStatus();
     await storage.close();
 
-    expect(health.schema_version).toBe("0006");
-    expect(health.migrations).toHaveLength(6);
+    expect(health.schema_version).toBe("0007");
+    expect(health.migrations).toHaveLength(7);
     expect(health.tombstone_epoch).toBe(0);
     expect(health.secure_delete).toBe(true);
     expect(health.counts).toMatchObject({

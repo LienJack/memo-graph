@@ -96,22 +96,22 @@
 
 ## 6. U6 — tombstone and Purge Saga
 
-- [ ] Write failing exclusive/shared purge and interrupted-retry fixtures.
-- [ ] Implement synchronous tombstone epoch and retryable purge job.
-- [ ] Implement per-store outcomes for revision/candidate/conflict, FTS,
+- [x] Write failing exclusive/shared purge and interrupted-retry fixtures.
+- [x] Implement synchronous tombstone epoch and retryable purge job.
+- [x] Implement per-store outcomes for revision/candidate/conflict, FTS,
       Context overlay, export/cache inventory, blobs, backup/frontier, and
       projection consumers.
-- [ ] Scrub unshared governed plaintext/blob references while preserving
+- [x] Scrub unshared governed plaintext/blob references while preserving
       content-free audit identity and hashes.
-- [ ] Redact exclusive L0/Context payloads through the purge guard and prove
+- [x] Redact exclusive L0/Context payloads through the purge guard and prove
       ordinary append-only updates remain blocked.
-- [ ] Preserve shared live references as named residual debt.
-- [ ] Prove complete purge has zero residual and incomplete purge cannot be
+- [x] Preserve shared live references as named residual debt.
+- [x] Prove complete purge has zero residual and incomplete purge cannot be
       represented as complete.
-- [ ] Prove FTS rebuild/restart cannot resurrect deleted content.
-- [ ] Validate with:
+- [x] Prove FTS rebuild/restart cannot resurrect deleted content.
+- [x] Validate with:
       `pnpm vitest run tests/governance/purge.integration.test.ts tests/recovery/purge-retry.recovery.test.ts tests/security/deleted-content-residual.test.ts`.
-- [ ] Commit U6 only after governance/recovery/security regression tests pass.
+- [x] Commit U6 only after governance/recovery/security regression tests pass.
 
 ## 7. U7 — backup/restore tombstone frontier
 

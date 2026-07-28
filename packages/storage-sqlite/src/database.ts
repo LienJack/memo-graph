@@ -48,7 +48,9 @@ import {
   MemoryEligibilityInputSchema,
   MemoryControlCommandSchema,
   MemoryCorrectionBasisInputSchema,
+  MemoryDeleteCommandSchema,
   MemoryRevisionCommandSchema,
+  PurgeRunInputSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
@@ -71,6 +73,8 @@ import {
   type MemoryEligibilityResult,
   type MemoryControlResult,
   type MemoryCorrectionBasis,
+  type MemoryDeleteResult,
+  type PurgeRunResult,
   type StorageHealth,
 } from "./protocol.js";
 
@@ -230,7 +234,7 @@ export class StorageDatabase {
     this.#governance = new GovernanceRepository(this.#database);
     this.#governedMemory = new GovernedMemoryReader(this.#database);
     this.#control = new ControlRepository(this.#database);
-    this.#purge = new PurgeRepository(this.#database);
+    this.#purge = new PurgeRepository(this.#database, this.#blobStore);
   }
 
   health(): StorageHealth {
@@ -354,6 +358,25 @@ export class StorageDatabase {
     return this.#governanceEffect(() =>
       this.#control.apply(MemoryControlCommandSchema.parse(input)),
     );
+  }
+
+  memoryDeleteReplay(input: unknown): MemoryDeleteResult | null {
+    const request = GovernanceReplayInputSchema.parse(input);
+    return this.#purge.replayDelete(
+      request.idempotency_key,
+      request.request_hash,
+    );
+  }
+
+  deleteMemory(input: unknown): MemoryDeleteResult {
+    return this.#governanceEffect(() =>
+      this.#purge.deleteMemory(MemoryDeleteCommandSchema.parse(input)),
+    );
+  }
+
+  runPurge(input: unknown): PurgeRunResult {
+    const request = PurgeRunInputSchema.parse(input);
+    return this.#purge.run(request.purge_job_id);
   }
 
   checkMemoryEligibility(input: unknown): MemoryEligibilityResult {
@@ -661,7 +684,8 @@ export class StorageDatabase {
          WHERE e.evidence_id = ?
            AND e.principal_id = ?
            AND e.scope_kind = ?
-           AND e.scope_id = ?`,
+           AND e.scope_id = ?
+           AND e.purged_at IS NULL`,
       )
       .get(
         request.evidence_id,

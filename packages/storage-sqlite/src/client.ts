@@ -39,6 +39,11 @@ import {
   MemoryControlResultSchema,
   MemoryCorrectionBasisInputSchema,
   MemoryCorrectionBasisResultSchema,
+  MemoryDeleteCommandSchema,
+  MemoryDeleteReplayResultSchema,
+  MemoryDeleteResultSchema,
+  PurgeRunInputSchema,
+  PurgeRunResultSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RebuildFtsResultSchema,
@@ -71,6 +76,10 @@ import {
   type MemoryControlResult,
   type MemoryCorrectionBasis,
   type MemoryCorrectionBasisInput,
+  type MemoryDeleteCommand,
+  type MemoryDeleteResult,
+  type PurgeRunInput,
+  type PurgeRunResult,
   type RecordRecallResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
@@ -248,6 +257,35 @@ export class SqliteStorageClient {
         command,
         MemoryControlResultSchema,
       ),
+    );
+  }
+
+  memoryDeleteReplay(
+    input: GovernanceReplayInput,
+  ): Promise<MemoryDeleteResult | null> {
+    const request = GovernanceReplayInputSchema.parse(input);
+    return this.#request(
+      "memory_delete_replay",
+      request,
+      MemoryDeleteReplayResultSchema,
+    );
+  }
+
+  deleteMemory(input: MemoryDeleteCommand): Promise<MemoryDeleteResult> {
+    const command = MemoryDeleteCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "delete_memory",
+        command,
+        MemoryDeleteResultSchema,
+      ),
+    );
+  }
+
+  runPurge(input: PurgeRunInput): Promise<PurgeRunResult> {
+    const request = PurgeRunInputSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request("run_purge", request, PurgeRunResultSchema),
     );
   }
 

@@ -79,6 +79,19 @@ export class BlobStore {
     return [...unique.values()].map((blob) => this.#ensureOne(blob));
   }
 
+  purge(contentHash: string): void {
+    const path = this.pathFor(contentHash);
+    if (existsSync(path)) {
+      unlinkSync(path);
+      const directoryDescriptor = openSync(this.#directory, "r");
+      try {
+        fsyncSync(directoryDescriptor);
+      } finally {
+        closeSync(directoryDescriptor);
+      }
+    }
+  }
+
   #ensureOne(
     blob: ParsedCommitEpisodeCommand["blobs"][number],
   ): StoredBlob {

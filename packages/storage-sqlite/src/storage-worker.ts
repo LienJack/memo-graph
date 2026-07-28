@@ -19,7 +19,9 @@ import {
   MemoryEligibilityInputSchema,
   MemoryControlCommandSchema,
   MemoryCorrectionBasisInputSchema,
+  MemoryDeleteCommandSchema,
   MemoryRevisionCommandSchema,
+  PurgeRunInputSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
@@ -115,6 +117,21 @@ port.on("message", (message: unknown) => {
         case "apply_memory_control":
           result = database.applyMemoryControl(
             MemoryControlCommandSchema.parse(request.payload),
+          );
+          break;
+        case "memory_delete_replay": {
+          const replay = GovernanceReplayInputSchema.parse(request.payload);
+          result = database.memoryDeleteReplay(replay);
+          break;
+        }
+        case "delete_memory":
+          result = database.deleteMemory(
+            MemoryDeleteCommandSchema.parse(request.payload),
+          );
+          break;
+        case "run_purge":
+          result = database.runPurge(
+            PurgeRunInputSchema.parse(request.payload),
           );
           break;
         case "check_memory_eligibility":

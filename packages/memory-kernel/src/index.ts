@@ -671,6 +671,19 @@ export class MemoryRuntime {
       if (unauthorized !== null) {
         return unauthorized;
       }
+      const requestHash = canonicalSha256(request);
+      const replay = await this.#storage.memoryDeleteReplay({
+        idempotency_key: request.envelope.idempotency_key,
+        request_hash: requestHash,
+      });
+      if (replay !== null) {
+        return GovernedResponseSchema.parse({
+          status: "OK",
+          receipt_id: replay.receipt.receipt_id,
+          data: replay,
+        });
+      }
+      let approval: VerifiedApproval | null = null;
       if (!request.envelope.dry_run) {
         if (request.envelope.approval_id === null) {
           throw new ApprovalError("APPROVAL_REQUIRED");
@@ -682,15 +695,27 @@ export class MemoryRuntime {
           tool: request.envelope.tool,
           safety_class: request.envelope.safety_class,
           scopes: request.envelope.scopes,
-          request_hash: canonicalSha256(request),
+          request_hash: requestHash,
         });
-        const approval = await this.#approvalRegistry.verify(binding);
+        approval = await this.#approvalRegistry.verify(binding);
         await this.#approvalRegistry.confirmUnchanged(approval);
       }
-      return publicFailure(
-        "INTERNAL_FAILURE",
-        "memory deletion is unavailable until the purge workflow is active",
-      );
+      const result = await this.#storage.deleteMemory({
+        request,
+        approval:
+          approval === null
+            ? null
+            : {
+                grant: approval.grant,
+                registry_hash: approval.registry_hash,
+                verified_at: this.#clock(),
+              },
+      });
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: result.receipt.receipt_id,
+        data: result,
+      });
     });
   }
 

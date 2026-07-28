@@ -175,6 +175,70 @@ if (replay !== null) return replay;
 return storage.applyMemoryRevision(command);
 ```
 
+## Scenario: Tombstone-First Purge Saga
+
+### 1. Scope / Trigger
+
+Use this contract for `memory_delete`, purge retries, physical payload
+redaction, and any derived store that can retain governed memory content.
+
+### 2. Signatures
+
+```ts
+storage.memoryDeleteReplay(input: GovernanceReplayInput): Promise<MemoryDeleteResult | null>
+storage.deleteMemory(command: MemoryDeleteCommand): Promise<MemoryDeleteResult>
+storage.runPurge(input: PurgeRunInput): Promise<PurgeReceipt>
+```
+
+### 3. Contracts
+
+- An effect-bearing delete consumes its exact trusted approval in the same
+  transaction that advances `tombstone_epoch`, clears the current pointer,
+  disables Context eligibility, appends a tombstone event, creates the purge
+  job, advances the ledger epoch, and seals the mutation receipt.
+- Idempotency replay precedes approval lookup. A dry run records a content-free
+  receipt but does not mutate the tombstone frontier or consume approval.
+- Online reads hard-filter tombstoned objects and purged L0 evidence before
+  asynchronous cleanup begins.
+- The purge job checks exactly these stores: revisions/evidence, candidates,
+  conflicts, FTS, Context, exports/caches, blobs, backups, and projection
+  consumers.
+- Exclusive canonical payloads use a job-scoped redaction guard. Ordinary
+  updates remain append-only; Context JSON is re-sealed with a new valid
+  `frozen_hash`.
+- Shared live evidence/blob references are residual debt. Completion requires
+  every store outcome to be `verified` and the combined residual set to be
+  empty.
+- A completed purge receipt is replayed without another attempt. Partial and
+  failed jobs retain their original purge identity and are retryable after
+  restart.
+- FTS drain and rebuild sources exclude `purged_at` evidence, and completed
+  purge compacts SQLite/WAL so deleted exclusive plaintext cannot reappear.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Delete replay with the same request hash | Frozen result, no approval recheck |
+| Delete replay with a different request hash | `CONFLICT` |
+| Effect without a trusted unused approval | `APPROVAL_REQUIRED` or `APPROVAL_INVALID` |
+| Stale expected revision | `STALE_REVISION`, zero tombstone write |
+| Shared live lineage | Partial receipt with named residual hashes |
+| Store failure | Failed receipt with store-local error outcome |
+| Retry after restart | Same purge job, incremented attempt |
+| Retry after completion | Exact latest completed receipt |
+
+### 5. Tests Required
+
+- Exclusive deletion proves immediate ineligibility, nine verified outcomes,
+  zero residual, restart safety, and no FTS rebuild resurrection.
+- Shared-lineage deletion proves partial debt and later completion after the
+  final live reference is tombstoned.
+- Recovery proves retry and completed-receipt replay while the redaction guard
+  is empty afterward.
+- Security scans the isolated data root for deleted plaintext and proves direct
+  append-only rewrites still fail outside the purge guard.
+
 ## Scenario: Canonical Eligibility and Governed L1 FTS
 
 ### 1. Scope / Trigger

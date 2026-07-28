@@ -532,12 +532,17 @@ describe("governance mutation runtime", () => {
     });
     fixture.approvals.approve(deletion);
     expect(await enabledRuntime.memoryDelete(deletion)).toMatchObject({
-      status: "FAILED",
-      error: { code: "INTERNAL_FAILURE" },
+      status: "OK",
+      data: {
+        outcome: "TOMBSTONED",
+        memory_id: fixture.memoryId,
+        revision_id: fixture.revisionId,
+        tombstone_epoch: 1,
+      },
     });
     expect(
       (await fixture.storage.health()).counts.approval_consumptions,
-    ).toBe(0);
+    ).toBe(1);
     await fixture.storage.close();
   });
 
