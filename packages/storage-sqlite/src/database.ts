@@ -36,9 +36,12 @@ import { GovernanceRepository } from "./governance-repository.js";
 import { applyMigrations } from "./migrations.js";
 import { PurgeRepository } from "./purge-repository.js";
 import {
+  AdmitMemoryCommandSchema,
   CommitEpisodeCommandSchema,
   EvidenceExplanationSchema,
   EvidenceLookupInputSchema,
+  GovernanceReplayInputSchema,
+  MemoryRevisionCommandSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
@@ -55,6 +58,7 @@ import {
   type RebuildFtsResult,
   type SearchEvidenceResult,
   type GovernanceStorageStatus,
+  type GovernanceMutationResult,
   type StorageHealth,
 } from "./protocol.js";
 
@@ -292,6 +296,28 @@ export class StorageDatabase {
 
   contentReferenceCounts(contentHash: string): ContentReferenceCounts {
     return this.#governance.contentReferenceCounts(contentHash);
+  }
+
+  admitMemory(input: unknown): GovernanceMutationResult {
+    const command = AdmitMemoryCommandSchema.parse(input);
+    return this.#governanceEffect(() =>
+      this.#governance.admitMemory(command),
+    );
+  }
+
+  applyMemoryRevision(input: unknown): GovernanceMutationResult {
+    const command = MemoryRevisionCommandSchema.parse(input);
+    return this.#governanceEffect(() =>
+      this.#governance.applyMemoryRevision(command),
+    );
+  }
+
+  governanceReplay(input: unknown): GovernanceMutationResult | null {
+    const request = GovernanceReplayInputSchema.parse(input);
+    return this.#governance.replayMutation(
+      request.idempotency_key,
+      request.request_hash,
+    );
   }
 
   commitEpisode(input: unknown): CommitResult {
@@ -1305,6 +1331,28 @@ export class StorageDatabase {
             },
       content_hash: row.content_hash,
     });
+  }
+
+  #governanceEffect(
+    effect: () => GovernanceMutationResult,
+  ): GovernanceMutationResult {
+    try {
+      return effect();
+    } catch (error) {
+      if (error instanceof StorageError) {
+        throw error;
+      }
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        typeof error.code === "string" &&
+        error.code.startsWith("SQLITE_CONSTRAINT")
+      ) {
+        throw new StorageError("CONFLICT");
+      }
+      throw error;
+    }
   }
 
   #ledgerEpoch(): number {

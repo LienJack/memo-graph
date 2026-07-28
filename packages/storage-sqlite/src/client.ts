@@ -12,6 +12,7 @@ import {
   deserializeStorageError,
 } from "./errors.js";
 import {
+  AdmitMemoryCommandSchema,
   BackupResultSchema,
   BlockWorkerResultSchema,
   CheckpointResultSchema,
@@ -23,6 +24,10 @@ import {
   EvidenceLookupInputSchema,
   EvidenceLookupResultSchema,
   GovernanceStorageStatusSchema,
+  GovernanceMutationResultSchema,
+  GovernanceReplayInputSchema,
+  GovernanceReplayResultSchema,
+  MemoryRevisionCommandSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RebuildFtsResultSchema,
@@ -34,6 +39,7 @@ import {
   VerifyArtifactsResultSchema,
   WorkerResponseSchema,
   type BackupResult,
+  type AdmitMemoryCommand,
   type BlockWorkerResult,
   type CheckpointResult,
   type ContentReferenceCounts,
@@ -41,6 +47,9 @@ import {
   type DurableEpisodeReceipt,
   type EvidenceExplanation,
   type GovernanceStorageStatus,
+  type GovernanceMutationResult,
+  type GovernanceReplayInput,
+  type MemoryRevisionCommand,
   type RecordRecallResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
@@ -148,6 +157,41 @@ export class SqliteStorageClient {
       "count_content_references",
       query,
       ContentReferenceCountsSchema,
+    );
+  }
+
+  admitMemory(input: AdmitMemoryCommand): Promise<GovernanceMutationResult> {
+    const command = AdmitMemoryCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "admit_memory",
+        command,
+        GovernanceMutationResultSchema,
+      ),
+    );
+  }
+
+  applyMemoryRevision(
+    input: MemoryRevisionCommand,
+  ): Promise<GovernanceMutationResult> {
+    const command = MemoryRevisionCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "apply_memory_revision",
+        command,
+        GovernanceMutationResultSchema,
+      ),
+    );
+  }
+
+  governanceReplay(
+    input: GovernanceReplayInput,
+  ): Promise<GovernanceMutationResult | null> {
+    const request = GovernanceReplayInputSchema.parse(input);
+    return this.#request(
+      "governance_replay",
+      request,
+      GovernanceReplayResultSchema,
     );
   }
 

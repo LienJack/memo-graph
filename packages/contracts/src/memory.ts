@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { canonicalSha256 } from "./canonical-json.js";
 import {
   AbstractionLevelSchema,
   ActorClaimSchema,
@@ -17,6 +18,18 @@ import {
   UtcTimestampSchema,
   ValidityWindowSchema,
 } from "./common.js";
+
+export function normalizeLogicalKey(value: string): string {
+  return value
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/gu, " ");
+}
+
+export function logicalKeyHash(value: string): `sha256:${string}` {
+  return canonicalSha256(normalizeLogicalKey(value));
+}
 
 export const EvidenceSourceSchema = z.enum([
   "conversation_turn",
@@ -262,6 +275,20 @@ export const MemoryCandidateSchema = z
       });
     }
   });
+
+const PROMPT_INJECTION_PATTERN =
+  /\b(ignore|disregard|override|bypass)\b.{0,80}\b(instruction|prompt|policy|system|developer)\b/iu;
+
+export function candidateHasPromptInjectionSignal(
+  candidate: z.output<typeof MemoryCandidateSchema>,
+): boolean {
+  return (
+    candidate.injection_risk !== "none" ||
+    (candidate.kind === "procedural" &&
+      candidate.content.storage === "inline" &&
+      PROMPT_INJECTION_PATTERN.test(candidate.content.text))
+  );
+}
 
 export const MemoryConflictGroupSchema = z
   .object({

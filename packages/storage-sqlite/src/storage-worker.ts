@@ -9,9 +9,12 @@ import {
   serializeStorageError,
 } from "./errors.js";
 import {
+  AdmitMemoryCommandSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
   EvidenceLookupInputSchema,
+  GovernanceReplayInputSchema,
+  MemoryRevisionCommandSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
@@ -77,6 +80,21 @@ port.on("message", (message: unknown) => {
             request.payload,
           );
           result = database.contentReferenceCounts(input.content_hash);
+          break;
+        }
+        case "admit_memory":
+          result = database.admitMemory(
+            AdmitMemoryCommandSchema.parse(request.payload),
+          );
+          break;
+        case "apply_memory_revision":
+          result = database.applyMemoryRevision(
+            MemoryRevisionCommandSchema.parse(request.payload),
+          );
+          break;
+        case "governance_replay": {
+          const replay = GovernanceReplayInputSchema.parse(request.payload);
+          result = database.governanceReplay(replay);
           break;
         }
         case "commit_episode": {

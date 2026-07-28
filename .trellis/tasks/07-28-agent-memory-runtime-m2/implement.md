@@ -39,19 +39,21 @@
 
 ## 3. U3 — admission, identity, conflict, CAS
 
-- [ ] Write failing admission-matrix fixtures, including prompt injection and
+- [x] Write failing admission-matrix fixtures, including prompt injection and
       foreign/deleted evidence.
-- [ ] Implement deterministic logical key/content identity and exact duplicate
+- [x] Implement deterministic logical key/content identity and exact duplicate
       reuse.
-- [ ] Implement conflict groups without destructive upsert.
-- [ ] Implement one-transaction activation/revision CAS, idempotency, outbox,
+- [x] Add forward migration `0006-governance-commands.sql` for replay snapshots
+      and many-candidate/nullable-conflict links without changing 0004/0005.
+- [x] Implement conflict groups without destructive upsert.
+- [x] Implement one-transaction activation/revision CAS, idempotency, outbox,
       epoch, and receipt.
-- [ ] Prove one winner/one stale result for concurrent successors.
-- [ ] Prove retry returns the same receipt and changed request hash conflicts.
-- [ ] Prove a same-hash replay succeeds after its approval is consumed.
-- [ ] Validate with:
+- [x] Prove one winner/one stale result for concurrent successors.
+- [x] Prove retry returns the same receipt and changed request hash conflicts.
+- [x] Prove a same-hash replay succeeds after its approval is consumed.
+- [x] Validate with:
       `pnpm vitest run tests/governance/admission.integration.test.ts tests/governance/revision-cas.integration.test.ts`.
-- [ ] Commit U3 only after focused plus storage regression tests pass.
+- [x] Commit U3 only after focused plus storage regression tests pass.
 
 ## 4. U4 — correction and governed Context
 

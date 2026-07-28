@@ -16,6 +16,7 @@ import {
   MemoryGetInputSchema,
   MemoryReceiptGetInputSchema,
   MemorySearchInputSchema,
+  MemoryProposeInputSchema,
   RecallRequestSchema,
   RetrievalReceiptSchema,
   authorizeRequestClaims,
@@ -35,6 +36,10 @@ import {
 } from "@memo-graph/storage-sqlite";
 import type { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 import { z } from "zod";
+
+import { evaluateAdmission } from "./governance.js";
+
+export { evaluateAdmission } from "./governance.js";
 
 export const MemoryRuntimePolicySchema = z
   .object({
@@ -69,6 +74,7 @@ function publicFailure(
     | "INVALID_INPUT"
     | "PERMISSION_DENIED"
     | "CONFLICT"
+    | "STALE_REVISION"
     | "PROJECTION_UNAVAILABLE"
     | "INTERNAL_FAILURE",
   message: string,
@@ -84,6 +90,13 @@ function publicFailure(
 function storageFailure(error: StorageError): GovernedResponse {
   if (error.code === "CONFLICT") {
     return publicFailure("CONFLICT", error.message, error.retryable);
+  }
+  if (error.code === "STALE_REVISION") {
+    return publicFailure(
+      "STALE_REVISION",
+      error.message,
+      error.retryable,
+    );
   }
   if (
     error.code === "INVALID_INPUT" ||
@@ -301,6 +314,65 @@ export class MemoryRuntime {
         status: "NO_MATCH",
         receipt_id: stored.receipt.receipt_id,
         reason: "no exact-scope evidence matched the recall request",
+      });
+    });
+  }
+
+  memoryPropose(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = MemoryProposeInputSchema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+      const replay = await this.#storage.governanceReplay({
+        idempotency_key: request.envelope.idempotency_key,
+        request_hash: canonicalSha256(request),
+      });
+      if (replay !== null) {
+        return GovernedResponseSchema.parse({
+          status: "OK",
+          receipt_id: replay.receipt.receipt_id,
+          data: replay,
+        });
+      }
+      const evidence = await Promise.all(
+        request.candidate.evidence_ids.map((evidenceId) =>
+          this.#storage.getEvidence({
+            evidence_id: evidenceId,
+            principal_id: this.#policy.principal.principal_id,
+            scope: request.candidate.scope,
+          }),
+        ),
+      );
+      if (
+        new Set(request.candidate.evidence_ids).size !==
+          request.candidate.evidence_ids.length ||
+        evidence.some((item) => item === null)
+      ) {
+        return publicFailure(
+          "INVALID_INPUT",
+          "candidate evidence is missing, deleted, or outside the exact scope",
+        );
+      }
+      const liveEvidence = evidence.filter(
+        (item): item is NonNullable<typeof item> => item !== null,
+      );
+      const evaluation = evaluateAdmission(
+        request.candidate,
+        liveEvidence,
+      );
+      if (evaluation.decision === "reject") {
+        return publicFailure("INVALID_INPUT", evaluation.reason);
+      }
+      const result = await this.#storage.admitMemory({
+        request,
+        evaluation,
+      });
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: result.receipt.receipt_id,
+        data: result,
       });
     });
   }

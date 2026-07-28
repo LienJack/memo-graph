@@ -1,16 +1,20 @@
 import { z } from "zod";
 
 import {
+  AuthoritySchema,
   EpisodeSchema,
   EvidenceRecordSchema,
   IdentifierSchema,
   ContextSliceSchema,
+  MemoryCandidateSchema,
+  MemoryProposeInputSchema,
+  MutationReceiptSchema,
   RecallRequestSchema,
   ReceiptSchema,
   RetrievalReceiptSchema,
   ScopeSchema,
+  UtcTimestampSchema,
 } from "@memo-graph/contracts";
-import type { MutationReceiptSchema } from "@memo-graph/contracts";
 
 import { STORAGE_ERROR_CODES } from "./errors.js";
 
@@ -140,6 +144,93 @@ export const ContentReferenceCountsSchema = z
     total: z.number().int().nonnegative(),
   })
   .strict();
+
+export const AdmissionEvaluationSchema = z
+  .object({
+    decision: z.enum(["activate", "candidate_only", "quarantine"]),
+    reason: z.string().trim().min(1).max(2_000),
+  })
+  .strict();
+
+export const AdmitMemoryCommandSchema = z
+  .object({
+    request: MemoryProposeInputSchema,
+    evaluation: AdmissionEvaluationSchema,
+  })
+  .strict();
+
+export const MemoryRevisionCommandSchema = z
+  .object({
+    idempotency_key: z.string().trim().min(8).max(200),
+    principal_id: IdentifierSchema,
+    actor_authority: AuthoritySchema,
+    scope: ScopeSchema,
+    requested_at: UtcTimestampSchema,
+    memory_id: IdentifierSchema,
+    expected_revision_id: IdentifierSchema,
+    candidate: MemoryCandidateSchema,
+    evaluation: AdmissionEvaluationSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.scope.kind !== value.candidate.scope.kind ||
+      value.scope.id !== value.candidate.scope.id
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["candidate", "scope"],
+        message: "revision candidate scope must match the command scope",
+      });
+    }
+  });
+
+export const GovernanceMutationResultSchema = z
+  .object({
+    receipt: MutationReceiptSchema,
+    replayed: z.boolean(),
+    outcome: z.enum(["CREATED", "REUSED", "CONFLICT", "REVISED"]),
+    candidate_id: IdentifierSchema,
+    memory_id: IdentifierSchema,
+    current_revision_id: IdentifierSchema,
+    conflict_group_id: IdentifierSchema.nullable(),
+    lifecycle: z.enum(["active", "candidate", "quarantined"]),
+    decision: z
+      .enum(["activate", "candidate_only", "quarantine"])
+      .nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.outcome === "CONFLICT") !==
+      (value.conflict_group_id !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["conflict_group_id"],
+        message: "only a conflict outcome names a conflict group",
+      });
+    }
+    if (
+      (value.outcome === "CONFLICT") !== (value.decision === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["decision"],
+        message: "conflicts do not advance an admission decision",
+      });
+    }
+  });
+
+export const GovernanceReplayInputSchema = z
+  .object({
+    idempotency_key: z.string().trim().min(8).max(200),
+    request_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  })
+  .strict();
+
+export const GovernanceReplayResultSchema =
+  GovernanceMutationResultSchema.nullable();
 
 export const DrainFtsResultSchema = z
   .object({
@@ -279,6 +370,9 @@ export const WorkerOperationSchema = z.enum([
   "health",
   "governance_status",
   "count_content_references",
+  "admit_memory",
+  "apply_memory_revision",
+  "governance_replay",
   "commit_episode",
   "drain_fts",
   "search_evidence",
@@ -329,6 +423,13 @@ export const WorkerResponseSchema = z.discriminatedUnion("ok", [
 ]);
 
 export type BackupResult = z.infer<typeof BackupResultSchema>;
+export type AdmitMemoryCommand = z.input<typeof AdmitMemoryCommandSchema>;
+export type ParsedAdmitMemoryCommand = z.output<
+  typeof AdmitMemoryCommandSchema
+>;
+export type AdmissionEvaluation = z.infer<
+  typeof AdmissionEvaluationSchema
+>;
 export type BlockWorkerResult = z.infer<typeof BlockWorkerResultSchema>;
 export type CheckpointResult = z.infer<typeof CheckpointResultSchema>;
 export type ContentReferenceCounts = z.infer<
@@ -340,10 +441,22 @@ export type ParsedCommitEpisodeCommand = z.output<
 >;
 export type DrainFtsResult = z.infer<typeof DrainFtsResultSchema>;
 export type GovernanceCounts = z.infer<typeof GovernanceCountsSchema>;
+export type GovernanceMutationResult = z.infer<
+  typeof GovernanceMutationResultSchema
+>;
+export type GovernanceReplayInput = z.input<
+  typeof GovernanceReplayInputSchema
+>;
 export type GovernanceStorageStatus = z.infer<
   typeof GovernanceStorageStatusSchema
 >;
 export type MigrationEvidence = z.infer<typeof MigrationEvidenceSchema>;
+export type MemoryRevisionCommand = z.input<
+  typeof MemoryRevisionCommandSchema
+>;
+export type ParsedMemoryRevisionCommand = z.output<
+  typeof MemoryRevisionCommandSchema
+>;
 export type EvidenceExplanation = z.infer<typeof EvidenceExplanationSchema>;
 export type EvidenceLookupInput = z.input<typeof EvidenceLookupInputSchema>;
 export type ParsedEvidenceLookupInput = z.output<

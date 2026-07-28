@@ -85,6 +85,96 @@ database.prepare("INSERT INTO events ...").run(payload);
 const receipt = await storage.commitEpisode(command);
 ```
 
+## Scenario: Versioned L1 Governance Transactions
+
+### 1. Scope / Trigger
+
+Use this contract when proposing an L1 candidate, reusing logical identity,
+opening a conflict, or appending a successor revision.
+
+### 2. Signatures
+
+```ts
+storage.admitMemory(command: AdmitMemoryCommand): Promise<GovernanceMutationResult>
+storage.applyMemoryRevision(command: MemoryRevisionCommand): Promise<GovernanceMutationResult>
+storage.governanceReplay(input: GovernanceReplayInput): Promise<GovernanceMutationResult | null>
+```
+
+Canonical rows are `memory_candidates`, `memory_objects`,
+`memory_revisions`, evidence-link tables, `admission_decisions`,
+`memory_conflict_groups`, append-only status events,
+`governance_mutation_results`, idempotency rows, outbox jobs, and receipts.
+
+### 3. Contracts
+
+- Normalize a logical key through `normalizeLogicalKey`; derive its identity
+  only through `logicalKeyHash`.
+- The kernel computes admission from exact-scope persisted L0 evidence.
+  Storage rechecks live lineage and prevents a decision above the safe maximum.
+- Same idempotency key plus request hash replays the frozen result before new
+  evidence, policy, or approval validation. A different hash is `CONFLICT`.
+- Exact content reuses the current revision. Divergent content creates an open
+  conflict and must not advance `current_revision_id`.
+- A successor names the exact current revision. Candidate, revision,
+  admission/status events, pointer CAS, epoch, outbox, result snapshot, and
+  receipt commit in one guarded `BEGIN IMMEDIATE`.
+- Prompt-injection signal detection has one shared implementation:
+  `candidateHasPromptInjectionSignal`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Missing, purged, foreign-principal, or foreign-scope evidence | `INVALID_INPUT`, zero candidate write |
+| Secret content without encryption policy | `ENCRYPTION_REQUIRED` |
+| Inferred or unconfirmed lineage | Candidate-only maximum |
+| Sensitive, low-authority, or injection-like lineage | Quarantine maximum |
+| Same normalized key and same content | Reuse identity/revision |
+| Same normalized key and different content | Open conflict, pointer unchanged |
+| Expected revision differs from current | `STALE_REVISION`, transaction rollback |
+| Same idempotency key and changed canonical request | `CONFLICT` |
+
+### 5. Good / Base / Bad Cases
+
+- Good: one transaction appends a revision and admission, CASes one pointer,
+  advances one epoch, and seals one replayable receipt.
+- Base: a duplicate candidate records its own lineage while reusing the
+  existing logical memory and immutable revision.
+- Bad: update a revision row, perform a destructive upsert, or validate
+  idempotency only after rereading mutable evidence/approval state.
+
+### 6. Tests Required
+
+- Admission integration asserts active, candidate-only, quarantine, and
+  rejected-with-zero-write paths.
+- Identity integration proves Unicode/case/whitespace normalization, exact
+  duplicate reuse, and conflict without pointer change.
+- CAS integration runs two successors from one expected revision and asserts
+  one success plus one `STALE_REVISION`.
+- Replay integration checks identical result/receipt after approval
+  consumption and `CONFLICT` for changed content under the same key.
+- Storage migration tests prove append-only triggers and restart-safe schema
+  hashes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const evidence = await rereadEvidence();
+await verifyApproval();
+return storage.applyMemoryRevision(command); // replay is now state-dependent
+```
+
+#### Correct
+
+```ts
+const replay = await storage.governanceReplay({ idempotency_key, request_hash });
+if (replay !== null) return replay;
+// Only a new effect evaluates mutable evidence and authorization state.
+return storage.applyMemoryRevision(command);
+```
+
 ## Migrations
 
 Migrations begin in M1, are forward-only, and are versioned files under
