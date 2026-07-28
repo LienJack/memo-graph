@@ -2,18 +2,27 @@ import { z } from "zod";
 
 import {
   AuthoritySchema,
+  ApprovalBindingSchema,
+  ApprovalGrantSchema,
   EpisodeSchema,
   EvidenceRecordSchema,
   GovernedSearchItemSchema,
   IdentifierSchema,
   ContextSliceSchema,
   MemoryCandidateSchema,
+  MemoryKindSchema,
   MemoryProposeInputSchema,
+  MemoryPinInputSchema,
+  MemoryDemoteInputSchema,
+  MemoryUsageSetInputSchema,
+  MemoryRevokeInputSchema,
   MutationReceiptSchema,
   RecallRequestSchema,
   ReceiptSchema,
   RetrievalReceiptSchema,
   ScopeSchema,
+  SensitivitySchema,
+  TransformRefSchema,
   UtcTimestampSchema,
 } from "@memo-graph/contracts";
 
@@ -160,6 +169,14 @@ export const AdmitMemoryCommandSchema = z
   })
   .strict();
 
+export const VerifiedApprovalCommandSchema = z
+  .object({
+    grant: ApprovalGrantSchema,
+    registry_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+    verified_at: UtcTimestampSchema,
+  })
+  .strict();
+
 export const MemoryRevisionCommandSchema = z
   .object({
     idempotency_key: z.string().trim().min(8).max(200),
@@ -171,6 +188,13 @@ export const MemoryRevisionCommandSchema = z
     expected_revision_id: IdentifierSchema,
     candidate: MemoryCandidateSchema,
     evaluation: AdmissionEvaluationSchema,
+    dry_run: z.boolean().default(false),
+    request_hash: z
+      .string()
+      .regex(/^sha256:[a-f0-9]{64}$/)
+      .optional(),
+    approval_binding: ApprovalBindingSchema.optional(),
+    approval: VerifiedApprovalCommandSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -184,13 +208,65 @@ export const MemoryRevisionCommandSchema = z
         message: "revision candidate scope must match the command scope",
       });
     }
+    const approvalFields = [
+      value.request_hash,
+      value.approval_binding,
+      value.approval,
+    ].filter((item) => item !== undefined);
+    if (approvalFields.length !== 0 && approvalFields.length !== 3) {
+      context.addIssue({
+        code: "custom",
+        path: ["approval"],
+        message:
+          "authorized revisions require request hash, binding, and verified approval",
+      });
+    }
+    if (value.dry_run && approvalFields.length !== 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["approval"],
+        message: "dry-run revisions cannot carry approval authority",
+      });
+    }
   });
+
+export const MemoryCorrectionBasisInputSchema = z
+  .object({
+    memory_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    expected_revision_id: IdentifierSchema,
+  })
+  .strict();
+
+export const MemoryCorrectionBasisSchema = z
+  .object({
+    current_revision_id: IdentifierSchema,
+    logical_key: z.string().trim().min(1).max(500),
+    kind: MemoryKindSchema,
+    scope: ScopeSchema,
+    sensitivity: SensitivitySchema,
+    inferred: z.boolean(),
+    injection_risk: z.enum(["none", "suspected", "confirmed"]),
+    requires_user_confirmation: z.boolean(),
+    transform: TransformRefSchema,
+  })
+  .strict();
+
+export const MemoryCorrectionBasisResultSchema =
+  MemoryCorrectionBasisSchema.nullable();
 
 export const GovernanceMutationResultSchema = z
   .object({
     receipt: MutationReceiptSchema,
     replayed: z.boolean(),
-    outcome: z.enum(["CREATED", "REUSED", "CONFLICT", "REVISED"]),
+    outcome: z.enum([
+      "CREATED",
+      "REUSED",
+      "CONFLICT",
+      "REVISED",
+      "DRY_RUN",
+    ]),
     candidate_id: IdentifierSchema,
     memory_id: IdentifierSchema,
     current_revision_id: IdentifierSchema,
@@ -232,6 +308,62 @@ export const GovernanceReplayInputSchema = z
 
 export const GovernanceReplayResultSchema =
   GovernanceMutationResultSchema.nullable();
+
+export const MemoryControlRequestSchema = z.union([
+  MemoryPinInputSchema,
+  MemoryDemoteInputSchema,
+  MemoryUsageSetInputSchema,
+  MemoryRevokeInputSchema,
+]);
+
+export const MemoryControlCommandSchema = z
+  .object({
+    request: MemoryControlRequestSchema,
+    approval: VerifiedApprovalCommandSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.request.envelope.dry_run !== (value.approval === null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["approval"],
+        message:
+          "dry runs omit approval; effect-bearing controls require verified approval",
+      });
+    }
+  });
+
+export const MemoryControlResultSchema = z
+  .object({
+    receipt: MutationReceiptSchema,
+    replayed: z.boolean(),
+    outcome: z.enum([
+      "DRY_RUN",
+      "PINNED",
+      "UNPINNED",
+      "DEMOTED",
+      "USAGE_ALLOWED",
+      "USAGE_BLOCKED",
+      "REVOKED",
+    ]),
+    memory_id: IdentifierSchema,
+    current_revision_id: IdentifierSchema,
+    lifecycle: z.enum([
+      "working",
+      "candidate",
+      "active",
+      "superseded",
+      "revoked",
+      "quarantined",
+      "purged",
+    ]),
+    pinned: z.boolean(),
+    usage_rule_id: IdentifierSchema.nullable(),
+  })
+  .strict();
+
+export const MemoryControlReplayResultSchema =
+  MemoryControlResultSchema.nullable();
 
 export const DrainFtsResultSchema = z
   .object({
@@ -505,7 +637,10 @@ export const WorkerOperationSchema = z.enum([
   "count_content_references",
   "admit_memory",
   "apply_memory_revision",
+  "get_memory_correction_basis",
   "governance_replay",
+  "memory_control_replay",
+  "apply_memory_control",
   "check_memory_eligibility",
   "get_governed_memory",
   "search_governed_memory",
@@ -583,12 +718,30 @@ export type GovernanceMutationResult = z.infer<
 export type GovernanceReplayInput = z.input<
   typeof GovernanceReplayInputSchema
 >;
+export type MemoryControlCommand = z.input<
+  typeof MemoryControlCommandSchema
+>;
+export type ParsedMemoryControlCommand = z.output<
+  typeof MemoryControlCommandSchema
+>;
+export type MemoryControlResult = z.infer<
+  typeof MemoryControlResultSchema
+>;
 export type GovernanceStorageStatus = z.infer<
   typeof GovernanceStorageStatusSchema
 >;
 export type MigrationEvidence = z.infer<typeof MigrationEvidenceSchema>;
 export type MemoryRevisionCommand = z.input<
   typeof MemoryRevisionCommandSchema
+>;
+export type MemoryCorrectionBasisInput = z.input<
+  typeof MemoryCorrectionBasisInputSchema
+>;
+export type ParsedMemoryCorrectionBasisInput = z.output<
+  typeof MemoryCorrectionBasisInputSchema
+>;
+export type MemoryCorrectionBasis = z.infer<
+  typeof MemoryCorrectionBasisSchema
 >;
 export type ParsedMemoryRevisionCommand = z.output<
   typeof MemoryRevisionCommandSchema

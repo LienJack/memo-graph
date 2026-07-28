@@ -263,7 +263,23 @@ export const MemoryUsageSetInputSchema = withExpectedTool(
         effect: z.enum(["allow", "block"]),
         context_scope: ScopeSchema.nullable(),
       })
-      .strict(),
+      .strict()
+      .superRefine((value, context) => {
+        const contextScope = value.context_scope;
+        if (
+          contextScope !== null &&
+          !value.envelope.scopes.some(
+            (scope) => scopeKey(scope) === scopeKey(contextScope),
+          )
+        ) {
+          context.addIssue({
+            code: "custom",
+            path: ["context_scope"],
+            message:
+              "a scoped usage rule must name an authorized envelope scope",
+          });
+        }
+      }),
   ),
   "memory_usage_set",
 );

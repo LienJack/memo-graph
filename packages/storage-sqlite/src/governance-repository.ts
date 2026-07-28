@@ -6,7 +6,9 @@ import {
   logicalKeyHash,
   normalizeLogicalKey,
   MutationReceiptSchema,
+  approvalGrantMatches,
   receiptHashIsValid,
+  scopeKey,
   sealReceipt,
 } from "@memo-graph/contracts";
 import type Database from "better-sqlite3";
@@ -14,9 +16,12 @@ import type Database from "better-sqlite3";
 import { StorageError } from "./errors.js";
 import {
   GovernanceMutationResultSchema,
+  MemoryCorrectionBasisSchema,
   type ContentReferenceCounts,
   type GovernanceCounts,
   type GovernanceMutationResult,
+  type MemoryCorrectionBasis,
+  type ParsedMemoryCorrectionBasisInput,
   type ParsedAdmitMemoryCommand,
   type ParsedMemoryRevisionCommand,
 } from "./protocol.js";
@@ -57,6 +62,26 @@ type ExistingGovernanceMutation = {
   request_hash: string;
   receipt_json: string;
   result_json: string | null;
+};
+
+type CorrectionBasisRow = {
+  current_revision_id: string;
+  logical_key: string;
+  kind: "episodic" | "semantic" | "procedural";
+  scope_kind:
+    | "thread"
+    | "topic"
+    | "scenario"
+    | "user"
+    | "workspace"
+    | "agent";
+  scope_id: string;
+  sensitivity: "public" | "internal" | "personal" | "sensitive" | "secret";
+  inferred: number;
+  injection_risk: "none" | "suspected" | "confirmed";
+  requires_user_confirmation: number;
+  transform_name: string;
+  transform_version: string;
 };
 
 function count(
@@ -332,7 +357,14 @@ export class GovernanceRepository {
   applyMemoryRevision(
     command: ParsedMemoryRevisionCommand,
   ): GovernanceMutationResult {
-    const requestHash = canonicalSha256Omitting(command, ["evaluation"]);
+    const requestHash =
+      command.request_hash ??
+      canonicalSha256Omitting(command, [
+        "evaluation",
+        "request_hash",
+        "approval_binding",
+        "approval",
+      ]);
     const existing = this.#readMutation(command.idempotency_key);
     if (existing !== undefined) {
       return this.#parseExistingResult(existing, requestHash);
@@ -343,6 +375,7 @@ export class GovernanceRepository {
       if (repeated !== undefined) {
         return this.#parseExistingResult(repeated, requestHash);
       }
+      this.#validateRevisionApproval(command, requestHash);
       const memory = this.#database
         .prepare(
           `SELECT memory_id, principal_id, scope_kind, scope_id, kind,
@@ -393,12 +426,32 @@ export class GovernanceRepository {
         command.principal_id,
         command.evaluation.decision,
       );
+      const current = this.#readRevision(command.expected_revision_id);
+      if (command.dry_run) {
+        return this.#sealMutation({
+          idempotencyKey: command.idempotency_key,
+          requestHash,
+          principalId: command.principal_id,
+          scope: command.scope,
+          requestedAt: command.requested_at,
+          outcome: "DRY_RUN",
+          candidateId: command.candidate.candidate_id,
+          memoryId: command.memory_id,
+          currentRevisionId: current.revision_id,
+          conflictGroupId: null,
+          lifecycle: memory.lifecycle,
+          decision: command.evaluation.decision,
+          previousRevisionId: null,
+          projectionJobs: [],
+          warnings: ["DRY_RUN"],
+          advanceEpoch: false,
+        });
+      }
       this.#insertCandidate(
         command.candidate,
         command.principal_id,
         evidence,
       );
-      const current = this.#readRevision(command.expected_revision_id);
       if (current.content_hash === command.candidate.content_hash) {
         this.#linkCandidate(
           command.candidate.candidate_id,
@@ -406,7 +459,7 @@ export class GovernanceRepository {
           current.revision_id,
           command.requested_at,
         );
-        return this.#sealMutation({
+        const result = this.#sealMutation({
           idempotencyKey: command.idempotency_key,
           requestHash,
           principalId: command.principal_id,
@@ -423,8 +476,10 @@ export class GovernanceRepository {
           projectionJobs: [],
           warnings: [],
         });
+        this.#consumeRevisionApproval(command, requestHash, result);
+        return result;
       }
-      return this.#createMemory({
+      const result = this.#createMemory({
         idempotencyKey: command.idempotency_key,
         requestHash,
         principalId: command.principal_id,
@@ -440,7 +495,137 @@ export class GovernanceRepository {
         revisionNumber: Number(current.revision) + 1,
         existingMemory: memory,
       });
+      this.#consumeRevisionApproval(command, requestHash, result);
+      return result;
     });
+  }
+
+  correctionBasis(
+    input: ParsedMemoryCorrectionBasisInput,
+  ): MemoryCorrectionBasis | null {
+    const row = this.#database
+      .prepare(
+        `SELECT m.current_revision_id, c.logical_key, m.kind,
+                m.scope_kind, m.scope_id, r.sensitivity, r.inferred,
+                c.injection_risk, c.requires_user_confirmation,
+                r.transform_name, r.transform_version
+         FROM memory_objects AS m
+         JOIN memory_revisions AS r
+           ON r.revision_id = m.current_revision_id
+         JOIN memory_candidate_links AS l
+           ON l.memory_id = m.memory_id
+          AND l.revision_id = r.revision_id
+         JOIN memory_candidates AS c
+           ON c.candidate_id = l.candidate_id
+         WHERE m.memory_id = ?
+           AND m.principal_id = ?
+           AND m.scope_kind = ?
+           AND m.scope_id = ?
+           AND m.current_revision_id = ?`,
+      )
+      .get(
+        input.memory_id,
+        input.principal_id,
+        input.scope.kind,
+        input.scope.id,
+        input.expected_revision_id,
+      ) as CorrectionBasisRow | undefined;
+    return row === undefined
+      ? null
+      : MemoryCorrectionBasisSchema.parse({
+          current_revision_id: row.current_revision_id,
+          logical_key: row.logical_key,
+          kind: row.kind,
+          scope: { kind: row.scope_kind, id: row.scope_id },
+          sensitivity: row.sensitivity,
+          inferred: row.inferred === 1,
+          injection_risk: row.injection_risk,
+          requires_user_confirmation:
+            row.requires_user_confirmation === 1,
+          transform: {
+            name: row.transform_name,
+            version: row.transform_version,
+          },
+        });
+  }
+
+  #validateRevisionApproval(
+    command: ParsedMemoryRevisionCommand,
+    requestHash: string,
+  ): void {
+    const approval = command.approval;
+    const binding = command.approval_binding;
+    if (
+      approval === undefined &&
+      binding === undefined &&
+      command.request_hash === undefined
+    ) {
+      return;
+    }
+    if (
+      approval === undefined ||
+      binding === undefined ||
+      command.request_hash !== requestHash ||
+      binding.request_hash !== requestHash ||
+      binding.principal_id !== command.principal_id ||
+      binding.tool !== "memory_correct" ||
+      !binding.scopes.some(
+        (scope) => scopeKey(scope) === scopeKey(command.scope),
+      ) ||
+      !approvalGrantMatches(
+        binding,
+        approval.grant,
+        approval.verified_at,
+      ) ||
+      this.#database
+        .prepare(
+          "SELECT 1 FROM approval_consumptions WHERE approval_id = ?",
+        )
+        .get(approval.grant.approval_id) !== undefined
+    ) {
+      throw new StorageError("APPROVAL_INVALID");
+    }
+  }
+
+  #consumeRevisionApproval(
+    command: ParsedMemoryRevisionCommand,
+    requestHash: string,
+    result: GovernanceMutationResult,
+  ): void {
+    const approval = command.approval;
+    const binding = command.approval_binding;
+    if (approval === undefined && binding === undefined) {
+      return;
+    }
+    if (approval === undefined || binding === undefined) {
+      throw new StorageError("APPROVAL_INVALID");
+    }
+    try {
+      this.#database
+        .prepare(
+          `INSERT INTO approval_consumptions (
+             approval_id, idempotency_key, request_hash, manifest_hash,
+             principal_id, tool, scopes_json, consumed_at, receipt_id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          approval.grant.approval_id,
+          command.idempotency_key,
+          requestHash,
+          approval.grant.manifest_hash,
+          command.principal_id,
+          binding.tool,
+          canonicalJson(
+            [...binding.scopes].sort((left, right) =>
+              scopeKey(left).localeCompare(scopeKey(right)),
+            ),
+          ),
+          approval.verified_at,
+          result.receipt.receipt_id,
+        );
+    } catch {
+      throw new StorageError("APPROVAL_INVALID");
+    }
   }
 
   replayMutation(
@@ -1145,14 +1330,18 @@ export class GovernanceRepository {
     previousRevisionId: string | null;
     projectionJobs: string[];
     warnings: string[];
+    advanceEpoch?: boolean;
   }): GovernanceMutationResult {
-    this.#database
-      .prepare(
-        `UPDATE ledger_state
-         SET ledger_epoch = ledger_epoch + 1, updated_at = ?
-         WHERE singleton = 1`,
-      )
-      .run(options.requestedAt);
+    const advancesEpoch = options.advanceEpoch ?? true;
+    if (advancesEpoch) {
+      this.#database
+        .prepare(
+          `UPDATE ledger_state
+           SET ledger_epoch = ledger_epoch + 1, updated_at = ?
+           WHERE singleton = 1`,
+        )
+        .run(options.requestedAt);
+    }
     const epoch = Number(
       (
         this.#database
@@ -1178,9 +1367,9 @@ export class GovernanceRepository {
         receipt_hash: `sha256:${"0".repeat(64)}`,
         kind: "mutation",
         idempotency_key: options.idempotencyKey,
-        affected_memory_ids: [options.memoryId],
+        affected_memory_ids: advancesEpoch ? [options.memoryId] : [],
         affected_revision_ids:
-          options.outcome === "CONFLICT"
+          !advancesEpoch || options.outcome === "CONFLICT"
             ? []
             : [
                 ...(options.previousRevisionId === null

@@ -46,6 +46,8 @@ McpErrorSchema
 | Principal/authority/scope denied | `PERMISSION_DENIED` |
 | Concurrent state conflict | `CONFLICT` |
 | Expected revision mismatch | `STALE_REVISION` |
+| No trusted approval exists for an effect-bearing mutation | `APPROVAL_REQUIRED` |
+| Approval expired, changed, mismatched, forged, or already consumed | `APPROVAL_INVALID` |
 | Optional projection down, fallback works | `DEGRADED` |
 | Relevant candidates all ineligible | `POLICY_EXCLUDED` |
 | No relevant live candidate exists | `NO_MATCH` |
@@ -66,6 +68,8 @@ McpErrorSchema
 - Actor, authority, scope, and destructive-enable mismatches are distinct.
 - Every response union arm parses and cannot be confused with `OK`.
 - Stale revisions, incomplete purge, and fallback states preserve typed codes.
+- Approval failures never expose registry paths, grant bodies, or request
+  content and occur before canonical mutation.
 
 ### 7. Wrong vs Correct
 

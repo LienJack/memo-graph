@@ -17,6 +17,8 @@ import {
   GovernedMemoryLookupInputSchema,
   GovernedMemorySearchQuerySchema,
   MemoryEligibilityInputSchema,
+  MemoryControlCommandSchema,
+  MemoryCorrectionBasisInputSchema,
   MemoryRevisionCommandSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
@@ -95,11 +97,26 @@ port.on("message", (message: unknown) => {
             MemoryRevisionCommandSchema.parse(request.payload),
           );
           break;
+        case "get_memory_correction_basis":
+          result = database.getMemoryCorrectionBasis(
+            MemoryCorrectionBasisInputSchema.parse(request.payload),
+          );
+          break;
         case "governance_replay": {
           const replay = GovernanceReplayInputSchema.parse(request.payload);
           result = database.governanceReplay(replay);
           break;
         }
+        case "memory_control_replay": {
+          const replay = GovernanceReplayInputSchema.parse(request.payload);
+          result = database.memoryControlReplay(replay);
+          break;
+        }
+        case "apply_memory_control":
+          result = database.applyMemoryControl(
+            MemoryControlCommandSchema.parse(request.payload),
+          );
+          break;
         case "check_memory_eligibility":
           result = database.checkMemoryEligibility(
             MemoryEligibilityInputSchema.parse(request.payload),

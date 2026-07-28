@@ -256,6 +256,114 @@ if (!result.eligible) return result.reason_code;
 return result.item;
 ```
 
+## Scenario: Trusted Approval and User-Control Transactions
+
+### 1. Scope / Trigger
+
+Use this contract for correction, pin, demote, Context usage allow/block,
+revoke, delete, or any future important/destructive memory mutation.
+
+### 2. Signatures
+
+```ts
+approvalRegistry.verify(binding: ApprovalBinding): Promise<VerifiedApproval>
+approvalRegistry.confirmUnchanged(approval: VerifiedApproval): Promise<void>
+storage.memoryControlReplay(input: GovernanceReplayInput): Promise<MemoryControlResult | null>
+storage.applyMemoryControl(command: MemoryControlCommand): Promise<MemoryControlResult>
+```
+
+The public request carries only `approval_id`. The verified grant and registry
+digest are internal runtime-to-storage artifacts.
+
+### 3. Contracts
+
+- Authorize principal, authority, scope, safety class, and destructive
+  enablement before reading the approval registry.
+- Replay a committed same-hash idempotency record before requiring a live
+  approval. A changed hash is `CONFLICT`.
+- Bind approval exactly to principal, tool, safety class, complete scope set,
+  canonical public-request hash, and an unexpired validity window.
+- Read a local manifest only from an absolute, regular, non-symlink path owned
+  by the expected user and not group/world writable. Validate the strict
+  manifest schema, each canonical grant digest, and a whole-registry digest.
+- Recheck the whole-registry digest immediately before storage. Storage
+  revalidates the grant and consumes its identifier in the same
+  `BEGIN IMMEDIATE` transaction as the canonical effect and receipt.
+- Effect-bearing approvals are single-use across idempotency keys.
+- Dry-run carries no approval authority, changes no canonical pointer,
+  lifecycle, control state, epoch, or projection, and records a content-free
+  receipt with `DRY_RUN`.
+- Pin changes retention preference only. It cannot upgrade authority, extend
+  validity, resolve conflict, or override usage/revoke filters.
+- Usage rules may be global or exact-Context scoped. An applicable scoped rule
+  takes precedence over the global rule; the newest rule at that specificity
+  wins.
+- Demote returns an active memory to candidate state. Revoke immediately
+  hard-filters it. Delete remains disabled by default and is completed only by
+  the tombstone/Purge Saga contract.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Missing approval for a new effect | `APPROVAL_REQUIRED`, zero mutation |
+| Expired, forged, changed, reused, wrong-principal/scope/tool/hash grant | `APPROVAL_INVALID`, transaction rollback |
+| Same idempotency key and request hash after approval consumption | Replay durable effect and receipt |
+| Same idempotency key with changed request | `CONFLICT` before approval lookup |
+| Dry-run with no approval | Durable preview receipt, unchanged canonical epoch/state |
+| Delete while destructive tools are disabled | `PERMISSION_DENIED` before approval lookup |
+| Pin on expired/revoked/conflicted memory | Pin may persist; eligibility remains excluded |
+| Scoped allow over global block | Allowed only in that exact Context scope |
+
+### 5. Good / Base / Bad Cases
+
+- Good: verify an exact grant, confirm the manifest snapshot, then atomically
+  mutate, consume the approval, advance the epoch, enqueue invalidation, and
+  seal the receipt.
+- Base: return a committed same-hash replay even when the approval manifest no
+  longer contains the consumed grant.
+- Bad: accept an approval object from tool input, consume approval before the
+  effect transaction, or treat pin as an eligibility bypass.
+
+### 6. Tests Required
+
+- Security tests cover missing, expired, forged, changed, reused,
+  wrong-principal, wrong-scope, wrong-tool, and wrong-hash approvals.
+- Filesystem tests cover relative paths, symlinks, ownership mismatch, and
+  group/world-writable manifests.
+- Mutation tests prove approval consumption rolls back with failed effects and
+  that same-hash replay does not reverify approval.
+- Dry-run tests compare epoch, current revision, candidates/revisions, control
+  events, approvals, and projection jobs before and after.
+- Direct-runtime and MCP calls over the same request produce the same governed
+  result.
+- User-control tests keep pin, global/scoped usage, demote, revoke, and delete
+  observably distinct.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const approved = input.approved === true;
+await approvals.consume(input.approval_id);
+return storage.pin(input.memory_id);
+```
+
+#### Correct
+
+```ts
+const replay = await storage.memoryControlReplay({
+  idempotency_key,
+  request_hash,
+});
+if (replay !== null) return replay;
+
+const verified = await approvalRegistry.verify(binding);
+await approvalRegistry.confirmUnchanged(verified);
+return storage.applyMemoryControl({ request, approval: verified });
+```
+
 ## Migrations
 
 Migrations begin in M1, are forward-only, and are versioned files under

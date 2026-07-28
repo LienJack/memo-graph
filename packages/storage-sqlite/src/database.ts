@@ -29,6 +29,7 @@ import {
 import Database from "better-sqlite3";
 
 import { BlobStore, type StoredBlob } from "./blob-store.js";
+import { ControlRepository } from "./control-repository.js";
 import type { DataRootLayout } from "./data-root.js";
 import { StorageError } from "./errors.js";
 import { FtsIndex } from "./fts-index.js";
@@ -45,6 +46,8 @@ import {
   GovernedMemoryLookupInputSchema,
   GovernedMemorySearchQuerySchema,
   MemoryEligibilityInputSchema,
+  MemoryControlCommandSchema,
+  MemoryCorrectionBasisInputSchema,
   MemoryRevisionCommandSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
@@ -66,6 +69,8 @@ import {
   type GovernedMemorySearchResult,
   type GovernedMemoryLookupResult,
   type MemoryEligibilityResult,
+  type MemoryControlResult,
+  type MemoryCorrectionBasis,
   type StorageHealth,
 } from "./protocol.js";
 
@@ -191,6 +196,7 @@ export class StorageDatabase {
   readonly #fts: FtsIndex;
   readonly #governance: GovernanceRepository;
   readonly #governedMemory: GovernedMemoryReader;
+  readonly #control: ControlRepository;
   readonly #purge: PurgeRepository;
   readonly #journalMode: string;
 
@@ -223,6 +229,7 @@ export class StorageDatabase {
     this.#fts = new FtsIndex(this.#database);
     this.#governance = new GovernanceRepository(this.#database);
     this.#governedMemory = new GovernedMemoryReader(this.#database);
+    this.#control = new ControlRepository(this.#database);
     this.#purge = new PurgeRepository(this.#database);
   }
 
@@ -321,11 +328,31 @@ export class StorageDatabase {
     );
   }
 
+  getMemoryCorrectionBasis(input: unknown): MemoryCorrectionBasis | null {
+    return this.#governance.correctionBasis(
+      MemoryCorrectionBasisInputSchema.parse(input),
+    );
+  }
+
   governanceReplay(input: unknown): GovernanceMutationResult | null {
     const request = GovernanceReplayInputSchema.parse(input);
     return this.#governance.replayMutation(
       request.idempotency_key,
       request.request_hash,
+    );
+  }
+
+  memoryControlReplay(input: unknown): MemoryControlResult | null {
+    const request = GovernanceReplayInputSchema.parse(input);
+    return this.#control.replay(
+      request.idempotency_key,
+      request.request_hash,
+    );
+  }
+
+  applyMemoryControl(input: unknown): MemoryControlResult {
+    return this.#governanceEffect(() =>
+      this.#control.apply(MemoryControlCommandSchema.parse(input)),
     );
   }
 
@@ -1360,9 +1387,9 @@ export class StorageDatabase {
     });
   }
 
-  #governanceEffect(
-    effect: () => GovernanceMutationResult,
-  ): GovernanceMutationResult {
+  #governanceEffect<T>(
+    effect: () => T,
+  ): T {
     try {
       return effect();
     } catch (error) {

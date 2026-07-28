@@ -71,28 +71,28 @@
 
 ## 5. U5 — user controls and MCP authorization
 
-- [ ] Write failing server-side approval and user-control parity tests.
-- [ ] Implement trusted approval-registry verification and one-time
+- [x] Write failing server-side approval and user-control parity tests.
+- [x] Implement trusted approval-registry verification and one-time
       consumption.
-- [ ] Enforce absolute path, non-symlink, owner/mode, schema, and manifest
+- [x] Enforce absolute path, non-symlink, owner/mode, schema, and manifest
       digest checks for the local approval adapter.
-- [ ] Replay an already committed same-hash idempotency record before requiring
+- [x] Replay an already committed same-hash idempotency record before requiring
       a new approval; consume new approvals with the canonical transaction.
-- [ ] Implement dry-run with zero canonical mutation and no approval
+- [x] Implement dry-run with zero canonical mutation and no approval
       consumption.
-- [ ] Change destructive configuration to an explicit boolean that remains
+- [x] Change destructive configuration to an explicit boolean that remains
       false by default; require enablement plus approval for delete.
-- [ ] Implement pin, demote, scoped/global usage block, and revoke as distinct
+- [x] Implement pin, demote, scoped/global usage block, and revoke as distinct
       operations.
-- [ ] Register propose/correct/control/delete MCP tools with frozen safety
+- [x] Register propose/correct/control/delete MCP tools with frozen safety
       metadata.
-- [ ] Prove runtime and MCP paths produce equivalent governed outcomes.
-- [ ] Prove missing/expired/reused/forged/wrong-scope/wrong-tool/wrong-hash
+- [x] Prove runtime and MCP paths produce equivalent governed outcomes.
+- [x] Prove missing/expired/reused/forged/wrong-scope/wrong-tool/wrong-hash
       approvals fail before mutation.
-- [ ] Prove delete is unavailable under the default server configuration.
-- [ ] Validate with:
+- [x] Prove delete is unavailable under the default server configuration.
+- [x] Validate with:
       `pnpm vitest run tests/mcp/governance-mutations.integration.test.ts tests/security/mutation-authorization.test.ts`.
-- [ ] Commit U5 only after MCP/security/lint/typecheck pass.
+- [x] Commit U5 only after MCP/security/lint/typecheck pass.
 
 ## 6. U6 — tombstone and Purge Saga
 

@@ -12,12 +12,19 @@ import {
   GovernedResponseSchema,
   LocalPrincipalSchema,
   MemoryContextCompileInputSchema,
+  MemoryCorrectInputSchema,
+  MemoryCandidateSchema,
+  MemoryDeleteInputSchema,
+  MemoryDemoteInputSchema,
   MemoryEpisodeCommitInputSchema,
   MemoryExplainInputSchema,
   MemoryGetInputSchema,
+  MemoryPinInputSchema,
   MemoryReceiptGetInputSchema,
+  MemoryRevokeInputSchema,
   MemorySearchInputSchema,
   MemoryProposeInputSchema,
+  MemoryUsageSetInputSchema,
   RecallRequestSchema,
   RetrievalReceiptSchema,
   authorizeRequestClaims,
@@ -28,6 +35,7 @@ import {
 } from "@memo-graph/contracts";
 import type {
   EvidenceRecordSchema,
+  MutationRequestEnvelopeSchema,
   ProposalRequestEnvelopeSchema,
   ReadRequestEnvelopeSchema,
   ScopeSchema,
@@ -39,8 +47,25 @@ import type { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 import { z } from "zod";
 
 import { evaluateAdmission } from "./governance.js";
+import {
+  ApprovalBindingSchema,
+  ApprovalError,
+  DenyAllApprovalRegistry,
+  type ApprovalRegistry,
+  type VerifiedApproval,
+} from "./approval.js";
 
 export { evaluateAdmission } from "./governance.js";
+export {
+  ApprovalBindingSchema,
+  ApprovalError,
+  DenyAllApprovalRegistry,
+  assertApprovalGrant,
+  approvalRegistryHash,
+  type ApprovalBinding,
+  type ApprovalRegistry,
+  type VerifiedApproval,
+} from "./approval.js";
 
 export const MemoryRuntimePolicySchema = z
   .object({
@@ -54,7 +79,13 @@ export type GovernedResponse = z.infer<typeof GovernedResponseSchema>;
 
 type ReadEnvelope = z.output<typeof ReadRequestEnvelopeSchema>;
 type ProposalEnvelope = z.output<typeof ProposalRequestEnvelopeSchema>;
-type RuntimeEnvelope = ReadEnvelope | ProposalEnvelope;
+type MutationEnvelope = z.output<typeof MutationRequestEnvelopeSchema>;
+type RuntimeEnvelope = ReadEnvelope | ProposalEnvelope | MutationEnvelope;
+type MemoryControlRequest =
+  | z.output<typeof MemoryPinInputSchema>
+  | z.output<typeof MemoryDemoteInputSchema>
+  | z.output<typeof MemoryUsageSetInputSchema>
+  | z.output<typeof MemoryRevokeInputSchema>;
 type L0ContextCandidate = Extract<
   ContextCandidate,
   { abstraction: "l0_evidence" }
@@ -84,6 +115,8 @@ function publicFailure(
     | "PERMISSION_DENIED"
     | "CONFLICT"
     | "STALE_REVISION"
+    | "APPROVAL_REQUIRED"
+    | "APPROVAL_INVALID"
     | "PROJECTION_UNAVAILABLE"
     | "INTERNAL_FAILURE",
   message: string,
@@ -107,6 +140,13 @@ function storageFailure(error: StorageError): GovernedResponse {
       error.retryable,
     );
   }
+  if (error.code === "APPROVAL_INVALID") {
+    return publicFailure(
+      "APPROVAL_INVALID",
+      error.message,
+      error.retryable,
+    );
+  }
   if (
     error.code === "INVALID_INPUT" ||
     error.code === "INVALID_DATA_ROOT" ||
@@ -124,6 +164,26 @@ function storageFailure(error: StorageError): GovernedResponse {
   return publicFailure("INTERNAL_FAILURE", error.message, error.retryable);
 }
 
+function approvalFailureCode(
+  error: unknown,
+): "APPROVAL_REQUIRED" | "APPROVAL_INVALID" | null {
+  if (error instanceof ApprovalError) {
+    return error.code;
+  }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "ApprovalError" &&
+    "code" in error &&
+    (error.code === "APPROVAL_REQUIRED" ||
+      error.code === "APPROVAL_INVALID")
+  ) {
+    return error.code;
+  }
+  return null;
+}
+
 function sameScope(left: z.input<typeof ScopeSchema>, right: z.input<typeof ScopeSchema>): boolean {
   return left.kind === right.kind && left.id === right.id;
 }
@@ -131,13 +191,20 @@ function sameScope(left: z.input<typeof ScopeSchema>, right: z.input<typeof Scop
 export class MemoryRuntime {
   readonly #storage: SqliteStorageClient;
   readonly #policy: z.output<typeof MemoryRuntimePolicySchema>;
+  readonly #approvalRegistry: ApprovalRegistry;
+  readonly #clock: () => string;
 
   constructor(options: {
     storage: SqliteStorageClient;
     policy: MemoryRuntimePolicy;
+    approvalRegistry?: ApprovalRegistry;
+    clock?: () => string;
   }) {
     this.#storage = options.storage;
     this.#policy = MemoryRuntimePolicySchema.parse(options.policy);
+    this.#approvalRegistry =
+      options.approvalRegistry ?? new DenyAllApprovalRegistry();
+    this.#clock = options.clock ?? (() => new Date().toISOString());
   }
 
   memorySearch(input: unknown): Promise<GovernedResponse> {
@@ -424,6 +491,209 @@ export class MemoryRuntime {
     });
   }
 
+  memoryPin(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () =>
+      this.#memoryControl(MemoryPinInputSchema.parse(input)),
+    );
+  }
+
+  memoryCorrect(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = MemoryCorrectInputSchema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+      const requestHash = canonicalSha256(request);
+      const replay = await this.#storage.governanceReplay({
+        idempotency_key: request.envelope.idempotency_key,
+        request_hash: requestHash,
+      });
+      if (replay !== null) {
+        return GovernedResponseSchema.parse({
+          status: "OK",
+          receipt_id: replay.receipt.receipt_id,
+          data: replay,
+        });
+      }
+      const expectedRevisionId = request.envelope.expected_revision_id;
+      if (expectedRevisionId === null) {
+        throw new StorageError("STALE_REVISION");
+      }
+      let basis:
+        | NonNullable<Awaited<
+            ReturnType<SqliteStorageClient["getMemoryCorrectionBasis"]>
+          >>
+        | undefined;
+      for (const scope of request.envelope.scopes) {
+        const candidateBasis =
+          await this.#storage.getMemoryCorrectionBasis({
+            memory_id: request.memory_id,
+            principal_id:
+              request.envelope.actor_claim.principal_id,
+            scope,
+            expected_revision_id: expectedRevisionId,
+          });
+        if (candidateBasis !== null) {
+          basis = candidateBasis;
+          break;
+        }
+      }
+      if (basis === undefined) {
+        throw new StorageError("STALE_REVISION");
+      }
+      const candidate = MemoryCandidateSchema.parse({
+        schema_version: "1.0.0",
+        candidate_id: stableIdentifier("candidate", {
+          idempotency_key: request.envelope.idempotency_key,
+          request_hash: requestHash,
+        }),
+        logical_key: basis.logical_key,
+        kind: basis.kind,
+        scope: basis.scope,
+        sensitivity: basis.sensitivity,
+        inferred: basis.inferred,
+        content: request.replacement.content,
+        content_hash: request.replacement.content_hash,
+        evidence_ids: request.replacement.evidence_ids,
+        validity: request.replacement.validity,
+        injection_risk: "none",
+        requires_user_confirmation: false,
+        transform: {
+          name: "memory-correction",
+          version: "1.0.0",
+        },
+      });
+      const evidence = await Promise.all(
+        candidate.evidence_ids.map((evidenceId) =>
+          this.#storage.getEvidence({
+            evidence_id: evidenceId,
+            principal_id:
+              request.envelope.actor_claim.principal_id,
+            scope: candidate.scope,
+          }),
+        ),
+      );
+      if (
+        new Set(candidate.evidence_ids).size !==
+          candidate.evidence_ids.length ||
+        evidence.some((item) => item === null)
+      ) {
+        return publicFailure(
+          "INVALID_INPUT",
+          "correction evidence is missing, deleted, or outside the exact scope",
+        );
+      }
+      const evaluation = evaluateAdmission(
+        candidate,
+        evidence.filter(
+          (item): item is NonNullable<typeof item> => item !== null,
+        ),
+      );
+      if (evaluation.decision === "reject") {
+        return publicFailure("INVALID_INPUT", evaluation.reason);
+      }
+
+      let approval: VerifiedApproval | undefined;
+      let binding:
+        | z.output<typeof ApprovalBindingSchema>
+        | undefined;
+      if (!request.envelope.dry_run) {
+        if (request.envelope.approval_id === null) {
+          throw new ApprovalError("APPROVAL_REQUIRED");
+        }
+        binding = ApprovalBindingSchema.parse({
+          approval_id: request.envelope.approval_id,
+          principal_id:
+            request.envelope.actor_claim.principal_id,
+          tool: request.envelope.tool,
+          safety_class: request.envelope.safety_class,
+          scopes: request.envelope.scopes,
+          request_hash: requestHash,
+        });
+        approval = await this.#approvalRegistry.verify(binding);
+        await this.#approvalRegistry.confirmUnchanged(approval);
+      }
+      const result = await this.#storage.applyMemoryRevision({
+        idempotency_key: request.envelope.idempotency_key,
+        principal_id:
+          request.envelope.actor_claim.principal_id,
+        actor_authority: request.envelope.actor_claim.authority,
+        scope: basis.scope,
+        requested_at: request.envelope.requested_at,
+        memory_id: request.memory_id,
+        expected_revision_id: expectedRevisionId,
+        candidate,
+        evaluation,
+        dry_run: request.envelope.dry_run,
+        ...(approval === undefined || binding === undefined
+          ? {}
+          : {
+              request_hash: requestHash,
+              approval_binding: binding,
+              approval: {
+                grant: approval.grant,
+                registry_hash: approval.registry_hash,
+                verified_at: this.#clock(),
+              },
+            }),
+      });
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: result.receipt.receipt_id,
+        data: result,
+      });
+    });
+  }
+
+  memoryDemote(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () =>
+      this.#memoryControl(MemoryDemoteInputSchema.parse(input)),
+    );
+  }
+
+  memoryUsageSet(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () =>
+      this.#memoryControl(MemoryUsageSetInputSchema.parse(input)),
+    );
+  }
+
+  memoryRevoke(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () =>
+      this.#memoryControl(MemoryRevokeInputSchema.parse(input)),
+    );
+  }
+
+  memoryDelete(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = MemoryDeleteInputSchema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+      if (!request.envelope.dry_run) {
+        if (request.envelope.approval_id === null) {
+          throw new ApprovalError("APPROVAL_REQUIRED");
+        }
+        const binding = ApprovalBindingSchema.parse({
+          approval_id: request.envelope.approval_id,
+          principal_id:
+            request.envelope.actor_claim.principal_id,
+          tool: request.envelope.tool,
+          safety_class: request.envelope.safety_class,
+          scopes: request.envelope.scopes,
+          request_hash: canonicalSha256(request),
+        });
+        const approval = await this.#approvalRegistry.verify(binding);
+        await this.#approvalRegistry.confirmUnchanged(approval);
+      }
+      return publicFailure(
+        "INTERNAL_FAILURE",
+        "memory deletion is unavailable until the purge workflow is active",
+      );
+    });
+  }
+
   memoryEpisodeCommit(input: unknown): Promise<GovernedResponse> {
     return this.#execute(async () => {
       const request = MemoryEpisodeCommitInputSchema.parse(input);
@@ -637,6 +907,61 @@ export class MemoryRuntime {
       : publicFailure("PERMISSION_DENIED", decision.reason);
   }
 
+  async #memoryControl(
+    request: MemoryControlRequest,
+  ): Promise<GovernedResponse> {
+    const unauthorized = this.#authorize(request.envelope);
+    if (unauthorized !== null) {
+      return unauthorized;
+    }
+    const requestHash = canonicalSha256(request);
+    const replay = await this.#storage.memoryControlReplay({
+      idempotency_key: request.envelope.idempotency_key,
+      request_hash: requestHash,
+    });
+    if (replay !== null) {
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: replay.receipt.receipt_id,
+        data: replay,
+      });
+    }
+
+    let approval: VerifiedApproval | null = null;
+    if (!request.envelope.dry_run) {
+      if (request.envelope.approval_id === null) {
+        throw new ApprovalError("APPROVAL_REQUIRED");
+      }
+      const binding = ApprovalBindingSchema.parse({
+        approval_id: request.envelope.approval_id,
+        principal_id: request.envelope.actor_claim.principal_id,
+        tool: request.envelope.tool,
+        safety_class: request.envelope.safety_class,
+        scopes: request.envelope.scopes,
+        request_hash: requestHash,
+      });
+      approval = await this.#approvalRegistry.verify(binding);
+      await this.#approvalRegistry.confirmUnchanged(approval);
+    }
+
+    const result = await this.#storage.applyMemoryControl({
+      request,
+      approval:
+        approval === null
+          ? null
+          : {
+              grant: approval.grant,
+              registry_hash: approval.registry_hash,
+              verified_at: this.#clock(),
+            },
+    });
+    return GovernedResponseSchema.parse({
+      status: "OK",
+      receipt_id: result.receipt.receipt_id,
+      data: result,
+    });
+  }
+
   async #searchScopes(
     query: string,
     scopes: ReadEnvelope["scopes"],
@@ -839,6 +1164,15 @@ export class MemoryRuntime {
       }
       if (error instanceof StorageError) {
         return storageFailure(error);
+      }
+      const approvalCode = approvalFailureCode(error);
+      if (approvalCode !== null) {
+        return publicFailure(
+          approvalCode,
+          approvalCode === "APPROVAL_REQUIRED"
+            ? "a trusted approval was not found"
+            : "the trusted approval does not authorize this request",
+        );
       }
       return publicFailure(
         "INTERNAL_FAILURE",

@@ -34,6 +34,11 @@ import {
   MemoryRevisionCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryEligibilityResultSchema,
+  MemoryControlCommandSchema,
+  MemoryControlReplayResultSchema,
+  MemoryControlResultSchema,
+  MemoryCorrectionBasisInputSchema,
+  MemoryCorrectionBasisResultSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RebuildFtsResultSchema,
@@ -62,6 +67,10 @@ import {
   type MemoryRevisionCommand,
   type MemoryEligibilityInput,
   type MemoryEligibilityResult,
+  type MemoryControlCommand,
+  type MemoryControlResult,
+  type MemoryCorrectionBasis,
+  type MemoryCorrectionBasisInput,
   type RecordRecallResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
@@ -196,6 +205,17 @@ export class SqliteStorageClient {
     );
   }
 
+  getMemoryCorrectionBasis(
+    input: MemoryCorrectionBasisInput,
+  ): Promise<MemoryCorrectionBasis | null> {
+    const request = MemoryCorrectionBasisInputSchema.parse(input);
+    return this.#request(
+      "get_memory_correction_basis",
+      request,
+      MemoryCorrectionBasisResultSchema,
+    );
+  }
+
   governanceReplay(
     input: GovernanceReplayInput,
   ): Promise<GovernanceMutationResult | null> {
@@ -204,6 +224,30 @@ export class SqliteStorageClient {
       "governance_replay",
       request,
       GovernanceReplayResultSchema,
+    );
+  }
+
+  memoryControlReplay(
+    input: GovernanceReplayInput,
+  ): Promise<MemoryControlResult | null> {
+    const request = GovernanceReplayInputSchema.parse(input);
+    return this.#request(
+      "memory_control_replay",
+      request,
+      MemoryControlReplayResultSchema,
+    );
+  }
+
+  applyMemoryControl(
+    input: MemoryControlCommand,
+  ): Promise<MemoryControlResult> {
+    const command = MemoryControlCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "apply_memory_control",
+        command,
+        MemoryControlResultSchema,
+      ),
     );
   }
 

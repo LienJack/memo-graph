@@ -15,6 +15,7 @@ import {
   UtcTimestampSchema,
   scopeKey,
 } from "./common.js";
+import { canonicalSha256Omitting } from "./canonical-json.js";
 
 export const ToolSafetyClassSchema = z.enum([
   "read_only",
@@ -171,7 +172,74 @@ export const ApprovalGrantSchema = z
         message: "approval scopes must be unique",
       });
     }
+    if (
+      value.manifest_hash !==
+      canonicalSha256Omitting(value, ["manifest_hash"])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["manifest_hash"],
+        message: "approval manifest hash must bind the canonical grant",
+      });
+    }
   });
+
+export const ApprovalRegistryManifestSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    approvals: z.array(ApprovalGrantSchema),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const ids = value.approvals.map((approval) => approval.approval_id);
+    if (new Set(ids).size !== ids.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["approvals"],
+        message: "approval ids must be unique",
+      });
+    }
+  });
+
+export const ApprovalBindingSchema = z
+  .object({
+    approval_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    tool: z.enum([
+      "memory_correct",
+      "memory_pin",
+      "memory_demote",
+      "memory_usage_set",
+      "memory_revoke",
+      "memory_delete",
+    ]),
+    safety_class: z.enum(["important_mutation", "destructive"]),
+    scopes: z.array(ScopeSchema).min(1),
+    request_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export function approvalGrantMatches(
+  bindingInput: unknown,
+  grantInput: unknown,
+  verifiedAt: string,
+): boolean {
+  const binding = ApprovalBindingSchema.parse(bindingInput);
+  const grant = ApprovalGrantSchema.parse(grantInput);
+  const grantScopes = grant.scopes.map(scopeKey).sort();
+  const bindingScopes = binding.scopes.map(scopeKey).sort();
+  return (
+    grant.approval_id === binding.approval_id &&
+    grant.principal_id === binding.principal_id &&
+    grant.tool === binding.tool &&
+    grant.safety_class === binding.safety_class &&
+    grant.request_hash === binding.request_hash &&
+    grantScopes.length === bindingScopes.length &&
+    grantScopes.every((scope, index) => scope === bindingScopes[index]) &&
+    Date.parse(verifiedAt) >= Date.parse(grant.issued_at) &&
+    Date.parse(verifiedAt) < Date.parse(grant.expires_at)
+  );
+}
 
 export const LocalPrincipalSchema = z
   .object({
@@ -385,6 +453,10 @@ export const ContextSliceSchema = z
 
 export type AuthorityDecision = z.infer<typeof AuthorityDecisionSchema>;
 export type ApprovalGrant = z.infer<typeof ApprovalGrantSchema>;
+export type ApprovalBinding = z.infer<typeof ApprovalBindingSchema>;
+export type ApprovalRegistryManifest = z.infer<
+  typeof ApprovalRegistryManifestSchema
+>;
 export type ContextSlice = z.infer<typeof ContextSliceSchema>;
 export type GovernedResponse = z.infer<typeof GovernedResponseSchema>;
 export type LocalPrincipal = z.infer<typeof LocalPrincipalSchema>;

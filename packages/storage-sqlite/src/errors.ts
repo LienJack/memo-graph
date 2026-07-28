@@ -3,6 +3,7 @@ export const STORAGE_ERROR_CODES = [
   "INVALID_INPUT",
   "CONFLICT",
   "STALE_REVISION",
+  "APPROVAL_INVALID",
   "INCOMPLETE_PURGE",
   "STALE_TOMBSTONE_FRONTIER",
   "CORRUPTION",
@@ -26,6 +27,8 @@ const PUBLIC_MESSAGES: Record<StorageErrorCode, string> = {
   INVALID_INPUT: "the storage request is invalid",
   CONFLICT: "the storage request conflicts with durable state",
   STALE_REVISION: "the expected memory revision is no longer current",
+  APPROVAL_INVALID:
+    "the trusted approval is invalid, expired, changed, or already consumed",
   INCOMPLETE_PURGE: "the purge still has residual or failed stores",
   STALE_TOMBSTONE_FRONTIER:
     "the backup predates the required tombstone frontier",

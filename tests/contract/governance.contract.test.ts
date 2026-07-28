@@ -10,7 +10,9 @@ import {
   MemoryProposeInputSchema,
   MemoryStatusEventSchema,
   MemoryUsageRuleSchema,
+  MemoryUsageSetInputSchema,
   PurgeReceiptSchema,
+  canonicalSha256Omitting,
   receiptHashIsValid,
   sealReceipt,
 } from "../../packages/contracts/src/index.js";
@@ -28,6 +30,7 @@ function mutationEnvelope(
   tool:
     | "memory_correct"
     | "memory_pin"
+    | "memory_usage_set"
     | "memory_delete",
   safetyClass: "important_mutation" | "destructive",
 ) {
@@ -163,6 +166,26 @@ describe("L1 governance contracts", () => {
         pinned: true,
       }).success,
     ).toBe(true);
+    const usage = {
+      envelope: mutationEnvelope(
+        "memory_usage_set",
+        "important_mutation",
+      ),
+      memory_id: "memory_pref",
+      effect: "block",
+    } as const;
+    expect(
+      MemoryUsageSetInputSchema.safeParse({
+        ...usage,
+        context_scope: USER_SCOPE,
+      }).success,
+    ).toBe(true);
+    expect(
+      MemoryUsageSetInputSchema.safeParse({
+        ...usage,
+        context_scope: { kind: "workspace", id: "foreign_workspace" },
+      }).success,
+    ).toBe(false);
   });
 
   it("requires request-bound approval for an effect but not a dry run", () => {
@@ -209,7 +232,7 @@ describe("L1 governance contracts", () => {
   });
 
   it("binds approval grants to one important or destructive request", () => {
-    const grant = {
+    const unsignedGrant = {
       schema_version: "1.0.0",
       approval_id: "approval_1",
       principal_id: "user_local",
@@ -219,7 +242,13 @@ describe("L1 governance contracts", () => {
       request_hash: HASH_A,
       issued_at: NOW,
       expires_at: LATER,
-      manifest_hash: HASH_B,
+      manifest_hash: `sha256:${"0".repeat(64)}`,
+    } as const;
+    const grant = {
+      ...unsignedGrant,
+      manifest_hash: canonicalSha256Omitting(unsignedGrant, [
+        "manifest_hash",
+      ]),
     } as const;
 
     expect(ApprovalGrantSchema.safeParse(grant).success).toBe(true);

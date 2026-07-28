@@ -1,11 +1,18 @@
 import {
   GovernedResponseSchema,
   MemoryContextCompileInputSchema,
+  MemoryCorrectInputSchema,
+  MemoryDeleteInputSchema,
+  MemoryDemoteInputSchema,
   MemoryEpisodeCommitInputSchema,
   MemoryExplainInputSchema,
   MemoryGetInputSchema,
   MemoryReceiptGetInputSchema,
+  MemoryPinInputSchema,
+  MemoryProposeInputSchema,
+  MemoryRevokeInputSchema,
   MemorySearchInputSchema,
+  MemoryUsageSetInputSchema,
   ScopeSchema,
   canonicalJson,
 } from "@memo-graph/contracts";
@@ -15,6 +22,8 @@ import {
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+
+import { LocalManifestApprovalRegistry } from "./mutations.js";
 
 export const MEMORY_MCP_SERVER_VERSION = "0.1.0";
 
@@ -35,7 +44,8 @@ export const MemoryServerConfigSchema = z
         ]),
       )
       .min(1),
-    destructive_tools_enabled: z.literal(false),
+    destructive_tools_enabled: z.boolean().default(false),
+    approval_manifest_path: z.string().trim().min(1).optional(),
     default_token_budget: z
       .number()
       .int()
@@ -104,6 +114,76 @@ export const MEMORY_TOOL_METADATA = [
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_propose",
+    safety_class: "proposal",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_correct",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_pin",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_demote",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_usage_set",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_revoke",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_delete",
+    safety_class: "destructive",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: false,
     },
@@ -225,6 +305,91 @@ export function createMemoryMcpServer(options: {
     async (input) =>
       toolResult(await options.runtime.memoryEpisodeCommit(input)),
   );
+  server.registerTool(
+    "memory_propose",
+    {
+      title: "Propose governed memory",
+      description:
+        "Evaluate evidence-backed candidate memory and admit it under canonical governance.",
+      inputSchema: MemoryProposeInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_propose"),
+    },
+    async (input) => toolResult(await options.runtime.memoryPropose(input)),
+  );
+  server.registerTool(
+    "memory_correct",
+    {
+      title: "Correct governed memory",
+      description:
+        "Create an immutable successor revision using exact-revision compare-and-swap and trusted approval.",
+      inputSchema: MemoryCorrectInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_correct"),
+    },
+    async (input) => toolResult(await options.runtime.memoryCorrect(input)),
+  );
+  server.registerTool(
+    "memory_pin",
+    {
+      title: "Pin governed memory",
+      description:
+        "Change retention preference without changing authority or eligibility.",
+      inputSchema: MemoryPinInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_pin"),
+    },
+    async (input) => toolResult(await options.runtime.memoryPin(input)),
+  );
+  server.registerTool(
+    "memory_demote",
+    {
+      title: "Demote governed memory",
+      description:
+        "Move an active memory back to candidate state without deleting evidence.",
+      inputSchema: MemoryDemoteInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_demote"),
+    },
+    async (input) => toolResult(await options.runtime.memoryDemote(input)),
+  );
+  server.registerTool(
+    "memory_usage_set",
+    {
+      title: "Set governed memory Context usage",
+      description:
+        "Allow or block one memory in a global or exact Context scope.",
+      inputSchema: MemoryUsageSetInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_usage_set"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.memoryUsageSet(input)),
+  );
+  server.registerTool(
+    "memory_revoke",
+    {
+      title: "Revoke governed memory",
+      description:
+        "Immediately remove a memory from governed recall while preserving audit history.",
+      inputSchema: MemoryRevokeInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_revoke"),
+    },
+    async (input) => toolResult(await options.runtime.memoryRevoke(input)),
+  );
+  server.registerTool(
+    "memory_delete",
+    {
+      title: "Delete governed memory",
+      description:
+        "Commit a tombstone and begin the governed purge workflow when destructive tools are enabled.",
+      inputSchema: MemoryDeleteInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_delete"),
+    },
+    async (input) => toolResult(await options.runtime.memoryDelete(input)),
+  );
 
   server.registerResource(
     "runtime-health",
@@ -310,6 +475,13 @@ export async function openMemoryRuntime(configInput: unknown): Promise<{
     storage,
     runtime: new MemoryRuntime({
       storage,
+      ...(config.approval_manifest_path === undefined
+        ? {}
+        : {
+            approvalRegistry: new LocalManifestApprovalRegistry({
+              manifestPath: config.approval_manifest_path,
+            }),
+          }),
       policy: {
         principal: {
           principal_id: config.principal_id,
