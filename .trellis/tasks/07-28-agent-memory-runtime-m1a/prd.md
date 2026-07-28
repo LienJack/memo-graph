@@ -61,23 +61,23 @@ This child does not add or renumber product requirements.
 
 ## Acceptance Criteria
 
-- [ ] `pnpm test:storage` passes schema, constraints, append-only,
+- [x] `pnpm test:storage` passes schema, constraints, append-only,
   idempotency, scope isolation, blob, outbox, FTS, checkpoint, and backup tests.
-- [ ] `pnpm test:recovery -- writer-restart` proves crash-after-commit retry
+- [x] `pnpm test:recovery -- writer-restart` proves crash-after-commit retry
   returns the original receipt and creates no duplicate episode/evidence rows.
-- [ ] A worker-blocking probe proves the caller event loop continues to make
+- [x] A worker-blocking probe proves the caller event loop continues to make
   progress while SQLite work is running.
-- [ ] Forward migrations are recorded with immutable SHA-256 hashes and reject
+- [x] Forward migrations are recorded with immutable SHA-256 hashes and reject
   drift or downgrade.
-- [ ] The database and blob root are private by default and unsafe relative,
+- [x] The database and blob root are private by default and unsafe relative,
   root, URL-like, and symlink escape paths fail closed.
-- [ ] Canonical tables reject UPDATE/DELETE; projection and operational state
+- [x] Canonical tables reject UPDATE/DELETE; projection and operational state
   may change only through named worker operations.
-- [ ] FTS can be dropped/rebuilt from SQLite without changing canonical hashes
+- [x] FTS can be dropped/rebuilt from SQLite without changing canonical hashes
   or ledger epoch.
-- [ ] Backup verification opens the copy, runs `integrity_check`, and matches
+- [x] Backup verification opens the copy, runs `integrity_check`, and matches
   the source canonical frontier.
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm build`, and the existing M0 suites
+- [x] `pnpm lint`, `pnpm typecheck`, `pnpm build`, and the existing M0 suites
   remain green on Node 24.18.0.
 - [ ] `docs/evaluations/g1a-storage-decision.md` records commit, lock,
   migration, platform, test, recovery, and known-debt evidence with `GO` or

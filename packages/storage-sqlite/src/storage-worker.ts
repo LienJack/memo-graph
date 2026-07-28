@@ -1,0 +1,147 @@
+import { parentPort, workerData } from "node:worker_threads";
+
+import { z } from "zod";
+
+import { prepareDataRoot } from "./data-root.js";
+import { StorageDatabase } from "./database.js";
+import {
+  StorageError,
+  serializeStorageError,
+} from "./errors.js";
+import {
+  CommitEpisodeCommandSchema,
+  SearchEvidenceQuerySchema,
+  WorkerRequestSchema,
+} from "./protocol.js";
+
+const WorkerOptionsSchema = z
+  .object({
+    dataRoot: z.string(),
+    migrationsDir: z.string(),
+    busyTimeoutMs: z.number().int().min(1).max(120_000),
+    testOperations: z.boolean(),
+    exitAfterCommitBeforeResponse: z.boolean(),
+  })
+  .strict();
+
+const options = WorkerOptionsSchema.parse(workerData);
+let database: StorageDatabase | undefined;
+let initializationError: unknown;
+let exitAfterCommitBeforeResponse =
+  options.exitAfterCommitBeforeResponse;
+
+try {
+  database = new StorageDatabase({
+    layout: prepareDataRoot(options.dataRoot),
+    migrationsDir: options.migrationsDir,
+    busyTimeoutMs: options.busyTimeoutMs,
+  });
+} catch (error) {
+  initializationError = error;
+}
+
+if (parentPort === null) {
+  throw new Error("storage worker requires a parent port");
+}
+
+const port = parentPort;
+let operationChain: Promise<void> = Promise.resolve();
+
+port.on("message", (message: unknown) => {
+  operationChain = operationChain.then(async () => {
+    let requestId = "00000000-0000-4000-8000-000000000000";
+    try {
+      const request = WorkerRequestSchema.parse(message);
+      requestId = request.requestId;
+      if (initializationError !== undefined) {
+        throw initializationError;
+      }
+      if (database === undefined) {
+        throw new StorageError("STORAGE_UNAVAILABLE");
+      }
+
+      let result: unknown;
+      switch (request.operation) {
+        case "health":
+          result = database.health();
+          break;
+        case "commit_episode": {
+          const committed = database.commitEpisode(
+            CommitEpisodeCommandSchema.parse(request.payload),
+          );
+          if (committed.committed && exitAfterCommitBeforeResponse) {
+            exitAfterCommitBeforeResponse = false;
+            process.exit(91);
+          }
+          result = committed.receipt;
+          break;
+        }
+        case "drain_fts":
+          result = database.drainFtsOutbox();
+          break;
+        case "search_evidence":
+          result = database.searchEvidence(
+            SearchEvidenceQuerySchema.parse(request.payload),
+          );
+          break;
+        case "rebuild_fts":
+          result = database.rebuildFts();
+          break;
+        case "checkpoint":
+          result = database.checkpoint();
+          break;
+        case "backup":
+          result = await database.createBackup();
+          break;
+        case "verify_artifacts":
+          result = database.verifyArtifacts();
+          break;
+        case "test_block": {
+          if (!options.testOperations) {
+            throw new StorageError("INVALID_INPUT");
+          }
+          const milliseconds = z.number().int().min(1).max(2_000).parse(
+            request.payload,
+          );
+          database.blockForTest(milliseconds);
+          result = { blocked_ms: milliseconds };
+          break;
+        }
+        case "test_hold_write_lock": {
+          if (!options.testOperations) {
+            throw new StorageError("INVALID_INPUT");
+          }
+          const milliseconds = z.number().int().min(1).max(2_000).parse(
+            request.payload,
+          );
+          database.holdWriteLockForTest(milliseconds);
+          result = { blocked_ms: milliseconds };
+          break;
+        }
+        case "close":
+          database.close();
+          result = null;
+          break;
+      }
+
+      port.postMessage({
+        requestId,
+        ok: true,
+        result,
+      });
+      if (request.operation === "close") {
+        setImmediate(() => port.close());
+      }
+    } catch (error) {
+      const normalized =
+        error instanceof z.ZodError
+          ? new StorageError("INVALID_INPUT")
+          : error;
+      port.postMessage({
+        requestId,
+        ok: false,
+        error: serializeStorageError(normalized),
+      });
+    }
+  });
+});

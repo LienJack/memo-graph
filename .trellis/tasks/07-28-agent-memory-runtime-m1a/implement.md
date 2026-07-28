@@ -4,64 +4,64 @@
 
 - [x] Validate and activate this child task.
 - [x] Pin its branch and bounded implementation/check context.
-- [ ] Add storage, recovery, and benchmark scripts without weakening M0 gates.
-- [ ] Write failing tests for the invariants before production behavior.
+- [x] Add storage, recovery, and benchmark scripts without weakening M0 gates.
+- [x] Write failing tests for the invariants before production behavior.
 
 ## 2. Data root and migrations
 
-- [ ] Implement absolute/local/private data-root validation and directory
+- [x] Implement absolute/local/private data-root validation and directory
   creation.
-- [ ] Add `0001-evidence-ledger.sql` with canonical, idempotency, receipt,
+- [x] Add `0001-evidence-ledger.sql` with canonical, idempotency, receipt,
   outbox, operations, and append-only constraints.
-- [ ] Add `0002-fts-baseline.sql` with FTS5 and projection health.
-- [ ] Implement forward-only migration discovery, hashing, application, drift
+- [x] Add `0002-fts-baseline.sql` with FTS5 and projection health.
+- [x] Implement forward-only migration discovery, hashing, application, drift
   rejection, and downgrade rejection.
-- [ ] Configure WAL, foreign keys, synchronous durability, busy handling,
+- [x] Configure WAL, foreign keys, synchronous durability, busy handling,
   trusted-schema posture, defensive limits, and checkpoints.
 
 ## 3. Worker boundary
 
-- [ ] Add runtime-decoded worker request/response envelopes.
-- [ ] Implement the dedicated worker as the sole driver owner.
-- [ ] Implement a serialized writer queue with depth/age metrics.
-- [ ] Prove a slow synchronous worker operation does not block the caller event
+- [x] Add runtime-decoded worker request/response envelopes.
+- [x] Implement the dedicated worker as the sole driver owner.
+- [x] Implement a serialized writer queue with depth/age metrics.
+- [x] Prove a slow synchronous worker operation does not block the caller event
   loop.
-- [ ] Map worker exit and SQLite errors to typed storage errors without content
+- [x] Map worker exit and SQLite errors to typed storage errors without content
   leakage.
 
 ## 4. Canonical L0 commit
 
-- [ ] Implement content-addressed blob verification and atomic writes.
-- [ ] Verify EvidenceRecord content hashes and Episode sealed hashes.
-- [ ] Atomically persist evidence, episode membership, epoch, FTS outbox,
+- [x] Implement content-addressed blob verification and atomic writes.
+- [x] Verify EvidenceRecord content hashes and Episode sealed hashes.
+- [x] Atomically persist evidence, episode membership, epoch, FTS outbox,
   mutation receipt, and idempotency mapping.
-- [ ] Return stored receipts for identical retries and reject key/hash
+- [x] Return stored receipts for identical retries and reject key/hash
   conflicts.
-- [ ] Enforce append-only canonical tables at the database boundary.
+- [x] Enforce append-only canonical tables at the database boundary.
 
 ## 5. FTS5 derived lane
 
-- [ ] Implement idempotent FTS outbox draining.
-- [ ] Implement exact-scope search with typed OK, NO_MATCH, and DEGRADED
+- [x] Implement idempotent FTS outbox draining.
+- [x] Implement exact-scope search with typed OK, NO_MATCH, and DEGRADED
   results.
-- [ ] Implement observable projection health and deterministic FTS rebuild.
-- [ ] Prove read/search/rebuild cannot change canonical rows or ledger epoch.
+- [x] Implement observable projection health and deterministic FTS rebuild.
+- [x] Prove read/search/rebuild cannot change canonical rows or ledger epoch.
 
 ## 6. Backup and recovery
 
-- [ ] Implement worker-owned checkpoint and verified backup.
-- [ ] Record backup manifests only after integrity and frontier verification.
-- [ ] Add one-shot crash-after-commit fault injection for recovery tests.
-- [ ] Prove restart retry returns the original receipt with no duplicates.
-- [ ] Prove migration drift and corrupt blob states fail closed.
+- [x] Implement worker-owned checkpoint and verified backup.
+- [x] Record backup manifests only after integrity and frontier verification.
+- [x] Add one-shot crash-after-commit fault injection for recovery tests.
+- [x] Prove restart retry returns the original receipt with no duplicates.
+- [x] Prove migration drift and corrupt blob states fail closed.
 
 ## 7. Gate G1A
 
-- [ ] Run `pnpm test:contract` and `pnpm test:fixtures`.
-- [ ] Run `pnpm test:storage`.
-- [ ] Run `pnpm test:recovery -- writer-restart`.
-- [ ] Run storage baseline benchmark and record the workload actually tested.
-- [ ] Run `pnpm lint`, `pnpm typecheck`, `pnpm build`, frozen install, and
+- [x] Run `pnpm test:contract` and `pnpm test:fixtures`.
+- [x] Run `pnpm test:storage`.
+- [x] Run `pnpm test:recovery -- writer-restart`.
+- [x] Run storage baseline benchmark and record the workload actually tested.
+- [x] Run `pnpm lint`, `pnpm typecheck`, `pnpm build`, frozen install, and
   high-severity audit on Node 24.18.0.
 - [ ] Record implementation commit, lock/migration hashes, platform, test,
   recovery, performance, and open debt in

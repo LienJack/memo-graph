@@ -1,0 +1,352 @@
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { performance } from "node:perf_hooks";
+import { Worker } from "node:worker_threads";
+
+import { MutationReceiptSchema } from "@memo-graph/contracts";
+import { z } from "zod";
+
+import { prepareDataRoot } from "./data-root.js";
+import {
+  StorageError,
+  deserializeStorageError,
+} from "./errors.js";
+import {
+  BackupResultSchema,
+  BlockWorkerResultSchema,
+  CheckpointResultSchema,
+  CommitEpisodeCommandSchema,
+  DrainFtsResultSchema,
+  RebuildFtsResultSchema,
+  SearchEvidenceQuerySchema,
+  SearchEvidenceResultSchema,
+  StorageHealthSchema,
+  VerifyArtifactsResultSchema,
+  WorkerResponseSchema,
+  type BackupResult,
+  type BlockWorkerResult,
+  type CheckpointResult,
+  type DrainFtsResult,
+  type DurableEpisodeReceipt,
+  type RebuildFtsResult,
+  type SearchEvidenceResult,
+  type StorageHealth,
+  type VerifyArtifactsResult,
+  type WorkerOperation,
+} from "./protocol.js";
+import { WriterQueue, type WriterQueueMetrics } from "./writer-queue.js";
+
+export type StorageDiagnostic = {
+  operation: WorkerOperation;
+  duration_ms: number;
+  queue: WriterQueueMetrics;
+  outcome: "ok" | "error";
+  error_code?: string;
+};
+
+export type SqliteStorageClientOptions = {
+  dataRoot: string;
+  migrationsDir?: string;
+  busyTimeoutMs?: number;
+  testOperations?: boolean;
+  testFaults?: {
+    exitAfterCommitBeforeResponseOnce?: boolean;
+  };
+  onDiagnostic?: (diagnostic: StorageDiagnostic) => void;
+};
+
+export type StorageClientHealth = StorageHealth & {
+  writer_queue: WriterQueueMetrics;
+};
+
+type PendingRequest = {
+  operation: WorkerOperation;
+  schema: z.ZodType;
+  resolve: (value: unknown) => void;
+  reject: (error: unknown) => void;
+  startedAt: number;
+};
+
+const NullSchema = z.null();
+
+export class SqliteStorageClient {
+  readonly #options: {
+    dataRoot: string;
+    migrationsDir: string;
+    busyTimeoutMs: number;
+    testOperations: boolean;
+    onDiagnostic: ((diagnostic: StorageDiagnostic) => void) | undefined;
+  };
+  readonly #writerQueue = new WriterQueue();
+  readonly #pending = new Map<string, PendingRequest>();
+  #worker: Worker | undefined;
+  #closed = false;
+  #closing = false;
+  #faultOnNextWorker = false;
+
+  private constructor(options: SqliteStorageClientOptions) {
+    const layout = prepareDataRoot(options.dataRoot);
+    this.#options = {
+      dataRoot: layout.root,
+      migrationsDir:
+        options.migrationsDir ??
+        fileURLToPath(new URL("../../../migrations", import.meta.url)),
+      busyTimeoutMs: options.busyTimeoutMs ?? 5_000,
+      testOperations: options.testOperations ?? false,
+      onDiagnostic: options.onDiagnostic,
+    };
+    this.#faultOnNextWorker =
+      options.testFaults?.exitAfterCommitBeforeResponseOnce ?? false;
+  }
+
+  static async open(
+    options: SqliteStorageClientOptions,
+  ): Promise<SqliteStorageClient> {
+    const client = new SqliteStorageClient(options);
+    try {
+      await client.health();
+      return client;
+    } catch (error) {
+      await client.#abort();
+      throw error;
+    }
+  }
+
+  async health(): Promise<StorageClientHealth> {
+    const result = await this.#request("health", null, StorageHealthSchema);
+    return {
+      ...result,
+      writer_queue: this.#writerQueue.metrics(),
+    };
+  }
+
+  commitEpisode(
+    input: unknown,
+  ): Promise<DurableEpisodeReceipt> {
+    const command = CommitEpisodeCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "commit_episode",
+        command,
+        MutationReceiptSchema,
+      ),
+    );
+  }
+
+  drainFtsOutbox(): Promise<DrainFtsResult> {
+    return this.#writerQueue.enqueue(() =>
+      this.#request("drain_fts", null, DrainFtsResultSchema),
+    );
+  }
+
+  searchEvidence(input: unknown): Promise<SearchEvidenceResult> {
+    const query = SearchEvidenceQuerySchema.parse(input);
+    return this.#request(
+      "search_evidence",
+      query,
+      SearchEvidenceResultSchema,
+    );
+  }
+
+  rebuildFts(): Promise<RebuildFtsResult> {
+    return this.#writerQueue.enqueue(() =>
+      this.#request("rebuild_fts", null, RebuildFtsResultSchema),
+    );
+  }
+
+  checkpoint(): Promise<CheckpointResult> {
+    return this.#writerQueue.enqueue(() =>
+      this.#request("checkpoint", null, CheckpointResultSchema),
+    );
+  }
+
+  createBackup(): Promise<BackupResult> {
+    return this.#writerQueue.enqueue(() =>
+      this.#request("backup", null, BackupResultSchema),
+    );
+  }
+
+  verifyArtifacts(): Promise<VerifyArtifactsResult> {
+    return this.#request(
+      "verify_artifacts",
+      null,
+      VerifyArtifactsResultSchema,
+    );
+  }
+
+  blockWorkerForTest(milliseconds: number): Promise<BlockWorkerResult> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("INVALID_INPUT"));
+    }
+    return this.#request(
+      "test_block",
+      milliseconds,
+      BlockWorkerResultSchema,
+    );
+  }
+
+  holdWriteLockForTest(milliseconds: number): Promise<BlockWorkerResult> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("INVALID_INPUT"));
+    }
+    return this.#request(
+      "test_hold_write_lock",
+      milliseconds,
+      BlockWorkerResultSchema,
+    );
+  }
+
+  async close(): Promise<void> {
+    if (this.#closed) {
+      return;
+    }
+    this.#closing = true;
+    const worker = this.#worker;
+    if (worker !== undefined) {
+      try {
+        await this.#request("close", null, NullSchema);
+      } catch (error) {
+        if (
+          !(error instanceof StorageError) ||
+          error.code !== "WORKER_CRASHED"
+        ) {
+          throw error;
+        }
+      } finally {
+        await worker.terminate();
+      }
+    }
+    this.#worker = undefined;
+    this.#closed = true;
+    this.#closing = false;
+  }
+
+  async #request<T>(
+    operation: WorkerOperation,
+    payload: unknown,
+    schema: z.ZodType<T>,
+  ): Promise<T> {
+    if (this.#closed || (this.#closing && operation !== "close")) {
+      throw new StorageError("STORAGE_UNAVAILABLE");
+    }
+    const worker = this.#ensureWorker();
+    const requestId = randomUUID();
+
+    return new Promise<T>((resolve, reject) => {
+      this.#pending.set(requestId, {
+        operation,
+        schema,
+        resolve: (value) => resolve(value as T),
+        reject,
+        startedAt: performance.now(),
+      });
+      try {
+        worker.postMessage({ requestId, operation, payload });
+      } catch {
+        this.#pending.delete(requestId);
+        reject(new StorageError("WORKER_CRASHED", { retryable: true }));
+      }
+    });
+  }
+
+  #ensureWorker(): Worker {
+    if (this.#worker !== undefined) {
+      return this.#worker;
+    }
+    const fault = this.#faultOnNextWorker;
+    this.#faultOnNextWorker = false;
+    const worker = new Worker(new URL("./storage-worker.js", import.meta.url), {
+      workerData: {
+        dataRoot: this.#options.dataRoot,
+        migrationsDir: this.#options.migrationsDir,
+        busyTimeoutMs: this.#options.busyTimeoutMs,
+        testOperations: this.#options.testOperations,
+        exitAfterCommitBeforeResponse: fault,
+      },
+    });
+    this.#worker = worker;
+
+    worker.on("message", (message: unknown) => {
+      const response = WorkerResponseSchema.safeParse(message);
+      if (!response.success) {
+        this.#rejectAll(new StorageError("WORKER_CRASHED", { retryable: true }));
+        return;
+      }
+      const pending = this.#pending.get(response.data.requestId);
+      if (pending === undefined) {
+        return;
+      }
+      this.#pending.delete(response.data.requestId);
+
+      if (!response.data.ok) {
+        const error = deserializeStorageError(response.data.error);
+        this.#emitDiagnostic(pending, "error", error.code);
+        pending.reject(error);
+        return;
+      }
+
+      const parsed = pending.schema.safeParse(response.data.result);
+      if (!parsed.success) {
+        const error = new StorageError("CORRUPTION");
+        this.#emitDiagnostic(pending, "error", error.code);
+        pending.reject(error);
+        return;
+      }
+      this.#emitDiagnostic(pending, "ok");
+      pending.resolve(parsed.data);
+    });
+
+    worker.on("error", () => {
+      this.#rejectAll(new StorageError("WORKER_CRASHED", { retryable: true }));
+    });
+    worker.on("exit", () => {
+      if (this.#worker === worker) {
+        this.#worker = undefined;
+      }
+      if (!this.#closing) {
+        this.#rejectAll(
+          new StorageError("WORKER_CRASHED", { retryable: true }),
+        );
+      }
+    });
+    return worker;
+  }
+
+  #rejectAll(error: StorageError): void {
+    for (const pending of this.#pending.values()) {
+      this.#emitDiagnostic(pending, "error", error.code);
+      pending.reject(error);
+    }
+    this.#pending.clear();
+  }
+
+  #emitDiagnostic(
+    pending: PendingRequest,
+    outcome: "ok" | "error",
+    errorCode?: string,
+  ): void {
+    const diagnostic: StorageDiagnostic = {
+      operation: pending.operation,
+      duration_ms:
+        Math.round((performance.now() - pending.startedAt) * 1_000) / 1_000,
+      queue: this.#writerQueue.metrics(),
+      outcome,
+      ...(errorCode === undefined ? {} : { error_code: errorCode }),
+    };
+    try {
+      this.#options.onDiagnostic?.(diagnostic);
+    } catch {
+      // Diagnostics are observational and cannot change storage outcomes.
+    }
+  }
+
+  async #abort(): Promise<void> {
+    this.#closing = true;
+    if (this.#worker !== undefined) {
+      await this.#worker.terminate();
+    }
+    this.#worker = undefined;
+    this.#closed = true;
+    this.#closing = false;
+  }
+}

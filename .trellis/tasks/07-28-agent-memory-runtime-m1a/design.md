@@ -104,11 +104,17 @@ content is reused. Existing mismatched content is a corruption error.
 
 ## Backup and recovery
 
-Backup runs inside the storage worker to a uniquely named file under
-`backups/`. After the driver backup completes, the worker opens the copy
-read-only, runs `integrity_check`, verifies migration hashes, and compares the
-ledger epoch plus latest receipt frontier. Only then is a backup manifest
-inserted.
+Backup runs inside the storage worker to a uniquely named snapshot under
+`backups/`. The snapshot contains the online SQLite backup plus copies of all
+referenced blobs. After the driver backup and blob hash/fsync pass, the worker
+opens the database copy read-only, runs `integrity_check`, verifies migration
+hashes, and compares the ledger epoch plus latest receipt frontier. Only then
+is a backup manifest inserted.
+
+Offline restore accepts only a nonexistent target root. It restores to a
+private staging root, opens the copy through the normal worker boundary,
+verifies the frontier and every blob, then atomically renames the staged root
+into place.
 
 The restart test enables a one-shot worker fault after the canonical commit and
 before the response. The client observes `WORKER_CRASHED`, starts a fresh

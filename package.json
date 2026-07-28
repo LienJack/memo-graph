@@ -9,12 +9,16 @@
     "pnpm": "10.33.2"
   },
   "scripts": {
-    "build": "pnpm --filter @memo-graph/contracts build",
+    "build": "pnpm --filter @memo-graph/contracts build && pnpm --filter @memo-graph/storage-sqlite build",
+    "build:storage": "pnpm --filter @memo-graph/contracts build && pnpm --filter @memo-graph/storage-sqlite build",
+    "benchmark:storage": "pnpm build:storage && node packages/storage-sqlite/dist/benchmark.js",
     "lint": "eslint .",
     "test": "vitest run",
     "test:contract": "vitest run tests/contract",
     "test:fixtures": "vitest run tests/fixtures",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p packages/contracts/tsconfig.json --noEmit"
+    "test:recovery": "pnpm build:storage && vitest run tests/recovery",
+    "test:storage": "pnpm build:storage && vitest run tests/storage",
+    "typecheck": "pnpm build:storage && tsc -p tsconfig.json --noEmit && tsc -p packages/contracts/tsconfig.json --noEmit && tsc -p packages/storage-sqlite/tsconfig.json --noEmit"
   },
   "dependencies": {
     "zod": "4.4.3"
@@ -22,6 +26,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@modelcontextprotocol/server": "2.0.0",
+    "@memo-graph/storage-sqlite": "workspace:*",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "24.13.3",
     "better-sqlite3": "13.0.1",
