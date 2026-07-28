@@ -53,7 +53,7 @@ function directoryBytes(path: string): number {
   );
 }
 
-function benchmarkCommand(index: number) {
+export function storageBenchmarkCommand(index: number) {
   const occurredAt = new Date(
     Date.UTC(2026, 6, 28, 0, 0, 0, index),
   ).toISOString();
@@ -117,7 +117,7 @@ export async function runStorageBenchmark(
   try {
     for (let index = 0; index < eventCount; index += 1) {
       const operationStartedAt = performance.now();
-      await client.commitEpisode(benchmarkCommand(index));
+      await client.commitEpisode(storageBenchmarkCommand(index));
       commitLatencies.push(performance.now() - operationStartedAt);
     }
 
@@ -138,6 +138,7 @@ export async function runStorageBenchmark(
       const operationStartedAt = performance.now();
       const result = await client.searchEvidence({
         query: `context item ${index % Math.max(1, eventCount)}`,
+        principal_id: "benchmark_user",
         scope: { kind: "workspace", id: "benchmark_workspace" },
         limit: 20,
       });

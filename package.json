@@ -9,24 +9,29 @@
     "pnpm": "10.33.2"
   },
   "scripts": {
-    "build": "pnpm --filter @memo-graph/contracts build && pnpm --filter @memo-graph/storage-sqlite build",
+    "build": "pnpm build:runtime",
+    "build:runtime": "pnpm --filter @memo-graph/contracts build && pnpm --filter @memo-graph/storage-sqlite build && pnpm --filter @memo-graph/context-compiler build && pnpm --filter @memo-graph/memory-kernel build && pnpm --filter @memo-graph/mcp-server build",
     "build:storage": "pnpm --filter @memo-graph/contracts build && pnpm --filter @memo-graph/storage-sqlite build",
     "benchmark:storage": "pnpm build:storage && node packages/storage-sqlite/dist/benchmark.js",
+    "benchmark:baseline": "pnpm build:runtime && node packages/memory-kernel/dist/benchmark.js",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "pnpm build:runtime && vitest run",
     "test:contract": "vitest run tests/contract",
     "test:fixtures": "vitest run tests/fixtures",
+    "test:integration": "pnpm build:runtime && vitest run tests/integration",
+    "test:mcp": "pnpm build:runtime && vitest run tests/mcp",
     "test:recovery": "pnpm build:storage && vitest run tests/recovery",
     "test:storage": "pnpm build:storage && vitest run tests/storage",
-    "typecheck": "pnpm build:storage && tsc -p tsconfig.json --noEmit && tsc -p packages/contracts/tsconfig.json --noEmit && tsc -p packages/storage-sqlite/tsconfig.json --noEmit"
+    "typecheck": "pnpm build:runtime && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@modelcontextprotocol/server": "2.0.0",
     "@memo-graph/storage-sqlite": "workspace:*",
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "24.13.3",
     "better-sqlite3": "13.0.1",

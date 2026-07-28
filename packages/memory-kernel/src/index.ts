@@ -1,0 +1,582 @@
+import { createHash } from "node:crypto";
+
+import {
+  CONTEXT_COMPILER_VERSION,
+  CONTEXT_POLICY_VERSION,
+  compileContext,
+  l0MemoryIdentity,
+  type ContextCandidate,
+} from "@memo-graph/context-compiler";
+import {
+  GovernedResponseSchema,
+  LocalPrincipalSchema,
+  MemoryContextCompileInputSchema,
+  MemoryEpisodeCommitInputSchema,
+  MemoryExplainInputSchema,
+  MemoryGetInputSchema,
+  MemoryReceiptGetInputSchema,
+  MemorySearchInputSchema,
+  RecallRequestSchema,
+  RetrievalReceiptSchema,
+  authorizeRequestClaims,
+  canonicalJson,
+  canonicalSha256,
+  scopeKey,
+  sealReceipt,
+} from "@memo-graph/contracts";
+import type {
+  EvidenceRecordSchema,
+  ProposalRequestEnvelopeSchema,
+  ReadRequestEnvelopeSchema,
+  ScopeSchema,
+} from "@memo-graph/contracts";
+import {
+  StorageError,
+} from "@memo-graph/storage-sqlite";
+import type { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { z } from "zod";
+
+export const MemoryRuntimePolicySchema = z
+  .object({
+    principal: LocalPrincipalSchema,
+    default_token_budget: z.number().int().positive().max(32_000).default(1_800),
+  })
+  .strict();
+
+export type MemoryRuntimePolicy = z.input<typeof MemoryRuntimePolicySchema>;
+export type GovernedResponse = z.infer<typeof GovernedResponseSchema>;
+
+type ReadEnvelope = z.output<typeof ReadRequestEnvelopeSchema>;
+type ProposalEnvelope = z.output<typeof ProposalRequestEnvelopeSchema>;
+type RuntimeEnvelope = ReadEnvelope | ProposalEnvelope;
+type RetrievalAuditItem = {
+  evidence: z.output<typeof EvidenceRecordSchema>;
+  decision: "included" | "excluded";
+  reason_code: string;
+  lane: string;
+  score: number | null;
+};
+
+function stableIdentifier(prefix: string, value: unknown): string {
+  const digest = createHash("sha256")
+    .update(canonicalJson(value), "utf8")
+    .digest("hex");
+  return `${prefix}:${digest.slice(0, 48)}`;
+}
+
+function publicFailure(
+  code:
+    | "INVALID_INPUT"
+    | "PERMISSION_DENIED"
+    | "CONFLICT"
+    | "PROJECTION_UNAVAILABLE"
+    | "INTERNAL_FAILURE",
+  message: string,
+  retryable = false,
+): GovernedResponse {
+  return GovernedResponseSchema.parse({
+    status: "FAILED",
+    receipt_id: null,
+    error: { code, message, retryable, details: {} },
+  });
+}
+
+function storageFailure(error: StorageError): GovernedResponse {
+  if (error.code === "CONFLICT") {
+    return publicFailure("CONFLICT", error.message, error.retryable);
+  }
+  if (
+    error.code === "INVALID_INPUT" ||
+    error.code === "INVALID_DATA_ROOT" ||
+    error.code === "ENCRYPTION_REQUIRED"
+  ) {
+    return publicFailure("INVALID_INPUT", error.message, error.retryable);
+  }
+  if (error.code === "FTS_UNAVAILABLE") {
+    return publicFailure(
+      "PROJECTION_UNAVAILABLE",
+      error.message,
+      error.retryable,
+    );
+  }
+  return publicFailure("INTERNAL_FAILURE", error.message, error.retryable);
+}
+
+function sameScope(left: z.input<typeof ScopeSchema>, right: z.input<typeof ScopeSchema>): boolean {
+  return left.kind === right.kind && left.id === right.id;
+}
+
+export class MemoryRuntime {
+  readonly #storage: SqliteStorageClient;
+  readonly #policy: z.output<typeof MemoryRuntimePolicySchema>;
+
+  constructor(options: {
+    storage: SqliteStorageClient;
+    policy: MemoryRuntimePolicy;
+  }) {
+    this.#storage = options.storage;
+    this.#policy = MemoryRuntimePolicySchema.parse(options.policy);
+  }
+
+  memorySearch(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = MemorySearchInputSchema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+
+      const searched = await this.#searchScopes(
+        request.query,
+        request.envelope.scopes,
+        request.limit,
+      );
+      const allowed: RetrievalAuditItem[] = [];
+      const excluded: RetrievalAuditItem[] = [];
+      for (const candidate of searched.candidates) {
+        if (
+          candidate.evidence.sensitivity === "sensitive" &&
+          !request.include_sensitive
+        ) {
+          excluded.push({
+            evidence: candidate.evidence,
+            decision: "excluded",
+            reason_code: "SENSITIVE_EXCLUDED",
+            lane: candidate.lane,
+            score: candidate.rank,
+          });
+        } else {
+          allowed.push({
+            evidence: candidate.evidence,
+            decision: "included",
+            reason_code: "RANKED_EVIDENCE",
+            lane: candidate.lane,
+            score: candidate.rank,
+          });
+        }
+      }
+      const audit = await this.#recordAudit({
+        envelope: request.envelope,
+        query: request.query,
+        includeSensitive: request.include_sensitive,
+        items: [...allowed, ...excluded],
+        partial: searched.degraded.length > 0,
+      });
+      const data = {
+        items: allowed.map((item) => item.evidence),
+        receipt: audit.receipt,
+      };
+      if (searched.degraded.length > 0) {
+        return GovernedResponseSchema.parse({
+          status: "DEGRADED",
+          receipt_id: audit.receipt.receipt_id,
+          fallback_lane: "sqlite_authority_without_fts",
+          warnings: searched.degraded,
+          data,
+        });
+      }
+      if (allowed.length > 0) {
+        return GovernedResponseSchema.parse({
+          status: "OK",
+          receipt_id: audit.receipt.receipt_id,
+          data,
+        });
+      }
+      if (excluded.length > 0) {
+        return GovernedResponseSchema.parse({
+          status: "POLICY_EXCLUDED",
+          receipt_id: audit.receipt.receipt_id,
+          excluded_count: excluded.length,
+          reason_codes: ["SENSITIVE_EXCLUDED"],
+        });
+      }
+      return GovernedResponseSchema.parse({
+        status: "NO_MATCH",
+        receipt_id: audit.receipt.receipt_id,
+        reason: "no exact-scope evidence matched the query",
+      });
+    });
+  }
+
+  memoryGet(input: unknown): Promise<GovernedResponse> {
+    return this.#evidenceRead(input, MemoryGetInputSchema, "get");
+  }
+
+  memoryExplain(input: unknown): Promise<GovernedResponse> {
+    return this.#evidenceRead(input, MemoryExplainInputSchema, "explain");
+  }
+
+  memoryReceiptGet(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = MemoryReceiptGetInputSchema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+      const receipt = await this.#storage.getReceipt({
+        receipt_id: request.receipt_id,
+        principal_id: request.envelope.actor_claim.principal_id,
+        scopes: request.envelope.scopes,
+      });
+      const audit = await this.#recordAudit({
+        envelope: request.envelope,
+        query: `receipt:${request.receipt_id}`,
+        includeSensitive: false,
+        items: [],
+        partial: false,
+      });
+      if (receipt === null) {
+        return GovernedResponseSchema.parse({
+          status: "NO_MATCH",
+          receipt_id: audit.receipt.receipt_id,
+          reason: "the requested receipt does not exist",
+        });
+      }
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: audit.receipt.receipt_id,
+        data: { receipt, audit_receipt: audit.receipt },
+      });
+    });
+  }
+
+  memoryContextCompile(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = MemoryContextCompileInputSchema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+      const searched = await this.#searchScopes(
+        request.recall.query,
+        request.recall.scopes,
+        100,
+      );
+      const compiled = compileContext({
+        request: request.recall,
+        candidates: searched.candidates,
+        created_at: request.envelope.requested_at,
+        degraded_lanes: searched.degraded,
+      });
+      const stored = await this.#storage.recordRecall({
+        principal_id: request.envelope.actor_claim.principal_id,
+        request: request.recall,
+        receipt: compiled.receipt,
+        ...(compiled.context_slice === null
+          ? {}
+          : { context_slice: compiled.context_slice }),
+      });
+      const data = {
+        context_slice: stored.context_slice,
+        receipt: stored.receipt,
+        replayed: stored.replayed,
+      };
+      if (compiled.status === "DEGRADED") {
+        return GovernedResponseSchema.parse({
+          status: "DEGRADED",
+          receipt_id: stored.receipt.receipt_id,
+          fallback_lane: "sqlite_authority_without_fts",
+          warnings: compiled.warnings,
+          data,
+        });
+      }
+      if (compiled.status === "OK") {
+        return GovernedResponseSchema.parse({
+          status: "OK",
+          receipt_id: stored.receipt.receipt_id,
+          data,
+        });
+      }
+      if (compiled.status === "POLICY_EXCLUDED") {
+        return GovernedResponseSchema.parse({
+          status: "POLICY_EXCLUDED",
+          receipt_id: stored.receipt.receipt_id,
+          excluded_count: compiled.excluded_count,
+          reason_codes: compiled.reason_codes,
+        });
+      }
+      return GovernedResponseSchema.parse({
+        status: "NO_MATCH",
+        receipt_id: stored.receipt.receipt_id,
+        reason: "no exact-scope evidence matched the recall request",
+      });
+    });
+  }
+
+  memoryEpisodeCommit(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = MemoryEpisodeCommitInputSchema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+      const allowedScopes = new Set(request.envelope.scopes.map(scopeKey));
+      const allowedAuthorities = new Set(
+        this.#policy.principal.allowed_authorities,
+      );
+      if (
+        !allowedScopes.has(scopeKey(request.episode.scope)) ||
+        request.evidence.some(
+          (evidence) =>
+            !allowedScopes.has(scopeKey(evidence.scope)) ||
+            evidence.actor.principal_id !==
+              this.#policy.principal.principal_id ||
+            !allowedAuthorities.has(evidence.actor.authority) ||
+            !allowedAuthorities.has(evidence.authority),
+        )
+      ) {
+        return publicFailure(
+          "PERMISSION_DENIED",
+          "episode evidence is outside the configured principal",
+        );
+      }
+      const receipt = await this.#storage.commitEpisode({
+        idempotencyKey: request.envelope.idempotency_key,
+        episode: request.episode,
+        evidence: request.evidence,
+        blobs: request.blobs.map((blob) => ({
+          content_hash: blob.content_hash,
+          media_type: blob.media_type,
+          bytes: new Uint8Array(Buffer.from(blob.data_base64, "base64")),
+        })),
+      });
+      await this.#storage.drainFtsOutbox();
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: receipt.receipt_id,
+        data: { receipt },
+      });
+    });
+  }
+
+  async #evidenceRead(
+    input: unknown,
+    schema: typeof MemoryGetInputSchema | typeof MemoryExplainInputSchema,
+    kind: "get" | "explain",
+  ): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = schema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+      if (
+        !request.envelope.scopes.some((scope) =>
+          sameScope(scope, request.scope),
+        )
+      ) {
+        return publicFailure(
+          "PERMISSION_DENIED",
+          "lookup scope is outside the request envelope",
+        );
+      }
+      const storedResult =
+        kind === "get"
+          ? await this.#storage.getEvidence({
+              evidence_id: request.evidence_id,
+              principal_id: this.#policy.principal.principal_id,
+              scope: request.scope,
+            })
+          : await this.#storage.explainEvidence({
+              evidence_id: request.evidence_id,
+              principal_id: this.#policy.principal.principal_id,
+              scope: request.scope,
+            });
+      const storedEvidence =
+        storedResult !== null && "evidence" in storedResult
+          ? storedResult.evidence
+          : storedResult;
+      const result =
+        storedEvidence !== null &&
+        !this.#evidenceIsAllowed(storedEvidence)
+          ? null
+          : storedResult;
+      const evidence =
+        result !== null && "evidence" in result ? result.evidence : result;
+      const auditItems: RetrievalAuditItem[] =
+        evidence === null
+          ? []
+          : [
+              {
+                evidence,
+                decision: "included",
+                reason_code: "EXACT_ID",
+                lane: "sqlite_authority",
+                score: null,
+              },
+            ];
+      const audit = await this.#recordAudit({
+        envelope: request.envelope,
+        query: `${kind}:${request.evidence_id}`,
+        includeSensitive: true,
+        items: auditItems,
+        partial: false,
+      });
+      if (result === null) {
+        return GovernedResponseSchema.parse({
+          status: "NO_MATCH",
+          receipt_id: audit.receipt.receipt_id,
+          reason: "the requested evidence does not exist in the exact scope",
+        });
+      }
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: audit.receipt.receipt_id,
+        data: { result, receipt: audit.receipt },
+      });
+    });
+  }
+
+  #authorize(envelope: RuntimeEnvelope): GovernedResponse | null {
+    const decision = authorizeRequestClaims(
+      this.#policy.principal,
+      envelope,
+    );
+    return decision.authorized
+      ? null
+      : publicFailure("PERMISSION_DENIED", decision.reason);
+  }
+
+  async #searchScopes(
+    query: string,
+    scopes: ReadEnvelope["scopes"],
+    limit: number,
+  ): Promise<{ candidates: ContextCandidate[]; degraded: string[] }> {
+    const candidates: ContextCandidate[] = [];
+    const degraded: string[] = [];
+    for (const scope of scopes) {
+      const result = await this.#storage.searchEvidence({
+        query,
+        principal_id: this.#policy.principal.principal_id,
+        scope,
+        limit,
+      });
+      if (result.status === "DEGRADED") {
+        degraded.push(`${scopeKey(scope)}:${result.reason_code}`);
+        continue;
+      }
+      for (const item of result.items) {
+        const evidence = await this.#storage.getEvidence({
+          evidence_id: item.evidence_id,
+          principal_id: this.#policy.principal.principal_id,
+          scope,
+        });
+        if (evidence === null) {
+          throw new StorageError("CORRUPTION");
+        }
+        if (!this.#evidenceIsAllowed(evidence)) {
+          continue;
+        }
+        candidates.push({
+          evidence,
+          rank: item.rank,
+          lane: "sqlite_fts",
+        });
+      }
+    }
+    candidates.sort(
+      (left, right) =>
+        left.rank - right.rank ||
+        right.evidence.occurred_at.localeCompare(
+          left.evidence.occurred_at,
+        ) ||
+        left.evidence.evidence_id.localeCompare(
+          right.evidence.evidence_id,
+        ),
+    );
+    return {
+      candidates: candidates.slice(0, limit),
+      degraded: [...new Set(degraded)].sort(),
+    };
+  }
+
+  async #recordAudit(options: {
+    envelope: ReadEnvelope;
+    query: string;
+    includeSensitive: boolean;
+    items: RetrievalAuditItem[];
+    partial: boolean;
+  }) {
+    const recall = RecallRequestSchema.parse({
+      schema_version: "1.0.0",
+      request_id: options.envelope.request_id,
+      goal: options.envelope.purpose,
+      query: options.query,
+      scopes: options.envelope.scopes,
+      as_of: options.envelope.requested_at,
+      token_budget: this.#policy.default_token_budget,
+      include_sensitive: options.includeSensitive,
+    });
+    const receiptItems = options.items.map((item) => {
+      const identity = l0MemoryIdentity(item.evidence);
+      return {
+        memory_id: identity.memory_id,
+        revision_id: identity.revision_id,
+        decision: item.decision,
+        reason_codes: [item.reason_code],
+        lane: item.lane,
+        score: item.score,
+      };
+    });
+    const receipt = RetrievalReceiptSchema.parse(
+      sealReceipt({
+        schema_version: "1.0.0",
+        receipt_id: stableIdentifier("retrieval", {
+          request_id: recall.request_id,
+          items: receiptItems,
+          partial: options.partial,
+        }),
+        created_at: options.envelope.requested_at,
+        state: options.partial ? "partial" : "durable",
+        request_hash: canonicalSha256(recall),
+        receipt_hash: `sha256:${"0".repeat(64)}`,
+        kind: "retrieval",
+        context_slice_id: null,
+        compiler_version: CONTEXT_COMPILER_VERSION,
+        policy_version: CONTEXT_POLICY_VERSION,
+        items: receiptItems,
+      }),
+    );
+    return this.#storage.recordRecall({
+      principal_id: options.envelope.actor_claim.principal_id,
+      request: recall,
+      receipt,
+    });
+  }
+
+  #evidenceIsAllowed(
+    evidence: z.output<typeof EvidenceRecordSchema>,
+  ): boolean {
+    return (
+      evidence.actor.principal_id === this.#policy.principal.principal_id &&
+      this.#policy.principal.allowed_authorities.includes(
+        evidence.actor.authority,
+      ) &&
+      this.#policy.principal.allowed_authorities.includes(
+        evidence.authority,
+      )
+    );
+  }
+
+  async #execute(
+    operation: () => Promise<GovernedResponse>,
+  ): Promise<GovernedResponse> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return publicFailure(
+          "INVALID_INPUT",
+          "the tool request does not satisfy its runtime contract",
+        );
+      }
+      if (error instanceof StorageError) {
+        return storageFailure(error);
+      }
+      return publicFailure(
+        "INTERNAL_FAILURE",
+        "the memory runtime could not complete the request",
+      );
+    }
+  }
+}

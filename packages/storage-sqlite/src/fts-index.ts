@@ -198,17 +198,21 @@ export class FtsIndex {
     try {
       const rows = this.#database
         .prepare(
-          `SELECT evidence_id, scope_kind, scope_id, source, occurred_at,
-                  searchable_text AS text, bm25(evidence_fts) AS rank
-           FROM evidence_fts
+          `SELECT f.evidence_id, f.scope_kind, f.scope_id, f.source,
+                  f.occurred_at, f.searchable_text AS text,
+                  bm25(evidence_fts) AS rank
+           FROM evidence_fts AS f
+           JOIN evidence_events AS e ON e.evidence_id = f.evidence_id
            WHERE evidence_fts MATCH ?
-             AND scope_kind = ?
-             AND scope_id = ?
-           ORDER BY rank, occurred_at DESC, evidence_id
+             AND e.principal_id = ?
+             AND f.scope_kind = ?
+             AND f.scope_id = ?
+           ORDER BY rank, f.occurred_at DESC, f.evidence_id
            LIMIT ?`,
         )
         .all(
           compileQuery(input.query),
+          input.principal_id,
           input.scope.kind,
           input.scope.id,
           input.limit,

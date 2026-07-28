@@ -27,7 +27,7 @@ The current compatibility evidence is Darwin arm64 only. A path passing the
 runtime checks does not itself certify an untested operating system or
 filesystem.
 
-`secret` evidence always returns `ENCRYPTION_REQUIRED` in M1A. It cannot be
+`secret` evidence always returns `ENCRYPTION_REQUIRED` in M1. It cannot be
 stored until M6 implements and verifies the threat model's application-level
 encryption and key-lifecycle contract.
 
@@ -44,9 +44,10 @@ encryption and key-lifecycle contract.
 - idempotency-key/request-hash consistency.
 
 One `BEGIN IMMEDIATE` transaction writes evidence, episode membership, ledger
-epoch, FTS outbox jobs, a sealed mutation receipt, and the idempotency mapping.
-The response is sent only after commit. Canonical tables have UPDATE/DELETE
-triggers; future corrections append evidence or governed tombstones.
+epoch, FTS outbox jobs, a sealed mutation receipt, the idempotency mapping, and
+principal/scope receipt access rows. The response is sent only after commit.
+Canonical tables have UPDATE/DELETE triggers; future corrections append
+evidence or governed tombstones.
 
 Retry behavior is exact:
 
@@ -82,6 +83,20 @@ Search results are:
 from SQLite, completes related outbox jobs, and leaves the canonical ledger
 epoch unchanged.
 
+## Recall and Context audit
+
+Migration 0003 adds append-only recall requests, retrieval receipts, frozen
+Context slices/items, evidence lineage, and receipt access scopes. One
+transaction stores a recall request, its optional Context slice, and the sealed
+retrieval receipt. Retrying the same request ID and request hash replays the
+stored hash-valid artifacts; a different principal or request hash returns
+`CONFLICT`.
+
+Recall audit writes do not advance the canonical ledger epoch. Health reports
+canonical content counts separately from recall, Context, retrieval-receipt,
+and receipt-access counts. Receipt lookup requires every stored access scope to
+be present in the configured principal's authorized request scopes.
+
 ## Migrations
 
 Migrations are ordered files under `migrations/`. Their full file SHA-256 is
@@ -92,6 +107,7 @@ The current schema:
 
 - `0001-evidence-ledger.sql`
 - `0002-fts-baseline.sql`
+- `0003-recall-context.sql`
 
 Any change to an applied file is corruption. A schema change requires a new
 forward migration and recovery evidence.

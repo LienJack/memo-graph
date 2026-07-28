@@ -29,6 +29,9 @@ tests/contract/sqlite-driver.compat.test.ts
 - The synchronous driver runs inside a dedicated storage worker.
 - Every mutation transaction writes the canonical effect, idempotency record,
   outbox jobs, and receipt atomically.
+- Receipt persistence records principal/scope access in the same transaction;
+  receipt lookup must fail closed unless every stored scope is authorized for
+  the configured principal.
 - JSON is for extensible metadata only; governed fields use typed columns.
 - Data root must be a validated local path.
 

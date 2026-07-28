@@ -60,12 +60,16 @@ Migration `0003-recall-context.sql` adds:
 - `recall_requests`;
 - `retrieval_receipts`;
 - `context_slices`;
-- `context_slice_items`.
+- `context_slice_items`;
+- `context_slice_item_evidence`;
+- `receipt_access_scopes`.
 
 These tables are append-only. Recording a read audit does not advance
 `ledger_state.ledger_epoch`. A transaction stores the RecallRequest,
-ContextSlice, RetrievalReceipt, and items atomically. Search/get/explain may
-store retrieval receipts without a Context slice.
+ContextSlice, RetrievalReceipt, items, lineage, and principal/scope access rows
+atomically. Search/get/explain may store retrieval receipts without a Context
+slice. Receipt lookup fails closed unless the configured principal and all
+receipt scopes match.
 
 Storage adds runtime-decoded operations to:
 

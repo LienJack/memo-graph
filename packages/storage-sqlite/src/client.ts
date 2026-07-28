@@ -17,7 +17,14 @@ import {
   CheckpointResultSchema,
   CommitEpisodeCommandSchema,
   DrainFtsResultSchema,
+  EvidenceExplanationResultSchema,
+  EvidenceLookupInputSchema,
+  EvidenceLookupResultSchema,
+  RecordRecallCommandSchema,
+  RecordRecallResultSchema,
   RebuildFtsResultSchema,
+  ReceiptLookupInputSchema,
+  ReceiptLookupResultSchema,
   SearchEvidenceQuerySchema,
   SearchEvidenceResultSchema,
   StorageHealthSchema,
@@ -28,6 +35,8 @@ import {
   type CheckpointResult,
   type DrainFtsResult,
   type DurableEpisodeReceipt,
+  type EvidenceExplanation,
+  type RecordRecallResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
   type StorageHealth,
@@ -171,6 +180,48 @@ export class SqliteStorageClient {
       "verify_artifacts",
       null,
       VerifyArtifactsResultSchema,
+    );
+  }
+
+  getEvidence(
+    input: unknown,
+  ): Promise<z.infer<typeof EvidenceLookupResultSchema>> {
+    const request = EvidenceLookupInputSchema.parse(input);
+    return this.#request(
+      "get_evidence",
+      request,
+      EvidenceLookupResultSchema,
+    );
+  }
+
+  explainEvidence(input: unknown): Promise<EvidenceExplanation | null> {
+    const request = EvidenceLookupInputSchema.parse(input);
+    return this.#request(
+      "explain_evidence",
+      request,
+      EvidenceExplanationResultSchema,
+    );
+  }
+
+  getReceipt(
+    input: unknown,
+  ): Promise<z.infer<typeof ReceiptLookupResultSchema>> {
+    const request = ReceiptLookupInputSchema.parse(input);
+    return this.#request(
+      "get_receipt",
+      request,
+      ReceiptLookupResultSchema,
+    );
+  }
+
+  recordRecall(input: unknown): Promise<RecordRecallResult> {
+    const command = RecordRecallCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "record_recall",
+        command,
+        RecordRecallResultSchema,
+      ),
     );
   }
 

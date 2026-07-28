@@ -3,6 +3,11 @@ import { z } from "zod";
 import {
   EpisodeSchema,
   EvidenceRecordSchema,
+  IdentifierSchema,
+  ContextSliceSchema,
+  RecallRequestSchema,
+  ReceiptSchema,
+  RetrievalReceiptSchema,
   ScopeSchema,
 } from "@memo-graph/contracts";
 import type { MutationReceiptSchema } from "@memo-graph/contracts";
@@ -29,6 +34,7 @@ export const CommitEpisodeCommandSchema = z
 export const SearchEvidenceQuerySchema = z
   .object({
     query: z.string().trim().min(1).max(500),
+    principal_id: IdentifierSchema,
     scope: ScopeSchema,
     limit: z.number().int().min(1).max(100).default(20),
   })
@@ -52,6 +58,10 @@ export const StorageCountsSchema = z
     outbox_pending: z.number().int().nonnegative(),
     fts_rows: z.number().int().nonnegative(),
     backup_manifests: z.number().int().nonnegative(),
+    recall_requests: z.number().int().nonnegative(),
+    retrieval_receipts: z.number().int().nonnegative(),
+    context_slices: z.number().int().nonnegative(),
+    receipt_access_scopes: z.number().int().nonnegative(),
   })
   .strict();
 
@@ -158,6 +168,53 @@ export const VerifyArtifactsResultSchema = z
   })
   .strict();
 
+export const EvidenceLookupInputSchema = z
+  .object({
+    evidence_id: z.string().min(1).max(160),
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+  })
+  .strict();
+
+export const EvidenceLookupResultSchema = EvidenceRecordSchema.nullable();
+
+export const EvidenceExplanationSchema = z
+  .object({
+    evidence: EvidenceRecordSchema,
+    episodes: z.array(EpisodeSchema),
+  })
+  .strict();
+
+export const EvidenceExplanationResultSchema =
+  EvidenceExplanationSchema.nullable();
+
+export const ReceiptLookupInputSchema = z
+  .object({
+    receipt_id: z.string().min(1).max(160),
+    principal_id: IdentifierSchema,
+    scopes: z.array(ScopeSchema).min(1),
+  })
+  .strict();
+
+export const ReceiptLookupResultSchema = ReceiptSchema.nullable();
+
+export const RecordRecallCommandSchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    request: RecallRequestSchema,
+    receipt: RetrievalReceiptSchema,
+    context_slice: ContextSliceSchema.optional(),
+  })
+  .strict();
+
+export const RecordRecallResultSchema = z
+  .object({
+    receipt: RetrievalReceiptSchema,
+    context_slice: ContextSliceSchema.nullable(),
+    replayed: z.boolean(),
+  })
+  .strict();
+
 export const BlockWorkerResultSchema = z
   .object({
     blocked_ms: z.number().int().min(1).max(2_000),
@@ -173,6 +230,10 @@ export const WorkerOperationSchema = z.enum([
   "checkpoint",
   "backup",
   "verify_artifacts",
+  "get_evidence",
+  "explain_evidence",
+  "get_receipt",
+  "record_recall",
   "test_block",
   "test_hold_write_lock",
   "close",
@@ -220,6 +281,20 @@ export type ParsedCommitEpisodeCommand = z.output<
 >;
 export type DrainFtsResult = z.infer<typeof DrainFtsResultSchema>;
 export type MigrationEvidence = z.infer<typeof MigrationEvidenceSchema>;
+export type EvidenceExplanation = z.infer<typeof EvidenceExplanationSchema>;
+export type EvidenceLookupInput = z.input<typeof EvidenceLookupInputSchema>;
+export type ParsedEvidenceLookupInput = z.output<
+  typeof EvidenceLookupInputSchema
+>;
+export type ReceiptLookupInput = z.input<typeof ReceiptLookupInputSchema>;
+export type ParsedReceiptLookupInput = z.output<
+  typeof ReceiptLookupInputSchema
+>;
+export type RecordRecallCommand = z.input<typeof RecordRecallCommandSchema>;
+export type ParsedRecordRecallCommand = z.output<
+  typeof RecordRecallCommandSchema
+>;
+export type RecordRecallResult = z.infer<typeof RecordRecallResultSchema>;
 export type RebuildFtsResult = z.infer<typeof RebuildFtsResultSchema>;
 export type SearchEvidenceQuery = z.input<typeof SearchEvidenceQuerySchema>;
 export type ParsedSearchEvidenceQuery = z.output<

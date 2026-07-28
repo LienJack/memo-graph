@@ -14,7 +14,15 @@ export {
   CheckpointResultSchema,
   CommitEpisodeCommandSchema,
   DrainFtsResultSchema,
+  EvidenceExplanationResultSchema,
+  EvidenceExplanationSchema,
+  EvidenceLookupInputSchema,
+  EvidenceLookupResultSchema,
+  RecordRecallCommandSchema,
+  RecordRecallResultSchema,
   RebuildFtsResultSchema,
+  ReceiptLookupInputSchema,
+  ReceiptLookupResultSchema,
   SearchEvidenceQuerySchema,
   SearchEvidenceResultSchema,
   StorageHealthSchema,
@@ -24,14 +32,22 @@ export {
   type CommitEpisodeCommand,
   type DrainFtsResult,
   type DurableEpisodeReceipt,
+  type EvidenceExplanation,
+  type EvidenceLookupInput,
+  type RecordRecallCommand,
+  type RecordRecallResult,
   type RebuildFtsResult,
+  type ReceiptLookupInput,
   type SearchEvidenceQuery,
   type SearchEvidenceResult,
   type StorageHealth,
   type VerifyArtifactsResult,
 } from "./protocol.js";
 export { WriterQueue, type WriterQueueMetrics } from "./writer-queue.js";
-export { runStorageBenchmark } from "./benchmark.js";
+export {
+  runStorageBenchmark,
+  storageBenchmarkCommand,
+} from "./benchmark.js";
 export {
   restoreBackupToEmptyDataRoot,
   type RestoreBackupOptions,

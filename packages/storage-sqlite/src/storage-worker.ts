@@ -10,6 +10,9 @@ import {
 } from "./errors.js";
 import {
   CommitEpisodeCommandSchema,
+  EvidenceLookupInputSchema,
+  RecordRecallCommandSchema,
+  ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
   WorkerRequestSchema,
 } from "./protocol.js";
@@ -95,6 +98,26 @@ port.on("message", (message: unknown) => {
           break;
         case "verify_artifacts":
           result = database.verifyArtifacts();
+          break;
+        case "get_evidence":
+          result = database.getEvidence(
+            EvidenceLookupInputSchema.parse(request.payload),
+          );
+          break;
+        case "explain_evidence":
+          result = database.explainEvidence(
+            EvidenceLookupInputSchema.parse(request.payload),
+          );
+          break;
+        case "get_receipt":
+          result = database.getReceipt(
+            ReceiptLookupInputSchema.parse(request.payload),
+          );
+          break;
+        case "record_recall":
+          result = database.recordRecall(
+            RecordRecallCommandSchema.parse(request.payload),
+          );
           break;
         case "test_block": {
           if (!options.testOperations) {

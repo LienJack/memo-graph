@@ -1,0 +1,324 @@
+import {
+  GovernedResponseSchema,
+  MemoryContextCompileInputSchema,
+  MemoryEpisodeCommitInputSchema,
+  MemoryExplainInputSchema,
+  MemoryGetInputSchema,
+  MemoryReceiptGetInputSchema,
+  MemorySearchInputSchema,
+  ScopeSchema,
+  canonicalJson,
+} from "@memo-graph/contracts";
+import {
+  MemoryRuntime,
+} from "@memo-graph/memory-kernel";
+import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
+
+export const MEMORY_MCP_SERVER_VERSION = "0.1.0";
+
+export const MemoryServerConfigSchema = z
+  .object({
+    data_root: z.string().trim().min(1),
+    principal_id: z.string().trim().min(1).max(160),
+    allowed_scopes: z.array(ScopeSchema).min(1),
+    allowed_authorities: z
+      .array(
+        z.enum([
+          "user_stated",
+          "observed",
+          "tool_result",
+          "inferred",
+          "derived",
+          "imported",
+        ]),
+      )
+      .min(1),
+    destructive_tools_enabled: z.literal(false),
+    default_token_budget: z
+      .number()
+      .int()
+      .positive()
+      .max(32_000)
+      .default(1_800),
+  })
+  .strict();
+
+export type MemoryServerConfig = z.infer<typeof MemoryServerConfigSchema>;
+
+export const MEMORY_TOOL_METADATA = [
+  {
+    name: "memory_search",
+    safety_class: "read_only",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_get",
+    safety_class: "read_only",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_explain",
+    safety_class: "read_only",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_receipt_get",
+    safety_class: "read_only",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_context_compile",
+    safety_class: "read_only",
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "memory_episode_commit",
+    safety_class: "proposal",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+] as const;
+
+export const MEMORY_RESOURCE_URIS = [
+  "memory://runtime/health",
+  "memory://runtime/contracts",
+  "memory://runtime/usage",
+] as const;
+
+function toolResult(response: z.infer<typeof GovernedResponseSchema>) {
+  return {
+    content: [{ type: "text" as const, text: canonicalJson(response) }],
+    structuredContent: response,
+  };
+}
+
+function annotations(name: (typeof MEMORY_TOOL_METADATA)[number]["name"]) {
+  const metadata = MEMORY_TOOL_METADATA.find((entry) => entry.name === name);
+  if (metadata === undefined) {
+    throw new Error("tool metadata is incomplete");
+  }
+  return metadata.annotations;
+}
+
+export function createMemoryMcpServer(options: {
+  runtime: MemoryRuntime;
+  storage: SqliteStorageClient;
+}): McpServer {
+  const server = new McpServer(
+    {
+      name: "memo-graph-memory-runtime",
+      version: MEMORY_MCP_SERVER_VERSION,
+    },
+    {
+      capabilities: {
+        tools: { listChanged: false },
+        resources: { listChanged: false, subscribe: false },
+      },
+      instructions:
+        "Memory is returned only by explicit tool calls. Resources are inspection endpoints and are not automatically added to model context.",
+    },
+  );
+
+  server.registerTool(
+    "memory_search",
+    {
+      title: "Search governed memory evidence",
+      description:
+        "Search exact authorized scopes in the local SQLite evidence ledger.",
+      inputSchema: MemorySearchInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_search"),
+    },
+    async (input) => toolResult(await options.runtime.memorySearch(input)),
+  );
+  server.registerTool(
+    "memory_get",
+    {
+      title: "Get governed evidence",
+      description:
+        "Read one evidence record by identifier and exact authorized scope.",
+      inputSchema: MemoryGetInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_get"),
+    },
+    async (input) => toolResult(await options.runtime.memoryGet(input)),
+  );
+  server.registerTool(
+    "memory_explain",
+    {
+      title: "Explain governed evidence",
+      description:
+        "Read evidence provenance, hashes, scope, and episode membership.",
+      inputSchema: MemoryExplainInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_explain"),
+    },
+    async (input) => toolResult(await options.runtime.memoryExplain(input)),
+  );
+  server.registerTool(
+    "memory_receipt_get",
+    {
+      title: "Get a durable memory receipt",
+      description:
+        "Read one mutation or retrieval receipt by durable identifier.",
+      inputSchema: MemoryReceiptGetInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_receipt_get"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.memoryReceiptGet(input)),
+  );
+  server.registerTool(
+    "memory_context_compile",
+    {
+      title: "Compile frozen governed context",
+      description:
+        "Search authorized L0 evidence and freeze a hard-budget Context slice with a retrieval receipt.",
+      inputSchema: MemoryContextCompileInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_context_compile"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.memoryContextCompile(input)),
+  );
+  server.registerTool(
+    "memory_episode_commit",
+    {
+      title: "Commit one evidence episode proposal",
+      description:
+        "Durably append one sealed episode and its evidence using the proposal idempotency key.",
+      inputSchema: MemoryEpisodeCommitInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_episode_commit"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.memoryEpisodeCommit(input)),
+  );
+
+  server.registerResource(
+    "runtime-health",
+    "memory://runtime/health",
+    {
+      title: "Memory runtime health",
+      description:
+        "Read-only storage, schema, projection, and count metadata. Reading this resource does not add it to model context.",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: canonicalJson(await options.storage.health()),
+        },
+      ],
+    }),
+  );
+  server.registerResource(
+    "runtime-contracts",
+    "memory://runtime/contracts",
+    {
+      title: "Memory runtime tool contracts",
+      description:
+        "Static safety and annotation metadata. Reading this resource does not add it to model context.",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: canonicalJson({
+            schema_version: "1.0.0",
+            tools: MEMORY_TOOL_METADATA,
+          }),
+        },
+      ],
+    }),
+  );
+  server.registerResource(
+    "runtime-usage",
+    "memory://runtime/usage",
+    {
+      title: "Memory runtime explicit usage",
+      description:
+        "Task-start compile and task-end commit guidance. Reading this resource does not add it to model context.",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: canonicalJson({
+            schema_version: "1.0.0",
+            automatic_context_injection: false,
+            task_start: "Call memory_context_compile explicitly.",
+            task_end: "Call memory_episode_commit explicitly.",
+            note:
+              "MCP resources are inspection endpoints and are not automatically added to model context.",
+          }),
+        },
+      ],
+    }),
+  );
+  return server;
+}
+
+export async function openMemoryRuntime(configInput: unknown): Promise<{
+  config: z.output<typeof MemoryServerConfigSchema>;
+  storage: SqliteStorageClient;
+  runtime: MemoryRuntime;
+}> {
+  const config = MemoryServerConfigSchema.parse(configInput);
+  const storage = await SqliteStorageClient.open({
+    dataRoot: config.data_root,
+  });
+  return {
+    config,
+    storage,
+    runtime: new MemoryRuntime({
+      storage,
+      policy: {
+        principal: {
+          principal_id: config.principal_id,
+          allowed_scopes: config.allowed_scopes,
+          allowed_authorities: config.allowed_authorities,
+          destructive_tools_enabled: config.destructive_tools_enabled,
+        },
+        default_token_budget: config.default_token_budget,
+      },
+    }),
+  };
+}

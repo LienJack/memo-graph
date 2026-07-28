@@ -45,6 +45,7 @@ describe("FTS projection and backup", () => {
 
     const pending = await storage.searchEvidence({
       query: "governed",
+      principal_id: "user_local",
       scope: { kind: "workspace", id: "workspace_local" },
       limit: 10,
     });
@@ -60,12 +61,20 @@ describe("FTS projection and backup", () => {
 
     const found = await storage.searchEvidence({
       query: "governed",
+      principal_id: "user_local",
       scope: { kind: "workspace", id: "workspace_local" },
       limit: 10,
     });
     const excluded = await storage.searchEvidence({
       query: "governed",
+      principal_id: "user_local",
       scope: { kind: "workspace", id: "different_workspace" },
+      limit: 10,
+    });
+    const excludedPrincipal = await storage.searchEvidence({
+      query: "governed",
+      principal_id: "another_user",
+      scope: { kind: "workspace", id: "workspace_local" },
       limit: 10,
     });
 
@@ -74,6 +83,10 @@ describe("FTS projection and backup", () => {
       "evidence_storage_1",
     ]);
     expect(excluded).toMatchObject({ status: "NO_MATCH", items: [] });
+    expect(excludedPrincipal).toMatchObject({
+      status: "NO_MATCH",
+      items: [],
+    });
     await storage.close();
   });
 
@@ -110,6 +123,7 @@ describe("FTS projection and backup", () => {
     await expect(
       reopened.searchEvidence({
         query: "governed",
+        principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_local" },
         limit: 10,
       }),
@@ -121,6 +135,7 @@ describe("FTS projection and backup", () => {
     await expect(
       reopened.searchEvidence({
         query: "governed",
+        principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_local" },
         limit: 10,
       }),
@@ -195,6 +210,7 @@ describe("FTS projection and backup", () => {
     await storage.commitEpisode(inlineEpisode({ text: secret }));
     await storage.searchEvidence({
       query,
+      principal_id: "user_local",
       scope: { kind: "workspace", id: "workspace_local" },
       limit: 10,
     });

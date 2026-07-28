@@ -1,3 +1,5 @@
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { McpServer } from "@modelcontextprotocol/server";
 import {
   StdioServerTransport,
@@ -9,6 +11,9 @@ import {
   GovernedResponseSchema,
   LocalPrincipalSchema,
   MEMORY_TOOL_SAFETY_CLASS,
+  MemoryContextCompileInputSchema,
+  MemoryEpisodeCommitInputSchema,
+  MemorySearchInputSchema,
   MutationRequestEnvelopeSchema,
   ReadRequestEnvelopeSchema,
   authorizeRequestClaims,
@@ -23,8 +28,54 @@ import {
 describe("MCP boundary contracts", () => {
   it("pins the stable v2 server and stdio API surface", () => {
     expect(McpServer).toBeTypeOf("function");
+    expect(Client).toBeTypeOf("function");
+    expect(StdioClientTransport).toBeTypeOf("function");
     expect(StdioServerTransport).toBeTypeOf("function");
     expect(serveStdio).toBeTypeOf("function");
+  });
+
+  it("binds tool-specific inputs to their declared name and safety class", () => {
+    const search = {
+      envelope: {
+        ...validReadRequest(),
+        tool: "memory_search",
+      },
+      query: "durable task context",
+    };
+    expect(MemorySearchInputSchema.safeParse(search).success).toBe(true);
+    expect(
+      MemorySearchInputSchema.safeParse({
+        ...search,
+        envelope: { ...search.envelope, tool: "memory_get" },
+      }).success,
+    ).toBe(false);
+    expect(
+      MemoryEpisodeCommitInputSchema.safeParse({
+        ...search,
+        envelope: {
+          ...search.envelope,
+          tool: "memory_episode_commit",
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      MemoryContextCompileInputSchema.safeParse({
+        envelope: {
+          ...search.envelope,
+          tool: "memory_context_compile",
+        },
+        recall: {
+          schema_version: "1.0.0",
+          request_id: "different_request",
+          goal: "restore context",
+          query: "durable task context",
+          scopes: search.envelope.scopes,
+          as_of: NOW,
+          token_budget: 1_800,
+          include_sensitive: false,
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("classifies every planned tool by safety class", () => {
@@ -83,6 +134,30 @@ describe("MCP boundary contracts", () => {
     ).toMatchObject({
       authorized: false,
       code: "PRINCIPAL_MISMATCH",
+    });
+    expect(
+      authorizeRequestClaims(
+        principal,
+        ReadRequestEnvelopeSchema.parse({
+          ...validReadRequest(),
+          actor_claim: { ...USER_ACTOR, authority: "inferred" },
+        }),
+      ),
+    ).toMatchObject({
+      authorized: false,
+      code: "AUTHORITY_NOT_ALLOWED",
+    });
+    expect(
+      authorizeRequestClaims(
+        principal,
+        ReadRequestEnvelopeSchema.parse({
+          ...validReadRequest(),
+          scopes: [{ kind: "workspace", id: "another_workspace" }],
+        }),
+      ),
+    ).toMatchObject({
+      authorized: false,
+      code: "SCOPE_NOT_ALLOWED",
     });
   });
 

@@ -13,9 +13,13 @@ import {
 import { basename, join } from "node:path";
 
 import {
+  ContextSliceSchema,
   EpisodeSchema,
   EvidenceRecordSchema,
   MutationReceiptSchema,
+  RecallRequestSchema,
+  ReceiptSchema,
+  RetrievalReceiptSchema,
   canonicalJson,
   canonicalSha256,
   canonicalSha256Omitting,
@@ -31,13 +35,20 @@ import { FtsIndex } from "./fts-index.js";
 import { applyMigrations } from "./migrations.js";
 import {
   CommitEpisodeCommandSchema,
+  EvidenceExplanationSchema,
+  EvidenceLookupInputSchema,
+  RecordRecallCommandSchema,
+  ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
   type BackupResult,
   type CheckpointResult,
-  type ParsedCommitEpisodeCommand,
   type DrainFtsResult,
   type DurableEpisodeReceipt,
+  type EvidenceExplanation,
   type MigrationEvidence,
+  type ParsedCommitEpisodeCommand,
+  type ParsedRecordRecallCommand,
+  type RecordRecallResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
   type StorageHealth,
@@ -56,6 +67,47 @@ type CommitResult = {
 type LatestReceipt = {
   receipt_hash: string;
 } | undefined;
+
+type EvidenceRow = {
+  evidence_id: string;
+  sequence: number;
+  occurred_at: string;
+  recorded_at: string;
+  scope_kind: string;
+  scope_id: string;
+  principal_id: string;
+  actor_authority: string;
+  source: string;
+  authority: string;
+  sensitivity: string;
+  payload_storage: "inline" | "blob";
+  payload_inline: string | null;
+  payload_blob_hash: string | null;
+  media_type: string;
+  content_hash: string;
+  schema_version: string;
+  artifact_size_bytes: number | null;
+};
+
+type EpisodeRow = {
+  episode_id: string;
+  scope_kind: string;
+  scope_id: string;
+  started_at: string;
+  ended_at: string;
+  outcome: string;
+  artifact_hashes_json: string;
+  sealed_hash: string;
+  schema_version: string;
+};
+
+type ExistingRecall = {
+  request_id: string;
+  principal_id: string;
+  request_hash: string;
+  receipt_json: string;
+  slice_json: string | null;
+};
 
 function now(): string {
   return new Date().toISOString();
@@ -202,6 +254,10 @@ export class StorageDatabase {
         ),
         fts_rows: ftsRows,
         backup_manifests: count("backup_manifests"),
+        recall_requests: count("recall_requests"),
+        retrieval_receipts: count("retrieval_receipts"),
+        context_slices: count("context_slices"),
+        receipt_access_scopes: count("receipt_access_scopes"),
       },
     };
   }
@@ -272,7 +328,7 @@ export class StorageDatabase {
               warnings: [],
             }),
           );
-          this.#insertReceipt(receipt);
+          this.#insertReceipt(receipt, command);
           if (projectionJobs.length > 0) {
             this.#fts.markPending(epoch);
           }
@@ -466,6 +522,165 @@ export class StorageDatabase {
     return { verified: artifacts.length };
   }
 
+  getEvidence(
+    input: unknown,
+  ): ReturnType<typeof EvidenceRecordSchema.parse> | null {
+    const request = EvidenceLookupInputSchema.parse(input);
+    const row = this.#database
+      .prepare(
+        `SELECT e.*, a.size_bytes AS artifact_size_bytes
+         FROM evidence_events AS e
+         LEFT JOIN artifacts AS a ON a.content_hash = e.payload_blob_hash
+         WHERE e.evidence_id = ?
+           AND e.principal_id = ?
+           AND e.scope_kind = ?
+           AND e.scope_id = ?`,
+      )
+      .get(
+        request.evidence_id,
+        request.principal_id,
+        request.scope.kind,
+        request.scope.id,
+      ) as EvidenceRow | undefined;
+    return row === undefined ? null : this.#evidenceFromRow(row);
+  }
+
+  explainEvidence(input: unknown): EvidenceExplanation | null {
+    const request = EvidenceLookupInputSchema.parse(input);
+    const evidence = this.getEvidence(request);
+    if (evidence === null) {
+      return null;
+    }
+    const episodeRows = this.#database
+      .prepare(
+        `SELECT e.*
+         FROM episodes AS e
+         JOIN episode_events AS ee ON ee.episode_id = e.episode_id
+         WHERE ee.evidence_id = ?
+         ORDER BY e.ended_at DESC, e.episode_id`,
+      )
+      .all(evidence.evidence_id) as EpisodeRow[];
+    const episodes = episodeRows.map((row) => {
+      const eventIds = (
+        this.#database
+          .prepare(
+            `SELECT evidence_id FROM episode_events
+             WHERE episode_id = ? ORDER BY ordinal`,
+          )
+          .all(row.episode_id) as Array<{ evidence_id: string }>
+      ).map((event) => event.evidence_id);
+      return EpisodeSchema.parse({
+        schema_version: row.schema_version,
+        episode_id: row.episode_id,
+        scope: { kind: row.scope_kind, id: row.scope_id },
+        started_at: row.started_at,
+        ended_at: row.ended_at,
+        event_ids: eventIds,
+        artifact_hashes: JSON.parse(row.artifact_hashes_json) as unknown,
+        outcome: row.outcome,
+        sealed_hash: row.sealed_hash,
+      });
+    });
+    return EvidenceExplanationSchema.parse({ evidence, episodes });
+  }
+
+  getReceipt(input: unknown): ReturnType<typeof ReceiptSchema.parse> | null {
+    const request = ReceiptLookupInputSchema.parse(input);
+    const allowedScopes = new Set(
+      request.scopes.map((scope) => `${scope.kind}:${scope.id}`),
+    );
+    const access = this.#database
+      .prepare(
+        `SELECT scope_kind, scope_id
+         FROM receipt_access_scopes
+         WHERE receipt_id = ? AND principal_id = ?
+         ORDER BY scope_kind, scope_id`,
+      )
+      .all(request.receipt_id, request.principal_id) as Array<{
+      scope_kind: string;
+      scope_id: string;
+    }>;
+    if (
+      access.length === 0 ||
+      access.some(
+        (scope) =>
+          !allowedScopes.has(`${scope.scope_kind}:${scope.scope_id}`),
+      )
+    ) {
+      return null;
+    }
+    const row =
+      (this.#database
+        .prepare(
+          "SELECT receipt_json FROM mutation_receipts WHERE receipt_id = ?",
+        )
+        .get(request.receipt_id) as { receipt_json: string } | undefined) ??
+      (this.#database
+        .prepare(
+          "SELECT receipt_json FROM retrieval_receipts WHERE receipt_id = ?",
+        )
+        .get(request.receipt_id) as { receipt_json: string } | undefined);
+    if (row === undefined) {
+      return null;
+    }
+    const receipt = ReceiptSchema.parse(
+      JSON.parse(row.receipt_json) as unknown,
+    );
+    if (!receiptHashIsValid(receipt)) {
+      throw new StorageError("CORRUPTION");
+    }
+    return receipt;
+  }
+
+  recordRecall(input: unknown): RecordRecallResult {
+    const command = RecordRecallCommandSchema.parse(input);
+    this.#validateRecall(command);
+    const hash = canonicalSha256(command.request);
+    const existing = this.#readRecall(command.request.request_id);
+    if (existing !== undefined) {
+      return this.#parseExistingRecall(
+        existing,
+        hash,
+        command.principal_id,
+      );
+    }
+
+    try {
+      return this.#database
+        .transaction(() => {
+          const repeated = this.#readRecall(command.request.request_id);
+          if (repeated !== undefined) {
+            return this.#parseExistingRecall(
+              repeated,
+              hash,
+              command.principal_id,
+            );
+          }
+          this.#insertRecall(command);
+          return {
+            receipt: command.receipt,
+            context_slice: command.context_slice ?? null,
+            replayed: false,
+          };
+        })
+        .immediate();
+    } catch (error) {
+      if (error instanceof StorageError) {
+        throw error;
+      }
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        typeof error.code === "string" &&
+        error.code.startsWith("SQLITE_CONSTRAINT")
+      ) {
+        throw new StorageError("CONFLICT");
+      }
+      throw error;
+    }
+  }
+
   blockForTest(milliseconds: number): void {
     Atomics.wait(
       new Int32Array(new SharedArrayBuffer(4)),
@@ -559,6 +774,215 @@ export class StorageDatabase {
       suppliedBlobHashes.some((hash) => !referencedHashes.has(hash))
     ) {
       throw new StorageError("INVALID_INPUT");
+    }
+  }
+
+  #validateRecall(command: ParsedRecordRecallCommand): void {
+    const request = RecallRequestSchema.parse(command.request);
+    const receipt = RetrievalReceiptSchema.parse(command.receipt);
+    const expectedRequestHash = canonicalSha256(request);
+    if (
+      receipt.request_hash !== expectedRequestHash ||
+      !receiptHashIsValid(receipt)
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+
+    const contextSlice =
+      command.context_slice === undefined
+        ? null
+        : ContextSliceSchema.parse(command.context_slice);
+    if (contextSlice === null) {
+      if (receipt.context_slice_id !== null) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      return;
+    }
+    if (
+      contextSlice.request_id !== request.request_id ||
+      receipt.context_slice_id !== contextSlice.context_slice_id ||
+      contextSlice.compiler_version !== receipt.compiler_version ||
+      contextSlice.token_budget !== request.token_budget ||
+      canonicalSha256Omitting(contextSlice, ["frozen_hash"]) !==
+        contextSlice.frozen_hash
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+
+    const allowedScopes = new Set(
+      request.scopes.map((scope) => `${scope.kind}:${scope.id}`),
+    );
+    const includedMemoryIds = new Set(
+      receipt.items
+        .filter((item) => item.decision === "included")
+        .map((item) => `${item.memory_id}:${item.revision_id}`),
+    );
+    for (const item of contextSlice.items) {
+      if (
+        !allowedScopes.has(`${item.scope.kind}:${item.scope.id}`) ||
+        !includedMemoryIds.has(`${item.memory_id}:${item.revision_id}`)
+      ) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      for (const evidenceId of item.evidence_ids) {
+        const found = this.#database
+          .prepare(
+            `SELECT 1 FROM evidence_events
+             WHERE evidence_id = ? AND scope_kind = ? AND scope_id = ?
+               AND principal_id = ?`,
+          )
+          .get(
+            evidenceId,
+            item.scope.kind,
+            item.scope.id,
+            command.principal_id,
+          );
+        if (found === undefined) {
+          throw new StorageError("INVALID_INPUT");
+        }
+      }
+    }
+  }
+
+  #readRecall(requestId: string): ExistingRecall | undefined {
+    return this.#database
+      .prepare(
+        `SELECT q.request_id, q.principal_id, q.request_hash,
+                r.receipt_json, s.slice_json
+         FROM recall_requests AS q
+         JOIN retrieval_receipts AS r ON r.request_id = q.request_id
+         LEFT JOIN context_slices AS s ON s.request_id = q.request_id
+         WHERE q.request_id = ?`,
+      )
+      .get(requestId) as ExistingRecall | undefined;
+  }
+
+  #parseExistingRecall(
+    existing: ExistingRecall,
+    expectedRequestHash: string,
+    expectedPrincipalId?: string,
+  ): RecordRecallResult {
+    if (
+      existing.request_hash !== expectedRequestHash ||
+      (expectedPrincipalId !== undefined &&
+        existing.principal_id !== expectedPrincipalId)
+    ) {
+      throw new StorageError("CONFLICT");
+    }
+    const receipt = RetrievalReceiptSchema.parse(
+      JSON.parse(existing.receipt_json) as unknown,
+    );
+    const contextSlice =
+      existing.slice_json === null
+        ? null
+        : ContextSliceSchema.parse(
+            JSON.parse(existing.slice_json) as unknown,
+          );
+    if (
+      !receiptHashIsValid(receipt) ||
+      receipt.request_hash !== existing.request_hash ||
+      (contextSlice === null && receipt.context_slice_id !== null) ||
+      (contextSlice !== null &&
+        (contextSlice.request_id !== existing.request_id ||
+          receipt.context_slice_id !== contextSlice.context_slice_id ||
+          canonicalSha256Omitting(contextSlice, ["frozen_hash"]) !==
+            contextSlice.frozen_hash))
+    ) {
+      throw new StorageError("CORRUPTION");
+    }
+    return { receipt, context_slice: contextSlice, replayed: true };
+  }
+
+  #insertRecall(command: ParsedRecordRecallCommand): void {
+    const hash = canonicalSha256(command.request);
+    this.#database
+      .prepare(
+        `INSERT INTO recall_requests (
+           request_id, principal_id, request_hash, request_json, created_at
+         ) VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        command.request.request_id,
+        command.principal_id,
+        hash,
+        canonicalJson(command.request),
+        command.receipt.created_at,
+      );
+
+    if (command.context_slice !== undefined) {
+      const slice = command.context_slice;
+      this.#database
+        .prepare(
+          `INSERT INTO context_slices (
+             context_slice_id, request_id, compiler_version, token_budget,
+             token_used, frozen_hash, slice_json, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          slice.context_slice_id,
+          slice.request_id,
+          slice.compiler_version,
+          slice.token_budget,
+          slice.token_used,
+          slice.frozen_hash,
+          canonicalJson(slice),
+          slice.created_at,
+        );
+      const insertItem = this.#database.prepare(
+        `INSERT INTO context_slice_items (
+           context_slice_id, ordinal, memory_id, revision_id, item_json
+         ) VALUES (?, ?, ?, ?, ?)`,
+      );
+      const insertEvidence = this.#database.prepare(
+        `INSERT INTO context_slice_item_evidence (
+           context_slice_id, ordinal, evidence_id
+         ) VALUES (?, ?, ?)`,
+      );
+      slice.items.forEach((item, ordinal) => {
+        insertItem.run(
+          slice.context_slice_id,
+          ordinal,
+          item.memory_id,
+          item.revision_id,
+          canonicalJson(item),
+        );
+        for (const evidenceId of item.evidence_ids) {
+          insertEvidence.run(slice.context_slice_id, ordinal, evidenceId);
+        }
+      });
+    }
+
+    this.#database
+      .prepare(
+        `INSERT INTO retrieval_receipts (
+           receipt_id, request_id, context_slice_id, request_hash,
+           receipt_hash, state, receipt_json, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        command.receipt.receipt_id,
+        command.request.request_id,
+        command.receipt.context_slice_id,
+        command.receipt.request_hash,
+        command.receipt.receipt_hash,
+        command.receipt.state,
+        canonicalJson(command.receipt),
+        command.receipt.created_at,
+      );
+    const insertAccess = this.#database.prepare(
+      `INSERT INTO receipt_access_scopes (
+         receipt_id, receipt_kind, principal_id, scope_kind, scope_id,
+         created_at
+       ) VALUES (?, 'retrieval', ?, ?, ?, ?)`,
+    );
+    for (const scope of command.request.scopes) {
+      insertAccess.run(
+        command.receipt.receipt_id,
+        command.principal_id,
+        scope.kind,
+        scope.id,
+        command.receipt.created_at,
+      );
     }
   }
 
@@ -746,7 +1170,10 @@ export class StorageDatabase {
     }
   }
 
-  #insertReceipt(receipt: DurableEpisodeReceipt): void {
+  #insertReceipt(
+    receipt: DurableEpisodeReceipt,
+    command: ParsedCommitEpisodeCommand,
+  ): void {
     this.#database
       .prepare(
         `INSERT INTO mutation_receipts (
@@ -776,6 +1203,61 @@ export class StorageDatabase {
         receipt.receipt_id,
         receipt.created_at,
       );
+    const insertAccess = this.#database.prepare(
+      `INSERT INTO receipt_access_scopes (
+         receipt_id, receipt_kind, principal_id, scope_kind, scope_id,
+         created_at
+       ) VALUES (?, 'mutation', ?, ?, ?, ?)`,
+    );
+    const seen = new Set<string>();
+    for (const evidence of command.evidence) {
+      const key = `${evidence.actor.principal_id}:${evidence.scope.kind}:${evidence.scope.id}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      insertAccess.run(
+        receipt.receipt_id,
+        evidence.actor.principal_id,
+        evidence.scope.kind,
+        evidence.scope.id,
+        receipt.created_at,
+      );
+    }
+  }
+
+  #evidenceFromRow(
+    row: EvidenceRow,
+  ): ReturnType<typeof EvidenceRecordSchema.parse> {
+    return EvidenceRecordSchema.parse({
+      schema_version: row.schema_version,
+      evidence_id: row.evidence_id,
+      sequence: Number(row.sequence),
+      occurred_at: row.occurred_at,
+      recorded_at: row.recorded_at,
+      scope: { kind: row.scope_kind, id: row.scope_id },
+      actor: {
+        principal_id: row.principal_id,
+        authority: row.actor_authority,
+      },
+      source: row.source,
+      authority: row.authority,
+      sensitivity: row.sensitivity,
+      payload:
+        row.payload_storage === "inline"
+          ? {
+              storage: "inline",
+              text: row.payload_inline,
+              media_type: row.media_type,
+            }
+          : {
+              storage: "blob",
+              content_hash: row.payload_blob_hash,
+              size_bytes: row.artifact_size_bytes,
+              media_type: row.media_type,
+            },
+      content_hash: row.content_hash,
+    });
   }
 
   #ledgerEpoch(): number {
