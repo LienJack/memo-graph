@@ -83,3 +83,26 @@ Implemented and certified the M1A authoritative L0 SQLite ledger, worker isolati
 ### Next Steps
 
 - Create M1B for local-principal binding, stdio MCP tools/resources, budgeted baseline context compilation, explicit Codex loop, and parent G1 evidence.
+
+
+## Session 3: M1B governed stdio memory loop and G1
+
+**Date**: 2026-07-28
+**Task**: M1B governed stdio memory loop and G1
+**Branch**: `codex/agent-memory-runtime-m1b`
+
+### Summary
+
+Implemented principal-bound official MCP stdio tools/resources, recall and Context persistence, budgeted L0 compiler, real cross-process explicit loop, Small-profile benchmark, and recorded G1 GO.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9f510e5` | (see git log) |
+| `cd10577` | (see git log) |
+| `d097ca2` | (see git log) |
+
+### Status
+
+[OK] **Completed**
