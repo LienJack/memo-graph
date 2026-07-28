@@ -153,9 +153,9 @@ export function createMemoryMcpServer(options: {
   server.registerTool(
     "memory_search",
     {
-      title: "Search governed memory evidence",
+      title: "Search governed memory",
       description:
-        "Search exact authorized scopes in the local SQLite evidence ledger.",
+        "Search canonical L1 revisions with exact-scope L0 evidence fallback.",
       inputSchema: MemorySearchInputSchema,
       outputSchema: GovernedResponseSchema,
       annotations: annotations("memory_search"),
@@ -165,9 +165,9 @@ export function createMemoryMcpServer(options: {
   server.registerTool(
     "memory_get",
     {
-      title: "Get governed evidence",
+      title: "Get governed memory or evidence",
       description:
-        "Read one evidence record by identifier and exact authorized scope.",
+        "Read one canonical L1 memory or L0 evidence record in an exact authorized scope.",
       inputSchema: MemoryGetInputSchema,
       outputSchema: GovernedResponseSchema,
       annotations: annotations("memory_get"),
@@ -177,9 +177,9 @@ export function createMemoryMcpServer(options: {
   server.registerTool(
     "memory_explain",
     {
-      title: "Explain governed evidence",
+      title: "Explain governed memory or evidence",
       description:
-        "Read evidence provenance, hashes, scope, and episode membership.",
+        "Read governed eligibility, lineage, hashes, scope, and provenance.",
       inputSchema: MemoryExplainInputSchema,
       outputSchema: GovernedResponseSchema,
       annotations: annotations("memory_explain"),

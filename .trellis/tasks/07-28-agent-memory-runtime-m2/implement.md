@@ -57,17 +57,17 @@
 
 ## 4. U4 — correction and governed Context
 
-- [ ] Write failing correction-before-projection and stale-FTS fixtures.
-- [ ] Add the canonical eligibility oracle for search/get/explain/Context.
-- [ ] Extend Context candidates to represent governed L1 revisions while
+- [x] Write failing correction-before-projection and stale-FTS fixtures.
+- [x] Add the canonical eligibility oracle for search/get/explain/Context.
+- [x] Extend Context candidates to represent governed L1 revisions while
       preserving L0 fallback and hard token budgets.
-- [ ] Implement synchronous predecessor suppression and async invalidation.
-- [ ] Add governed L1 FTS upsert/delete/rebuild behavior.
-- [ ] Prove every invalid lifecycle/validity/conflict/usage state has a stable
+- [x] Implement synchronous predecessor suppression and async invalidation.
+- [x] Add governed L1 FTS upsert/delete/rebuild behavior.
+- [x] Prove every invalid lifecycle/validity/conflict/usage state has a stable
       exclusion reason.
-- [ ] Validate with:
+- [x] Validate with:
       `pnpm vitest run tests/governance/correction.integration.test.ts tests/mcp/context-compiler.test.ts`.
-- [ ] Commit U4 only after MCP, Context, storage, lint, and typecheck pass.
+- [x] Commit U4 only after MCP, Context, storage, lint, and typecheck pass.
 
 ## 5. U5 — user controls and MCP authorization
 

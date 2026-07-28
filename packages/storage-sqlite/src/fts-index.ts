@@ -23,6 +23,17 @@ type EvidenceFtsRow = {
   payload_inline: string;
 };
 
+type MemoryFtsRow = {
+  memory_id: string;
+  revision_id: string;
+  principal_id: string;
+  scope_kind: string;
+  scope_id: string;
+  kind: string;
+  valid_from: string;
+  content_inline: string;
+};
+
 const CREATE_FTS_SQL = `
   CREATE VIRTUAL TABLE evidence_fts USING fts5(
     evidence_id UNINDEXED,
@@ -80,15 +91,28 @@ export class FtsIndex {
   drain(limit = 1_000): DrainFtsResult {
     const jobs = this.#database
       .prepare(
-        `SELECT job_id, aggregate_id
+        `SELECT job_id, kind, aggregate_id
          FROM outbox_jobs
-         WHERE kind = 'fts_evidence_upsert'
+         WHERE kind IN (
+           'fts_evidence_upsert',
+           'fts_memory_upsert',
+           'fts_memory_delete',
+           'fts_memory_invalidate'
+         )
            AND status IN ('pending', 'failed')
            AND available_at <= ?
          ORDER BY available_at, job_id
          LIMIT ?`,
       )
-      .all(now(), limit) as Array<{ job_id: string; aggregate_id: string }>;
+      .all(now(), limit) as Array<{
+      job_id: string;
+      kind:
+        | "fts_evidence_upsert"
+        | "fts_memory_upsert"
+        | "fts_memory_delete"
+        | "fts_memory_invalidate";
+      aggregate_id: string;
+    }>;
 
     let processed = 0;
     let failed = 0;
@@ -104,6 +128,59 @@ export class FtsIndex {
       `SELECT evidence_id, scope_kind, scope_id, source, occurred_at, payload_inline
        FROM evidence_events
        WHERE evidence_id = ? AND payload_storage = 'inline'`,
+    );
+    const insertMemoryFts = this.#database.prepare(
+      `INSERT INTO memory_fts (
+         memory_id, revision_id, principal_id, scope_kind, scope_id, kind,
+         valid_from, searchable_text
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const deleteMemoryRevision = this.#database.prepare(
+      "DELETE FROM memory_fts WHERE revision_id = ?",
+    );
+    const deleteMemory = this.#database.prepare(
+      "DELETE FROM memory_fts WHERE memory_id = ?",
+    );
+    const readMemory = this.#database.prepare(
+      `SELECT o.memory_id, r.revision_id, o.principal_id, r.scope_kind,
+              r.scope_id, r.kind, r.valid_from, r.content_inline
+       FROM memory_revisions AS r
+       JOIN memory_objects AS o
+         ON o.memory_id = r.memory_id
+        AND o.current_revision_id = r.revision_id
+       WHERE r.revision_id = ?
+         AND o.lifecycle = 'active'
+         AND o.context_eligible = 1
+         AND r.lifecycle = 'active'
+         AND r.content_storage = 'inline'
+         AND EXISTS (
+           SELECT 1 FROM admission_decisions AS d
+           WHERE d.revision_id = r.revision_id AND d.decision = 'activate'
+         )
+         AND EXISTS (
+           SELECT 1 FROM memory_revision_evidence AS l
+           WHERE l.revision_id = r.revision_id
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM memory_revision_evidence AS l
+           JOIN evidence_events AS e ON e.evidence_id = l.evidence_id
+           WHERE l.revision_id = r.revision_id
+             AND (
+               e.purged_at IS NOT NULL
+               OR e.principal_id <> o.principal_id
+               OR e.scope_kind <> r.scope_kind
+               OR e.scope_id <> r.scope_id
+             )
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM memory_conflict_groups AS c
+           WHERE c.logical_key_hash = o.logical_key_hash
+             AND c.principal_id = o.principal_id
+             AND c.scope_kind = o.scope_kind
+             AND c.scope_id = o.scope_id
+             AND c.status = 'open'
+         )`,
     );
     const markProcessed = this.#database.prepare(
       `UPDATE outbox_jobs
@@ -122,19 +199,43 @@ export class FtsIndex {
       try {
         this.#database
           .transaction(() => {
-            const evidence = readEvidence.get(
-              job.aggregate_id,
-            ) as EvidenceFtsRow | undefined;
-            deleteFts.run(job.aggregate_id);
-            if (evidence !== undefined) {
-              insertFts.run(
-                evidence.evidence_id,
-                evidence.scope_kind,
-                evidence.scope_id,
-                evidence.source,
-                evidence.occurred_at,
-                evidence.payload_inline,
-              );
+            if (job.kind === "fts_evidence_upsert") {
+              const evidence = readEvidence.get(
+                job.aggregate_id,
+              ) as EvidenceFtsRow | undefined;
+              deleteFts.run(job.aggregate_id);
+              if (evidence !== undefined) {
+                insertFts.run(
+                  evidence.evidence_id,
+                  evidence.scope_kind,
+                  evidence.scope_id,
+                  evidence.source,
+                  evidence.occurred_at,
+                  evidence.payload_inline,
+                );
+              }
+            } else if (job.kind === "fts_memory_upsert") {
+              const memory = readMemory.get(
+                job.aggregate_id,
+              ) as MemoryFtsRow | undefined;
+              deleteMemoryRevision.run(job.aggregate_id);
+              if (memory !== undefined) {
+                deleteMemory.run(memory.memory_id);
+                insertMemoryFts.run(
+                  memory.memory_id,
+                  memory.revision_id,
+                  memory.principal_id,
+                  memory.scope_kind,
+                  memory.scope_id,
+                  memory.kind,
+                  memory.valid_from,
+                  memory.content_inline,
+                );
+              }
+            } else if (job.kind === "fts_memory_delete") {
+              deleteMemoryRevision.run(job.aggregate_id);
+            } else {
+              deleteMemory.run(job.aggregate_id);
             }
             markProcessed.run(now(), job.job_id);
           })
@@ -146,7 +247,7 @@ export class FtsIndex {
       }
     }
 
-    const remaining = Number(
+    const evidenceRemaining = Number(
       (
         this.#database
           .prepare(
@@ -157,6 +258,22 @@ export class FtsIndex {
           .get() as { count: number }
       ).count,
     );
+    const memoryRemaining = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count FROM outbox_jobs
+             WHERE kind IN (
+               'fts_memory_upsert',
+               'fts_memory_delete',
+               'fts_memory_invalidate'
+             )
+               AND status IN ('pending', 'failed')`,
+          )
+          .get() as { count: number }
+      ).count,
+    );
+    const remaining = evidenceRemaining + memoryRemaining;
     const epoch = this.#ledgerEpoch();
     const projectionState =
       failed > 0 ? "unavailable" : remaining > 0 ? "pending" : "ready";
@@ -167,7 +284,27 @@ export class FtsIndex {
          WHERE projection_name = 'fts'`,
       )
       .run(
-        projectionState,
+        failed > 0
+          ? "unavailable"
+          : evidenceRemaining > 0
+            ? "pending"
+            : "ready",
+        epoch,
+        now(),
+        failed > 0 ? "FTS_UNAVAILABLE" : null,
+      );
+    this.#database
+      .prepare(
+        `UPDATE projection_state
+         SET status = ?, last_epoch = ?, updated_at = ?, error_code = ?
+         WHERE projection_name = 'memory_fts'`,
+      )
+      .run(
+        failed > 0
+          ? "unavailable"
+          : memoryRemaining > 0
+            ? "pending"
+            : "ready",
         epoch,
         now(),
         failed > 0 ? "FTS_UNAVAILABLE" : null,
@@ -253,6 +390,26 @@ export class FtsIndex {
         .transaction(() => {
           this.#database.exec("DROP TABLE IF EXISTS evidence_fts");
           this.#database.exec(CREATE_FTS_SQL);
+          this.#database.exec("DROP TABLE IF EXISTS memory_fts");
+          this.#database.exec(`
+            CREATE VIRTUAL TABLE memory_fts USING fts5(
+              memory_id UNINDEXED,
+              revision_id UNINDEXED,
+              principal_id UNINDEXED,
+              scope_kind UNINDEXED,
+              scope_id UNINDEXED,
+              kind UNINDEXED,
+              valid_from UNINDEXED,
+              searchable_text,
+              tokenize = 'unicode61 remove_diacritics 2'
+            )
+          `);
+          this.#database.exec(
+            "INSERT INTO evidence_fts(evidence_fts, rank) VALUES('secure-delete', 1)",
+          );
+          this.#database.exec(
+            "INSERT INTO memory_fts(memory_fts, rank) VALUES('secure-delete', 1)",
+          );
           this.#database.exec(`
             INSERT INTO evidence_fts (
               evidence_id, scope_kind, scope_id, source, occurred_at,
@@ -264,12 +421,62 @@ export class FtsIndex {
             WHERE payload_storage = 'inline'
             ORDER BY evidence_id
           `);
+          this.#database.exec(`
+            INSERT INTO memory_fts (
+              memory_id, revision_id, principal_id, scope_kind, scope_id,
+              kind, valid_from, searchable_text
+            )
+            SELECT o.memory_id, r.revision_id, o.principal_id, r.scope_kind,
+                   r.scope_id, r.kind, r.valid_from, r.content_inline
+            FROM memory_objects AS o
+            JOIN memory_revisions AS r
+              ON r.revision_id = o.current_revision_id
+            WHERE o.lifecycle = 'active'
+              AND o.context_eligible = 1
+              AND r.lifecycle = 'active'
+              AND r.content_storage = 'inline'
+              AND EXISTS (
+                SELECT 1 FROM admission_decisions AS d
+                WHERE d.revision_id = r.revision_id
+                  AND d.decision = 'activate'
+              )
+              AND EXISTS (
+                SELECT 1 FROM memory_revision_evidence AS l
+                WHERE l.revision_id = r.revision_id
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM memory_revision_evidence AS l
+                JOIN evidence_events AS e ON e.evidence_id = l.evidence_id
+                WHERE l.revision_id = r.revision_id
+                  AND (
+                    e.purged_at IS NOT NULL
+                    OR e.principal_id <> o.principal_id
+                    OR e.scope_kind <> r.scope_kind
+                    OR e.scope_id <> r.scope_id
+                  )
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM memory_conflict_groups AS c
+                WHERE c.logical_key_hash = o.logical_key_hash
+                  AND c.principal_id = o.principal_id
+                  AND c.scope_kind = o.scope_kind
+                  AND c.scope_id = o.scope_id
+                  AND c.status = 'open'
+              )
+            ORDER BY r.revision_id
+          `);
           this.#database
             .prepare(
               `UPDATE outbox_jobs
                SET status = 'processed', attempts = attempts + 1,
                    processed_at = ?, last_error_code = NULL
-               WHERE kind = 'fts_evidence_upsert'
+               WHERE kind IN (
+                 'fts_evidence_upsert',
+                 'fts_memory_upsert',
+                 'fts_memory_delete',
+                 'fts_memory_invalidate'
+               )
                  AND status IN ('pending', 'failed')`,
             )
             .run(now());
@@ -279,6 +486,14 @@ export class FtsIndex {
                SET status = 'ready', last_epoch = ?, updated_at = ?,
                    error_code = NULL
                WHERE projection_name = 'fts'`,
+            )
+            .run(epoch, now());
+          this.#database
+            .prepare(
+              `UPDATE projection_state
+               SET status = 'ready', last_epoch = ?, updated_at = ?,
+                   error_code = NULL
+               WHERE projection_name = 'memory_fts'`,
             )
             .run(epoch, now());
           return Number(

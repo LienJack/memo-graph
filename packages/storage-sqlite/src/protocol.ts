@@ -4,6 +4,7 @@ import {
   AuthoritySchema,
   EpisodeSchema,
   EvidenceRecordSchema,
+  GovernedSearchItemSchema,
   IdentifierSchema,
   ContextSliceSchema,
   MemoryCandidateSchema,
@@ -278,6 +279,138 @@ export const SearchEvidenceResultSchema = z.discriminatedUnion("status", [
     .strict(),
 ]);
 
+export const EligibilityReasonCodeSchema = z.enum([
+  "NOT_FOUND",
+  "WRONG_PRINCIPAL",
+  "WRONG_SCOPE",
+  "SUPERSEDED",
+  "CANDIDATE_ONLY",
+  "QUARANTINED",
+  "REVOKED",
+  "TOMBSTONED",
+  "NO_LIVE_EVIDENCE",
+  "NO_ACTIVATION",
+  "NOT_YET_VALID",
+  "EXPIRED",
+  "OPEN_CONFLICT",
+  "USAGE_BLOCKED",
+  "SENSITIVE_EXCLUDED",
+  "SECRET_EXCLUDED",
+  "CONTENT_NOT_INLINE",
+  "CORRUPT_LINEAGE",
+]);
+
+export const MemoryEligibilityInputSchema = z
+  .object({
+    memory_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    as_of: UtcTimestampSchema,
+    include_sensitive: z.boolean().default(false),
+    context_scope: ScopeSchema.nullable().default(null),
+  })
+  .strict();
+
+export const GovernedMemoryLookupInputSchema = z
+  .object({
+    memory_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    as_of: UtcTimestampSchema,
+    include_sensitive: z.boolean().default(false),
+    context_scope: ScopeSchema.nullable().default(null),
+  })
+  .strict();
+
+export const MemoryEligibilityResultSchema = z.discriminatedUnion(
+  "eligible",
+  [
+    z
+      .object({
+        eligible: z.literal(true),
+        item: GovernedSearchItemSchema,
+      })
+      .strict(),
+    z
+      .object({
+        eligible: z.literal(false),
+        memory_id: IdentifierSchema,
+        revision_id: IdentifierSchema,
+        reason_code: EligibilityReasonCodeSchema,
+      })
+      .strict(),
+  ],
+);
+
+export const GovernedMemoryLookupResultSchema =
+  MemoryEligibilityResultSchema.nullable();
+
+export const GovernedMemorySearchQuerySchema = z
+  .object({
+    query: z.string().trim().min(1).max(500),
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    as_of: UtcTimestampSchema,
+    include_sensitive: z.boolean().default(false),
+    context_scope: ScopeSchema.nullable().default(null),
+    limit: z.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+
+export const GovernedRankedItemSchema = z
+  .object({
+    item: GovernedSearchItemSchema,
+    rank: z.number().finite(),
+    lane: z.enum(["memory_fts", "sqlite_canonical"]),
+  })
+  .strict();
+
+export const GovernedMemoryExclusionSchema = z
+  .object({
+    memory_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+    reason_code: EligibilityReasonCodeSchema,
+    lane: z.enum([
+      "memory_fts",
+      "sqlite_canonical",
+      "canonical_eligibility",
+    ]),
+    score: z.number().finite().nullable(),
+  })
+  .strict();
+
+const GovernedSearchBaseSchema = {
+  items: z.array(GovernedRankedItemSchema),
+  exclusions: z.array(GovernedMemoryExclusionSchema),
+  degraded_lanes: z.array(z.string().trim().min(1)),
+};
+
+export const GovernedMemorySearchResultSchema = z.discriminatedUnion(
+  "status",
+  [
+    z.object({ ...GovernedSearchBaseSchema, status: z.literal("OK") }).strict(),
+    z
+      .object({
+        ...GovernedSearchBaseSchema,
+        status: z.literal("NO_MATCH"),
+      })
+      .strict(),
+    z
+      .object({
+        ...GovernedSearchBaseSchema,
+        status: z.literal("POLICY_EXCLUDED"),
+      })
+      .strict(),
+    z
+      .object({
+        ...GovernedSearchBaseSchema,
+        status: z.literal("DEGRADED"),
+      })
+      .strict(),
+  ],
+);
+
 export const RebuildFtsResultSchema = z
   .object({
     indexed: z.number().int().nonnegative(),
@@ -373,6 +506,9 @@ export const WorkerOperationSchema = z.enum([
   "admit_memory",
   "apply_memory_revision",
   "governance_replay",
+  "check_memory_eligibility",
+  "get_governed_memory",
+  "search_governed_memory",
   "commit_episode",
   "drain_fts",
   "search_evidence",
@@ -478,6 +614,36 @@ export type ParsedSearchEvidenceQuery = z.output<
   typeof SearchEvidenceQuerySchema
 >;
 export type SearchEvidenceResult = z.infer<typeof SearchEvidenceResultSchema>;
+export type EligibilityReasonCode = z.infer<
+  typeof EligibilityReasonCodeSchema
+>;
+export type MemoryEligibilityInput = z.input<
+  typeof MemoryEligibilityInputSchema
+>;
+export type ParsedMemoryEligibilityInput = z.output<
+  typeof MemoryEligibilityInputSchema
+>;
+export type MemoryEligibilityResult = z.infer<
+  typeof MemoryEligibilityResultSchema
+>;
+export type GovernedMemoryLookupInput = z.input<
+  typeof GovernedMemoryLookupInputSchema
+>;
+export type ParsedGovernedMemoryLookupInput = z.output<
+  typeof GovernedMemoryLookupInputSchema
+>;
+export type GovernedMemoryLookupResult = z.infer<
+  typeof GovernedMemoryLookupResultSchema
+>;
+export type GovernedMemorySearchQuery = z.input<
+  typeof GovernedMemorySearchQuerySchema
+>;
+export type ParsedGovernedMemorySearchQuery = z.output<
+  typeof GovernedMemorySearchQuerySchema
+>;
+export type GovernedMemorySearchResult = z.infer<
+  typeof GovernedMemorySearchResultSchema
+>;
 export type StorageHealth = z.infer<typeof StorageHealthSchema>;
 export type VerifyArtifactsResult = z.infer<typeof VerifyArtifactsResultSchema>;
 export type WorkerOperation = z.infer<typeof WorkerOperationSchema>;

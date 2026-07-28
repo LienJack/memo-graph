@@ -6,6 +6,7 @@ import {
   compileContext,
   l0MemoryIdentity,
   type ContextCandidate,
+  type ContextExclusion,
 } from "@memo-graph/context-compiler";
 import {
   GovernedResponseSchema,
@@ -54,10 +55,18 @@ export type GovernedResponse = z.infer<typeof GovernedResponseSchema>;
 type ReadEnvelope = z.output<typeof ReadRequestEnvelopeSchema>;
 type ProposalEnvelope = z.output<typeof ProposalRequestEnvelopeSchema>;
 type RuntimeEnvelope = ReadEnvelope | ProposalEnvelope;
+type L0ContextCandidate = Extract<
+  ContextCandidate,
+  { abstraction: "l0_evidence" }
+>;
 type RetrievalAuditItem = {
-  evidence: z.output<typeof EvidenceRecordSchema>;
+  evidence?: z.output<typeof EvidenceRecordSchema>;
+  memory_identity?: {
+    memory_id: string;
+    revision_id: string;
+  };
   decision: "included" | "excluded";
-  reason_code: string;
+  reason_codes: string[];
   lane: string;
   score: number | null;
 };
@@ -139,22 +148,42 @@ export class MemoryRuntime {
         return unauthorized;
       }
 
-      const searched = await this.#searchScopes(
+      const searched = await this.#searchContextScopes(
         request.query,
         request.envelope.scopes,
         request.limit,
+        request.envelope.requested_at,
+        request.include_sensitive,
       );
       const allowed: RetrievalAuditItem[] = [];
       const excluded: RetrievalAuditItem[] = [];
+      const outputItems: unknown[] = [];
       for (const candidate of searched.candidates) {
-        if (
-          candidate.evidence.sensitivity === "sensitive" &&
-          !request.include_sensitive
+        if (candidate.abstraction === "l1_memory") {
+          allowed.push({
+            memory_identity: {
+              memory_id: candidate.memory.memory_id,
+              revision_id: candidate.memory.revision_id,
+            },
+            decision: "included",
+            reason_codes: candidate.memory.reason_codes,
+            lane: candidate.lane,
+            score: candidate.rank,
+          });
+          outputItems.push(candidate.memory);
+        } else if (
+          (candidate.evidence.sensitivity === "sensitive" &&
+            !request.include_sensitive) ||
+          candidate.evidence.sensitivity === "secret"
         ) {
           excluded.push({
             evidence: candidate.evidence,
             decision: "excluded",
-            reason_code: "SENSITIVE_EXCLUDED",
+            reason_codes: [
+              candidate.evidence.sensitivity === "secret"
+                ? "SECRET_EXCLUDED"
+                : "SENSITIVE_EXCLUDED",
+            ],
             lane: candidate.lane,
             score: candidate.rank,
           });
@@ -162,11 +191,24 @@ export class MemoryRuntime {
           allowed.push({
             evidence: candidate.evidence,
             decision: "included",
-            reason_code: "RANKED_EVIDENCE",
+            reason_codes: ["RANKED_EVIDENCE"],
             lane: candidate.lane,
             score: candidate.rank,
           });
+          outputItems.push(candidate.evidence);
         }
+      }
+      for (const item of searched.exclusions) {
+        excluded.push({
+          memory_identity: {
+            memory_id: item.memory_id,
+            revision_id: item.revision_id,
+          },
+          decision: "excluded",
+          reason_codes: [item.reason_code],
+          lane: item.lane,
+          score: item.score,
+        });
       }
       const audit = await this.#recordAudit({
         envelope: request.envelope,
@@ -176,7 +218,7 @@ export class MemoryRuntime {
         partial: searched.degraded.length > 0,
       });
       const data = {
-        items: allowed.map((item) => item.evidence),
+        items: outputItems,
         receipt: audit.receipt,
       };
       if (searched.degraded.length > 0) {
@@ -201,7 +243,9 @@ export class MemoryRuntime {
           status: "POLICY_EXCLUDED",
           receipt_id: audit.receipt.receipt_id,
           excluded_count: excluded.length,
-          reason_codes: ["SENSITIVE_EXCLUDED"],
+          reason_codes: [
+            ...new Set(excluded.flatMap((item) => item.reason_codes)),
+          ].sort(),
         });
       }
       return GovernedResponseSchema.parse({
@@ -261,14 +305,17 @@ export class MemoryRuntime {
       if (unauthorized !== null) {
         return unauthorized;
       }
-      const searched = await this.#searchScopes(
+      const searched = await this.#searchContextScopes(
         request.recall.query,
         request.recall.scopes,
         100,
+        request.recall.as_of,
+        request.recall.include_sensitive,
       );
       const compiled = compileContext({
         request: request.recall,
         candidates: searched.candidates,
+        exclusions: searched.exclusions,
         created_at: request.envelope.requested_at,
         degraded_lanes: searched.degraded,
       });
@@ -444,6 +491,9 @@ export class MemoryRuntime {
           "lookup scope is outside the request envelope",
         );
       }
+      if ("memory_id" in request) {
+        return this.#governedMemoryRead(request, kind);
+      }
       const storedResult =
         kind === "get"
           ? await this.#storage.getEvidence({
@@ -474,7 +524,7 @@ export class MemoryRuntime {
               {
                 evidence,
                 decision: "included",
-                reason_code: "EXACT_ID",
+                reason_codes: ["EXACT_ID"],
                 lane: "sqlite_authority",
                 score: null,
               },
@@ -501,6 +551,82 @@ export class MemoryRuntime {
     });
   }
 
+  async #governedMemoryRead(
+    request: Extract<
+      z.output<typeof MemoryGetInputSchema>,
+      { memory_id: unknown }
+    >,
+    kind: "get" | "explain",
+  ): Promise<GovernedResponse> {
+    const result = await this.#storage.getGovernedMemory({
+      memory_id: request.memory_id,
+      principal_id: this.#policy.principal.principal_id,
+      scope: request.scope,
+      as_of: request.envelope.requested_at,
+      include_sensitive: request.include_sensitive,
+      context_scope: request.scope,
+    });
+    const audit = await this.#recordAudit({
+      envelope: request.envelope,
+      query: `${kind}:${request.memory_id}`,
+      includeSensitive: request.include_sensitive,
+      items:
+        result === null
+          ? []
+          : [
+              {
+                memory_identity: result.eligible
+                  ? {
+                      memory_id: result.item.memory_id,
+                      revision_id: result.item.revision_id,
+                    }
+                  : {
+                      memory_id: result.memory_id,
+                      revision_id: result.revision_id,
+                    },
+                decision: result.eligible ? "included" : "excluded",
+                reason_codes: result.eligible
+                  ? result.item.reason_codes
+                  : [result.reason_code],
+                lane: "sqlite_canonical",
+                score: null,
+              },
+            ],
+      partial: false,
+    });
+    if (result === null) {
+      return GovernedResponseSchema.parse({
+        status: "NO_MATCH",
+        receipt_id: audit.receipt.receipt_id,
+        reason: "the requested governed memory does not exist",
+      });
+    }
+    if (!result.eligible) {
+      return GovernedResponseSchema.parse({
+        status: "POLICY_EXCLUDED",
+        receipt_id: audit.receipt.receipt_id,
+        excluded_count: 1,
+        reason_codes: [result.reason_code],
+      });
+    }
+    return GovernedResponseSchema.parse({
+      status: "OK",
+      receipt_id: audit.receipt.receipt_id,
+      data: {
+        result:
+          kind === "get"
+            ? result.item
+            : {
+                memory: result.item,
+                evidence_ids: result.item.evidence_ids,
+                transform: result.item.transform,
+                eligibility: result.item.reason_codes,
+              },
+        receipt: audit.receipt,
+      },
+    });
+  }
+
   #authorize(envelope: RuntimeEnvelope): GovernedResponse | null {
     const decision = authorizeRequestClaims(
       this.#policy.principal,
@@ -515,8 +641,8 @@ export class MemoryRuntime {
     query: string,
     scopes: ReadEnvelope["scopes"],
     limit: number,
-  ): Promise<{ candidates: ContextCandidate[]; degraded: string[] }> {
-    const candidates: ContextCandidate[] = [];
+  ): Promise<{ candidates: L0ContextCandidate[]; degraded: string[] }> {
+    const candidates: L0ContextCandidate[] = [];
     const degraded: string[] = [];
     for (const scope of scopes) {
       const result = await this.#storage.searchEvidence({
@@ -542,6 +668,7 @@ export class MemoryRuntime {
           continue;
         }
         candidates.push({
+          abstraction: "l0_evidence",
           evidence,
           rank: item.rank,
           lane: "sqlite_fts",
@@ -564,6 +691,65 @@ export class MemoryRuntime {
     };
   }
 
+  async #searchContextScopes(
+    query: string,
+    scopes: ReadEnvelope["scopes"],
+    limit: number,
+    asOf: string,
+    includeSensitive: boolean,
+  ): Promise<{
+    candidates: ContextCandidate[];
+    exclusions: ContextExclusion[];
+    degraded: string[];
+  }> {
+    const evidence = await this.#searchScopes(query, scopes, limit);
+    const candidates: ContextCandidate[] = [...evidence.candidates];
+    const exclusions: ContextExclusion[] = [];
+    const degraded = [...evidence.degraded];
+    for (const scope of scopes) {
+      const result = await this.#storage.searchGovernedMemory({
+        query,
+        principal_id: this.#policy.principal.principal_id,
+        scope,
+        as_of: asOf,
+        include_sensitive: includeSensitive,
+        context_scope: scope,
+        limit,
+      });
+      degraded.push(...result.degraded_lanes.map(
+        (lane) => `${scopeKey(scope)}:${lane}`,
+      ));
+      for (const item of result.items) {
+        candidates.push({
+          abstraction: "l1_memory",
+          memory: item.item,
+          rank: item.rank - 1_000,
+          lane: item.lane,
+        });
+      }
+      exclusions.push(...result.exclusions);
+    }
+    const governedEvidenceIds = new Set(
+      candidates.flatMap((candidate) =>
+        candidate.abstraction === "l1_memory"
+          ? candidate.memory.evidence_ids
+          : [],
+      ),
+    );
+    const deduplicated = candidates.filter(
+      (candidate) =>
+        candidate.abstraction === "l1_memory" ||
+        !governedEvidenceIds.has(candidate.evidence.evidence_id),
+    );
+    return {
+      candidates: deduplicated
+        .sort((left, right) => left.rank - right.rank)
+        .slice(0, limit),
+      exclusions,
+      degraded: [...new Set(degraded)].sort(),
+    };
+  }
+
   async #recordAudit(options: {
     envelope: ReadEnvelope;
     query: string;
@@ -582,12 +768,19 @@ export class MemoryRuntime {
       include_sensitive: options.includeSensitive,
     });
     const receiptItems = options.items.map((item) => {
-      const identity = l0MemoryIdentity(item.evidence);
+      const identity =
+        item.memory_identity ??
+        (item.evidence === undefined
+          ? null
+          : l0MemoryIdentity(item.evidence));
+      if (identity === null) {
+        throw new StorageError("CORRUPTION");
+      }
       return {
         memory_id: identity.memory_id,
         revision_id: identity.revision_id,
         decision: item.decision,
-        reason_codes: [item.reason_code],
+        reason_codes: item.reason_codes,
         lane: item.lane,
         score: item.score,
       };

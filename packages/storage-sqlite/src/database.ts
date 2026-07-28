@@ -33,6 +33,7 @@ import type { DataRootLayout } from "./data-root.js";
 import { StorageError } from "./errors.js";
 import { FtsIndex } from "./fts-index.js";
 import { GovernanceRepository } from "./governance-repository.js";
+import { GovernedMemoryReader } from "./governed-memory-reader.js";
 import { applyMigrations } from "./migrations.js";
 import { PurgeRepository } from "./purge-repository.js";
 import {
@@ -41,6 +42,9 @@ import {
   EvidenceExplanationSchema,
   EvidenceLookupInputSchema,
   GovernanceReplayInputSchema,
+  GovernedMemoryLookupInputSchema,
+  GovernedMemorySearchQuerySchema,
+  MemoryEligibilityInputSchema,
   MemoryRevisionCommandSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
@@ -59,6 +63,9 @@ import {
   type SearchEvidenceResult,
   type GovernanceStorageStatus,
   type GovernanceMutationResult,
+  type GovernedMemorySearchResult,
+  type GovernedMemoryLookupResult,
+  type MemoryEligibilityResult,
   type StorageHealth,
 } from "./protocol.js";
 
@@ -183,6 +190,7 @@ export class StorageDatabase {
   readonly #blobStore: BlobStore;
   readonly #fts: FtsIndex;
   readonly #governance: GovernanceRepository;
+  readonly #governedMemory: GovernedMemoryReader;
   readonly #purge: PurgeRepository;
   readonly #journalMode: string;
 
@@ -214,6 +222,7 @@ export class StorageDatabase {
     this.#blobStore = new BlobStore(options.layout.blobs);
     this.#fts = new FtsIndex(this.#database);
     this.#governance = new GovernanceRepository(this.#database);
+    this.#governedMemory = new GovernedMemoryReader(this.#database);
     this.#purge = new PurgeRepository(this.#database);
   }
 
@@ -317,6 +326,24 @@ export class StorageDatabase {
     return this.#governance.replayMutation(
       request.idempotency_key,
       request.request_hash,
+    );
+  }
+
+  checkMemoryEligibility(input: unknown): MemoryEligibilityResult {
+    return this.#governedMemory.checkEligibility(
+      MemoryEligibilityInputSchema.parse(input),
+    );
+  }
+
+  getGovernedMemory(input: unknown): GovernedMemoryLookupResult {
+    return this.#governedMemory.lookup(
+      GovernedMemoryLookupInputSchema.parse(input),
+    );
+  }
+
+  searchGovernedMemory(input: unknown): GovernedMemorySearchResult {
+    return this.#governedMemory.search(
+      GovernedMemorySearchQuerySchema.parse(input),
     );
   }
 

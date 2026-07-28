@@ -24,10 +24,16 @@ import {
   EvidenceLookupInputSchema,
   EvidenceLookupResultSchema,
   GovernanceStorageStatusSchema,
+  GovernedMemoryLookupInputSchema,
+  GovernedMemoryLookupResultSchema,
+  GovernedMemorySearchQuerySchema,
+  GovernedMemorySearchResultSchema,
   GovernanceMutationResultSchema,
   GovernanceReplayInputSchema,
   GovernanceReplayResultSchema,
   MemoryRevisionCommandSchema,
+  MemoryEligibilityInputSchema,
+  MemoryEligibilityResultSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RebuildFtsResultSchema,
@@ -48,8 +54,14 @@ import {
   type EvidenceExplanation,
   type GovernanceStorageStatus,
   type GovernanceMutationResult,
+  type GovernedMemorySearchQuery,
+  type GovernedMemorySearchResult,
+  type GovernedMemoryLookupInput,
+  type GovernedMemoryLookupResult,
   type GovernanceReplayInput,
   type MemoryRevisionCommand,
+  type MemoryEligibilityInput,
+  type MemoryEligibilityResult,
   type RecordRecallResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
@@ -192,6 +204,39 @@ export class SqliteStorageClient {
       "governance_replay",
       request,
       GovernanceReplayResultSchema,
+    );
+  }
+
+  checkMemoryEligibility(
+    input: MemoryEligibilityInput,
+  ): Promise<MemoryEligibilityResult> {
+    const request = MemoryEligibilityInputSchema.parse(input);
+    return this.#request(
+      "check_memory_eligibility",
+      request,
+      MemoryEligibilityResultSchema,
+    );
+  }
+
+  getGovernedMemory(
+    input: GovernedMemoryLookupInput,
+  ): Promise<GovernedMemoryLookupResult> {
+    const request = GovernedMemoryLookupInputSchema.parse(input);
+    return this.#request(
+      "get_governed_memory",
+      request,
+      GovernedMemoryLookupResultSchema,
+    );
+  }
+
+  searchGovernedMemory(
+    input: GovernedMemorySearchQuery,
+  ): Promise<GovernedMemorySearchResult> {
+    const request = GovernedMemorySearchQuerySchema.parse(input);
+    return this.#request(
+      "search_governed_memory",
+      request,
+      GovernedMemorySearchResultSchema,
     );
   }
 

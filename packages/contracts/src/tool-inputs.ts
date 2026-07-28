@@ -3,7 +3,9 @@ import { z } from "zod";
 import {
   CanonicalHashSchema,
   ContentRefSchema,
+  AuthoritySchema,
   IdentifierSchema,
+  LifecycleSchema,
   MemoryKindSchema,
   ScopeSchema,
   SensitivitySchema,
@@ -71,13 +73,33 @@ export const MemoryEvidenceLookupInputSchema = z
   })
   .strict();
 
+export const GovernedMemoryLookupSelectorSchema = z.union([
+  z.object({ evidence_id: IdentifierSchema }).strict(),
+  z.object({ memory_id: IdentifierSchema }).strict(),
+]);
+
+const MemoryGovernedLookupInputSchema = z
+  .object({
+    envelope: ReadRequestEnvelopeSchema,
+    memory_id: IdentifierSchema,
+    scope: ScopeSchema,
+    include_sensitive: z.boolean().default(false),
+  })
+  .strict();
+
 export const MemoryGetInputSchema = withExpectedTool(
-  MemoryEvidenceLookupInputSchema,
+  z.union([
+    MemoryEvidenceLookupInputSchema,
+    MemoryGovernedLookupInputSchema,
+  ]),
   "memory_get",
 );
 
 export const MemoryExplainInputSchema = withExpectedTool(
-  MemoryEvidenceLookupInputSchema,
+  z.union([
+    MemoryEvidenceLookupInputSchema,
+    MemoryGovernedLookupInputSchema,
+  ]),
   "memory_explain",
 );
 
@@ -270,19 +292,17 @@ export const MemoryDeleteInputSchema = withExpectedTool(
   "memory_delete",
 );
 
-export const GovernedMemoryLookupSelectorSchema = z.union([
-  z.object({ evidence_id: IdentifierSchema }).strict(),
-  z.object({ memory_id: IdentifierSchema }).strict(),
-]);
-
 export const GovernedSearchItemSchema = z
   .object({
-    abstraction: z.enum(["l0_evidence", "l1_memory"]),
+    abstraction: z.literal("l1_memory"),
     memory_id: IdentifierSchema,
     revision_id: IdentifierSchema,
+    lifecycle: LifecycleSchema,
     kind: MemoryKindSchema,
     scope: ScopeSchema,
+    authority: AuthoritySchema,
     sensitivity: SensitivitySchema,
+    validity: ValidityWindowSchema,
     content: ContentRefSchema,
     content_hash: CanonicalHashSchema,
     evidence_ids: z.array(IdentifierSchema).min(1),

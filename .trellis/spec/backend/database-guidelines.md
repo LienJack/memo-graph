@@ -175,6 +175,87 @@ if (replay !== null) return replay;
 return storage.applyMemoryRevision(command);
 ```
 
+## Scenario: Canonical Eligibility and Governed L1 FTS
+
+### 1. Scope / Trigger
+
+Use this contract for every model-visible L1 read, including search, get,
+explain, and Context compilation, and whenever a projection proposes an L1
+candidate.
+
+### 2. Signatures
+
+```ts
+storage.checkMemoryEligibility(input: MemoryEligibilityInput): Promise<MemoryEligibilityResult>
+storage.getGovernedMemory(input: GovernedMemoryLookupInput): Promise<GovernedMemoryLookupResult>
+storage.searchGovernedMemory(input: GovernedMemorySearchQuery): Promise<GovernedMemorySearchResult>
+```
+
+### 3. Contracts
+
+- SQLite `memory_objects.current_revision_id` is the canonical current pointer.
+- Projection rows identify candidates only. Every FTS hit is revalidated
+  against principal, exact scope, object/revision lifecycle, current pointer,
+  live evidence, activation, validity, conflict, usage, and sensitivity.
+- A successor changes the canonical pointer synchronously. FTS
+  upsert/delete/invalidate jobs may lag without making the predecessor usable.
+- Canonical inline search supplements pending FTS work so a committed
+  successor has read-your-write visibility.
+- L1 Context items retain exact revision, evidence lineage, transform, and
+  validity metadata. Excluded L1 items contribute only identity and reason
+  codes to the retrieval receipt.
+- Rebuild `memory_fts` only from current active, context-eligible, inline
+  revisions. The projection never decides eligibility.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Candidate or working lifecycle | `CANDIDATE_ONLY` |
+| Pointer mismatch or superseded lifecycle | `SUPERSEDED` |
+| Quarantined, revoked, or purged object | `QUARANTINED`, `REVOKED`, or `TOMBSTONED` |
+| Outside validity window | `NOT_YET_VALID` or `EXPIRED` |
+| Open logical-key conflict | `OPEN_CONFLICT` |
+| Latest applicable usage rule blocks | `USAGE_BLOCKED` |
+| Missing activation or exact-scope live lineage | `NO_ACTIVATION` or `NO_LIVE_EVIDENCE` |
+| Sensitive/secret content is not authorized | `SENSITIVE_EXCLUDED` or `SECRET_EXCLUDED` |
+
+### 5. Good / Base / Bad Cases
+
+- Good: rank an FTS hit, revalidate it canonically, then compile the exact
+  eligible revision into a frozen Context.
+- Base: while FTS cleanup is pending, canonical fallback returns the successor
+  and rejects a stale predecessor hit.
+- Bad: treat membership in `memory_fts`, graph, or vector results as permission
+  to place content in Context.
+
+### 6. Tests Required
+
+- Correction tests prove no predecessor resurrection before outbox drain.
+- Eligibility tests cover every invalid lifecycle, validity, conflict, usage,
+  scope, lineage, and sensitivity reason.
+- FTS tests cover upsert, delete, invalidation, restart, and rebuild.
+- Context tests preserve hard budgets, L0 fallback, L1 lineage, exclusion
+  receipts, and immutable historical Context artifacts.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const hit = memoryFts.search(query)[0];
+return hit.content; // A stale projection row is not an authorization result.
+```
+
+#### Correct
+
+```ts
+const hit = memoryFts.search(query)[0];
+const result = await storage.checkMemoryEligibility(hit);
+if (!result.eligible) return result.reason_code;
+return result.item;
+```
+
 ## Migrations
 
 Migrations begin in M1, are forward-only, and are versioned files under

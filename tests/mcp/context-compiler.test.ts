@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canonicalSha256,
   canonicalSha256Omitting,
   receiptHashIsValid,
 } from "../../packages/contracts/src/index.js";
@@ -11,6 +12,7 @@ import {
 } from "../../packages/context-compiler/src/index.js";
 
 import { inlineEpisode } from "../helpers/storage-examples.js";
+import { NOW } from "../helpers/examples.js";
 
 function compilerInput(options: {
   tokenBudget: number;
@@ -149,5 +151,101 @@ describe("baseline context compiler", () => {
     expect(allowed.status).toBe("DEGRADED");
     expect(allowed.context_slice?.items).toHaveLength(1);
     expect(allowed.warnings).toEqual(["lane unavailable: sqlite_fts"]);
+  });
+
+  it("compiles an eligible L1 revision with its evidence lineage", () => {
+    const content = {
+      storage: "inline",
+      text: "Prefer one falsifiable conclusion with verification evidence.",
+      media_type: "text/plain",
+    } as const;
+    const input = compilerInput({ tokenBudget: 1_800 });
+    const result = compileContext({
+      ...input,
+      candidates: [
+        ...input.candidates,
+        {
+          abstraction: "l1_memory",
+          memory: {
+            abstraction: "l1_memory",
+            memory_id: "memory_pref",
+            revision_id: "revision_pref_2",
+            lifecycle: "active",
+            kind: "semantic",
+            scope: { kind: "workspace", id: "workspace_local" },
+            authority: "user_stated",
+            sensitivity: "personal",
+            validity: {
+              valid_from: NOW,
+              valid_to: null,
+              recorded_at: NOW,
+            },
+            content,
+            content_hash: canonicalSha256(content),
+            evidence_ids: ["evidence_storage_1"],
+            transform: {
+              name: "memory-proposal",
+              version: "1.0.0",
+            },
+            reason_codes: ["CANONICAL_CURRENT", "ACTIVATED"],
+          },
+          rank: -2,
+          lane: "memory_fts",
+        },
+      ],
+    });
+
+    expect(result.status).toBe("OK");
+    expect(result.context_slice?.items).toEqual([
+      expect.objectContaining({
+        memory_id: "memory_pref",
+        revision_id: "revision_pref_2",
+        abstraction: "l1_memory",
+        lifecycle: "active",
+        evidence_ids: ["evidence_storage_1"],
+      }),
+    ]);
+    expect(result.context_slice?.token_used ?? 0).toBeLessThanOrEqual(1_800);
+  });
+
+  it("records canonical L1 exclusions without accepting their content", () => {
+    const input = compilerInput({ tokenBudget: 1_800 });
+    const result = compileContext({
+      ...input,
+      candidates: [],
+      exclusions: [
+        {
+          memory_id: "memory_expired",
+          revision_id: "revision_expired",
+          reason_code: "EXPIRED",
+          lane: "canonical_eligibility",
+          score: null,
+        },
+        {
+          memory_id: "memory_revoked",
+          revision_id: "revision_revoked",
+          reason_code: "REVOKED",
+          lane: "canonical_eligibility",
+          score: null,
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      status: "POLICY_EXCLUDED",
+      context_slice: null,
+      excluded_count: 2,
+      reason_codes: ["EXPIRED", "REVOKED"],
+    });
+    expect(result.receipt.items).toEqual([
+      expect.objectContaining({
+        memory_id: "memory_expired",
+        reason_codes: ["EXPIRED"],
+      }),
+      expect.objectContaining({
+        memory_id: "memory_revoked",
+        reason_codes: ["REVOKED"],
+      }),
+    ]);
   });
 });

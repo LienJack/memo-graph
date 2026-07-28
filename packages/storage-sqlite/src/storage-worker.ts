@@ -14,6 +14,9 @@ import {
   ContentReferenceCountsInputSchema,
   EvidenceLookupInputSchema,
   GovernanceReplayInputSchema,
+  GovernedMemoryLookupInputSchema,
+  GovernedMemorySearchQuerySchema,
+  MemoryEligibilityInputSchema,
   MemoryRevisionCommandSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
@@ -97,6 +100,21 @@ port.on("message", (message: unknown) => {
           result = database.governanceReplay(replay);
           break;
         }
+        case "check_memory_eligibility":
+          result = database.checkMemoryEligibility(
+            MemoryEligibilityInputSchema.parse(request.payload),
+          );
+          break;
+        case "get_governed_memory":
+          result = database.getGovernedMemory(
+            GovernedMemoryLookupInputSchema.parse(request.payload),
+          );
+          break;
+        case "search_governed_memory":
+          result = database.searchGovernedMemory(
+            GovernedMemorySearchQuerySchema.parse(request.payload),
+          );
+          break;
         case "commit_episode": {
           const committed = database.commitEpisode(
             CommitEpisodeCommandSchema.parse(request.payload),

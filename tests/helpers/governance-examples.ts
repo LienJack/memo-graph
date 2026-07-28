@@ -22,6 +22,8 @@ export function memoryCandidate(options: {
   evidenceIds?: string[];
   injectionRisk?: "none" | "suspected" | "confirmed";
   requiresUserConfirmation?: boolean;
+  validFrom?: string;
+  validTo?: string | null;
 }) {
   const content = {
     storage: "inline",
@@ -42,8 +44,8 @@ export function memoryCandidate(options: {
     content_hash: canonicalSha256(content),
     evidence_ids: options.evidenceIds ?? ["evidence_storage_1"],
     validity: {
-      valid_from: NOW,
-      valid_to: null,
+      valid_from: options.validFrom ?? NOW,
+      valid_to: options.validTo ?? null,
       recorded_at: NOW,
     },
     injection_risk: options.injectionRisk ?? "none",
