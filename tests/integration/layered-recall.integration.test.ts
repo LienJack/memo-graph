@@ -1,0 +1,369 @@
+import {
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import { ScopeSchema } from "../../packages/contracts/src/index.js";
+import {
+  ConsolidationService,
+  LayeredLaneRetrievers,
+  RecallOrchestrator,
+  type RecallLaneRetriever,
+} from "../../packages/memory-kernel/src/index.js";
+import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+
+import {
+  memoryCandidate,
+  revisionCommand,
+} from "../helpers/governance-examples.js";
+import {
+  seedLayeredProjectionSources,
+} from "../helpers/projection-examples.js";
+import { inlineEpisode } from "../helpers/storage-examples.js";
+
+const cleanupPaths: string[] = [];
+const MAIN_SCOPE = ScopeSchema.parse({
+  kind: "workspace",
+  id: "workspace_local",
+});
+const FOREIGN_SCOPE = ScopeSchema.parse({
+  kind: "workspace",
+  id: "workspace_foreign",
+});
+const ALL_LANES = [
+  "recent_l1",
+  "topic",
+  "scenario_procedure",
+  "core",
+  "relation_sqlite",
+] as const;
+
+function temporaryRoot(prefix: string): string {
+  const root = realpathSync(
+    mkdtempSync(join(realpathSync(tmpdir()), `memo-graph-${prefix}-`)),
+  );
+  cleanupPaths.push(root);
+  return root;
+}
+
+function lanePolicy(
+  allowedLanes: typeof ALL_LANES[number][] = [...ALL_LANES],
+) {
+  return {
+    allowed_lanes: allowedLanes,
+    limits: {
+      max_candidates_per_lane: 20,
+      relation_max_depth: 2,
+      relation_max_fanout: 5,
+      max_concurrent_lanes: 2,
+    },
+  } as const;
+}
+
+afterEach(() => {
+  while (cleanupPaths.length > 0) {
+    const target = cleanupPaths.pop();
+    if (target !== undefined) {
+      rmSync(target, { recursive: true, force: true });
+    }
+  }
+});
+
+describe("governed layered recall", () => {
+  it("returns every enabled exact-scope lane with revalidated lineage", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall"),
+    });
+    await seedLayeredProjectionSources(storage);
+    await seedLayeredProjectionSources(storage, {
+      prefix: "foreign",
+      scopeId: FOREIGN_SCOPE.id,
+    });
+    const consolidation = new ConsolidationService({ storage });
+    expect(
+      await consolidation.drain({
+        worker_id: "layered_recall_projection_worker",
+        claimed_at: "2026-07-28T12:10:00.000Z",
+        lease_expires_at: "2026-07-28T12:11:00.000Z",
+      }),
+    ).toMatchObject({ claimed: 8, processed: 8, failed: 0 });
+
+    const recalled = await new RecallOrchestrator({ storage }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "agent memory",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: lanePolicy(),
+      lane_overrides: {
+        requested_lanes: [...ALL_LANES],
+        limits: {
+          max_candidates_per_lane: 10,
+          relation_max_depth: 1,
+          relation_max_fanout: 2,
+          max_concurrent_lanes: 2,
+        },
+      },
+    });
+
+    expect(recalled.status).toBe("OK");
+    expect(
+      [...new Set(recalled.candidates.map((candidate) => candidate.lane))]
+        .sort(),
+    ).toEqual([...ALL_LANES].sort());
+    expect(
+      recalled.candidates.every(
+        (candidate) =>
+          candidate.canonical_revalidated &&
+          candidate.scope.kind === MAIN_SCOPE.kind &&
+          candidate.scope.id === MAIN_SCOPE.id,
+      ),
+    ).toBe(true);
+    expect(
+      recalled.candidates.some(
+        (candidate) => candidate.scope.id === FOREIGN_SCOPE.id,
+      ),
+    ).toBe(false);
+    expect(recalled.telemetry).toHaveLength(ALL_LANES.length);
+    expect(
+      recalled.telemetry.every(
+        (item) =>
+          item.status === "eligible" &&
+          item.candidate_count >= item.eligible_count &&
+          item.eligible_count === item.selected_count,
+      ),
+    ).toBe(true);
+    const relationTelemetry = recalled.telemetry.find(
+      (item) => item.lane === "relation_sqlite",
+    );
+    expect(relationTelemetry?.selected_count).toBeLessThanOrEqual(10);
+    await storage.close();
+  });
+
+  it("clamps forged expansion and preserves recent L1 when one lane fails", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-degraded"),
+    });
+    await seedLayeredProjectionSources(storage);
+    const consolidation = new ConsolidationService({ storage });
+    await consolidation.drain({
+      worker_id: "layered_recall_degraded_projection_worker",
+      claimed_at: "2026-07-28T12:10:00.000Z",
+      lease_expires_at: "2026-07-28T12:11:00.000Z",
+    });
+    const base = new LayeredLaneRetrievers(storage);
+    const failingRetriever: RecallLaneRetriever = {
+      retrieve: async (request) => {
+        if (request.lane === "topic") {
+          throw new Error("simulated topic lane outage");
+        }
+        return base.retrieve(request);
+      },
+    };
+    const recalled = await new RecallOrchestrator({
+      storage,
+      retriever: failingRetriever,
+    }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "agent memory",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: lanePolicy(["recent_l1", "topic"]),
+      lane_overrides: {
+        requested_lanes: [...ALL_LANES],
+        limits: {
+          max_candidates_per_lane: 100,
+          relation_max_depth: 4,
+          relation_max_fanout: 100,
+          max_concurrent_lanes: 5,
+        },
+      },
+    });
+
+    expect(recalled.status).toBe("DEGRADED");
+    expect(recalled.degraded_lanes).toEqual(["topic"]);
+    expect(
+      recalled.candidates.every(
+        (candidate) => candidate.lane === "recent_l1",
+      ),
+    ).toBe(true);
+    expect(recalled.effective_configuration.enabled_lanes).toEqual([
+      "recent_l1",
+      "topic",
+    ]);
+    expect(recalled.effective_configuration.limits).toEqual(
+      lanePolicy(["recent_l1", "topic"]).limits,
+    );
+    expect(recalled.effective_configuration.reason_codes).toEqual([
+      "LANE_DENIED_BY_POLICY:core",
+      "LANE_DENIED_BY_POLICY:relation_sqlite",
+      "LANE_DENIED_BY_POLICY:scenario_procedure",
+      "LIMIT_CLAMPED_BY_POLICY:max_candidates_per_lane",
+      "LIMIT_CLAMPED_BY_POLICY:max_concurrent_lanes",
+      "LIMIT_CLAMPED_BY_POLICY:relation_max_depth",
+      "LIMIT_CLAMPED_BY_POLICY:relation_max_fanout",
+    ]);
+    expect(
+      recalled.telemetry.find((item) => item.lane === "topic"),
+    ).toMatchObject({
+      status: "unavailable",
+      reason_codes: ["LANE_UNAVAILABLE:topic"],
+    });
+    expect(
+      recalled.telemetry.find((item) => item.lane === "core"),
+    ).toMatchObject({ status: "disabled_by_policy" });
+    await storage.close();
+  });
+
+  it("rejects a projection changed between lane query and revalidation", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-race"),
+    });
+    const admitted = await seedLayeredProjectionSources(storage);
+    const consolidation = new ConsolidationService({ storage });
+    await consolidation.drain({
+      worker_id: "layered_recall_race_projection_worker",
+      claimed_at: "2026-07-28T12:10:00.000Z",
+      lease_expires_at: "2026-07-28T12:11:00.000Z",
+    });
+    await storage.commitEpisode(
+      inlineEpisode({
+        episodeId: "episode_layered_race_correction",
+        evidenceId: "evidence_layered_race_correction",
+        idempotencyKey: "commit:layered-race-correction:0001",
+        text: "Agent memory correction wins immediately.",
+      }),
+    );
+    const base = new LayeredLaneRetrievers(storage);
+    let corrected = false;
+    const racingRetriever: RecallLaneRetriever = {
+      retrieve: async (request) => {
+        const result = await base.retrieve(request);
+        const first = admitted[0];
+        if (request.lane === "topic" && !corrected && first !== undefined) {
+          corrected = true;
+          await storage.applyMemoryRevision(
+            revisionCommand({
+              memoryId: first.memory_id,
+              expectedRevisionId: first.current_revision_id,
+              candidate: memoryCandidate({
+                candidateId: "candidate_layered_race_correction",
+                logicalKey: "projection.layered_semantic_a",
+                scope: {
+                  kind: "workspace",
+                  id: MAIN_SCOPE.id,
+                },
+                text: "Agent memory correction wins immediately.",
+                evidenceIds: ["evidence_layered_race_correction"],
+              }),
+              idempotencyKey: "layered-race-correction-0001",
+            }),
+          );
+        }
+        return result;
+      },
+    };
+    const recalled = await new RecallOrchestrator({
+      storage,
+      retriever: racingRetriever,
+    }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "agent memory",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: lanePolicy(["topic"]),
+      lane_overrides: {
+        requested_lanes: ["topic"],
+        limits: { max_concurrent_lanes: 1 },
+      },
+    });
+
+    expect(recalled.status).toBe("POLICY_EXCLUDED");
+    expect(recalled.candidates).toEqual([]);
+    expect(
+      recalled.exclusions.map((exclusion) => exclusion.reason_code),
+    ).toContain("PROJECTION_STALE_FRONTIER");
+    expect(recalled.telemetry.find(
+      (item) => item.lane === "topic",
+    )).toMatchObject({
+      status: "stale",
+      selected_count: 0,
+    });
+    await storage.close();
+  });
+
+  it("matches the governed L1 baseline when projection lanes are disabled", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("layered-recall-baseline"),
+    });
+    await seedLayeredProjectionSources(storage);
+    const baseline = await storage.searchGovernedMemory({
+      query: "agent memory",
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      context_scope: MAIN_SCOPE,
+      limit: 20,
+    });
+    const recalled = await new RecallOrchestrator({ storage }).recall({
+      principal_id: "user_local",
+      scope: MAIN_SCOPE,
+      query: "agent memory",
+      as_of: "2026-07-28T12:12:00.000Z",
+      include_sensitive: false,
+      lane_policy: lanePolicy(["recent_l1"]),
+    });
+
+    expect(recalled.status).toBe("OK");
+    expect(
+      recalled.candidates.map((candidate) =>
+        candidate.kind === "memory" ? candidate.memory : null
+      ),
+    ).toEqual(baseline.items.map((item) => item.item));
+    expect(recalled.exclusions).toEqual(
+      baseline.exclusions.map((item) => ({
+        memory_id: item.memory_id,
+        revision_id: item.revision_id,
+        lane: "recent_l1",
+        reason_code: item.reason_code,
+        score: item.score,
+      })),
+    );
+    expect(
+      recalled.telemetry.filter(
+        (item) => item.status === "disabled_by_policy",
+      ).map((item) => item.lane),
+    ).toEqual([]);
+    expect(
+      recalled.telemetry.filter(
+        (item) => item.status === "disabled_by_request",
+      ).map((item) => item.lane),
+    ).toEqual([
+      "topic",
+      "scenario_procedure",
+      "core",
+      "relation_sqlite",
+    ]);
+    expect(
+      (
+        await new RecallOrchestrator({ storage }).recall({
+          principal_id: "user_local",
+          scope: MAIN_SCOPE,
+          query: "unmatchedzz",
+          as_of: "2026-07-28T12:12:00.000Z",
+          include_sensitive: false,
+          lane_policy: lanePolicy(["recent_l1"]),
+        })
+      ).status,
+    ).toBe("NO_MATCH");
+    await storage.close();
+  });
+});

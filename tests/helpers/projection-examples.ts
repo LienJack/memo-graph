@@ -110,6 +110,80 @@ export async function seedProjectionSources(
   return [sourceA, sourceB];
 }
 
+export async function seedLayeredProjectionSources(
+  storage: SqliteStorageClient,
+  options: {
+    prefix?: string;
+    scopeId?: string;
+  } = {},
+) {
+  const prefix = options.prefix ?? "layered";
+  const scopeId = options.scopeId ?? "workspace_local";
+  const definitions = [
+    {
+      suffix: "semantic_a",
+      kind: "semantic" as const,
+      text: "Agent memory must remain governed.",
+      validFrom: "2026-07-28T11:00:00.000Z",
+    },
+    {
+      suffix: "semantic_b",
+      kind: "semantic" as const,
+      text: "  agent   memory must remain governed.  ",
+      validFrom: "2026-07-28T11:10:00.000Z",
+    },
+    {
+      suffix: "episode",
+      kind: "episodic" as const,
+      text: "Agent memory projection became stale.",
+      validFrom: "2026-07-28T11:20:00.000Z",
+    },
+    {
+      suffix: "procedure",
+      kind: "procedural" as const,
+      text: "Agent memory requires exact revalidation.",
+      validFrom: "2026-07-28T11:30:00.000Z",
+    },
+  ] as const;
+  const admitted = [];
+  for (const definition of definitions) {
+    const identity = `${prefix}_${definition.suffix}`;
+    const evidenceId = `evidence_${identity}`;
+    const candidate = memoryCandidate({
+      candidateId: `candidate_${identity}`,
+      logicalKey: `projection.${identity}`,
+      kind: definition.kind,
+      scope: { kind: "workspace", id: scopeId },
+      text: definition.text,
+      evidenceIds: [evidenceId],
+      validFrom: definition.validFrom,
+    });
+    await storage.commitEpisode(
+      inlineEpisode({
+        episodeId: `episode_${identity}`,
+        evidenceId,
+        idempotencyKey: `commit:${identity}:0001`,
+        scopeId,
+        text: definition.text.trim(),
+      }),
+    );
+    admitted.push(
+      await storage.admitMemory({
+        request: memoryProposal({
+          candidate,
+          idempotencyKey: `memory-${identity}-0001`,
+          requestId: `request_${identity}`,
+        }),
+        evaluation: {
+          decision: "activate",
+          reason: "Layered recall fixtures require governed sources.",
+        },
+      }),
+    );
+  }
+  return admitted;
+}
+
 export function projectionFrontier(options: {
   ledgerEpoch: number;
   tombstoneEpoch: number;

@@ -69,6 +69,27 @@ export {
   type ProjectionPolicyInput,
 } from "./projection-policy.js";
 export {
+  LayeredLaneRetrievers,
+  type LaneRetrievalResult,
+  type LaneRetrieverRequest,
+  type RawLaneCandidate,
+  type RawLaneExclusion,
+  type RawMemoryLaneCandidate,
+  type RawProjectionLaneCandidate,
+  type RecallLaneRetriever,
+} from "./lane-retrievers.js";
+export {
+  LayeredRecallExclusionSchema,
+  LayeredRecallInputSchema,
+  LayeredRecallResultSchema,
+  RecallOrchestrator,
+  RevalidatedRecallCandidateSchema,
+  type LayeredRecallExclusion,
+  type LayeredRecallInput,
+  type LayeredRecallResult,
+  type RevalidatedRecallCandidate,
+} from "./recall-orchestrator.js";
+export {
   ApprovalBindingSchema,
   ApprovalError,
   DenyAllApprovalRegistry,

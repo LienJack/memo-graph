@@ -217,20 +217,20 @@ pnpm typecheck
 
 **Checklist:**
 
-- [ ] Add `recent_l1`, `topic`, `scenario_procedure`, `core`, and
+- [x] Add `recent_l1`, `topic`, `scenario_procedure`, `core`, and
       `relation_sqlite` lane adapters.
-- [ ] Authorize principal and exact scope before querying any lane.
-- [ ] Intersect requested lane/limit overrides with runtime policy so callers
+- [x] Authorize principal and exact scope before querying any lane.
+- [x] Intersect requested lane/limit overrides with runtime policy so callers
       cannot self-enable or enlarge denied work.
-- [ ] Bound candidate counts and relation traversal depth/fan-out.
-- [ ] Batch-load all ancestor revisions and revalidate canonical status,
+- [x] Bound candidate counts and relation traversal depth/fan-out.
+- [x] Batch-load all ancestor revisions and revalidate canonical status,
       validity, sensitivity, tombstone, lineage, and frontier.
-- [ ] Prevent scope crossover through relation intermediate nodes.
-- [ ] Record enabled, candidate, eligible, selected, exclusion, duration, and
+- [x] Prevent scope crossover through relation intermediate nodes.
+- [x] Record enabled, candidate, eligible, selected, exclusion, duration, and
       named degradation telemetry per lane.
-- [ ] Make one projection lane failure preserve safe `recent_l1` output.
-- [ ] Make all projection lanes disabled reproduce the M2 baseline.
-- [ ] Distinguish no match, policy exclusion, and lane degradation.
+- [x] Make one projection lane failure preserve safe `recent_l1` output.
+- [x] Make all projection lanes disabled reproduce the M2 baseline.
+- [x] Distinguish no match, policy exclusion, and lane degradation.
 
 **Focused verification:**
 
@@ -244,9 +244,9 @@ pnpm typecheck
 
 **Completion evidence:**
 
-- [ ] No stale or cross-scope projection reaches the compiler.
-- [ ] Lane telemetry is deterministic and content-free.
-- [ ] Create the U4 commit.
+- [x] No stale or cross-scope projection reaches the compiler.
+- [x] Lane telemetry is deterministic and content-free.
+- [x] Create the U4 commit.
 
 ## 7. U5 — Pure layered Context Compiler
 
