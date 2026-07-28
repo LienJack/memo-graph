@@ -63,7 +63,7 @@
 - [x] Run storage baseline benchmark and record the workload actually tested.
 - [x] Run `pnpm lint`, `pnpm typecheck`, `pnpm build`, frozen install, and
   high-severity audit on Node 24.18.0.
-- [ ] Record implementation commit, lock/migration hashes, platform, test,
+- [x] Record implementation commit, lock/migration hashes, platform, test,
   recovery, performance, and open debt in
   `docs/evaluations/g1a-storage-decision.md`.
 - [ ] Commit the completed M1A task, archive it, and record the Trellis session

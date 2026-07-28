@@ -15,7 +15,7 @@
   "branch": "codex/agent-memory-runtime-m1a",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "335fcf28e5f29fedcff640502851618ea9007c84",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -27,7 +27,7 @@
     "tests/recovery",
     "docs/evaluations/g1a-storage-decision.md"
   ],
-  "notes": "G1A is an internal storage gate. Parent G1 remains open until M1B proves the explicit stdio MCP loop.",
+  "notes": "G1A GO is recorded against implementation commit 335fcf28e5f29fedcff640502851618ea9007c84 and lock SHA-256 7f1101efc690eb9d026477f9f0567ac7ad414f9d024d4e40a8dc5fd1d20b7321. Parent G1 remains open until M1B proves the explicit stdio MCP loop.",
   "meta": {
     "milestone": "M1A",
     "gate": "G1A",

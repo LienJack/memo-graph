@@ -79,7 +79,7 @@ This child does not add or renumber product requirements.
   the source canonical frontier.
 - [x] `pnpm lint`, `pnpm typecheck`, `pnpm build`, and the existing M0 suites
   remain green on Node 24.18.0.
-- [ ] `docs/evaluations/g1a-storage-decision.md` records commit, lock,
+- [x] `docs/evaluations/g1a-storage-decision.md` records commit, lock,
   migration, platform, test, recovery, and known-debt evidence with `GO` or
   `HOLD`.
 

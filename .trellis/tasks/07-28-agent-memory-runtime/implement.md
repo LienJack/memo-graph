@@ -254,14 +254,14 @@ Close the first explicit Codex loop: compile context, use it, commit an episode,
 
 ### Checklist
 
-- [ ] Create the local data-root contract and refuse unsafe or unsupported paths.
-- [ ] Open SQLite in WAL mode with foreign keys, defensive limits, and explicit busy handling.
+- [x] Create the local data-root contract and refuse unsafe or unsupported paths.
+- [x] Open SQLite in WAL mode with foreign keys, defensive limits, and explicit busy handling.
 - [ ] Implement one serialized writer and read connections that never bypass it for mutation.
-- [ ] If the selected SQLite driver is synchronous, isolate reads, writes, checkpoints, and backups in a dedicated storage worker so the MCP loop remains responsive.
+- [x] If the selected SQLite driver is synchronous, isolate reads, writes, checkpoints, and backups in a dedicated storage worker so the MCP loop remains responsive.
 - [ ] Add forward-only migrations for events, episodes, artifacts, idempotency, receipts, outbox, recall requests, and context slices.
-- [ ] Store large tool/artifact payloads by content hash in local blobs.
-- [ ] Implement append-only event and episode sealing.
-- [ ] Implement FTS5 indexing for governed searchable text.
+- [x] Store large tool/artifact payloads by content hash in local blobs.
+- [x] Implement append-only event and episode sealing.
+- [x] Implement FTS5 indexing for governed searchable text.
 - [ ] Implement read-only `memory_search`, `memory_get`, `memory_explain`, `memory_receipt_get`, and baseline `memory_context_compile`.
 - [ ] Implement proposal-only `memory_episode_commit` with idempotency.
 - [ ] Bind MCP requests to the configured local principal and reject actor or scope claims outside its allowed set.
