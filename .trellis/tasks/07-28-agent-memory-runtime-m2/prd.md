@@ -76,45 +76,45 @@ This child does not add or renumber product requirements.
 
 ## Acceptance Criteria
 
-- [ ] Every active L1 revision has live exact-scope evidence and a persisted
+- [x] Every active L1 revision has live exact-scope evidence and a persisted
       `AdmissionDecision`.
-- [ ] User-stated safe evidence can activate; inferred/derived evidence stays
+- [x] User-stated safe evidence can activate; inferred/derived evidence stays
       candidate-only; injection-like procedural content quarantines; invalid
       lineage rejects.
-- [ ] Exact duplicates reuse identity and divergent normalized-key content
+- [x] Exact duplicates reuse identity and divergent normalized-key content
       forms a conflict without replacing the current revision.
-- [ ] Concurrent successors from one expected revision produce one success and
+- [x] Concurrent successors from one expected revision produce one success and
       one `STALE_REVISION`.
-- [ ] Correction suppresses the predecessor before outbox/FTS processing.
-- [ ] Pin, demote, scoped/global usage block, revoke, and delete pass distinct
+- [x] Correction suppresses the predecessor before outbox/FTS processing.
+- [x] Pin, demote, scoped/global usage block, revoke, and delete pass distinct
       behavior tests.
-- [ ] Missing, forged, expired, reused, wrong-scope, wrong-tool, and
+- [x] Missing, forged, expired, reused, wrong-scope, wrong-tool, and
       wrong-request-hash approvals change no canonical state.
-- [ ] Delete is unavailable under the default configuration and requires both
+- [x] Delete is unavailable under the default configuration and requires both
       explicit local enablement and a valid per-invocation approval.
-- [ ] Approval manifests with unsafe path/owner/mode/symlink/digest state fail
+- [x] Approval manifests with unsafe path/owner/mode/symlink/digest state fail
       closed; a committed same-hash retry still replays after consumption.
-- [ ] Dry-run changes no canonical epoch/current pointer and does not consume
+- [x] Dry-run changes no canonical epoch/current pointer and does not consume
       approval.
-- [ ] Stale FTS hits and expired/superseded/quarantined/revoked/tombstoned
+- [x] Stale FTS hits and expired/superseded/quarantined/revoked/tombstoned
       revisions cannot enter a new Context slice.
-- [ ] Exclusive purge reports complete with zero canonical/FTS/Context/blob/
+- [x] Exclusive purge reports complete with zero canonical/FTS/Context/blob/
       export residual; shared lineage reports incomplete debt while remaining
       tombstoned.
-- [ ] Purge-authorized content scrub cannot mutate identity/hash/lineage/
+- [x] Purge-authorized content scrub cannot mutate identity/hash/lineage/
       receipt fields, and ordinary writes still cannot update append-only
       evidence or Context history.
-- [ ] Duplicate correction/delete requests replay the same effect and receipt;
+- [x] Duplicate correction/delete requests replay the same effect and receipt;
       interrupted purge resumes the same job.
-- [ ] FTS rebuild and process restart cannot resurrect corrected or deleted
+- [x] FTS rebuild and process restart cannot resurrect corrected or deleted
       content.
-- [ ] Restore rejects a backup below the trusted tombstone frontier and
+- [x] Restore rejects a backup below the trusted tombstone frontier and
       publishes no target data root.
-- [ ] Security/privacy tests find no cross-scope result, approval bypass,
+- [x] Security/privacy tests find no cross-scope result, approval bypass,
       prompt-injection activation, or sensitive diagnostic content.
-- [ ] M0/M1/G1 regression, lint, typecheck, build, frozen install, dependency
+- [x] M0/M1/G1 regression, lint, typecheck, build, frozen install, dependency
       audit, and relevant performance checks remain green on Node 24.18.0.
-- [ ] `docs/evaluations/g2-decision.md` records current hashes, test counts,
+- [x] `docs/evaluations/g2-decision.md` records current hashes, test counts,
       purge/frontier evidence, debt, and explicit `GO` or `HOLD`.
 
 ## Hold and rollback

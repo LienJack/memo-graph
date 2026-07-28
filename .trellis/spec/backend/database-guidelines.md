@@ -311,6 +311,11 @@ storage.searchGovernedMemory(input: GovernedMemorySearchQuery): Promise<Governed
 - L1 Context items retain exact revision, evidence lineage, transform, and
   validity metadata. Excluded L1 items contribute only identity and reason
   codes to the retrieval receipt.
+- Historical Context remains immutable, but exact replay revalidates every L1
+  item against current canonical eligibility. A corrected, demoted, blocked,
+  revoked, expired, or otherwise ineligible item fails with `CONFLICT`; an
+  unredacted tombstoned item fails with `INCOMPLETE_PURGE`. Only a purge-redacted
+  item with valid item and frozen hashes may replay as `[PURGED]`.
 - Rebuild `memory_fts` only from current active, context-eligible, inline
   revisions. The projection never decides eligibility.
 
@@ -344,6 +349,8 @@ storage.searchGovernedMemory(input: GovernedMemorySearchQuery): Promise<Governed
 - FTS tests cover upsert, delete, invalidation, restart, and rebuild.
 - Context tests preserve hard budgets, L0 fallback, L1 lineage, exclusion
   receipts, and immutable historical Context artifacts.
+- Replay tests prove immutable artifacts do not bypass later canonical
+  correction, usage, revoke, tombstone, or purge state.
 
 ### 7. Wrong vs Correct
 

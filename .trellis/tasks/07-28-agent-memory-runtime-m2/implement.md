@@ -127,24 +127,24 @@
 
 ## 8. U8 — G2 evidence
 
-- [ ] Add end-to-end L1 governance loop and frozen replay fixtures.
-- [ ] Run admission, correction, controls, deletion, restart, retry, projection
+- [x] Add end-to-end L1 governance loop and frozen replay fixtures.
+- [x] Run admission, correction, controls, deletion, restart, retry, projection
       lag, purge debt, and stale restore on one tested commit.
-- [ ] Run prompt-injection, scope, approval-forgery, and sensitive-log checks.
-- [ ] Run all M0/M1/G1 regressions.
-- [ ] Run:
+- [x] Run prompt-injection, scope, approval-forgery, and sensitive-log checks.
+- [x] Run all M0/M1/G1 regressions.
+- [x] Run:
       `pnpm install --frozen-lockfile`,
       `pnpm lint`,
       `pnpm typecheck`,
       `pnpm build`,
       `pnpm test`,
       and `pnpm audit --audit-level=high`.
-- [ ] Record test counts, hashes, performance, residuals, debt, and explicit
+- [x] Record test counts, hashes, performance, residuals, debt, and explicit
       `GO`/`HOLD` in `docs/evaluations/g2-decision.md`.
-- [ ] Record the tested implementation commit before the evidence-only commit;
+- [x] Record the tested implementation commit before the evidence-only commit;
       do not change executable code or frozen fixtures afterward.
-- [ ] Update MCP and operator documentation.
-- [ ] Commit U8/G2 only after all evidence references the final tested commit.
+- [x] Update MCP and operator documentation.
+- [x] Commit U8/G2 only after all evidence references the final tested commit.
 
 ## 9. Review and finish
 
