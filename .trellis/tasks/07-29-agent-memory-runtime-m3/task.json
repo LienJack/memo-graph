@@ -3,7 +3,7 @@
   "name": "agent-memory-runtime-m3",
   "title": "Agent Memory Runtime M3 layered projections and Context Compiler",
   "description": "Implement rebuildable L2/L3 topic, scenario, relation, procedural, and core projections plus a governed multi-lane Context Compiler, then close G3 with paired utility and pollution evidence.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "M3 only: rebuildable L2/L3 topic, scenario/procedural, relation, and core projections plus governed multi-lane Context compilation and G3; excludes graph, vector, learning, and M6 operations",
   "package": null,
