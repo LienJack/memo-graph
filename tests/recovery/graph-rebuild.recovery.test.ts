@@ -336,15 +336,6 @@ describe("deterministic graph rebuild", () => {
     const dataRoot = await temporaryRoot();
     const storage = await projectedStorage(dataRoot);
     const identity = await installedGraphBackendIdentity();
-    const host = await GraphProcessHost.open({
-      dataRoot,
-      generationId: "uncommitted-scope",
-      expectedIdentity: identity,
-      childEntry,
-      writeTimeoutMs: 100,
-      testHooks: { adversarialNativeWrite: true },
-    });
-    hosts.push(host);
     try {
       const committed = (
         await storage.listGraphProjectionSnapshots()
@@ -352,7 +343,26 @@ describe("deterministic graph rebuild", () => {
       if (committed === undefined || committed.nodes[0] === undefined) {
         throw new Error("uncommitted graph fixture is missing");
       }
-      await host.replaceScope(committed);
+      const seedHost = await GraphProcessHost.open({
+        dataRoot,
+        generationId: "uncommitted-scope",
+        expectedIdentity: identity,
+        childEntry,
+        writeTimeoutMs: 10_000,
+      });
+      hosts.push(seedHost);
+      await seedHost.replaceScope(committed);
+      await seedHost.close();
+
+      const host = await GraphProcessHost.open({
+        dataRoot,
+        generationId: "uncommitted-scope",
+        expectedIdentity: identity,
+        childEntry,
+        writeTimeoutMs: 100,
+        testHooks: { adversarialNativeWrite: true },
+      });
+      hosts.push(host);
       const adversarial = buildGraphScopeSnapshot({
         schema_version: committed.schema_version,
         backend: committed.backend,
