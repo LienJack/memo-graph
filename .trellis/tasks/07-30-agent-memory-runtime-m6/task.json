@@ -43,7 +43,10 @@
     "brainstorm_status": "complete",
     "research_topic": "/Users/lienli/Documents/work/深度调研/research/memo-graph-m6-operational-hardening",
     "research_run": "RUN20260730-030946-research-m6-operational--94a335",
-    "research_commit": "be839ff9e174a65a9314e5dbff4d32d7828186f3",
-    "research_status": "complete"
+    "research_commit": "adfd6905b72cc867350381eb93979c96783c5e8d",
+    "research_status": "complete",
+    "plan": "docs/plans/2026-07-30-001-feat-agent-memory-runtime-m6-operational-hardening-plan.md",
+    "plan_status": "complete",
+    "implementation_units": "9"
   }
 }

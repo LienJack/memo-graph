@@ -3,3 +3,5 @@
 {"file":"docs/evaluations/g5-decision.md","reason":"Verify the exact accepted learning release/control/rollback baseline carried into M6."}
 {"file":"docs/threat-model.md","reason":"Verify permissions, local-path, encryption, backup rollback, log leakage, dependency, and resource controls."}
 {"file":".trellis/spec/backend/quality-guidelines.md","reason":"Verify strict contracts, canonical evidence, full gates, and bounded production claims."}
+{"file": ".trellis/tasks/07-30-agent-memory-runtime-m6/research/research-handoff.md", "reason": "Verify implementation consequences match the supported research Claims and exact-platform boundary."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify contracts, storage, MCP, CLI, reports, and receipts share one validated operational meaning."}
