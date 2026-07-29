@@ -409,6 +409,7 @@ unused contracts/storage.
 - `packages/learning-lab/src/evaluation-runner.ts`
 - `packages/learning-lab/src/index.ts`
 - `tests/helpers/g5-replay.ts`
+- `tests/helpers/learning-examples.ts`
 - `tests/learning/three-arm-evaluation.test.ts`
 - `tests/security/learning-partition-isolation.test.ts`
 - `tests/replay/learning-negative-transfer.test.ts`
@@ -602,65 +603,71 @@ candidate remains evaluated but cannot publish.
 - `packages/storage-sqlite/src/client.ts`
 - `packages/memory-kernel/src/index.ts`
 - `packages/memory-kernel/src/recall-orchestrator.ts`
+- `packages/context-compiler/src/receipt-builder.ts`
 - `packages/contracts/src/projections.ts`
 - `packages/contracts/src/receipts.ts`
+- `tests/helpers/g5-release.ts`
+- `tests/helpers/g5-replay.ts`
+- `tests/helpers/learning-examples.ts`
 - `tests/integration/learning-release.integration.test.ts`
 - `tests/governance/learning-memory-release.integration.test.ts`
 - `tests/recovery/learning-release-rollback.recovery.test.ts`
 - `tests/replay/learning-release-pointer.test.ts`
+- `tests/recovery/learning-ledger.recovery.test.ts`
+- `tests/storage/learning-lab-schema.integration.test.ts`
 
 ### Pre-development
 
-- [ ] Load `trellis-before-dev`.
-- [ ] Characterize base Context output/hash with no active learning release.
-- [ ] Characterize canonical memory revision creation, outbox coupling,
+- [x] Load `trellis-before-dev`.
+- [x] Characterize base Context output/hash with no active learning release.
+- [x] Characterize canonical memory revision creation, outbox coupling,
       frozen recall replay, and transaction guards.
-- [ ] Decide the smallest private governance transaction adapter and document
+- [x] Decide the smallest private governance transaction adapter and document
       any plan-consistent file adjustment before editing.
-- [ ] Freeze crash-injection boundaries.
+- [x] Freeze crash-injection boundaries.
 
 ### Test-first checklist
 
-- [ ] No active pointer equals accepted vector-free baseline.
-- [ ] Exact scope-set slot normalizes order deterministically.
-- [ ] Subset/superset/foreign scope does not resolve the release.
-- [ ] Retrieval candidate may remove lanes/lower limits.
-- [ ] Reject adding lanes, raising limits, enabling graph/vector, or changing
+- [x] No active pointer equals accepted vector-free baseline.
+- [x] Exact scope-set slot normalizes order deterministically.
+- [x] Subset/superset/foreign scope does not resolve the release.
+- [x] Retrieval candidate may remove lanes/lower limits.
+- [x] Reject adding lanes, raising limits, enabling graph/vector, or changing
       ACL, sensitivity, mandatory-exclusion, hard-filter, or governance
       behavior.
-- [ ] Seal resolved release/config hash into recall/Context receipts.
-- [ ] Release memory/procedure from canonical candidate without copying
+- [x] Seal resolved release/config hash into recall/Context receipts.
+- [x] Release memory/procedure from canonical candidate without copying
       content or updating immutable revision.
-- [ ] Commit canonical successor, status/admission, outbox, release version,
+- [x] Commit canonical successor, status/admission, outbox, release version,
       pointer, transition, approval, idempotency, and receipt atomically.
-- [ ] Inject failure at each write and observe old-or-new state after reopen.
-- [ ] Two concurrent release/rollback requests from one pointer yield one
+- [x] Inject failure at each write and observe old-or-new state after reopen.
+- [x] Two concurrent release/rollback requests from one pointer yield one
       winner and one conflict.
-- [ ] Pause and release serialize on the observed control epoch: pause-first
+- [x] Pause and release serialize on the observed control epoch: pause-first
       makes release stale; release-first makes pause record
       `RELEASE_COMPLETED_BEFORE_PAUSE` and leaves rollback explicit.
-- [ ] New request after release uses the new pointer.
-- [ ] Old request ID replays original frozen Context.
-- [ ] Rollback restores exact named prior release pointer and prior
+- [x] New request after release uses the new pointer.
+- [x] Old request ID replays original frozen Context.
+- [x] Rollback restores exact named prior release pointer and prior
       behavior/config hash on a new request.
-- [ ] Reject rollback to revoked/tombstoned/purged/cross-scope/changed target.
-- [ ] Approval is consumed iff effect exists after crash.
-- [ ] Normal runtime starts and serves without an evaluator/candidate process.
+- [x] Reject rollback to revoked/tombstoned/purged/cross-scope/changed target.
+- [x] Approval is consumed iff effect exists after crash.
+- [x] Normal runtime starts and serves without an evaluator/candidate process.
 
 ### Implementation checklist
 
-- [ ] Implement release/rollback orchestration and exact command contracts.
-- [ ] Implement private atomic storage transaction composition.
-- [ ] Implement immutable release version and active-pointer CAS.
-- [ ] Implement retrieval-policy release resolver and narrow-only
+- [x] Implement release/rollback orchestration and exact command contracts.
+- [x] Implement private atomic storage transaction composition.
+- [x] Implement immutable release version and active-pointer CAS.
+- [x] Implement retrieval-policy release resolver and narrow-only
       intersection.
-- [ ] Keep ACL, sensitivity, mandatory-exclusion, and other safety filters
+- [x] Keep ACL, sensitivity, mandatory-exclusion, and other safety filters
       outside learned policy payloads and active under base fallback.
-- [ ] Implement canonical memory/procedure append-only release adapter.
-- [ ] Implement rollback version, target validation, inverse canonical/
+- [x] Implement canonical memory/procedure append-only release adapter.
+- [x] Implement rollback version, target validation, inverse canonical/
       projection effects, and no-resurrection guard.
-- [ ] Include active release identity in effective config and receipts.
-- [ ] Preserve old frozen request replay and base behavior.
+- [x] Include active release identity in effective config and receipts.
+- [x] Preserve old frozen request replay and base behavior.
 
 ### Focused verification
 
@@ -681,12 +688,12 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Release/rollback atomicity and no-resurrection pass.
-- [ ] Learned policy only narrows; base behavior remains exact without a
+- [x] Release/rollback atomicity and no-resurrection pass.
+- [x] Learned policy only narrows; base behavior remains exact without a
       pointer.
-- [ ] Canonical memory/procedure content has one authority.
-- [ ] `trellis-check` has no unresolved U6 finding.
-- [ ] Create only the U6 commit.
+- [x] Canonical memory/procedure content has one authority.
+- [x] `trellis-check` has no unresolved U6 finding.
+- [x] Create only the U6 commit.
 
 **Rollback point:** restore base pointer/disable release resolution, then
 revert U6; evaluated candidate history remains inactive.

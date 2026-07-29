@@ -5,6 +5,7 @@ import {
   canonicalSha256,
   canonicalSha256Omitting,
   type EvaluationArm,
+  type CandidateChange,
 } from "../../packages/contracts/src/index.js";
 import {
   G5PartitionLoader,
@@ -60,6 +61,8 @@ export async function g5EvaluationIdentity(options?: {
   runId?: string;
   candidateId?: string;
   environmentHash?: `sha256:${string}`;
+  baseReleaseId?: string | null;
+  currentReleaseId?: string | null;
 }) {
   const loader = new G5PartitionLoader({
     fixtureRoot: G5_FIXTURE_ROOT,
@@ -70,8 +73,8 @@ export async function g5EvaluationIdentity(options?: {
     schema_version: "1.0.0",
     run_id: options?.runId ?? "run_g5_safe_1",
     candidate_id: options?.candidateId ?? "candidate_storage_1",
-    base_release_id: null,
-    current_release_id: null,
+    base_release_id: options?.baseReleaseId ?? null,
+    current_release_id: options?.currentReleaseId ?? null,
     implementation_commit: "a".repeat(40),
     implementation_tree: "b".repeat(40),
     dependency_lock_hash: canonicalSha256("g5-lock"),
@@ -168,6 +171,7 @@ export async function runG5Evaluation(options: {
   storage: SqliteStorageClient;
   idempotencyKey: string;
   runId: string;
+  candidate?: CandidateChange;
   executeArm?: (
     request: ArmExecutionRequest,
   ) => ArmExecutionResult | Promise<ArmExecutionResult>;
@@ -183,7 +187,7 @@ export async function runG5Evaluation(options: {
   const manifest = G5FixtureManifestSchema.parse(
     await loader.loadManifest(),
   );
-  const candidate = learningCandidate();
+  const candidate = options.candidate ?? learningCandidate();
   const runner = new LearningEvaluationRunner({
     storage: options.storage,
     partitions: loader,
@@ -195,7 +199,12 @@ export async function runG5Evaluation(options: {
     idempotency_key: options.idempotencyKey,
     principal_id: "user_local",
     scopes: [USER_SCOPE, LEARNING_WORKSPACE_SCOPE],
-    identity: await g5EvaluationIdentity({ runId: options.runId }),
+    identity: await g5EvaluationIdentity({
+      runId: options.runId,
+      candidateId: candidate.candidate_id,
+      baseReleaseId: candidate.active_base_release_id,
+      currentReleaseId: candidate.active_base_release_id,
+    }),
     candidate_hash: candidate.candidate_hash,
     fixture_manifest_hash: manifest.manifest_hash,
     thresholds_hash: manifest.thresholds_hash,

@@ -88,6 +88,54 @@ type CorrectionBasisRow = {
   transform_version: string;
 };
 
+type LearningCanonicalRevisionRow = {
+  revision_id: string;
+  memory_id: string;
+  revision: number;
+  lifecycle:
+    | "working"
+    | "candidate"
+    | "active"
+    | "superseded"
+    | "revoked"
+    | "quarantined"
+    | "purged";
+  kind: "episodic" | "semantic" | "procedural";
+  scope_kind:
+    | "thread"
+    | "topic"
+    | "scenario"
+    | "user"
+    | "workspace"
+    | "agent";
+  scope_id: string;
+  authority: string;
+  sensitivity: string;
+  valid_from: string;
+  valid_to: string | null;
+  recorded_at: string;
+  inferred: number;
+  content_storage: "inline" | "blob" | "redacted";
+  content_inline: string | null;
+  content_blob_hash: string | null;
+  media_type: string;
+  content_hash: string;
+  transform_name: string;
+  transform_version: string;
+  purged_at: string | null;
+  principal_id: string;
+  object_lifecycle: string;
+  current_revision_id: string | null;
+};
+
+export type LearningCanonicalEffectResult = {
+  memory_id: string;
+  previous_revision_id: string;
+  current_revision_id: string;
+  lifecycle: "active" | "candidate" | "quarantined";
+  projection_jobs: string[];
+};
+
 function count(
   database: Database.Database,
   table: string,
@@ -238,6 +286,330 @@ export class GovernanceRepository {
       artifacts,
       total:
         evidenceEvents + memoryCandidates + memoryRevisions + artifacts,
+    };
+  }
+
+  applyLearningReleaseEffect(options: {
+    action: "release" | "rollback";
+    releaseId: string;
+    currentReleaseId: string | null;
+    restoredReleaseId: string | null;
+    candidateId: string;
+    principalId: string;
+    scopes: readonly { kind: string; id: string }[];
+    activatedAt: string;
+    target: {
+      kind: "memory" | "procedure";
+      memory_id: string;
+      revision_id: string;
+      content_hash: string;
+    };
+  }): LearningCanonicalEffectResult {
+    const candidateForRelease = (releaseId: string): string => {
+      const row = this.#database
+        .prepare(
+          `SELECT candidate_id FROM learning_release_versions
+           WHERE release_id = ?`,
+        )
+        .get(releaseId) as { candidate_id: string } | undefined;
+      if (row === undefined) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      return row.candidate_id;
+    };
+    const targetForCandidate = (candidateId: string) => {
+      const row = this.#database
+        .prepare(
+          `SELECT target_kind, target_memory_id, target_revision_id,
+                  target_content_hash
+           FROM learning_candidates WHERE candidate_id = ?`,
+        )
+        .get(candidateId) as
+        | {
+            target_kind: string;
+            target_memory_id: string | null;
+            target_revision_id: string | null;
+            target_content_hash: string | null;
+          }
+        | undefined;
+      if (
+        row === undefined ||
+        (row.target_kind !== "memory" &&
+          row.target_kind !== "procedure") ||
+        row.target_memory_id === null ||
+        row.target_revision_id === null ||
+        row.target_content_hash === null
+      ) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      return {
+        kind: row.target_kind as "memory" | "procedure",
+        memory_id: row.target_memory_id,
+        revision_id: row.target_revision_id,
+        content_hash: row.target_content_hash,
+      };
+    };
+
+    const currentTarget = targetForCandidate(options.candidateId);
+    if (canonicalJson(currentTarget) !== canonicalJson(options.target)) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    const desiredTarget =
+      options.action === "rollback" &&
+        options.restoredReleaseId !== null
+        ? targetForCandidate(
+            candidateForRelease(options.restoredReleaseId),
+          )
+        : currentTarget;
+    if (desiredTarget.memory_id !== currentTarget.memory_id) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    const source = this.#database
+      .prepare(
+        `SELECT r.revision_id, r.memory_id, r.revision, r.lifecycle,
+                r.kind, r.scope_kind, r.scope_id, r.authority,
+                r.sensitivity, r.valid_from, r.valid_to, r.recorded_at,
+                r.inferred, r.content_storage, r.content_inline,
+                r.content_blob_hash, r.media_type, r.content_hash,
+                r.transform_name, r.transform_version, r.purged_at,
+                o.principal_id, o.lifecycle AS object_lifecycle,
+                o.current_revision_id
+         FROM memory_revisions AS r
+         JOIN memory_objects AS o ON o.memory_id = r.memory_id
+         WHERE r.memory_id = ? AND r.revision_id = ?`,
+      )
+      .get(
+        desiredTarget.memory_id,
+        desiredTarget.revision_id,
+      ) as LearningCanonicalRevisionRow | undefined;
+    const scopeKeys = new Set(
+      options.scopes.map((scope) => `${scope.kind}:${scope.id}`),
+    );
+    if (
+      source === undefined ||
+      source.principal_id !== options.principalId ||
+      !scopeKeys.has(`${source.scope_kind}:${source.scope_id}`) ||
+      source.content_hash !== desiredTarget.content_hash ||
+      source.purged_at !== null ||
+      source.content_storage === "redacted" ||
+      source.lifecycle === "revoked" ||
+      source.lifecycle === "purged" ||
+      source.object_lifecycle === "revoked" ||
+      source.object_lifecycle === "purged" ||
+      (desiredTarget.kind === "procedure" &&
+        source.kind !== "procedural") ||
+      (desiredTarget.kind === "memory" &&
+        source.kind === "procedural")
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+
+    let expectedCurrentRevisionId: string;
+    if (options.action === "release") {
+      expectedCurrentRevisionId = currentTarget.revision_id;
+    } else {
+      if (options.currentReleaseId === null) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      const activeTarget = targetForCandidate(
+        candidateForRelease(options.currentReleaseId),
+      );
+      if (activeTarget.memory_id !== currentTarget.memory_id) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      expectedCurrentRevisionId = stableIdentifier(
+        "learning-revision",
+        {
+          release_id: options.currentReleaseId,
+          memory_id: activeTarget.memory_id,
+          source_revision_id: activeTarget.revision_id,
+        },
+      );
+    }
+    if (source.current_revision_id !== expectedCurrentRevisionId) {
+      throw new StorageError("STALE_REVISION");
+    }
+
+    const lifecycle =
+      options.action === "release" ||
+        options.restoredReleaseId !== null
+        ? "active"
+        : source.lifecycle === "quarantined"
+          ? "quarantined"
+          : source.lifecycle === "candidate"
+            ? "candidate"
+            : "active";
+    const nextRevision = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT max(revision) AS revision FROM memory_revisions
+             WHERE memory_id = ?`,
+          )
+          .get(source.memory_id) as { revision: number }
+      ).revision,
+    ) + 1;
+    const revisionId = stableIdentifier("learning-revision", {
+      release_id: options.releaseId,
+      memory_id: source.memory_id,
+      source_revision_id: source.revision_id,
+    });
+    this.#database
+      .prepare(
+        `INSERT INTO memory_revisions (
+           revision_id, memory_id, revision, abstraction, lifecycle, kind,
+           scope_kind, scope_id, authority, sensitivity, valid_from, valid_to,
+           recorded_at, inferred, content_storage, content_inline,
+           content_blob_hash, media_type, content_hash,
+           supersedes_revision_id, transform_name, transform_version,
+           created_at, purged_at
+         ) VALUES (
+           ?, ?, ?, 'l1_memory', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+           ?, ?, ?, ?, ?, NULL
+         )`,
+      )
+      .run(
+        revisionId,
+        source.memory_id,
+        nextRevision,
+        lifecycle,
+        source.kind,
+        source.scope_kind,
+        source.scope_id,
+        source.authority,
+        source.sensitivity,
+        source.valid_from,
+        source.valid_to,
+        source.recorded_at,
+        source.inferred,
+        source.content_storage,
+        source.content_inline,
+        source.content_blob_hash,
+        source.media_type,
+        source.content_hash,
+        expectedCurrentRevisionId,
+        source.transform_name,
+        source.transform_version,
+        options.activatedAt,
+      );
+    this.#database
+      .prepare(
+        `INSERT INTO memory_revision_evidence (revision_id, evidence_id)
+         SELECT ?, evidence_id FROM memory_revision_evidence
+         WHERE revision_id = ? ORDER BY evidence_id`,
+      )
+      .run(revisionId, source.revision_id);
+    const updated = this.#database
+      .prepare(
+        `UPDATE memory_objects
+         SET lifecycle = ?, current_revision_id = ?,
+             context_eligible = ?, updated_at = ?
+         WHERE memory_id = ? AND current_revision_id = ?
+           AND lifecycle NOT IN ('revoked', 'purged')`,
+      )
+      .run(
+        lifecycle,
+        revisionId,
+        lifecycle === "active" ? 1 : 0,
+        options.activatedAt,
+        source.memory_id,
+        expectedCurrentRevisionId,
+      );
+    if (updated.changes !== 1) {
+      throw new StorageError("STALE_REVISION");
+    }
+    this.#insertAdmission({
+      memoryId: source.memory_id,
+      revisionId,
+      candidateId: options.candidateId,
+      principalId: options.principalId,
+      actorAuthority: source.authority,
+      decidedAt: options.activatedAt,
+      decision:
+        lifecycle === "active"
+          ? "activate"
+          : lifecycle === "candidate"
+            ? "candidate_only"
+            : "quarantine",
+      reason:
+        options.action === "release"
+          ? "Governed learning release activated a canonical successor."
+          : "Governed learning rollback restored canonical behavior.",
+      requiresUserConfirmation: true,
+    });
+    this.#insertStatus({
+      memoryId: source.memory_id,
+      revisionId: expectedCurrentRevisionId,
+      action: "suppress",
+      lifecycle: "superseded",
+      principalId: options.principalId,
+      actorAuthority: source.authority,
+      reason: "A governed learning release superseded this revision.",
+      occurredAt: options.activatedAt,
+    });
+    if (lifecycle !== "quarantined") {
+      this.#insertStatus({
+        memoryId: source.memory_id,
+        revisionId,
+        action: lifecycle === "active" ? "activate" : "demote",
+        lifecycle,
+        principalId: options.principalId,
+        actorAuthority: source.authority,
+        reason:
+          options.action === "release"
+            ? "Governed learning release."
+            : "Governed learning rollback.",
+        occurredAt: options.activatedAt,
+      });
+    }
+    const projectionJobs = [
+      this.#insertOutbox(
+        "fts_memory_delete",
+        expectedCurrentRevisionId,
+        options.activatedAt,
+      ),
+      ...(lifecycle === "active"
+        ? [
+            this.#insertOutbox(
+              "fts_memory_upsert",
+              revisionId,
+              options.activatedAt,
+            ),
+          ]
+        : []),
+      suppressProjectionDescendants(this.#database, {
+        causeId: options.releaseId,
+        memoryId: source.memory_id,
+        revisionId: expectedCurrentRevisionId,
+        principalId: options.principalId,
+        scope: {
+          kind: source.scope_kind,
+          id: source.scope_id,
+        },
+        occurredAt: options.activatedAt,
+      }),
+      ...(lifecycle === "active"
+        ? [
+            enqueueProjectionRefresh(this.#database, {
+              causeId: options.releaseId,
+              memoryId: source.memory_id,
+              revisionId,
+              principalId: options.principalId,
+              scope: {
+                kind: source.scope_kind,
+                id: source.scope_id,
+              },
+              occurredAt: options.activatedAt,
+            }),
+          ]
+        : []),
+    ];
+    return {
+      memory_id: source.memory_id,
+      previous_revision_id: expectedCurrentRevisionId,
+      current_revision_id: revisionId,
+      lifecycle,
+      projection_jobs: projectionJobs,
     };
   }
 

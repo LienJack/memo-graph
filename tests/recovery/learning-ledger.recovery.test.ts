@@ -214,6 +214,10 @@ describe("learning ledger transaction recovery", () => {
         sequence: 5,
         from_state: "canary",
         to_state: "released",
+        evidence_receipt_ids: [
+          "receipt_eval_storage_1",
+          "receipt_canary_storage_1",
+        ],
         expected_previous_transition_hash:
           transitionChain.at(-1)?.transition_hash ?? null,
         idempotency_key: "transition-release-atomic-001",

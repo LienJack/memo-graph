@@ -831,6 +831,15 @@ export class MemoryRuntime {
     const scopes = [...request.recall.scopes].sort((left, right) =>
       scopeKey(left).localeCompare(scopeKey(right))
     );
+    const resolvedEffectiveConfiguration =
+      await this.#recallOrchestrator.resolveEffectiveConfiguration({
+        principal_id: this.#policy.principal.principal_id,
+        scopes,
+        lane_policy: this.#policy.lane_policy,
+        ...(request.recall.lane_overrides === undefined
+          ? {}
+          : { lane_overrides: request.recall.lane_overrides }),
+      });
     const recallAllScopes = () =>
       Promise.all(
         scopes.map((scope) =>
@@ -841,6 +850,13 @@ export class MemoryRuntime {
             as_of: request.recall.as_of,
             include_sensitive: request.recall.include_sensitive,
             lane_policy: this.#policy.lane_policy,
+            ...(resolvedEffectiveConfiguration
+                .active_learning_release_id === undefined
+              ? {}
+              : {
+                  resolved_effective_configuration:
+                    resolvedEffectiveConfiguration,
+                }),
             ...(request.recall.lane_overrides === undefined
               ? {}
               : { lane_overrides: request.recall.lane_overrides }),

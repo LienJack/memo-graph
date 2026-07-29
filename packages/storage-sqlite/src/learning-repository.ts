@@ -25,6 +25,7 @@ import {
 import type Database from "better-sqlite3";
 
 import { StorageError } from "./errors.js";
+import type { GovernanceRepository } from "./governance-repository.js";
 import {
   LearningLedgerReadInputSchema,
   LearningLedgerReadResultSchema,
@@ -112,10 +113,10 @@ export function invalidateLearningTargets(
   const candidates = database
     .prepare(
       `SELECT candidate_id FROM learning_candidates
-       WHERE target_memory_id = ? AND target_revision_id = ?
+       WHERE target_memory_id = ?
        ORDER BY candidate_id`,
     )
-    .all(input.memoryId, input.revisionId) as Array<{
+    .all(input.memoryId) as Array<{
     candidate_id: string;
   }>;
   const insert = database.prepare(
@@ -160,13 +161,18 @@ function requestHash(
 export class LearningRepository {
   readonly #database: Database.Database;
   readonly #allowTestOperations: boolean;
+  readonly #governance: GovernanceRepository;
 
   constructor(
     database: Database.Database,
-    options: { allowTestOperations: boolean },
+    options: {
+      allowTestOperations: boolean;
+      governance: GovernanceRepository;
+    },
   ) {
     this.#database = database;
     this.#allowTestOperations = options.allowTestOperations;
+    this.#governance = options.governance;
   }
 
   counts(): {
@@ -641,7 +647,14 @@ export class LearningRepository {
     );
     const releaseIds = releases.map((release) => release.release_id);
     const releaseSlots = [
-      ...new Set(releases.map((release) => release.release_slot_hash)),
+      ...new Set([
+        ...candidates.flatMap((candidate) =>
+          candidate.release_slot === null
+            ? []
+            : [candidate.release_slot.slot_hash],
+        ),
+        ...releases.map((release) => release.release_slot_hash),
+      ]),
     ];
     const pointers =
       releaseSlots.length === 0
@@ -1405,15 +1418,14 @@ export class LearningRepository {
     }
     const current = this.#database
       .prepare(
-        `SELECT control_epoch, frontier_hash, status
+        `SELECT control_epoch, status
          FROM learning_control_state WHERE principal_id = ?`,
       )
       .get(command.control.principal_id) as
-      | { control_epoch: number; frontier_hash: string; status: string }
+      | { control_epoch: number; status: string }
       | undefined;
     const currentEpoch = current === undefined ? 0 : Number(current.control_epoch);
-    const currentFrontier =
-      current?.frontier_hash ?? command.receipt.previous_frontier_hash;
+    const currentFrontier = this.frontier().frontier_hash;
     if (
       command.expected_control_epoch !== currentEpoch ||
       command.expected_frontier_hash !== currentFrontier ||
@@ -1538,10 +1550,46 @@ export class LearningRepository {
       command.transition.candidate_id !== command.release.candidate_id ||
       command.transition.authority_id !==
         command.approval_artifact.approval_id ||
+      !command.transition.evidence_receipt_ids.includes(
+        command.approval_artifact.evaluation_receipt_id,
+      ) ||
+      !command.transition.evidence_receipt_ids.includes(
+        command.approval_artifact.canary_receipt_id,
+      ) ||
       (command.kind === "release" &&
         command.transition.to_state !== "released") ||
       (command.kind === "rollback" &&
         command.transition.to_state !== "rolled_back")
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    const candidateRow = this.#database
+      .prepare(
+        `SELECT artifact_json FROM learning_candidates
+         WHERE candidate_id = ?`,
+      )
+      .get(command.release.candidate_id) as ArtifactRow | undefined;
+    if (candidateRow === undefined) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    const releaseCandidate = CandidateChangeSchema.parse(
+      JSON.parse(candidateRow.artifact_json) as unknown,
+    );
+    const expectedEffect =
+      releaseCandidate.target.kind === "retrieval_policy"
+        ? { kind: "retrieval_policy" as const }
+        : releaseCandidate.target.kind === "evaluation_only"
+          ? null
+          : {
+              kind: "canonical_memory" as const,
+              candidate_type: releaseCandidate.target.kind,
+              memory_id: releaseCandidate.target.memory_id,
+              revision_id: releaseCandidate.target.revision_id,
+              content_hash: releaseCandidate.target.content_hash,
+            };
+    if (
+      expectedEffect === null ||
+      canonicalJson(expectedEffect) !== canonicalJson(command.effect)
     ) {
       throw new StorageError("INVALID_INPUT");
     }
@@ -1606,6 +1654,60 @@ export class LearningRepository {
     ) {
       throw new StorageError("CONFLICT");
     }
+    if (command.kind === "rollback" && command.release.restored_release_id !== null) {
+      const restored = this.#database
+        .prepare(
+          `SELECT candidate_id, release_slot_hash
+           FROM learning_release_versions WHERE release_id = ?`,
+        )
+        .get(command.release.restored_release_id) as
+        | { candidate_id: string; release_slot_hash: string }
+        | undefined;
+      const invalid = restored === undefined
+        ? undefined
+        : this.#database
+            .prepare(
+              `SELECT candidate_id FROM learning_target_invalidations
+               WHERE candidate_id = ? LIMIT 1`,
+            )
+            .get(restored.candidate_id);
+      if (
+        restored === undefined ||
+        restored.release_slot_hash !== command.release.release_slot_hash ||
+        invalid !== undefined
+      ) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      this.#assertCandidateAccess(
+        restored.candidate_id,
+        command.principal_id,
+        command.scopes,
+      );
+    }
+    if (command.effect.kind === "canonical_memory") {
+      const effect = command.effect;
+      this.#governance.governedWrite(
+        `learning_${command.kind}`,
+        () =>
+          this.#governance.applyLearningReleaseEffect({
+            action: command.kind,
+            releaseId: command.release.release_id,
+            currentReleaseId: command.release.previous_release_id,
+            restoredReleaseId: command.release.restored_release_id,
+            candidateId: command.release.candidate_id,
+            principalId: command.principal_id,
+            scopes: command.scopes,
+            activatedAt: command.release.activated_at,
+            target: {
+              kind: effect.candidate_type,
+              memory_id: effect.memory_id,
+              revision_id: effect.revision_id,
+              content_hash: effect.content_hash,
+            },
+          }),
+      );
+    }
+    this.#fail(command, "after_canonical_effect");
     if (command.kind === "release") {
       if (
         command.receipt.kind !== "release" ||
@@ -1643,6 +1745,38 @@ export class LearningRepository {
       command.receipt.control_epoch !== command.expected_control_epoch
     ) {
       throw new StorageError("INVALID_INPUT");
+    }
+    if (
+      command.kind === "rollback" &&
+      command.receipt.kind === "rollback" &&
+      command.receipt.monitor_receipt_id !== null
+    ) {
+      const monitorRow = this.#database
+        .prepare(
+          `SELECT r.receipt_json
+           FROM learning_receipt_links AS l
+           JOIN mutation_receipts AS r ON r.receipt_id = l.receipt_id
+           WHERE l.receipt_kind = 'learning_monitor'
+             AND r.receipt_id = ?`,
+        )
+        .get(command.receipt.monitor_receipt_id) as
+        | { receipt_json: string }
+        | undefined;
+      const monitorReceipt =
+        monitorRow === undefined
+          ? undefined
+          : ReceiptSchema.parse(
+              JSON.parse(monitorRow.receipt_json) as unknown,
+            );
+      if (
+        monitorReceipt?.kind !== "learning_monitor" ||
+        monitorReceipt.release_id !== command.release.previous_release_id ||
+        !command.transition.evidence_receipt_ids.includes(
+          command.receipt.monitor_receipt_id,
+        )
+      ) {
+        throw new StorageError("INVALID_INPUT");
+      }
     }
     this.#database
       .prepare(

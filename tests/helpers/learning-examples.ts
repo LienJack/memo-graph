@@ -35,6 +35,16 @@ export const LEARNING_WORKSPACE_SCOPE = {
   id: "workspace_local",
 } as const;
 
+export const EMPTY_LEARNING_FRONTIER_HASH =
+  canonicalSha256Omitting(
+    {
+      controls: [],
+      pointers: [],
+      frontier_hash: null,
+    },
+    ["frontier_hash"],
+  );
+
 type FixtureOverrides<T> = Partial<Record<keyof T, unknown>>;
 
 export function learningTrace(
@@ -560,7 +570,10 @@ export function verifiedLearningApproval(
   };
 }
 
-export function learningControl(status: "active" | "paused" = "paused") {
+export function learningControl(
+  status: "active" | "paused" = "paused",
+  overrides: Record<string, unknown> = {},
+) {
   return LearningControlSchema.parse({
     schema_version: "1.0.0",
     principal_id: "user_local",
@@ -573,11 +586,13 @@ export function learningControl(status: "active" | "paused" = "paused") {
     runtime_identity_hash: HASH_A,
     configuration_hash: HASH_B,
     corpus_hash: HASH_A,
+    ...overrides,
   });
 }
 
 export function learningControlReceipt(
   action: "pause" | "resume" = "pause",
+  overrides: Record<string, unknown> = {},
 ) {
   return LearningControlReceiptSchema.parse(
     sealReceipt({
@@ -591,12 +606,13 @@ export function learningControlReceipt(
       action,
       previous_epoch: 0,
       resulting_epoch: 1,
-      previous_frontier_hash: HASH_A,
+      previous_frontier_hash: EMPTY_LEARNING_FRONTIER_HASH,
       frontier_hash: HASH_B,
       runtime_identity_hash: HASH_A,
       configuration_hash: HASH_B,
       corpus_hash: HASH_A,
       reason_code: "USER_REQUESTED",
+      ...overrides,
     }),
   );
 }

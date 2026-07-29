@@ -629,6 +629,8 @@ export const BASE_RECALL_LANES = [
   "relation_sqlite",
 ] as const;
 
+export const DEFAULT_LEARNED_RECALL_TARGET_KEY = "default_recall";
+
 export const RecallLaneSchema = z.enum([
   ...BASE_RECALL_LANES,
   "relation_graph",
@@ -731,6 +733,21 @@ export const LanePolicySchema = z
 
 export const LaneRequestOverridesSchema = z
   .object({
+    requested_lanes: z.array(RecallLaneSchema),
+    limits: LaneLimitOverridesSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    addDuplicateLaneIssue(
+      value.requested_lanes,
+      context,
+      ["requested_lanes"],
+    );
+  });
+
+export const LearnedRetrievalPolicySchema = z
+  .object({
+    kind: z.literal("retrieval_policy"),
     requested_lanes: z.array(RecallLaneSchema),
     limits: LaneLimitOverridesSchema,
   })
@@ -868,6 +885,51 @@ export function computeEffectiveLaneConfiguration(
     enabled_lanes: enabled,
     limits,
     reason_codes: reasonCodes.sort(),
+  });
+}
+
+export function computeNarrowedLanePolicy(
+  policyInput: unknown,
+  learnedInput: unknown,
+): z.infer<typeof LanePolicySchema> {
+  const policy = LanePolicySchema.parse(policyInput);
+  const learned = LearnedRetrievalPolicySchema.parse(learnedInput);
+  const allowed = new Set(policy.allowed_lanes);
+  if (
+    learned.requested_lanes.some(
+      (lane) =>
+        !allowed.has(lane) ||
+        lane === "relation_graph" ||
+        lane === "semantic_vector",
+    )
+  ) {
+    throw new Error("LEARNED_POLICY_WIDENS_LANES");
+  }
+
+  const limits = { ...policy.limits };
+  for (const key of [...REQUIRED_LIMIT_KEYS, ...OPTIONAL_LIMIT_KEYS]) {
+    const learnedLimit = learned.limits[key];
+    if (learnedLimit === undefined) {
+      continue;
+    }
+    if (
+      key.startsWith("graph_") ||
+      key.startsWith("vector_") ||
+      learnedLimit >
+        (policy.limits[key] ?? DEFAULT_BOUNDED_RECALL_LIMITS[
+          key as keyof typeof DEFAULT_BOUNDED_RECALL_LIMITS
+        ])
+    ) {
+      throw new Error(`LEARNED_POLICY_WIDENS_LIMIT:${key}`);
+    }
+    Object.assign(limits, { [key]: learnedLimit });
+  }
+
+  return LanePolicySchema.parse({
+    allowed_lanes: policy.allowed_lanes.filter((lane) =>
+      learned.requested_lanes.includes(lane)
+    ),
+    limits,
   });
 }
 
@@ -1084,6 +1146,9 @@ export type EffectiveLaneConfiguration = z.infer<
 >;
 export type LaneLimits = z.infer<typeof LaneLimitsSchema>;
 export type LanePolicy = z.infer<typeof LanePolicySchema>;
+export type LearnedRetrievalPolicy = z.infer<
+  typeof LearnedRetrievalPolicySchema
+>;
 export type LaneRequestOverrides = z.infer<
   typeof LaneRequestOverridesSchema
 >;

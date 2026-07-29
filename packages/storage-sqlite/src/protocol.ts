@@ -242,6 +242,19 @@ const LearningControlWriteCommandSchema = z
   })
   .strict();
 
+export const LearningReleaseEffectSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("retrieval_policy") }).strict(),
+  z
+    .object({
+      kind: z.literal("canonical_memory"),
+      candidate_type: z.enum(["memory", "procedure"]),
+      memory_id: IdentifierSchema,
+      revision_id: IdentifierSchema,
+      content_hash: CanonicalHashSchema,
+    })
+    .strict(),
+]);
+
 const LearningReleaseWriteCommandSchema = z
   .object({
     ...LearningWriteBaseShape,
@@ -253,6 +266,9 @@ const LearningReleaseWriteCommandSchema = z
     approval_artifact: PostCanaryApprovalSchema,
     approval_binding: ApprovalBindingSchema,
     approval: VerifiedApprovalCommandSchema,
+    effect: LearningReleaseEffectSchema.default({
+      kind: "retrieval_policy",
+    }),
     release: LearningReleaseVersionSchema,
     pointer: ReleasePointerSchema,
     transition: CandidateTransitionSchema,
@@ -260,6 +276,7 @@ const LearningReleaseWriteCommandSchema = z
     test_failure_point: z
       .enum([
         "after_guard",
+        "after_canonical_effect",
         "after_release",
         "after_pointer",
         "after_transition",

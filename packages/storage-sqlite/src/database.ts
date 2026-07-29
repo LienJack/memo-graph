@@ -322,6 +322,7 @@ export class StorageDatabase {
     this.#relations = new RelationRepository(this.#database);
     this.#learning = new LearningRepository(this.#database, {
       allowTestOperations: options.testOperations ?? false,
+      governance: this.#governance,
     });
   }
 

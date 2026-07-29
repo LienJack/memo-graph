@@ -48,6 +48,18 @@ export {
   type PartitionAccessRole,
 } from "./partition-loader.js";
 export {
+  LearningReleaseError,
+  LearningReleaseInputSchema,
+  LearningReleaseManager,
+  LearningReleaseResultSchema,
+  learningReleaseEffectManifestHash,
+  narrowLearnedLanePolicy,
+  type LearningReleaseInput,
+  type LearningReleaseResult,
+  type ReleaseApprovalRegistry,
+  type ReleaseAuthorityRegistry,
+} from "./release-manager.js";
+export {
   LearningTraceRecorder,
   TraceRecorderInputSchema,
   TraceRecordResultSchema,

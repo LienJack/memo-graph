@@ -18,7 +18,10 @@ import {
   WorkerResponseSchema,
   type LearningLedgerWriteCommand,
 } from "@memo-graph/storage-sqlite";
-import { canonicalSha256Omitting } from "../../packages/contracts/src/index.js";
+import {
+  canonicalSha256,
+  canonicalSha256Omitting,
+} from "../../packages/contracts/src/index.js";
 import {
   LEARNING_WORKSPACE_SCOPE,
   learningCanaryAuthorization,
@@ -474,6 +477,10 @@ describe("SQLite learning ledger schema", () => {
           transitionChain.at(-1)?.transition_hash ?? null,
         idempotency_key: "transition-storage-release-001",
         authority_id: releaseAuthority.approval.grant.approval_id,
+        evidence_receipt_ids: [
+          "receipt_eval_storage_1",
+          "receipt_canary_storage_1",
+        ],
       });
       expect(
         await storage.writeLearningLedger({
@@ -526,6 +533,11 @@ describe("SQLite learning ledger schema", () => {
         expected_previous_transition_hash: releaseTransition.transition_hash,
         idempotency_key: "transition-storage-rollback-001",
         authority_id: rollbackAuthority.approval.grant.approval_id,
+        evidence_receipt_ids: [
+          "receipt_eval_storage_1",
+          "receipt_canary_storage_1",
+          "receipt_monitor_storage_1",
+        ],
       });
       expect(
         await storage.writeLearningLedger({
@@ -549,20 +561,35 @@ describe("SQLite learning ledger schema", () => {
         receipt: { kind: "rollback" },
       });
 
+      const observedLearningFrontier = (
+        await storage.health()
+      ).learning_frontier.frontier_hash;
+      const postReleaseControl = learningControl("paused", {
+        reason_code: "RELEASE_COMPLETED_BEFORE_PAUSE",
+        frontier_hash: canonicalSha256({
+          previous_frontier_hash: observedLearningFrontier,
+          action: "pause",
+          release_id: learningReleaseVersion().release_id,
+        }),
+      });
+      const postReleaseControlReceipt = learningControlReceipt("pause", {
+        previous_frontier_hash: observedLearningFrontier,
+        frontier_hash: postReleaseControl.frontier_hash,
+        reason_code: "RELEASE_COMPLETED_BEFORE_PAUSE",
+      });
       const controlAuthority = verifiedLearningApproval({
         tool: "learning_pause",
-        requestHash: learningControlReceipt().request_hash,
+        requestHash: postReleaseControlReceipt.request_hash,
       });
       expect(
         await storage.writeLearningLedger({
           kind: "control",
           idempotency_key: "learning-control-storage-001",
-          request_hash: learningControlReceipt().request_hash,
+          request_hash: postReleaseControlReceipt.request_hash,
           expected_control_epoch: 0,
-          expected_frontier_hash:
-            learningControlReceipt().previous_frontier_hash,
-          control: learningControl(),
-          receipt: learningControlReceipt(),
+          expected_frontier_hash: observedLearningFrontier,
+          control: postReleaseControl,
+          receipt: postReleaseControlReceipt,
           approval_binding: controlAuthority.binding,
           approval: controlAuthority.approval,
         }),
@@ -585,7 +612,7 @@ describe("SQLite learning ledger schema", () => {
       ]);
       expect(ledger.pointers).toEqual([learningRollbackPointer()]);
       expect(ledger.monitors).toEqual([learningMonitorResult()]);
-      expect(ledger.controls).toEqual([learningControl()]);
+      expect(ledger.controls).toEqual([postReleaseControl]);
       expect(ledger.receipts.map((receipt) => receipt.kind)).toEqual([
         "evaluation",
         "learning_canary",

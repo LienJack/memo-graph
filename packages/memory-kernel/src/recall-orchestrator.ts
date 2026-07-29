@@ -1,5 +1,6 @@
 import {
   DEFAULT_BOUNDED_RECALL_LIMITS,
+  DEFAULT_LEARNED_RECALL_TARGET_KEY,
   EffectiveLaneConfigurationSchema,
   GraphPathEvidenceSchema,
   GovernedSearchItemSchema,
@@ -9,10 +10,14 @@ import {
   ProjectionRevisionSchema,
   RecallLaneSchema,
   ScopeSchema,
+  ReleaseSlotSchema,
   VectorSelectionEvidenceSchema,
   applicableRecallLanes,
   canonicalJson,
+  canonicalSha256,
+  canonicalSha256Omitting,
   computeEffectiveLaneConfiguration,
+  computeNarrowedLanePolicy,
   scopeKey,
   type ProjectionSource,
   type ProjectionRevision,
@@ -46,6 +51,8 @@ export const LayeredRecallInputSchema = z
     include_sensitive: z.boolean().default(false),
     lane_policy: LanePolicySchema,
     lane_overrides: LaneRequestOverridesSchema.optional(),
+    resolved_effective_configuration:
+      EffectiveLaneConfigurationSchema.optional(),
   })
   .strict();
 
@@ -277,10 +284,17 @@ export class RecallOrchestrator {
 
   async recall(input: LayeredRecallInput): Promise<LayeredRecallResult> {
     const request = LayeredRecallInputSchema.parse(input);
-    const effective = computeEffectiveLaneConfiguration(
+    const baseEffective = computeEffectiveLaneConfiguration(
       request.lane_policy,
       request.lane_overrides,
     );
+    const effective =
+      request.resolved_effective_configuration === undefined
+        ? baseEffective
+        : this.#assertResolvedConfiguration(
+            baseEffective,
+            request.resolved_effective_configuration,
+          );
     const laneStates = new Map<RecallLane, LaneState>();
     const nonRelation = effective.enabled_lanes.filter(
       (lane) =>
@@ -669,6 +683,121 @@ export class RecallOrchestrator {
       telemetry,
       degraded_lanes: degradedLanes,
     });
+  }
+
+  async resolveEffectiveConfiguration(input: {
+    principal_id: string;
+    scopes: readonly z.input<typeof ScopeSchema>[];
+    lane_policy: unknown;
+    lane_overrides?: unknown;
+    target_key?: string;
+  }) {
+    const scopes = [...z.array(ScopeSchema).min(1).parse(input.scopes)]
+      .sort((left, right) =>
+        scopeKey(left).localeCompare(scopeKey(right))
+      );
+    const basePolicy = LanePolicySchema.parse(input.lane_policy);
+    const baseEffective = computeEffectiveLaneConfiguration(
+      basePolicy,
+      input.lane_overrides,
+    );
+    const slotInput = {
+      principal_id: input.principal_id,
+      candidate_type: "retrieval_policy" as const,
+      scopes,
+      target_key:
+        input.target_key ?? DEFAULT_LEARNED_RECALL_TARGET_KEY,
+      slot_hash: canonicalSha256("placeholder"),
+    };
+    const slot = ReleaseSlotSchema.parse({
+      ...slotInput,
+      slot_hash: canonicalSha256Omitting(slotInput, ["slot_hash"]),
+    });
+    const ledger = await this.#storage.readLearningLedger({
+      principal_id: input.principal_id,
+      scopes,
+      release_slot_hash: slot.slot_hash,
+    });
+    const pointer = ledger.pointers.find(
+      (item) => item.release_slot_hash === slot.slot_hash,
+    );
+    if (pointer?.active_release_id === null ||
+      pointer?.active_release_id === undefined) {
+      return baseEffective;
+    }
+    const release = ledger.releases.find(
+      (item) => item.release_id === pointer.active_release_id,
+    );
+    const candidate = ledger.candidates.find(
+      (item) => item.candidate_id === release?.candidate_id,
+    );
+    try {
+      if (
+        release === undefined ||
+        candidate === undefined ||
+        candidate.target.kind !== "retrieval_policy" ||
+        candidate.release_slot?.slot_hash !== slot.slot_hash ||
+        ledger.invalid_candidate_ids.includes(candidate.candidate_id)
+      ) {
+        throw new Error("invalid active learning release");
+      }
+      const learnedPolicy = computeNarrowedLanePolicy(
+        basePolicy,
+        candidate.target,
+      );
+      if (
+        canonicalSha256(learnedPolicy) !==
+          release.configuration_hash
+      ) {
+        throw new Error("learning configuration drift");
+      }
+      const effective = computeEffectiveLaneConfiguration(
+        learnedPolicy,
+        input.lane_overrides,
+      );
+      return EffectiveLaneConfigurationSchema.parse({
+        ...effective,
+        active_learning_release_id: release.release_id,
+        active_learning_release_hash: release.release_hash,
+      });
+    } catch {
+      return EffectiveLaneConfigurationSchema.parse({
+        ...baseEffective,
+        reason_codes: [
+          ...baseEffective.reason_codes,
+          "LEARNING_RELEASE_INVALID_FALLBACK",
+        ].sort(),
+      });
+    }
+  }
+
+  #assertResolvedConfiguration(
+    base: z.output<typeof EffectiveLaneConfigurationSchema>,
+    resolvedInput: unknown,
+  ) {
+    const resolved =
+      EffectiveLaneConfigurationSchema.parse(resolvedInput);
+    const baseLanes = new Set(base.enabled_lanes);
+    if (
+      resolved.active_learning_release_id === undefined ||
+      resolved.enabled_lanes.some((lane) => !baseLanes.has(lane))
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    for (const [key, value] of Object.entries(resolved.limits)) {
+      const baseValue =
+        base.limits[key as keyof typeof base.limits] ??
+        DEFAULT_BOUNDED_RECALL_LIMITS[
+          key as keyof typeof DEFAULT_BOUNDED_RECALL_LIMITS
+        ];
+      if (
+        typeof value === "number" &&
+        (typeof baseValue !== "number" || value > baseValue)
+      ) {
+        throw new StorageError("INVALID_INPUT");
+      }
+    }
+    return resolved;
   }
 
   #laneRequest(

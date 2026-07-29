@@ -115,6 +115,15 @@ export function buildLayeredArtifacts(options: {
     policy_version: options.policy_version,
     frontier: options.frontier,
     effective_lane_configuration: options.effective_configuration,
+    ...(options.effective_configuration.active_learning_release_id ===
+        undefined
+      ? {}
+      : {
+          active_learning_release_id:
+            options.effective_configuration.active_learning_release_id,
+          active_learning_release_hash:
+            options.effective_configuration.active_learning_release_hash,
+        }),
     lane_telemetry: telemetry,
     conflict_sets: options.conflict_sets,
   });
@@ -166,6 +175,17 @@ export function buildLayeredArtifacts(options: {
       policy_version: options.policy_version,
       frontier: options.frontier,
       effective_lane_configuration: options.effective_configuration,
+      ...(options.effective_configuration.active_learning_release_id ===
+          undefined
+        ? {}
+        : {
+            active_learning_release_id:
+              options.effective_configuration
+                .active_learning_release_id,
+            active_learning_release_hash:
+              options.effective_configuration
+                .active_learning_release_hash,
+          }),
       lane_telemetry: telemetry,
       items: receiptItems,
     }),
