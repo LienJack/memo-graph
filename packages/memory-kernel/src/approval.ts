@@ -2,11 +2,16 @@ import {
   ApprovalGrantSchema,
   ApprovalRegistryManifestSchema,
   ApprovalBindingSchema,
+  CanaryAuthorizationSchema,
+  PostCanaryApprovalSchema,
   approvalGrantMatches,
+  canonicalJson,
   canonicalSha256,
   type ApprovalGrant,
   type ApprovalBinding,
+  type CanaryAuthorization,
   type MemoryToolName,
+  type PostCanaryApproval,
 } from "@memo-graph/contracts";
 export { ApprovalBindingSchema, type ApprovalBinding };
 
@@ -38,12 +43,67 @@ export interface ApprovalRegistry {
   confirmUnchanged(approval: VerifiedApproval): Promise<void>;
 }
 
+export type VerifiedCanaryAuthorization = {
+  authorization: CanaryAuthorization;
+  registry_hash: `sha256:${string}`;
+  verified_at: string;
+};
+
+export type VerifiedPostCanaryApproval = {
+  approval: PostCanaryApproval;
+  registry_hash: `sha256:${string}`;
+  verified_at: string;
+};
+
+export interface LearningAuthorityRegistry {
+  verifyCanaryAuthorization(
+    authorizationId: string,
+  ): Promise<VerifiedCanaryAuthorization>;
+  confirmCanaryAuthorizationUnchanged(
+    verified: VerifiedCanaryAuthorization,
+  ): Promise<void>;
+  verifyPostCanaryApproval(
+    approvalId: string,
+  ): Promise<VerifiedPostCanaryApproval>;
+  confirmPostCanaryApprovalUnchanged(
+    verified: VerifiedPostCanaryApproval,
+  ): Promise<void>;
+}
+
 export class DenyAllApprovalRegistry implements ApprovalRegistry {
   async verify(_binding: ApprovalBinding): Promise<VerifiedApproval> {
     throw new ApprovalError("APPROVAL_REQUIRED");
   }
 
   async confirmUnchanged(_approval: VerifiedApproval): Promise<void> {
+    throw new ApprovalError("APPROVAL_INVALID");
+  }
+}
+
+export class DenyAllLearningAuthorityRegistry
+  implements LearningAuthorityRegistry
+{
+  async verifyCanaryAuthorization(
+    _authorizationId: string,
+  ): Promise<VerifiedCanaryAuthorization> {
+    throw new ApprovalError("APPROVAL_REQUIRED");
+  }
+
+  async confirmCanaryAuthorizationUnchanged(
+    _verified: VerifiedCanaryAuthorization,
+  ): Promise<void> {
+    throw new ApprovalError("APPROVAL_INVALID");
+  }
+
+  async verifyPostCanaryApproval(
+    _approvalId: string,
+  ): Promise<VerifiedPostCanaryApproval> {
+    throw new ApprovalError("APPROVAL_REQUIRED");
+  }
+
+  async confirmPostCanaryApprovalUnchanged(
+    _verified: VerifiedPostCanaryApproval,
+  ): Promise<void> {
     throw new ApprovalError("APPROVAL_INVALID");
   }
 }
@@ -63,6 +123,55 @@ export function assertApprovalGrant(
 
 export function approvalRegistryHash(input: unknown): `sha256:${string}` {
   return canonicalSha256(ApprovalRegistryManifestSchema.parse(input));
+}
+
+export function assertCanaryAuthorization(
+  expectedInput: unknown,
+  actualInput: unknown,
+  verifiedAt: string,
+): CanaryAuthorization {
+  try {
+    const expected = CanaryAuthorizationSchema.parse(expectedInput);
+    const actual = CanaryAuthorizationSchema.parse(actualInput);
+    if (
+      canonicalJson(expected) !== canonicalJson(actual) ||
+      Date.parse(actual.issued_at) > Date.parse(verifiedAt) ||
+      Date.parse(actual.expires_at) <= Date.parse(verifiedAt) ||
+      Date.parse(actual.deadline_at) > Date.parse(actual.expires_at)
+    ) {
+      throw new ApprovalError("APPROVAL_INVALID");
+    }
+    return actual;
+  } catch (error) {
+    if (error instanceof ApprovalError) {
+      throw error;
+    }
+    throw new ApprovalError("APPROVAL_INVALID");
+  }
+}
+
+export function assertPostCanaryApproval(
+  expectedInput: unknown,
+  actualInput: unknown,
+  verifiedAt: string,
+): PostCanaryApproval {
+  try {
+    const expected = PostCanaryApprovalSchema.parse(expectedInput);
+    const actual = PostCanaryApprovalSchema.parse(actualInput);
+    if (
+      canonicalJson(expected) !== canonicalJson(actual) ||
+      Date.parse(actual.issued_at) > Date.parse(verifiedAt) ||
+      Date.parse(actual.expires_at) <= Date.parse(verifiedAt)
+    ) {
+      throw new ApprovalError("APPROVAL_INVALID");
+    }
+    return actual;
+  } catch (error) {
+    if (error instanceof ApprovalError) {
+      throw error;
+    }
+    throw new ApprovalError("APPROVAL_INVALID");
+  }
 }
 
 export function isApprovalTool(

@@ -1,4 +1,15 @@
 export {
+  CanaryRunResultSchema,
+  LearningCanaryError,
+  LearningCanaryRunner,
+  type CanaryAuthorityRegistry,
+  type CanaryCaseExecutionRequest,
+  type CanaryCaseExecutionResult,
+  type CanaryRunInput,
+  type CanaryRunResult,
+  type VerifiedCanaryAuthority,
+} from "./canary-runner.js";
+export {
   CandidateProposalInputSchema,
   CandidateProposalResultSchema,
   LearningCandidateBuilder,
@@ -19,8 +30,19 @@ export {
   type EvaluationRunResult,
 } from "./evaluation-runner.js";
 export {
+  CandidateLifecycle,
+  CandidateLifecycleInputSchema,
+  CandidateLifecycleResultSchema,
+  LearningLifecycleError,
+  reduceCandidateState,
+  type CandidateLifecycleInput,
+  type CandidateLifecycleResult,
+  type ReducedCandidateState,
+} from "./lifecycle.js";
+export {
   G5FixtureAccessError,
   G5PartitionLoader,
+  type G5LoadedCanaryCase,
   type G5LoadedEvaluationCase,
   type G5PartitionAccessEvent,
   type PartitionAccessRole,

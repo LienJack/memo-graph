@@ -3,6 +3,7 @@ import {
   CanaryRunSchema,
   CandidateChangeSchema,
   CandidateTransitionSchema,
+  EvalReceiptSchema,
   EvaluationCaseResultSetSchema,
   EvaluationCommonIdentitySchema,
   LearningControlSchema,
@@ -1178,25 +1179,73 @@ export class LearningRepository {
       command.scopes,
     );
     const currentState = this.#currentCandidateState(command.run.candidate_id);
-    const evaluationReceipt = this.#database
+    const evaluationReceiptRow = this.#database
       .prepare(
-        `SELECT receipt_hash FROM mutation_receipts WHERE receipt_id = ?`,
+        `SELECT receipt_hash, receipt_json
+         FROM mutation_receipts WHERE receipt_id = ?`,
       )
       .get(command.authorization.evaluation_receipt_id) as
-      | { receipt_hash: string }
+      | { receipt_hash: string; receipt_json: string }
       | undefined;
+    const evaluationReceipt =
+      evaluationReceiptRow === undefined
+        ? undefined
+        : EvalReceiptSchema.parse(
+            JSON.parse(evaluationReceiptRow.receipt_json) as unknown,
+          );
+    const candidate = this.#database
+      .prepare(
+        `SELECT release_capability, release_slot_hash
+         FROM learning_candidates WHERE candidate_id = ?`,
+      )
+      .get(command.run.candidate_id) as
+      | {
+          release_capability: string;
+          release_slot_hash: string | null;
+        }
+      | undefined;
+    const control = this.#database
+      .prepare(
+        `SELECT status, control_epoch, changed_at
+         FROM learning_control_state
+         WHERE principal_id = ?`,
+      )
+      .get(command.principal_id) as
+      | { status: string; control_epoch: number; changed_at: string }
+      | undefined;
+    let controlAllowsTerminalWrite =
+      control === undefined && command.run.control_epoch === 0;
+    if (control !== undefined) {
+      controlAllowsTerminalWrite =
+        (control.status === "active" &&
+          control.control_epoch === command.run.control_epoch) ||
+        (control.status === "paused" &&
+          control.control_epoch === command.run.control_epoch + 1 &&
+          ["aborted", "frozen"].includes(command.run.status) &&
+          !command.receipt.passed &&
+          command.receipt.failure_codes.includes("LEARNING_PAUSED") &&
+          Date.parse(command.run.started_at) <=
+            Date.parse(control.changed_at) &&
+          Date.parse(control.changed_at) <=
+            Date.parse(command.receipt.created_at));
+    }
     if (
-      (currentState !== "approved_for_canary" &&
-        currentState !== "canary") ||
+      currentState !== "approved_for_canary" ||
+      candidate?.release_capability !== "release_capable" ||
+      candidate.release_slot_hash !==
+        command.authorization.release_slot_hash ||
+      !controlAllowsTerminalWrite ||
       command.authorization.principal_id !== command.principal_id ||
       scopesJson(command.authorization.scopes) !==
         scopesJson(command.scopes) ||
       command.authorization.candidate_id !== command.run.candidate_id ||
+      command.authorization.request_hash !== command.idempotency_hash ||
       command.authorization.authorization_id !== command.run.authorization_id ||
       command.authorization.canary_manifest_hash !==
         command.run.canary_manifest_hash ||
       command.authorization.base_release_id !== command.run.stable_release_id ||
       command.authorization.control_epoch !== command.run.control_epoch ||
+      command.run.deadline_at !== command.authorization.deadline_at ||
       command.receipt.candidate_id !== command.run.candidate_id ||
       command.receipt.authorization_id !== command.authorization.authorization_id ||
       command.receipt.authorization_hash !==
@@ -1206,13 +1255,44 @@ export class LearningRepository {
       command.receipt.canary_manifest_hash !== command.run.canary_manifest_hash ||
       command.receipt.exposures !== command.run.exposure_count ||
       command.receipt.control_epoch !== command.run.control_epoch ||
+      command.receipt.request_hash !== command.idempotency_hash ||
       command.receipt.passed !== (command.run.status === "passed") ||
       command.run.status === "running" ||
-      evaluationReceipt?.receipt_hash !==
-        command.authorization.evaluation_receipt_hash
+      (command.run.status === "passed" &&
+        command.run.exposure_count !== 3) ||
+      Date.parse(command.run.started_at) <
+        Date.parse(command.authorization.issued_at) ||
+      Date.parse(command.run.started_at) >=
+        Date.parse(command.run.deadline_at) ||
+      Date.parse(command.run.deadline_at) >
+        Date.parse(command.authorization.expires_at) ||
+      Date.parse(command.receipt.created_at) <
+        Date.parse(command.run.started_at) ||
+      Date.parse(command.receipt.created_at) >
+        Date.parse(command.authorization.expires_at) ||
+      evaluationReceiptRow?.receipt_hash !==
+        command.authorization.evaluation_receipt_hash ||
+      evaluationReceipt?.candidate_id !== command.run.candidate_id ||
+      evaluationReceipt?.passed !== true ||
+      evaluationReceipt.invalidated ||
+      command.transition.candidate_id !== command.run.candidate_id ||
+      command.transition.from_state !== "approved_for_canary" ||
+      command.transition.to_state !== "canary" ||
+      command.transition.authority_id !==
+        command.authorization.authorization_id ||
+      command.transition.control_epoch !== command.run.control_epoch ||
+      command.transition.transitioned_at !== command.run.started_at ||
+      !command.transition.evidence_receipt_ids.includes(
+        command.authorization.evaluation_receipt_id,
+      ) ||
+      !command.transition.evidence_receipt_ids.includes(
+        command.receipt.receipt_id,
+      )
     ) {
       throw new StorageError("INVALID_INPUT");
     }
+    this.#insertTransition(command.transition);
+    this.#fail(command, "after_transition");
     this.#database
       .prepare(
         `INSERT INTO learning_canary_authorizations (
@@ -1227,6 +1307,7 @@ export class LearningRepository {
         canonicalJson(command.authorization),
         command.authorization.issued_at,
       );
+    this.#fail(command, "after_authorization");
     this.#database
       .prepare(
         `INSERT INTO learning_canary_runs (
@@ -1242,6 +1323,7 @@ export class LearningRepository {
         canonicalJson(command.run),
         command.run.started_at,
       );
+    this.#fail(command, "after_canary_run");
   }
 
   #insertMonitor(command: MonitorCommand): void {

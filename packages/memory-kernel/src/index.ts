@@ -109,11 +109,17 @@ export {
   ApprovalBindingSchema,
   ApprovalError,
   DenyAllApprovalRegistry,
+  DenyAllLearningAuthorityRegistry,
+  assertCanaryAuthorization,
   assertApprovalGrant,
+  assertPostCanaryApproval,
   approvalRegistryHash,
   type ApprovalBinding,
   type ApprovalRegistry,
+  type LearningAuthorityRegistry,
   type VerifiedApproval,
+  type VerifiedCanaryAuthorization,
+  type VerifiedPostCanaryApproval,
 } from "./approval.js";
 export {
   G3_ACCEPTED_M2_COMMIT,

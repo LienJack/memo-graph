@@ -617,6 +617,8 @@ export const CanaryAuthorizationSchema = z
     schema_version: ContractVersionSchema,
     authorization_id: IdentifierSchema,
     principal_id: IdentifierSchema,
+    tool: z.literal("learning_canary"),
+    safety_class: z.literal("important_mutation"),
     scopes: z.array(ScopeSchema).min(1),
     candidate_id: IdentifierSchema,
     release_slot_hash: CanonicalHashSchema,

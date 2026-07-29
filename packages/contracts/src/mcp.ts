@@ -20,7 +20,11 @@ import {
   canonicalSha256Omitting,
 } from "./canonical-json.js";
 import { GraphPathEvidenceSchema } from "./graph.js";
-import { LearningApprovalDetailsSchema } from "./learning.js";
+import {
+  CanaryAuthorizationSchema,
+  LearningApprovalDetailsSchema,
+  PostCanaryApprovalSchema,
+} from "./learning.js";
 import {
   ContextConflictSetSchema,
   ContextFrontierSchema,
@@ -229,6 +233,12 @@ export const ApprovalRegistryManifestSchema = z
   .object({
     schema_version: ContractVersionSchema,
     approvals: z.array(ApprovalGrantSchema),
+    canary_authorizations: z
+      .array(CanaryAuthorizationSchema)
+      .optional(),
+    post_canary_approvals: z
+      .array(PostCanaryApprovalSchema)
+      .optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -238,6 +248,26 @@ export const ApprovalRegistryManifestSchema = z
         code: "custom",
         path: ["approvals"],
         message: "approval ids must be unique",
+      });
+    }
+    const canaryIds = (value.canary_authorizations ?? []).map(
+      (authorization) => authorization.authorization_id,
+    );
+    if (new Set(canaryIds).size !== canaryIds.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["canary_authorizations"],
+        message: "canary authorization ids must be unique",
+      });
+    }
+    const postCanaryIds = (value.post_canary_approvals ?? []).map(
+      (approval) => approval.approval_id,
+    );
+    if (new Set(postCanaryIds).size !== postCanaryIds.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["post_canary_approvals"],
+        message: "post-canary approval ids must be unique",
       });
     }
   });

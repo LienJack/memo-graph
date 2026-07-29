@@ -603,6 +603,47 @@ Migrations begin in M1, are forward-only, and are versioned files under
 `migrations/`. Schema changes require a recovery/restore test and cannot move a
 database behind its deletion or release frontier.
 
+## Scenario: Governed Learning Canary Terminal Transaction
+
+### 1. Scope / Trigger
+
+Use this contract when moving a release-capable learning candidate from
+`approved_for_canary` into a bounded terminal canary run.
+
+### 2. Contracts
+
+- Replay the normalized canary request before reading mutable candidate,
+  control, fixture, or approval state.
+- A canary authorization is an exact `learning_canary` /
+  `important_mutation` artifact bound to principal, complete scope set,
+  candidate, release slot/base, passed non-invalidated evaluation receipt,
+  sealed manifest, three case hashes, request hash, control epoch, deadline,
+  and expiry.
+- Canary authorization is distinct from the post-canary release or rollback
+  approval. The latter cannot exist until the terminal canary receipt exists.
+- One immediate transaction appends the `approved_for_canary -> canary`
+  transition, consumes the canary authorization, stores the terminal run,
+  stores its receipt, and commits the idempotency result.
+- The transition evidence set names both the passed evaluation receipt and the
+  terminal canary receipt. A passing run has exactly three one-time exposures.
+- A pause observed before canary start rejects the run. If pause commits after
+  the run started, storage may accept only a non-passing `frozen` or `aborted`
+  terminal run at the immediately following control epoch, with
+  `LEARNING_PAUSED` and `started_at <= changed_at <= receipt.created_at`.
+- Canary success, failure, pause, timeout, and crash recovery never move the
+  normal active release pointer.
+
+### 3. Tests Required
+
+- Reject wrong tool/safety/principal/scope/candidate/slot/base/evaluation/
+  manifest/request/control/time authorization bindings.
+- Prove early fixture visibility is denied and every passing case is exposed
+  exactly once.
+- Persist drift, timeout, execution failure, and in-flight pause as bounded
+  terminal evidence without pointer movement.
+- Inject failure after guard, transition, authorization, run, receipt, and
+  idempotency writes and verify the entire canary transaction rolls back.
+
 ## Naming
 
 Use plural snake_case tables, snake_case columns, explicit foreign keys, and

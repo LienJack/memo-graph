@@ -409,6 +409,8 @@ describe("governed learning contracts", () => {
       schema_version: "1.0.0",
       authorization_id: "canary_authorization_1",
       principal_id: "user_local",
+      tool: "learning_canary",
+      safety_class: "important_mutation",
       scopes: [USER_SCOPE, WORKSPACE_SCOPE],
       candidate_id: "candidate_1",
       release_slot_hash: validReleaseSlot().slot_hash,

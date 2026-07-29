@@ -17,9 +17,14 @@ import {
   ApprovalError,
   approvalRegistryHash,
   assertApprovalGrant,
+  assertCanaryAuthorization,
+  assertPostCanaryApproval,
   type ApprovalBinding,
   type ApprovalRegistry,
+  type LearningAuthorityRegistry,
   type VerifiedApproval,
+  type VerifiedCanaryAuthorization,
+  type VerifiedPostCanaryApproval,
 } from "@memo-graph/memory-kernel";
 export { ApprovalError } from "@memo-graph/memory-kernel";
 
@@ -28,7 +33,9 @@ type ManifestSnapshot = {
   registry_hash: `sha256:${string}`;
 };
 
-export class LocalManifestApprovalRegistry implements ApprovalRegistry {
+export class LocalManifestApprovalRegistry
+  implements ApprovalRegistry, LearningAuthorityRegistry
+{
   readonly #manifestPath: string;
   readonly #clock: () => string;
   readonly #expectedUid: number | undefined;
@@ -73,6 +80,86 @@ export class LocalManifestApprovalRegistry implements ApprovalRegistry {
       snapshot.registry_hash !== approval.registry_hash ||
       current === undefined ||
       canonicalJson(current) !== canonicalJson(approval.grant)
+    ) {
+      throw new ApprovalError("APPROVAL_INVALID");
+    }
+  }
+
+  async verifyCanaryAuthorization(
+    authorizationId: string,
+  ): Promise<VerifiedCanaryAuthorization> {
+    const snapshot = this.#readSnapshot();
+    const authorization =
+      snapshot.manifest.canary_authorizations?.find(
+        (candidate) =>
+          candidate.authorization_id === authorizationId,
+      );
+    if (authorization === undefined) {
+      throw new ApprovalError("APPROVAL_REQUIRED");
+    }
+    const verifiedAt = this.#clock();
+    assertCanaryAuthorization(
+      authorization,
+      authorization,
+      verifiedAt,
+    );
+    return {
+      authorization,
+      registry_hash: snapshot.registry_hash,
+      verified_at: verifiedAt,
+    };
+  }
+
+  async confirmCanaryAuthorizationUnchanged(
+    verified: VerifiedCanaryAuthorization,
+  ): Promise<void> {
+    const snapshot = this.#readSnapshot();
+    const current = snapshot.manifest.canary_authorizations?.find(
+      (candidate) =>
+        candidate.authorization_id ===
+        verified.authorization.authorization_id,
+    );
+    if (
+      snapshot.registry_hash !== verified.registry_hash ||
+      current === undefined ||
+      canonicalJson(current) !==
+        canonicalJson(verified.authorization)
+    ) {
+      throw new ApprovalError("APPROVAL_INVALID");
+    }
+  }
+
+  async verifyPostCanaryApproval(
+    approvalId: string,
+  ): Promise<VerifiedPostCanaryApproval> {
+    const snapshot = this.#readSnapshot();
+    const approval = snapshot.manifest.post_canary_approvals?.find(
+      (candidate) => candidate.approval_id === approvalId,
+    );
+    if (approval === undefined) {
+      throw new ApprovalError("APPROVAL_REQUIRED");
+    }
+    const verifiedAt = this.#clock();
+    assertPostCanaryApproval(approval, approval, verifiedAt);
+    return {
+      approval,
+      registry_hash: snapshot.registry_hash,
+      verified_at: verifiedAt,
+    };
+  }
+
+  async confirmPostCanaryApprovalUnchanged(
+    verified: VerifiedPostCanaryApproval,
+  ): Promise<void> {
+    const snapshot = this.#readSnapshot();
+    const current = snapshot.manifest.post_canary_approvals?.find(
+      (candidate) =>
+        candidate.approval_id === verified.approval.approval_id,
+    );
+    if (
+      snapshot.registry_hash !== verified.registry_hash ||
+      current === undefined ||
+      canonicalJson(current) !== canonicalJson(verified.approval)
     ) {
       throw new ApprovalError("APPROVAL_INVALID");
     }

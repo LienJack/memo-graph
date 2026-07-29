@@ -2,15 +2,21 @@ import { readFile, realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 
 import {
+  CandidateStateSchema,
   EvaluationPartitionSchema,
+  G5CanaryCaseBodySchema,
+  G5CanaryOracleSchema,
   G5CaseBodySchema,
   G5CaseOracleSchema,
   G5FixtureManifestSchema,
   G5ThresholdsSchema,
   UtcTimestampSchema,
+  assertG5CanaryAccess,
   assertG5PartitionAccess,
   canonicalSha256,
   type EvaluationPartition,
+  type G5CanaryCaseBody,
+  type G5CanaryOracle,
   type G5CaseBody,
   type G5CaseOracle,
   type G5FixtureManifest,
@@ -40,6 +46,12 @@ export type G5LoadedEvaluationCase = {
   oracle: G5CaseOracle;
 };
 
+export type G5LoadedCanaryCase = {
+  descriptor: G5FixtureManifest["canary_cases"][number];
+  case_body: G5CanaryCaseBody;
+  oracle: G5CanaryOracle;
+};
+
 export type G5PartitionAccessEvent = {
   sequence: number;
   role: PartitionAccessRole;
@@ -52,6 +64,7 @@ export type G5PartitionAccessEvent = {
 export class G5FixtureAccessError extends Error {
   readonly code:
     | "PARTITION_ACCESS_DENIED"
+    | "CANARY_ACCESS_DENIED"
     | "FIXTURE_HASH_MISMATCH"
     | "FIXTURE_IDENTITY_MISMATCH"
     | "FIXTURE_PATH_INVALID";
@@ -144,6 +157,55 @@ export class G5PartitionLoader {
         caseBody.family !== descriptor.family ||
         oracle.case_id !== descriptor.case_id ||
         oracle.partition !== descriptor.partition ||
+        canonicalSha256([...caseBody.required_task_unit_ids].sort()) !==
+          canonicalSha256([...oracle.expected_task_unit_ids].sort())
+      ) {
+        throw new G5FixtureAccessError(
+          "FIXTURE_IDENTITY_MISMATCH",
+        );
+      }
+      loaded.push({
+        descriptor,
+        case_body: caseBody,
+        oracle,
+      });
+    }
+    return loaded;
+  }
+
+  async loadCanaryCases(
+    input: unknown,
+  ): Promise<G5LoadedCanaryCase[]> {
+    const parsed = z
+      .object({ candidate_state: CandidateStateSchema })
+      .strict()
+      .parse(input);
+    for (const artifact of ["case", "oracle"] as const) {
+      try {
+        assertG5CanaryAccess(parsed.candidate_state, artifact);
+      } catch {
+        throw new G5FixtureAccessError("CANARY_ACCESS_DENIED");
+      }
+    }
+    const manifest = await this.loadManifest();
+    const loaded: G5LoadedCanaryCase[] = [];
+    for (const descriptor of manifest.canary_cases) {
+      const caseBody = G5CanaryCaseBodySchema.parse(
+        await this.#readJson(descriptor.case_file),
+      );
+      const oracle = G5CanaryOracleSchema.parse(
+        await this.#readJson(descriptor.oracle_file),
+      );
+      if (
+        canonicalSha256(caseBody) !== descriptor.case_hash ||
+        canonicalSha256(oracle) !== descriptor.oracle_hash
+      ) {
+        throw new G5FixtureAccessError("FIXTURE_HASH_MISMATCH");
+      }
+      if (
+        caseBody.case_id !== descriptor.case_id ||
+        caseBody.family !== descriptor.family ||
+        oracle.case_id !== descriptor.case_id ||
         canonicalSha256([...caseBody.required_task_unit_ids].sort()) !==
           canonicalSha256([...oracle.expected_task_unit_ids].sort())
       ) {

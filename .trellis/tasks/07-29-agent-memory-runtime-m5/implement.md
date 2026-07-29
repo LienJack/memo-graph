@@ -487,12 +487,22 @@ operation remains.
 
 - `packages/learning-lab/src/lifecycle.ts`
 - `packages/learning-lab/src/canary-runner.ts`
+- `packages/learning-lab/src/partition-loader.ts`
 - `packages/learning-lab/src/index.ts`
+- `packages/contracts/src/learning.ts`
+- `packages/contracts/src/mcp.ts`
+- `packages/storage-sqlite/src/protocol.ts`
+- `packages/storage-sqlite/src/learning-repository.ts`
 - `packages/memory-kernel/src/approval.ts`
 - `packages/mcp-server/src/mutations.ts`
+- `.trellis/spec/backend/database-guidelines.md`
+- `tests/helpers/g5-canary.ts`
+- `tests/helpers/learning-examples.ts`
 - `tests/learning/candidate-lifecycle.test.ts`
 - `tests/learning/learning-canary.test.ts`
 - `tests/security/learning-release-authorization.test.ts`
+- `tests/storage/learning-lab-schema.integration.test.ts`
+- `tests/recovery/learning-ledger.recovery.test.ts`
 
 ### Pre-development
 
@@ -541,6 +551,8 @@ operation remains.
       separate canary-authorization and post-canary approval schemas.
 - [ ] Confirm the canary manifest at canary start and atomically consume its
       authorization.
+- [ ] Commit the canary state transition, authorization, terminal run,
+      receipt, and idempotency result in the same SQLite transaction.
 - [ ] Confirm the effect manifest at release/rollback boundary and prepare
       exact post-canary approval consumption data.
 - [ ] Implement frozen bounded canary runner and durable terminal receipt.

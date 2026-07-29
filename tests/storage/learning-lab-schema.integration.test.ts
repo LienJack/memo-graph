@@ -403,7 +403,12 @@ describe("SQLite learning ledger schema", () => {
           candidate: learningCandidate(),
         }),
       );
-      for (const transition of learningTransitionChain()) {
+      const transitionChain = learningTransitionChain();
+      const canaryTransition = transitionChain[3];
+      if (canaryTransition === undefined) {
+        throw new Error("canary transition fixture is required");
+      }
+      for (const transition of transitionChain.slice(0, -1)) {
         await storage.writeLearningLedger(
           writeCommand({
             kind: "transition",
@@ -440,9 +445,12 @@ describe("SQLite learning ledger schema", () => {
           writeCommand({
             kind: "canary",
             idempotency_key: "learning-canary-storage-001",
+            idempotency_hash:
+              learningCanaryAuthorization().request_hash,
             principal_id: "user_local",
             scopes: [USER_SCOPE, LEARNING_WORKSPACE_SCOPE],
             authorization: learningCanaryAuthorization(),
+            transition: canaryTransition,
             run: learningCanaryRun(),
             receipt: learningCanaryReceipt(),
           }),
@@ -463,7 +471,7 @@ describe("SQLite learning ledger schema", () => {
         from_state: "canary",
         to_state: "released",
         expected_previous_transition_hash:
-          learningTransitionChain().at(-1)?.transition_hash ?? null,
+          transitionChain.at(-1)?.transition_hash ?? null,
         idempotency_key: "transition-storage-release-001",
         authority_id: releaseAuthority.approval.grant.approval_id,
       });

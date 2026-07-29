@@ -193,8 +193,19 @@ const LearningCanaryWriteCommandSchema = z
     principal_id: IdentifierSchema,
     scopes: z.array(ScopeSchema).min(1),
     authorization: CanaryAuthorizationSchema,
+    transition: CandidateTransitionSchema,
     run: CanaryRunSchema,
     receipt: CanaryReceiptSchema,
+    test_failure_point: z
+      .enum([
+        "after_guard",
+        "after_transition",
+        "after_authorization",
+        "after_canary_run",
+        "after_receipt",
+        "after_idempotency",
+      ])
+      .optional(),
   })
   .strict();
 

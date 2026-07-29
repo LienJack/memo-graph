@@ -254,6 +254,15 @@ export function learningTransitionChain(): CandidateTransition[] {
           3,
           "0",
         )}`,
+        ...(toState === "canary"
+          ? {
+              authority_id: "authorization_storage_1",
+              evidence_receipt_ids: [
+                "receipt_eval_storage_1",
+                "receipt_canary_storage_1",
+              ],
+            }
+          : {}),
       }),
     );
   }
@@ -436,6 +445,8 @@ export function learningCanaryAuthorization() {
     schema_version: "1.0.0",
     authorization_id: "authorization_storage_1",
     principal_id: "user_local",
+    tool: "learning_canary",
+    safety_class: "important_mutation",
     scopes: [USER_SCOPE, LEARNING_WORKSPACE_SCOPE],
     candidate_id: "candidate_storage_1",
     release_slot_hash: learningCandidate().release_slot?.slot_hash ?? HASH_A,

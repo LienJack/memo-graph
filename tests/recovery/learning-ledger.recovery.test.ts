@@ -161,7 +161,12 @@ describe("learning ledger transaction recovery", () => {
           candidate: learningCandidate(),
         }),
       );
-      for (const transition of learningTransitionChain()) {
+      const transitionChain = learningTransitionChain();
+      const canaryTransition = transitionChain[3];
+      if (canaryTransition === undefined) {
+        throw new Error("canary transition fixture is required");
+      }
+      for (const transition of transitionChain.slice(0, -1)) {
         await storage.writeLearningLedger(
           writeCommand({
             kind: "transition",
@@ -189,9 +194,12 @@ describe("learning ledger transaction recovery", () => {
         writeCommand({
           kind: "canary",
           idempotency_key: "learning-release-atomic-canary-001",
+          idempotency_hash:
+            learningCanaryAuthorization().request_hash,
           principal_id: "user_local",
           scopes: [USER_SCOPE, LEARNING_WORKSPACE_SCOPE],
           authorization: learningCanaryAuthorization(),
+          transition: canaryTransition,
           run: learningCanaryRun(),
           receipt: learningCanaryReceipt(),
         }),
@@ -207,7 +215,7 @@ describe("learning ledger transaction recovery", () => {
         from_state: "canary",
         to_state: "released",
         expected_previous_transition_hash:
-          learningTransitionChain().at(-1)?.transition_hash ?? null,
+          transitionChain.at(-1)?.transition_hash ?? null,
         idempotency_key: "transition-release-atomic-001",
         authority_id: authority.approval.grant.approval_id,
       });
@@ -261,6 +269,108 @@ describe("learning ledger transaction recovery", () => {
       await expect(
         storage.writeLearningLedger(releaseCommand),
       ).resolves.toMatchObject({ kind: "release", replayed: true });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rolls back canary transition, authorization, run, receipt, and idempotency together", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("learning-canary-atomic"),
+      testOperations: true,
+    });
+    try {
+      await storage.writeLearningLedger(
+        writeCommand({
+          kind: "trace",
+          idempotency_key: "learning-canary-atomic-trace-001",
+          trace: learningTrace(),
+        }),
+      );
+      await storage.writeLearningLedger(
+        writeCommand({
+          kind: "candidate",
+          idempotency_key: "learning-canary-atomic-candidate-001",
+          candidate: learningCandidate(),
+        }),
+      );
+      const transitionChain = learningTransitionChain();
+      const canaryTransition = transitionChain[3];
+      if (canaryTransition === undefined) {
+        throw new Error("canary transition fixture is required");
+      }
+      for (const transition of transitionChain.slice(0, -1)) {
+        await storage.writeLearningLedger(
+          writeCommand({
+            kind: "transition",
+            idempotency_key: `canary-atomic-${transition.idempotency_key}`,
+            transition,
+          }),
+        );
+      }
+      await storage.writeLearningLedger(
+        writeCommand({
+          kind: "evaluation",
+          idempotency_key: "learning-canary-atomic-evaluation-001",
+          principal_id: "user_local",
+          scopes: [USER_SCOPE, LEARNING_WORKSPACE_SCOPE],
+          identity: learningEvaluationIdentity(),
+          partition_seals: learningPartitionSeals(),
+          result_sets: (
+            ["calibration", "holdout", "transfer"] as const
+          ).map(learningResultSet),
+          contamination_events: [],
+          receipt: learningEvalReceipt(),
+        }),
+      );
+      const canaryCommand = writeCommand({
+        kind: "canary",
+        idempotency_key: "learning-canary-atomic-run-001",
+        idempotency_hash:
+          learningCanaryAuthorization().request_hash,
+        principal_id: "user_local",
+        scopes: [USER_SCOPE, LEARNING_WORKSPACE_SCOPE],
+        authorization: learningCanaryAuthorization(),
+        transition: canaryTransition,
+        run: learningCanaryRun(),
+        receipt: learningCanaryReceipt(),
+      }) as Extract<LearningLedgerWriteCommand, { kind: "canary" }>;
+      for (const testFailurePoint of [
+        "after_guard",
+        "after_transition",
+        "after_authorization",
+        "after_canary_run",
+        "after_receipt",
+        "after_idempotency",
+      ] as const) {
+        await expect(
+          storage.writeLearningLedger({
+            ...canaryCommand,
+            test_failure_point: testFailurePoint,
+          }),
+        ).rejects.toMatchObject({ code: "STORAGE_UNAVAILABLE" });
+        const ledger = await storage.readLearningLedger({
+          principal_id: "user_local",
+          scopes: [USER_SCOPE, LEARNING_WORKSPACE_SCOPE],
+          candidate_id: "candidate_storage_1",
+        });
+        expect(ledger.candidate_states[0]?.state).toBe(
+          "approved_for_canary",
+        );
+        expect(ledger.canary_authorizations).toEqual([]);
+        expect(ledger.canary_runs).toEqual([]);
+        expect(
+          ledger.receipts.filter(
+            (receipt) => receipt.kind === "learning_canary",
+          ),
+        ).toEqual([]);
+      }
+      await expect(
+        storage.writeLearningLedger(canaryCommand),
+      ).resolves.toMatchObject({ kind: "canary", replayed: false });
+      await expect(
+        storage.writeLearningLedger(canaryCommand),
+      ).resolves.toMatchObject({ kind: "canary", replayed: true });
     } finally {
       await storage.close();
     }
