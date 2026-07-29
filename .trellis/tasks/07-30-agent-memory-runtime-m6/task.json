@@ -3,7 +3,7 @@
   "name": "agent-memory-runtime-m6",
   "title": "Agent Memory Runtime M6 Operational Hardening",
   "description": "Operational hardening for backup/restore, migrations, WAL and disk pressure, doctor/rebuild/purge audit, redacted observability, fault injection, runbooks, and final G6 release evidence.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "M6 only: local operator diagnostics, complete frontier-aware backup/restore, application encryption and bounded key lifecycle for secret content, WAL/disk/backpressure, deterministic repair and purge audit, redacted observability, fault drills, runbooks, G6 evidence/decision; exclude remote sync, multi-user/HA, graph/vector reopening, automatic learning publication, and production fleet claims",
   "package": null,
