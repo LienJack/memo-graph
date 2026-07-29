@@ -35,6 +35,23 @@ function readJson(path) {
   return JSON.parse(read(path).toString("utf8"));
 }
 
+function committed(candidate, path) {
+  return execFileSync("git", ["show", `${candidate}:${path}`], {
+    cwd: repositoryRoot,
+  });
+}
+
+function gitTree(candidate, path) {
+  return execFileSync(
+    "git",
+    ["rev-parse", `${candidate}:${path}`],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    },
+  ).trim();
+}
+
 function rawSha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
@@ -54,6 +71,193 @@ function verifyReportHash(report, recordedAtIsVolatile) {
     reportHash,
     canonicalSha256(canonicalBody),
     `${report.gate} report hash`,
+  );
+}
+
+function verifyJsonBinding(binding) {
+  const bytes = read(binding.path);
+  assertEqual(
+    rawSha256(bytes),
+    binding.raw_hash,
+    `${binding.path} raw hash`,
+  );
+  assertEqual(
+    canonicalSha256(JSON.parse(bytes.toString("utf8"))),
+    binding.canonical_hash,
+    `${binding.path} canonical hash`,
+  );
+}
+
+function verifyFinalManifest(options) {
+  const finalManifest = readJson(
+    "docs/evaluations/g4a-reproducibility-manifest.json",
+  );
+  assertEqual(finalManifest.schema_version, "1.0.0", "final manifest schema");
+  assertEqual(finalManifest.gate, "G4A", "final manifest gate");
+  assertEqual(
+    finalManifest.evaluation_status,
+    "EVIDENCE_READY",
+    "final manifest status",
+  );
+  assertEqual(finalManifest.decision, "NO-GO", "final manifest decision");
+  const candidate = finalManifest.tested_implementation?.commit;
+  if (typeof candidate !== "string" || !/^[a-f0-9]{40}$/u.test(candidate)) {
+    throw new Error("final manifest candidate is invalid");
+  }
+  execFileSync("git", ["cat-file", "-e", `${candidate}^{commit}`], {
+    cwd: repositoryRoot,
+  });
+  assertEqual(
+    candidate,
+    options.structural.candidate_commit,
+    "final structural candidate",
+  );
+  assertEqual(
+    candidate,
+    options.resource.candidate_commit,
+    "final resource candidate",
+  );
+  assertEqual(
+    finalManifest.tested_implementation.dependency_lock_hash,
+    options.lockHash,
+    "final dependency lock",
+  );
+  assertEqual(
+    rawSha256(committed(candidate, "pnpm-lock.yaml")),
+    options.lockHash,
+    "candidate dependency lock",
+  );
+
+  const expectedPackages = [
+    ["@memo-graph/context-compiler", "packages/context-compiler"],
+    ["@memo-graph/contracts", "packages/contracts"],
+    ["@memo-graph/graph-projection", "packages/graph-projection"],
+    ["@memo-graph/mcp-server", "packages/mcp-server"],
+    ["@memo-graph/memory-kernel", "packages/memory-kernel"],
+    ["@memo-graph/storage-sqlite", "packages/storage-sqlite"],
+  ];
+  assertEqual(
+    finalManifest.workspace_packages.map((entry) => [
+      entry.name,
+      entry.path,
+    ]),
+    expectedPackages,
+    "workspace package inventory",
+  );
+  for (const packageBinding of finalManifest.workspace_packages) {
+    assertEqual(
+      packageBinding.git_tree,
+      gitTree(candidate, packageBinding.path),
+      `${packageBinding.name} candidate tree`,
+    );
+  }
+
+  for (const binding of finalManifest.frozen_sources) {
+    assertEqual(
+      rawSha256(committed(candidate, binding.path)),
+      binding.raw_hash,
+      `${binding.path} candidate source`,
+    );
+  }
+  assertEqual(
+    finalManifest.frozen_inputs.g4a_manifest_raw,
+    rawSha256(options.manifestBytes),
+    "final G4A manifest raw hash",
+  );
+  assertEqual(
+    finalManifest.frozen_inputs.g4a_manifest_canonical,
+    options.manifestHash,
+    "final G4A manifest canonical hash",
+  );
+  assertEqual(
+    finalManifest.frozen_inputs.thresholds_canonical,
+    options.thresholdsHash,
+    "final G4A thresholds hash",
+  );
+  assertEqual(
+    finalManifest.native_identity,
+    options.resource.environment.ladybug,
+    "final native identity",
+  );
+  assertEqual(
+    finalManifest.environment,
+    {
+      node: options.resource.environment.node,
+      pnpm: options.resource.environment.pnpm,
+      operating_system: options.resource.environment.os,
+      platform: options.resource.environment.platform,
+      architecture: options.resource.environment.architecture,
+      sqlite: options.resource.environment.sqlite,
+    },
+    "final environment",
+  );
+  assertEqual(
+    finalManifest.versions,
+    {
+      storage_schema: options.resource.environment.storage_schema,
+      graph_schema: options.resource.environment.graph_schema,
+      context_compiler: "3.0.0",
+      context_policy: "2.0.0",
+      graph_process_protocol: "1.0.0",
+      g4a_protocol: options.resource.environment.protocol,
+      transform: options.resource.environment.transform,
+    },
+    "final versions",
+  );
+
+  for (const binding of Object.values(finalManifest.evidence_reports)) {
+    verifyJsonBinding(binding);
+  }
+  assertEqual(
+    readJson(finalManifest.evidence_reports.structural.path).candidate_commit,
+    candidate,
+    "manifest structural report candidate",
+  );
+  assertEqual(
+    readJson(finalManifest.evidence_reports.resource.path).candidate_commit,
+    candidate,
+    "manifest resource report candidate",
+  );
+  const verification = readJson(
+    finalManifest.evidence_reports.verification.path,
+  );
+  assertEqual(
+    verification.candidate_commit,
+    candidate,
+    "verification report candidate",
+  );
+  if (
+    verification.commands.length === 0 ||
+    verification.commands.some((command) => command.result !== "PASS")
+  ) {
+    throw new Error("final verification report contains a failed command");
+  }
+  assertEqual(
+    rawSha256(read(finalManifest.review.path)),
+    finalManifest.review.raw_hash,
+    "final code review hash",
+  );
+  assertEqual(finalManifest.review.unresolved_p0, 0, "unresolved P0");
+  assertEqual(finalManifest.review.unresolved_p1, 0, "unresolved P1");
+  assertEqual(
+    finalManifest.decision_input.structural_gate,
+    options.structural.decision_input.structural_gate,
+    "final structural gate",
+  );
+  assertEqual(
+    finalManifest.decision_input.governance_gate,
+    options.structural.decision_input.governance_gate,
+    "final governance gate",
+  );
+  assertEqual(
+    finalManifest.decision_input.resource_gate,
+    options.resource.resource_gate,
+    "final resource gate",
+  );
+  assertEqual(
+    finalManifest.decision_input.eligible_for_go,
+    false,
+    "final GO eligibility",
   );
 }
 
@@ -523,6 +727,15 @@ try {
 } finally {
   rmSync(repeatRoot, { recursive: true, force: true });
 }
+
+verifyFinalManifest({
+  structural,
+  resource,
+  lockHash,
+  manifestBytes,
+  manifestHash,
+  thresholdsHash,
+});
 
 const failedChecks = Object.entries(actualEligibility.checks)
   .filter(([, passed]) => !passed)
