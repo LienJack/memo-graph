@@ -6,6 +6,9 @@ import {
 import type Database from "better-sqlite3";
 
 import { StorageError } from "./errors.js";
+import type {
+  GraphProjectionRepository,
+} from "./graph-projection-repository.js";
 import {
   ApplyProjectionBatchCommandSchema,
   ClaimProjectionJobsInputSchema,
@@ -165,9 +168,14 @@ function sameStrings(
 
 export class ProjectionRepository {
   readonly #database: Database.Database;
+  readonly #graph: GraphProjectionRepository;
 
-  constructor(database: Database.Database) {
+  constructor(
+    database: Database.Database,
+    graph: GraphProjectionRepository,
+  ) {
     this.#database = database;
+    this.#graph = graph;
   }
 
   state(): ProjectionStateRow {
@@ -919,6 +927,12 @@ export class ProjectionRepository {
           canonicalJson(transforms),
           command.applied_at,
         );
+      this.#graph.enqueueReadyScope({
+        principal_id: command.principal_id,
+        scope: command.scope,
+        frontier: batchFrontier,
+        available_at: command.applied_at,
+      });
       if (command.claimed_job !== undefined) {
         this.#database
           .prepare(

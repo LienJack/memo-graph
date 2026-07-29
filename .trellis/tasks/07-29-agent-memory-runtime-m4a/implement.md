@@ -312,44 +312,44 @@ M4A-AC4/M4A-AC5/M4A-AC7.
 
 ### Test-first checklist
 
-- [ ] Apply migration `0012` after `0011` on empty and populated databases.
-- [ ] Prove old canonical and projection rows remain byte/logically unchanged.
-- [ ] Prove SQLite-only open and queries work with no graph package/process.
-- [ ] Create distinct graph checkpoints for two exact scopes and one backend.
-- [ ] Reject decreasing ledger, tombstone, projection, or graph epochs.
-- [ ] Reject ready scope without non-null frontier, digest, and backend
+- [x] Apply migration `0012` after `0011` on empty and populated databases.
+- [x] Prove old canonical and projection rows remain byte/logically unchanged.
+- [x] Prove SQLite-only open and queries work with no graph package/process.
+- [x] Create distinct graph checkpoints for two exact scopes and one backend.
+- [x] Reject decreasing ledger, tombstone, projection, or graph epochs.
+- [x] Reject ready scope without non-null frontier, digest, and backend
       identity.
-- [ ] Reject content or evidence body in job, checkpoint, receipt, or error.
-- [ ] Prove projection batch apply enqueues the exact affected scope.
-- [ ] Prove correction/revoke/tombstone/purge marks only affected graph scope
+- [x] Reject content or evidence body in job, checkpoint, receipt, or error.
+- [x] Prove projection batch apply enqueues the exact affected scope.
+- [x] Prove correction/revoke/tombstone/purge marks only affected graph scope
       pending in the same canonical transaction.
-- [ ] Prove unrelated scope remains ready and unchanged.
-- [ ] Prove stable job identity makes duplicate canonical effect idempotent.
-- [ ] Prove one worker claims a job lease and another cannot steal it early.
-- [ ] Prove expired lease can be reclaimed with attempts preserved.
-- [ ] Prove stale frontier job cannot publish ready.
-- [ ] Prove apply compares job lease, expected frontier, backend, and digest.
-- [ ] Prove failure preserves pending/unavailable state and typed retry
+- [x] Prove unrelated scope remains ready and unchanged.
+- [x] Prove stable job identity makes duplicate canonical effect idempotent.
+- [x] Prove one worker claims a job lease and another cannot steal it early.
+- [x] Prove expired lease can be reclaimed with attempts preserved.
+- [x] Prove stale frontier job cannot publish ready.
+- [x] Prove apply compares job lease, expected frontier, backend, and digest.
+- [x] Prove failure preserves pending/unavailable state and typed retry
       evidence.
-- [ ] Prove reset/rebuild marks the intended scopes without deleting history.
-- [ ] Runtime-decode every new storage worker command and result.
-- [ ] Prove restore opens with graph scopes unavailable until reverified.
+- [x] Prove reset/rebuild marks the intended scopes without deleting history.
+- [x] Runtime-decode every new storage worker command and result.
+- [x] Prove restore opens with graph scopes unavailable until reverified.
 
 ### Implementation checklist
 
-- [ ] Add guarded append-only delivery/checkpoint/receipt tables and indexes.
-- [ ] Add stable job IDs, bounded lease/attempt state, and content-free error
+- [x] Add guarded append-only delivery/checkpoint/receipt tables and indexes.
+- [x] Add stable job IDs, bounded lease/attempt state, and content-free error
       categories.
-- [ ] Add exact-scope canonical graph snapshot query and expected logical
+- [x] Add exact-scope canonical graph snapshot query and expected logical
       digest.
-- [ ] Couple graph pending/enqueue to projection apply/invalidation
+- [x] Couple graph pending/enqueue to projection apply/invalidation
       transactions.
-- [ ] Add claim, apply, fail, reset, rebuild, scope state, counts, and health
+- [x] Add claim, apply, fail, reset, rebuild, scope state, counts, and health
       repository operations.
-- [ ] Route every operation through database, worker, client, and public
+- [x] Route every operation through database, worker, client, and public
       storage exports.
-- [ ] Preserve one serialized SQLite writer and short transactions.
-- [ ] Keep absent graph state disabled/inert rather than failed.
+- [x] Preserve one serialized SQLite writer and short transactions.
+- [x] Keep absent graph state disabled/inert rather than failed.
 
 ### Focused verification
 
@@ -365,10 +365,18 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Migration and old-database compatibility pass.
-- [ ] Scope isolation, monotonicity, lease/retry, and stale apply pass.
-- [ ] Canonical mutation and graph pending evidence are atomic.
-- [ ] Create the U3 commit.
+- [x] Migration and old-database compatibility pass.
+- [x] Scope isolation, monotonicity, lease/retry, and stale apply pass.
+- [x] Canonical mutation and graph pending evidence are atomic.
+- [x] Create the U3 commit.
+
+**Recorded evidence:**
+
+- Focused U3 verification: 3 files, 15 tests passed.
+- Full verification: 49 files, 273 tests passed, 1 skipped.
+- `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed on Node 24.18.0.
+- Isolated accepted G3R verification passed for
+  `6224f782c86712488d416d8101ef7c9fa477c0ae`.
 
 **Rollback point:** code may ignore the additive graph tables; leave them inert.
 

@@ -3,7 +3,11 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
 
-import { MutationReceiptSchema } from "@memo-graph/contracts";
+import {
+  GraphScopeCheckpointSchema,
+  MutationReceiptSchema,
+  type GraphScopeCheckpoint,
+} from "@memo-graph/contracts";
 import { z } from "zod";
 
 import { prepareDataRoot } from "./data-root.js";
@@ -13,12 +17,15 @@ import {
 } from "./errors.js";
 import {
   ApplyProjectionBatchCommandSchema,
+  ApplyGraphProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
   BackupResultSchema,
   BlockWorkerResultSchema,
   CheckpointResultSchema,
   ClaimProjectionJobsInputSchema,
   ClaimProjectionJobsResultSchema,
+  ClaimGraphProjectionJobsInputSchema,
+  ClaimGraphProjectionJobsResultSchema,
   CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
@@ -37,6 +44,7 @@ import {
   GovernanceReplayInputSchema,
   GovernanceReplayResultSchema,
   FailProjectionJobCommandSchema,
+  FailGraphProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   InvalidateProjectionDescendantsResultSchema,
   MemoryRevisionCommandSchema,
@@ -60,11 +68,19 @@ import {
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
   ProjectionScopeStorageFrontierSchema,
+  GraphScopeInputSchema,
+  GraphScopeSnapshotResultSchema,
+  GraphProjectionJobResultSchema,
+  GraphProjectionStatusSchema,
   ProjectionSourceBatchQuerySchema,
   ProjectionSourceBatchResultSchema,
   ProjectionSourceListInputSchema,
   ProjectionSourceListResultSchema,
   ProjectionRebuildReceiptSchema,
+  MarkGraphRestoreUnavailableInputSchema,
+  MarkGraphRestoreUnavailableResultSchema,
+  ResetGraphProjectionScopesInputSchema,
+  ResetGraphProjectionScopesResultSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RecordProjectionRebuildResultSchema,
@@ -86,6 +102,8 @@ import {
   type CheckpointResult,
   type ClaimProjectionJobsInput,
   type ClaimProjectionJobsResult,
+  type ClaimGraphProjectionJobsInput,
+  type ClaimGraphProjectionJobsResult,
   type CompleteProjectionJobCommand,
   type ContentReferenceCounts,
   type DrainFtsResult,
@@ -100,6 +118,7 @@ import {
   type GovernedMemoryLookupResult,
   type GovernanceReplayInput,
   type FailProjectionJobCommand,
+  type FailGraphProjectionJobCommand,
   type InvalidateProjectionDescendantsCommand,
   type InvalidateProjectionDescendantsResult,
   type MemoryRevisionCommand,
@@ -114,6 +133,11 @@ import {
   type PurgeRunInput,
   type PurgeRunResult,
   type ProjectionBatchResult,
+  type ApplyGraphProjectionJobCommand,
+  type GraphProjectionJobResult,
+  type GraphProjectionStatus,
+  type GraphScopeInput,
+  type GraphScopeSnapshotResult,
   type ProjectionJobMutationResult,
   type ProjectionPageQuery,
   type ProjectionPageResult,
@@ -126,6 +150,10 @@ import {
   type ProjectionSourceListInput,
   type ProjectionSourceListResult,
   type ProjectionRebuildReceipt,
+  type MarkGraphRestoreUnavailableInput,
+  type MarkGraphRestoreUnavailableResult,
+  type ResetGraphProjectionScopesInput,
+  type ResetGraphProjectionScopesResult,
   type RecordRecallResult,
   type RecordProjectionRebuildResult,
   type RelationTraversalInput,
@@ -393,6 +421,101 @@ export class SqliteStorageClient {
         receipt,
         RecordProjectionRebuildResultSchema,
       ),
+    );
+  }
+
+  graphProjectionCheckpoint(
+    input: GraphScopeInput,
+  ): Promise<GraphScopeCheckpoint> {
+    const request = GraphScopeInputSchema.parse(input);
+    return this.#request(
+      "get_graph_projection_checkpoint",
+      request,
+      GraphScopeCheckpointSchema,
+    );
+  }
+
+  graphScopeSnapshot(
+    input: GraphScopeInput,
+  ): Promise<GraphScopeSnapshotResult> {
+    const request = GraphScopeInputSchema.parse(input);
+    return this.#request(
+      "get_graph_scope_snapshot",
+      request,
+      GraphScopeSnapshotResultSchema,
+    );
+  }
+
+  claimGraphProjectionJobs(
+    input: ClaimGraphProjectionJobsInput,
+  ): Promise<ClaimGraphProjectionJobsResult> {
+    const request = ClaimGraphProjectionJobsInputSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "claim_graph_projection_jobs",
+        request,
+        ClaimGraphProjectionJobsResultSchema,
+      ),
+    );
+  }
+
+  applyGraphProjectionJob(
+    input: ApplyGraphProjectionJobCommand,
+  ): Promise<GraphProjectionJobResult> {
+    const command = ApplyGraphProjectionJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "apply_graph_projection_job",
+        command,
+        GraphProjectionJobResultSchema,
+      ),
+    );
+  }
+
+  failGraphProjectionJob(
+    input: FailGraphProjectionJobCommand,
+  ): Promise<GraphProjectionJobResult> {
+    const command = FailGraphProjectionJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "fail_graph_projection_job",
+        command,
+        GraphProjectionJobResultSchema,
+      ),
+    );
+  }
+
+  resetGraphProjectionScopes(
+    input: ResetGraphProjectionScopesInput,
+  ): Promise<ResetGraphProjectionScopesResult> {
+    const request = ResetGraphProjectionScopesInputSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "reset_graph_projection_scopes",
+        request,
+        ResetGraphProjectionScopesResultSchema,
+      ),
+    );
+  }
+
+  markGraphRestoreUnavailable(
+    input: MarkGraphRestoreUnavailableInput,
+  ): Promise<MarkGraphRestoreUnavailableResult> {
+    const request = MarkGraphRestoreUnavailableInputSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "mark_graph_restore_unavailable",
+        request,
+        MarkGraphRestoreUnavailableResultSchema,
+      ),
+    );
+  }
+
+  graphProjectionStatus(): Promise<GraphProjectionStatus> {
+    return this.#request(
+      "graph_projection_status",
+      null,
+      GraphProjectionStatusSchema,
     );
   }
 

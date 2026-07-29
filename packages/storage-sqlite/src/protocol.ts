@@ -8,6 +8,10 @@ import {
   EpisodeSchema,
   EvidenceRecordSchema,
   GovernedSearchItemSchema,
+  GraphDeliveryReceiptSchema,
+  GraphFailureCodeSchema,
+  GraphScopeCheckpointSchema,
+  GraphScopeSnapshotSchema,
   IdentifierSchema,
   ContextSliceSchema,
   MemoryCandidateSchema,
@@ -1344,6 +1348,186 @@ export const ProjectionJobMutationResultSchema = z
   })
   .strict();
 
+export const MAX_GRAPH_PROJECTION_ATTEMPTS = 32;
+export const MAX_GRAPH_PROJECTION_LEASE_MS = 15 * 60_000;
+
+export const GraphProjectionOutboxJobSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    operation: z.enum(["scope_replace", "full_rebuild"]),
+    backend: z.literal("ladybugdb"),
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    target_frontier: ProjectionFrontierSchema.nullable(),
+    expected_logical_digest: CanonicalHashSchema.nullable(),
+    status: z.enum([
+      "pending",
+      "processing",
+      "applied",
+      "failed",
+      "stale",
+      "skipped",
+    ]),
+    attempts: z.number().int().min(0).max(
+      MAX_GRAPH_PROJECTION_ATTEMPTS,
+    ),
+    available_at: UtcTimestampSchema,
+    claimed_by: IdentifierSchema.nullable(),
+    lease_token: IdentifierSchema.nullable(),
+    lease_expires_at: UtcTimestampSchema.nullable(),
+    created_at: UtcTimestampSchema,
+    completed_at: UtcTimestampSchema.nullable(),
+    last_failure: GraphFailureCodeSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.target_frontier === null) !==
+        (value.expected_logical_digest === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["target_frontier"],
+        message: "graph target frontier and digest must be present together",
+      });
+    }
+    if (
+      value.status === "processing" &&
+      (value.claimed_by === null ||
+        value.lease_token === null ||
+        value.lease_expires_at === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "processing graph jobs require one exact lease",
+      });
+    }
+  });
+
+export const GraphScopeInputSchema = z
+  .object({
+    backend: z.literal("ladybugdb").default("ladybugdb"),
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+  })
+  .strict();
+
+export const ClaimGraphProjectionJobsInputSchema = z
+  .object({
+    backend: z.literal("ladybugdb").default("ladybugdb"),
+    worker_id: IdentifierSchema,
+    claimed_at: UtcTimestampSchema,
+    lease_expires_at: UtcTimestampSchema,
+    limit: z.number().int().min(1).max(100),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      Date.parse(value.lease_expires_at) <= Date.parse(value.claimed_at)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["lease_expires_at"],
+        message: "graph job lease must expire after claim time",
+      });
+    }
+    if (
+      Date.parse(value.lease_expires_at) - Date.parse(value.claimed_at) >
+        MAX_GRAPH_PROJECTION_LEASE_MS
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["lease_expires_at"],
+        message: "graph job lease exceeds the bounded maximum",
+      });
+    }
+  });
+
+export const ClaimGraphProjectionJobsResultSchema = z
+  .object({
+    jobs: z.array(GraphProjectionOutboxJobSchema),
+  })
+  .strict();
+
+export const ApplyGraphProjectionJobCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    worker_id: IdentifierSchema,
+    lease_token: IdentifierSchema,
+    receipt: GraphDeliveryReceiptSchema,
+  })
+  .strict();
+
+export const FailGraphProjectionJobCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    worker_id: IdentifierSchema,
+    lease_token: IdentifierSchema,
+    retry_at: UtcTimestampSchema,
+    receipt: GraphDeliveryReceiptSchema,
+  })
+  .strict();
+
+export const GraphProjectionJobResultSchema = z
+  .object({
+    job: GraphProjectionOutboxJobSchema,
+    checkpoint: GraphScopeCheckpointSchema,
+    receipt: GraphDeliveryReceiptSchema.nullable(),
+    replayed: z.boolean(),
+  })
+  .strict();
+
+export const ResetGraphProjectionScopesInputSchema = z
+  .object({
+    backend: z.literal("ladybugdb").default("ladybugdb"),
+    scopes: z.array(
+      z.object({
+        principal_id: IdentifierSchema,
+        scope: ScopeSchema,
+      }).strict(),
+    ).min(1).max(10_000),
+    mode: z.enum(["pending", "rebuilding"]),
+    reset_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const ResetGraphProjectionScopesResultSchema = z
+  .object({
+    checkpoints: z.array(GraphScopeCheckpointSchema),
+    job_ids: z.array(IdentifierSchema),
+  })
+  .strict();
+
+export const MarkGraphRestoreUnavailableInputSchema = z
+  .object({
+    restored_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const MarkGraphRestoreUnavailableResultSchema = z
+  .object({
+    updated_scopes: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const GraphProjectionStatusSchema = z
+  .object({
+    scope_states: z.number().int().nonnegative(),
+    ready_scopes: z.number().int().nonnegative(),
+    pending_scopes: z.number().int().nonnegative(),
+    unavailable_scopes: z.number().int().nonnegative(),
+    outbox_pending: z.number().int().nonnegative(),
+    receipts: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const GraphScopeSnapshotResultSchema = z
+  .object({
+    snapshot: GraphScopeSnapshotSchema,
+  })
+  .strict();
+
 export const InvalidateProjectionDescendantsCommandSchema = z
   .object({
     source_revision_ids: z.array(IdentifierSchema).min(1).max(1_000),
@@ -1425,6 +1609,14 @@ export const WorkerOperationSchema = z.enum([
   "complete_projection_job",
   "invalidate_projection_descendants",
   "record_projection_rebuild",
+  "get_graph_projection_checkpoint",
+  "get_graph_scope_snapshot",
+  "claim_graph_projection_jobs",
+  "apply_graph_projection_job",
+  "fail_graph_projection_job",
+  "reset_graph_projection_scopes",
+  "mark_graph_restore_unavailable",
+  "graph_projection_status",
   "test_block",
   "test_hold_write_lock",
   "close",
@@ -1555,6 +1747,43 @@ export type ProjectionJobMutationResult = z.infer<
 >;
 export type ProjectionOutboxJob = z.infer<
   typeof ProjectionOutboxJobSchema
+>;
+export type GraphProjectionOutboxJob = z.infer<
+  typeof GraphProjectionOutboxJobSchema
+>;
+export type GraphScopeInput = z.input<typeof GraphScopeInputSchema>;
+export type ClaimGraphProjectionJobsInput = z.input<
+  typeof ClaimGraphProjectionJobsInputSchema
+>;
+export type ClaimGraphProjectionJobsResult = z.infer<
+  typeof ClaimGraphProjectionJobsResultSchema
+>;
+export type ApplyGraphProjectionJobCommand = z.input<
+  typeof ApplyGraphProjectionJobCommandSchema
+>;
+export type FailGraphProjectionJobCommand = z.input<
+  typeof FailGraphProjectionJobCommandSchema
+>;
+export type GraphProjectionJobResult = z.infer<
+  typeof GraphProjectionJobResultSchema
+>;
+export type ResetGraphProjectionScopesInput = z.input<
+  typeof ResetGraphProjectionScopesInputSchema
+>;
+export type ResetGraphProjectionScopesResult = z.infer<
+  typeof ResetGraphProjectionScopesResultSchema
+>;
+export type MarkGraphRestoreUnavailableInput = z.input<
+  typeof MarkGraphRestoreUnavailableInputSchema
+>;
+export type MarkGraphRestoreUnavailableResult = z.infer<
+  typeof MarkGraphRestoreUnavailableResultSchema
+>;
+export type GraphProjectionStatus = z.infer<
+  typeof GraphProjectionStatusSchema
+>;
+export type GraphScopeSnapshotResult = z.infer<
+  typeof GraphScopeSnapshotResultSchema
 >;
 export type InvalidateProjectionDescendantsCommand = z.input<
   typeof InvalidateProjectionDescendantsCommandSchema

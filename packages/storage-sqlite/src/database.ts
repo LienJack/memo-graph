@@ -37,14 +37,17 @@ import { StorageError } from "./errors.js";
 import { FtsIndex } from "./fts-index.js";
 import { GovernanceRepository } from "./governance-repository.js";
 import { GovernedMemoryReader } from "./governed-memory-reader.js";
+import { GraphProjectionRepository } from "./graph-projection-repository.js";
 import { applyMigrations } from "./migrations.js";
 import { ProjectionRepository } from "./projection-repository.js";
 import { PurgeRepository } from "./purge-repository.js";
 import { RelationRepository } from "./relation-repository.js";
 import {
   ApplyProjectionBatchCommandSchema,
+  ApplyGraphProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
   ClaimProjectionJobsInputSchema,
+  ClaimGraphProjectionJobsInputSchema,
   CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   EnqueueProjectionJobCommandSchema,
@@ -59,13 +62,17 @@ import {
   MemoryDeleteCommandSchema,
   MemoryRevisionCommandSchema,
   FailProjectionJobCommandSchema,
+  FailGraphProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   ProjectionPageQuerySchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
+  GraphScopeInputSchema,
   ProjectionSourceBatchQuerySchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
+  MarkGraphRestoreUnavailableInputSchema,
+  ResetGraphProjectionScopesInputSchema,
   PurgeRunInputSchema,
   RecordRecallCommandSchema,
   RelationTraversalInputSchema,
@@ -73,6 +80,7 @@ import {
   SearchEvidenceQuerySchema,
   type BackupResult,
   type ClaimProjectionJobsResult,
+  type ClaimGraphProjectionJobsResult,
   type CheckpointResult,
   type ContentReferenceCounts,
   type DrainFtsResult,
@@ -80,6 +88,9 @@ import {
   type EvidenceExplanation,
   type MigrationEvidence,
   type InvalidateProjectionDescendantsResult,
+  type GraphProjectionJobResult,
+  type GraphProjectionStatus,
+  type GraphScopeSnapshotResult,
   type ParsedCommitEpisodeCommand,
   type ParsedRecordRecallCommand,
   type RecordRecallResult,
@@ -102,6 +113,7 @@ import {
   type ProjectionSourceBatchResult,
   type ProjectionSourceListResult,
   type RecordProjectionRebuildResult,
+  type ResetGraphProjectionScopesResult,
   type RelationTraversalResult,
   type RestoreVerificationResult,
   type StorageHealth,
@@ -238,6 +250,7 @@ export class StorageDatabase {
   readonly #governedMemory: GovernedMemoryReader;
   readonly #control: ControlRepository;
   readonly #purge: PurgeRepository;
+  readonly #graph: GraphProjectionRepository;
   readonly #projections: ProjectionRepository;
   readonly #relations: RelationRepository;
   readonly #journalMode: string;
@@ -273,7 +286,11 @@ export class StorageDatabase {
     this.#governedMemory = new GovernedMemoryReader(this.#database);
     this.#control = new ControlRepository(this.#database);
     this.#purge = new PurgeRepository(this.#database, this.#blobStore);
-    this.#projections = new ProjectionRepository(this.#database);
+    this.#graph = new GraphProjectionRepository(this.#database);
+    this.#projections = new ProjectionRepository(
+      this.#database,
+      this.#graph,
+    );
     this.#relations = new RelationRepository(this.#database);
   }
 
@@ -436,6 +453,52 @@ export class StorageDatabase {
     return this.#projections.recordRebuild(
       ProjectionRebuildReceiptSchema.parse(input),
     );
+  }
+
+  graphProjectionCheckpoint(input: unknown) {
+    return this.#graph.checkpoint(GraphScopeInputSchema.parse(input));
+  }
+
+  graphScopeSnapshot(input: unknown): GraphScopeSnapshotResult {
+    return this.#graph.scopeSnapshot(GraphScopeInputSchema.parse(input));
+  }
+
+  claimGraphProjectionJobs(
+    input: unknown,
+  ): ClaimGraphProjectionJobsResult {
+    return this.#graph.claim(
+      ClaimGraphProjectionJobsInputSchema.parse(input),
+    );
+  }
+
+  applyGraphProjectionJob(input: unknown): GraphProjectionJobResult {
+    return this.#graph.apply(
+      ApplyGraphProjectionJobCommandSchema.parse(input),
+    );
+  }
+
+  failGraphProjectionJob(input: unknown): GraphProjectionJobResult {
+    return this.#graph.fail(
+      FailGraphProjectionJobCommandSchema.parse(input),
+    );
+  }
+
+  resetGraphProjectionScopes(
+    input: unknown,
+  ): ResetGraphProjectionScopesResult {
+    return this.#graph.reset(
+      ResetGraphProjectionScopesInputSchema.parse(input),
+    );
+  }
+
+  markGraphRestoreUnavailable(input: unknown) {
+    return this.#graph.markRestoreUnavailable(
+      MarkGraphRestoreUnavailableInputSchema.parse(input),
+    );
+  }
+
+  graphProjectionStatus(): GraphProjectionStatus {
+    return this.#graph.status();
   }
 
   admitMemory(input: unknown): GovernanceMutationResult {

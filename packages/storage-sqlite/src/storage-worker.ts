@@ -10,8 +10,10 @@ import {
 } from "./errors.js";
 import {
   ApplyProjectionBatchCommandSchema,
+  ApplyGraphProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
   ClaimProjectionJobsInputSchema,
+  ClaimGraphProjectionJobsInputSchema,
   CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
@@ -21,6 +23,7 @@ import {
   GovernedMemoryLookupInputSchema,
   GovernedMemorySearchQuerySchema,
   FailProjectionJobCommandSchema,
+  FailGraphProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryControlCommandSchema,
@@ -31,9 +34,12 @@ import {
   ProjectionPageQuerySchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
+  GraphScopeInputSchema,
   ProjectionSourceBatchQuerySchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
+  MarkGraphRestoreUnavailableInputSchema,
+  ResetGraphProjectionScopesInputSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
   RelationTraversalInputSchema,
@@ -168,6 +174,44 @@ port.on("message", (message: unknown) => {
           result = database.recordProjectionRebuild(
             ProjectionRebuildReceiptSchema.parse(request.payload),
           );
+          break;
+        case "get_graph_projection_checkpoint":
+          result = database.graphProjectionCheckpoint(
+            GraphScopeInputSchema.parse(request.payload),
+          );
+          break;
+        case "get_graph_scope_snapshot":
+          result = database.graphScopeSnapshot(
+            GraphScopeInputSchema.parse(request.payload),
+          );
+          break;
+        case "claim_graph_projection_jobs":
+          result = database.claimGraphProjectionJobs(
+            ClaimGraphProjectionJobsInputSchema.parse(request.payload),
+          );
+          break;
+        case "apply_graph_projection_job":
+          result = database.applyGraphProjectionJob(
+            ApplyGraphProjectionJobCommandSchema.parse(request.payload),
+          );
+          break;
+        case "fail_graph_projection_job":
+          result = database.failGraphProjectionJob(
+            FailGraphProjectionJobCommandSchema.parse(request.payload),
+          );
+          break;
+        case "reset_graph_projection_scopes":
+          result = database.resetGraphProjectionScopes(
+            ResetGraphProjectionScopesInputSchema.parse(request.payload),
+          );
+          break;
+        case "mark_graph_restore_unavailable":
+          result = database.markGraphRestoreUnavailable(
+            MarkGraphRestoreUnavailableInputSchema.parse(request.payload),
+          );
+          break;
+        case "graph_projection_status":
+          result = database.graphProjectionStatus();
           break;
         case "admit_memory":
           result = database.admitMemory(

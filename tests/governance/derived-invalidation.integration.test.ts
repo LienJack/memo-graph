@@ -133,6 +133,11 @@ describe("derived projection invalidation", () => {
         principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_unaffected" },
       });
+    const unaffectedGraphBeforeCorrection =
+      await storage.graphProjectionCheckpoint({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_unaffected" },
+      });
 
     await storage.commitEpisode(
       inlineEpisode({
@@ -197,6 +202,23 @@ describe("derived projection invalidation", () => {
         scope: { kind: "workspace", id: "workspace_unaffected" },
       }),
     ).toEqual(unaffectedBeforeCorrection);
+    expect(
+      await storage.graphProjectionCheckpoint({
+        principal_id: "user_local",
+        scope: PURGE_SCOPE,
+      }),
+    ).toMatchObject({
+      status: "pending",
+      frontier: null,
+      logical_digest: null,
+      backend_identity: null,
+    });
+    expect(
+      await storage.graphProjectionCheckpoint({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_unaffected" },
+      }),
+    ).toEqual(unaffectedGraphBeforeCorrection);
 
     expect(
       await service.drain({
@@ -278,6 +300,17 @@ describe("derived projection invalidation", () => {
     if (deleted.status !== "OK") {
       throw new Error("projection source deletion must succeed");
     }
+    expect(
+      await storage.graphProjectionCheckpoint({
+        principal_id: "user_local",
+        scope: PURGE_SCOPE,
+      }),
+    ).toMatchObject({
+      status: "pending",
+      frontier: null,
+      logical_digest: null,
+      backend_identity: null,
+    });
     expect(
       (
         await storage.validateProjectionSources({

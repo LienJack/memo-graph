@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -49,10 +50,10 @@ describe("data-root and migration contract", () => {
     const health = await storage.health();
     await storage.close();
 
-    expect(health.schema_version).toBe("0011");
+    expect(health.schema_version).toBe("0012");
     expect(health.journal_mode).toBe("wal");
     expect(health.foreign_keys).toBe(true);
-    expect(health.migrations).toHaveLength(11);
+    expect(health.migrations).toHaveLength(12);
     expect(health.migrations.every((migration) =>
       /^sha256:[a-f0-9]{64}$/.test(migration.hash),
     )).toBe(true);
@@ -62,7 +63,7 @@ describe("data-root and migration contract", () => {
     );
   });
 
-  it("adds scope frontier state after 0010 without fabricating populated rows", async () => {
+  it("adds scope and graph delivery state without rewriting populated rows", async () => {
     const dataRoot = temporaryRoot("scope-frontier-upgrade");
     const migrationRoot = temporaryRoot("scope-frontier-migrations");
     for (let version = 1; version <= 10; version += 1) {
@@ -109,18 +110,117 @@ describe("data-root and migration contract", () => {
       migrationsDir: migrationRoot,
     });
     expect((await upgraded.health()).schema_version).toBe("0011");
-    expect(
-      await upgraded.projectionScopeFrontier({
+    const oldHealth = await upgraded.health();
+    const oldFrontier = await upgraded.projectionScopeFrontier({
         principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_local" },
-      }),
-    ).toMatchObject({
+      });
+    expect(oldFrontier).toMatchObject({
       status: "pending",
       projection_epoch: 0,
       source_frontier_hash: null,
       projection_frontier_hash: null,
     });
     await upgraded.close();
+
+    const databasePath = join(dataRoot, "ledger", "memory.db");
+    const beforeGraphMigration = new DatabaseSync(databasePath);
+    beforeGraphMigration.exec(`
+      INSERT INTO projection_write_guard (
+        singleton, operation, opened_at
+      ) VALUES (1, 'migration-fixture', '2026-07-29T00:00:00.000Z');
+      INSERT INTO layered_projection_scope_state (
+        principal_id, scope_kind, scope_id, status, ledger_epoch,
+        tombstone_epoch, projection_epoch, source_frontier_hash,
+        projection_frontier_hash, transform_versions_json, updated_at,
+        error_code
+      ) VALUES (
+        'user_local', 'workspace', 'workspace_local', 'pending',
+        1, 0, 0, NULL, NULL, '[]', '2026-07-29T00:00:00.000Z', NULL
+      );
+      DELETE FROM projection_write_guard WHERE singleton = 1;
+    `);
+    const canonicalRowBefore = beforeGraphMigration
+      .prepare(
+        `SELECT * FROM evidence_events
+         WHERE evidence_id = 'evidence_before_scope_frontier_migration'`,
+      )
+      .get();
+    const projectionRowBefore = beforeGraphMigration
+      .prepare(
+        `SELECT * FROM layered_projection_scope_state
+         WHERE principal_id = 'user_local'
+           AND scope_kind = 'workspace'
+           AND scope_id = 'workspace_local'`,
+      )
+      .get();
+    beforeGraphMigration.close();
+    const storedBeforeGraphMigration = await SqliteStorageClient.open({
+      dataRoot,
+      migrationsDir: migrationRoot,
+    });
+    const storedFrontierBefore =
+      await storedBeforeGraphMigration.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
+      });
+    await storedBeforeGraphMigration.close();
+
+    cpSync(
+      join(
+        process.cwd(),
+        "migrations",
+        "0012-graph-projection-delivery.sql",
+      ),
+      join(migrationRoot, "0012-graph-projection-delivery.sql"),
+    );
+    const graphUpgraded = await SqliteStorageClient.open({
+      dataRoot,
+      migrationsDir: migrationRoot,
+    });
+    const graphHealth = await graphUpgraded.health();
+    expect(graphHealth.schema_version).toBe("0012");
+    expect(graphHealth.counts.evidence_events).toBe(
+      oldHealth.counts.evidence_events,
+    );
+    expect(
+      await graphUpgraded.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
+      }),
+    ).toEqual(storedFrontierBefore);
+    expect(
+      await graphUpgraded.graphProjectionCheckpoint({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
+      }),
+    ).toMatchObject({
+      status: "disabled",
+      frontier: null,
+      logical_digest: null,
+    });
+    await graphUpgraded.close();
+
+    const afterGraphMigration = new DatabaseSync(databasePath);
+    expect(
+      afterGraphMigration
+        .prepare(
+          `SELECT * FROM evidence_events
+           WHERE evidence_id = 'evidence_before_scope_frontier_migration'`,
+        )
+        .get(),
+    ).toEqual(canonicalRowBefore);
+    expect(
+      afterGraphMigration
+        .prepare(
+          `SELECT * FROM layered_projection_scope_state
+           WHERE principal_id = 'user_local'
+             AND scope_kind = 'workspace'
+             AND scope_id = 'workspace_local'`,
+        )
+        .get(),
+    ).toEqual(projectionRowBefore);
+    afterGraphMigration.close();
   });
 
   it.each([
