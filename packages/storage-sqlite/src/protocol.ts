@@ -1419,6 +1419,9 @@ export const ClaimGraphProjectionJobsInputSchema = z
     worker_id: IdentifierSchema,
     claimed_at: UtcTimestampSchema,
     lease_expires_at: UtcTimestampSchema,
+    operations: z.array(
+      z.enum(["scope_replace", "full_rebuild"]),
+    ).min(1).max(2).default(["scope_replace"]),
     limit: z.number().int().min(1).max(100),
   })
   .strict()
@@ -1440,6 +1443,13 @@ export const ClaimGraphProjectionJobsInputSchema = z
         code: "custom",
         path: ["lease_expires_at"],
         message: "graph job lease exceeds the bounded maximum",
+      });
+    }
+    if (new Set(value.operations).size !== value.operations.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["operations"],
+        message: "graph job operation filters must be unique",
       });
     }
   });
@@ -1528,6 +1538,18 @@ export const GraphScopeSnapshotResultSchema = z
   })
   .strict();
 
+export const GraphProjectionSnapshotListInputSchema = z
+  .object({
+    backend: z.literal("ladybugdb").default("ladybugdb"),
+  })
+  .strict();
+
+export const GraphProjectionSnapshotListResultSchema = z
+  .object({
+    snapshots: z.array(GraphScopeSnapshotSchema).max(10_000),
+  })
+  .strict();
+
 export const InvalidateProjectionDescendantsCommandSchema = z
   .object({
     source_revision_ids: z.array(IdentifierSchema).min(1).max(1_000),
@@ -1611,6 +1633,7 @@ export const WorkerOperationSchema = z.enum([
   "record_projection_rebuild",
   "get_graph_projection_checkpoint",
   "get_graph_scope_snapshot",
+  "list_graph_projection_snapshots",
   "claim_graph_projection_jobs",
   "apply_graph_projection_job",
   "fail_graph_projection_job",
@@ -1784,6 +1807,12 @@ export type GraphProjectionStatus = z.infer<
 >;
 export type GraphScopeSnapshotResult = z.infer<
   typeof GraphScopeSnapshotResultSchema
+>;
+export type GraphProjectionSnapshotListInput = z.input<
+  typeof GraphProjectionSnapshotListInputSchema
+>;
+export type GraphProjectionSnapshotListResult = z.infer<
+  typeof GraphProjectionSnapshotListResultSchema
 >;
 export type InvalidateProjectionDescendantsCommand = z.input<
   typeof InvalidateProjectionDescendantsCommandSchema

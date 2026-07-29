@@ -400,49 +400,49 @@ M4A-AC3/M4A-AC4/M4A-AC5/M4A-AC7.
 
 ### Test-first checklist
 
-- [ ] Project one exact scope with topic, scenario, procedure, relation, core,
+- [x] Project one exact scope with topic, scenario, procedure, relation, core,
       and evidence-lineage identities.
-- [ ] Prove graph nodes/edges contain IDs/hashes/epochs only, no memory text.
-- [ ] Prove scope replacement removes obsolete edges/nodes and preserves
+- [x] Prove graph nodes/edges contain IDs/hashes/epochs only, no memory text.
+- [x] Prove scope replacement removes obsolete edges/nodes and preserves
       unrelated scopes.
-- [ ] Prove graph scope logical digest equals SQLite expected digest.
-- [ ] Prove a digest mismatch fails the job and leaves scope non-ready.
-- [ ] Prove duplicate job and replay after crash converge idempotently.
-- [ ] Prove a job whose canonical frontier changes before write is abandoned.
-- [ ] Prove a frontier change after graph write cannot publish stale ready.
-- [ ] Kill the child before scope transaction commit and prove no partial
+- [x] Prove graph scope logical digest equals SQLite expected digest.
+- [x] Prove a digest mismatch fails the job and leaves scope non-ready.
+- [x] Prove duplicate job and replay after crash converge idempotently.
+- [x] Prove a job whose canonical frontier changes before write is abandoned.
+- [x] Prove a frontier change after graph write cannot publish stale ready.
+- [x] Kill the child before scope transaction commit and prove no partial
       scope.
-- [ ] Kill the child after graph commit but before SQLite checkpoint and prove
+- [x] Kill the child after graph commit but before SQLite checkpoint and prove
       safe idempotent replay.
-- [ ] Build the same logical graph through different scope/job order and prove
+- [x] Build the same logical graph through different scope/job order and prove
       equal digest.
-- [ ] Run full rebuild into a fresh path and compare every scope plus global
+- [x] Run full rebuild into a fresh path and compare every scope plus global
       digest.
-- [ ] Close/reopen the rebuilt path and repeat the digest comparison.
-- [ ] Prove physical graph file hashes may differ while logical equality
+- [x] Close/reopen the rebuilt path and repeat the digest comparison.
+- [x] Prove physical graph file hashes may differ while logical equality
       passes.
-- [ ] Corrupt the rebuild target and prove it is never published.
-- [ ] Restore SQLite plus stale/missing graph and prove graph remains
+- [x] Corrupt the rebuild target and prove it is never published.
+- [x] Restore SQLite plus stale/missing graph and prove graph remains
       unavailable until rebuild.
-- [ ] Prove backup/import/rebuild cannot publish a graph whose digest differs
+- [x] Prove backup/import/rebuild cannot publish a graph whose digest differs
       from restored SQLite.
 
 ### Implementation checklist
 
-- [ ] Convert exact-scope canonical snapshot to minimal graph node/edge
+- [x] Convert exact-scope canonical snapshot to minimal graph node/edge
       envelopes.
-- [ ] Implement an evaluation-only deterministic graph-free reference over
+- [x] Implement an evaluation-only deterministic graph-free reference over
       the same bounded SQLite slice, typed/shortest-path semantics, tie-breaks,
       and limits as the graph arm.
-- [ ] Recheck job/frontier before child dispatch.
-- [ ] Replace one exact scope inside one graph transaction.
-- [ ] Read back and compare canonical scope digest.
-- [ ] Advance SQLite checkpoint only after lease/frontier/digest equality.
-- [ ] Implement bounded claim/drain loop with idempotent retry.
-- [ ] Implement fresh-path full rebuild and stable scope enumeration.
-- [ ] Verify close/reopen before publish.
-- [ ] Quarantine failed/corrupt targets.
-- [ ] Record content-free projection and rebuild receipts.
+- [x] Recheck job/frontier before child dispatch.
+- [x] Replace one exact scope inside one graph transaction.
+- [x] Read back and compare canonical scope digest.
+- [x] Advance SQLite checkpoint only after lease/frontier/digest equality.
+- [x] Implement bounded claim/drain loop with idempotent retry.
+- [x] Implement fresh-path full rebuild and stable scope enumeration.
+- [x] Verify close/reopen before publish.
+- [x] Quarantine failed/corrupt targets.
+- [x] Record content-free projection and rebuild receipts.
 
 ### Focused verification
 
@@ -458,10 +458,20 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Scope replacement and full rebuild logical equality pass.
-- [ ] Crash windows and stale frontier cannot publish.
-- [ ] Restore trusts SQLite, not graph backup.
-- [ ] Create the U4 commit.
+- [x] Scope replacement and full rebuild logical equality pass.
+- [x] Crash windows and stale frontier cannot publish.
+- [x] Restore trusts SQLite, not graph backup.
+- [x] Create the U4 commit.
+
+**Recorded evidence:**
+
+- Focused U4 verification: 3 files, 10 tests passed.
+- Full verification: 52 files, 283 tests passed, 1 skipped.
+- `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed on Node 24.18.0.
+- The current candidate lock hash is
+  `sha256:2133284bb0e8e6fdb6e723cf6e160ad6e271261f1e9fd79ec63309fe267094ec`;
+  the U2 native binary hash remains
+  `sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa`.
 
 **Rollback point:** stop projector, mark graph unavailable, use SQLite lanes.
 

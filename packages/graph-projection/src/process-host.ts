@@ -74,6 +74,7 @@ export type GraphProcessDiagnostic = {
 
 export type GraphProcessHostOptions = {
   dataRoot: string;
+  generationId?: string;
   expectedIdentity: GraphBackendIdentity;
   childEntry?: URL;
   requestTimeoutMs?: number;
@@ -246,7 +247,11 @@ export class GraphProcessHost implements GraphStore {
   static async open(
     input: GraphProcessHostOptions,
   ): Promise<GraphProcessHost> {
-    const layout = await prepareGraphDatabasePath(input.dataRoot);
+    const layout = await prepareGraphDatabasePath(input.dataRoot, {
+      ...(input.generationId === undefined
+        ? {}
+        : { generationId: input.generationId }),
+    });
     const host = new GraphProcessHost({
       input,
       layout,
@@ -272,6 +277,10 @@ export class GraphProcessHost implements GraphStore {
 
   processId(): number | null {
     return this.#child?.pid ?? null;
+  }
+
+  pathLayout(): GraphPathLayout {
+    return { ...this.#layout };
   }
 
   processHealth(): GraphProcessHealth {
@@ -414,6 +423,7 @@ export class GraphProcessHost implements GraphStore {
     }
     this.#closing = true;
     const child = this.#child;
+    let exitedGracefully = false;
     if (child !== null && this.#ready && child.connected) {
       try {
         await this.#request(
@@ -423,11 +433,16 @@ export class GraphProcessHost implements GraphStore {
           250,
           true,
         );
+        exitedGracefully = await waitForExit(child, 1_000);
       } catch {
         // Shutdown remains best-effort; OS termination below is authoritative.
       }
     }
-    if (child !== null && child.exitCode === null) {
+    if (
+      child !== null &&
+      child.exitCode === null &&
+      !exitedGracefully
+    ) {
       child.kill("SIGKILL");
       await waitForExit(child, 1_000);
     }

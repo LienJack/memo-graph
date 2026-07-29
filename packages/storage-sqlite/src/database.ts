@@ -68,6 +68,7 @@ import {
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
   GraphScopeInputSchema,
+  GraphProjectionSnapshotListInputSchema,
   ProjectionSourceBatchQuerySchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
@@ -90,6 +91,7 @@ import {
   type InvalidateProjectionDescendantsResult,
   type GraphProjectionJobResult,
   type GraphProjectionStatus,
+  type GraphProjectionSnapshotListResult,
   type GraphScopeSnapshotResult,
   type ParsedCommitEpisodeCommand,
   type ParsedRecordRecallCommand,
@@ -461,6 +463,14 @@ export class StorageDatabase {
 
   graphScopeSnapshot(input: unknown): GraphScopeSnapshotResult {
     return this.#graph.scopeSnapshot(GraphScopeInputSchema.parse(input));
+  }
+
+  listGraphProjectionSnapshots(
+    input: unknown,
+  ): GraphProjectionSnapshotListResult {
+    return this.#graph.listSnapshots(
+      GraphProjectionSnapshotListInputSchema.parse(input),
+    );
   }
 
   claimGraphProjectionJobs(

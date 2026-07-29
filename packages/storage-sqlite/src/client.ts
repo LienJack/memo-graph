@@ -70,6 +70,8 @@ import {
   ProjectionScopeStorageFrontierSchema,
   GraphScopeInputSchema,
   GraphScopeSnapshotResultSchema,
+  GraphProjectionSnapshotListInputSchema,
+  GraphProjectionSnapshotListResultSchema,
   GraphProjectionJobResultSchema,
   GraphProjectionStatusSchema,
   ProjectionSourceBatchQuerySchema,
@@ -138,6 +140,8 @@ import {
   type GraphProjectionStatus,
   type GraphScopeInput,
   type GraphScopeSnapshotResult,
+  type GraphProjectionSnapshotListInput,
+  type GraphProjectionSnapshotListResult,
   type ProjectionJobMutationResult,
   type ProjectionPageQuery,
   type ProjectionPageResult,
@@ -443,6 +447,17 @@ export class SqliteStorageClient {
       "get_graph_scope_snapshot",
       request,
       GraphScopeSnapshotResultSchema,
+    );
+  }
+
+  listGraphProjectionSnapshots(
+    input: GraphProjectionSnapshotListInput = {},
+  ): Promise<GraphProjectionSnapshotListResult> {
+    const request = GraphProjectionSnapshotListInputSchema.parse(input);
+    return this.#request(
+      "list_graph_projection_snapshots",
+      request,
+      GraphProjectionSnapshotListResultSchema,
     );
   }
 

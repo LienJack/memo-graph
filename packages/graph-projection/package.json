@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",
+    "@memo-graph/storage-sqlite": "workspace:*",
     "zod": "4.4.3"
   },
   "optionalDependencies": {

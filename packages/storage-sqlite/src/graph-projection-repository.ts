@@ -20,6 +20,8 @@ import {
   ClaimGraphProjectionJobsResultSchema,
   FailGraphProjectionJobCommandSchema,
   GraphProjectionJobResultSchema,
+  GraphProjectionSnapshotListInputSchema,
+  GraphProjectionSnapshotListResultSchema,
   GraphProjectionOutboxJobSchema,
   GraphProjectionStatusSchema,
   GraphScopeInputSchema,
@@ -31,6 +33,7 @@ import {
   ResetGraphProjectionScopesResultSchema,
   type ClaimGraphProjectionJobsResult,
   type GraphProjectionJobResult,
+  type GraphProjectionSnapshotListResult,
   type GraphProjectionOutboxJob,
   type GraphProjectionStatus,
   type GraphScopeSnapshotResult,
@@ -167,6 +170,35 @@ export class GraphProjectionRepository {
     });
   }
 
+  listSnapshots(input: unknown): GraphProjectionSnapshotListResult {
+    const request = GraphProjectionSnapshotListInputSchema.parse(input);
+    const scopes = this.#database
+      .prepare(
+        `SELECT principal_id, scope_kind, scope_id
+         FROM layered_projection_scope_state
+         WHERE status = 'ready'
+         ORDER BY principal_id, scope_kind, scope_id`,
+      )
+      .all() as Array<{
+        principal_id: string;
+        scope_kind: ExactScope["scope"]["kind"];
+        scope_id: string;
+      }>;
+    return GraphProjectionSnapshotListResultSchema.parse({
+      snapshots: scopes.map((scope) => {
+        const exactScope = {
+          backend: request.backend,
+          principal_id: scope.principal_id,
+          scope: { kind: scope.scope_kind, id: scope.scope_id },
+        };
+        return this.#buildSnapshot(
+          exactScope,
+          this.#readyProjectionFrontier(exactScope),
+        );
+      }),
+    });
+  }
+
   enqueueCanonicalEffect(effect: CanonicalGraphProjectionEffect): string {
     const epochs = this.#currentEpochs(effect);
     const jobId = stableIdentifier("graph-job", {
@@ -300,6 +332,7 @@ export class GraphProjectionRepository {
                WHERE backend = ?
                  AND status IN ('pending', 'failed')
                  AND attempts < ?
+                 AND operation IN (?, ?)
                  AND available_at <= ?
                  AND (
                    target_frontier_json IS NOT NULL
@@ -311,6 +344,8 @@ export class GraphProjectionRepository {
             .all(
               request.backend,
               MAX_GRAPH_PROJECTION_ATTEMPTS,
+              request.operations[0],
+              request.operations[1] ?? request.operations[0],
               request.claimed_at,
               request.limit,
             ) as Array<{ job_id: string; attempts: number }>;
@@ -463,7 +498,9 @@ export class GraphProjectionRepository {
                  WHERE backend = ?
                    AND principal_id = ?
                    AND scope_kind = ?
-                   AND scope_id = ?`,
+                   AND scope_id = ?
+                   AND frontier_json IS ?
+                   AND logical_digest IS ?`,
               )
               .run(
                 snapshot.frontier.ledger_epoch,
@@ -478,6 +515,8 @@ export class GraphProjectionRepository {
                 job.principal_id,
                 job.scope_kind,
                 job.scope_id,
+                job.target_frontier_json,
+                job.expected_logical_digest,
               );
             this.#database
               .prepare(
@@ -596,7 +635,9 @@ export class GraphProjectionRepository {
                  WHERE backend = ?
                    AND principal_id = ?
                    AND scope_kind = ?
-                   AND scope_id = ?`,
+                   AND scope_id = ?
+                   AND frontier_json IS ?
+                   AND logical_digest IS ?`,
               )
               .run(
                 receipt.completed_at,
@@ -605,6 +646,8 @@ export class GraphProjectionRepository {
                 job.principal_id,
                 job.scope_kind,
                 job.scope_id,
+                job.target_frontier_json,
+                job.expected_logical_digest,
               );
             this.#insertReceipt(receipt);
           } finally {
@@ -643,6 +686,17 @@ export class GraphProjectionRepository {
           try {
             for (const scope of request.scopes) {
               const epochs = this.#currentEpochs(scope);
+              const rebuildSnapshot =
+                request.mode === "rebuilding"
+                  ? this.#buildSnapshot(
+                      { backend: request.backend, ...scope },
+                      this.#readyProjectionFrontier({
+                        backend: request.backend,
+                        ...scope,
+                      }),
+                    )
+                  : null;
+              const targetEpochs = rebuildSnapshot?.frontier ?? epochs;
               const jobId = stableIdentifier("graph-job", {
                 operation:
                   request.mode === "rebuilding"
@@ -652,12 +706,39 @@ export class GraphProjectionRepository {
                 scope,
                 reset_at: request.reset_at,
               });
+              this.#database
+                .prepare(
+                  `UPDATE graph_projection_outbox_jobs
+                   SET status = 'stale',
+                       claimed_by = NULL,
+                       lease_token = NULL,
+                       lease_expires_at = NULL,
+                       completed_at = ?,
+                       last_failure = 'GRAPH_SCOPE_STALE'
+                   WHERE backend = ?
+                     AND principal_id = ?
+                     AND scope_kind = ?
+                     AND scope_id = ?
+                     AND job_id <> ?
+                     AND status IN ('pending', 'failed')`,
+                )
+                .run(
+                  request.reset_at,
+                  request.backend,
+                  scope.principal_id,
+                  scope.scope.kind,
+                  scope.scope.id,
+                  jobId,
+                );
               this.#upsertPendingScope({
                 backend: request.backend,
                 ...scope,
-                ...epochs,
-                frontier: null,
-                logicalDigest: null,
+                ledger_epoch: targetEpochs.ledger_epoch,
+                tombstone_epoch: targetEpochs.tombstone_epoch,
+                projection_epoch: targetEpochs.projection_epoch,
+                frontier: rebuildSnapshot?.frontier ?? null,
+                logicalDigest:
+                  rebuildSnapshot?.logical_digest ?? null,
                 status: request.mode,
                 occurred_at: request.reset_at,
               });
@@ -671,8 +752,9 @@ export class GraphProjectionRepository {
                   backend: request.backend,
                   ...scope,
                 },
-                targetFrontier: null,
-                expectedLogicalDigest: null,
+                targetFrontier: rebuildSnapshot?.frontier ?? null,
+                expectedLogicalDigest:
+                  rebuildSnapshot?.logical_digest ?? null,
                 availableAt: request.reset_at,
                 createdAt: request.reset_at,
               });
@@ -984,6 +1066,57 @@ export class GraphProjectionRepository {
       tombstone_epoch: number;
       projection_epoch: number;
     };
+  }
+
+  #readyProjectionFrontier(
+    scope: ExactScope & { backend: "ladybugdb" },
+  ): ProjectionFrontier {
+    const row = this.#database
+      .prepare(
+        `SELECT status, ledger_epoch, tombstone_epoch, projection_epoch,
+                source_frontier_hash, projection_frontier_hash,
+                transform_versions_json
+         FROM layered_projection_scope_state
+         WHERE principal_id = ?
+           AND scope_kind = ?
+           AND scope_id = ?`,
+      )
+      .get(
+        scope.principal_id,
+        scope.scope.kind,
+        scope.scope.id,
+      ) as {
+        status: string;
+        ledger_epoch: number;
+        tombstone_epoch: number;
+        projection_epoch: number;
+        source_frontier_hash: string | null;
+        projection_frontier_hash: string | null;
+        transform_versions_json: string;
+      } | undefined;
+    const transforms = row === undefined
+      ? []
+      : JSON.parse(row.transform_versions_json) as unknown[];
+    if (
+      row === undefined ||
+      row.status !== "ready" ||
+      row.source_frontier_hash === null ||
+      row.projection_frontier_hash === null ||
+      transforms.length !== 1
+    ) {
+      throw new StorageError("STALE_PROJECTION_FRONTIER", {
+        retryable: true,
+      });
+    }
+    return ProjectionRevisionSchema.shape.frontier.parse({
+      schema_version: "1.0.0",
+      ledger_epoch: row.ledger_epoch,
+      tombstone_epoch: row.tombstone_epoch,
+      projection_epoch: row.projection_epoch,
+      transform: transforms[0],
+      source_frontier_hash: row.source_frontier_hash,
+      projection_frontier_hash: row.projection_frontier_hash,
+    });
   }
 
   #upsertPendingScope(input: ExactScope & {

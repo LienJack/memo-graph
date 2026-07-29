@@ -35,6 +35,7 @@ import {
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
   GraphScopeInputSchema,
+  GraphProjectionSnapshotListInputSchema,
   ProjectionSourceBatchQuerySchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
@@ -183,6 +184,11 @@ port.on("message", (message: unknown) => {
         case "get_graph_scope_snapshot":
           result = database.graphScopeSnapshot(
             GraphScopeInputSchema.parse(request.payload),
+          );
+          break;
+        case "list_graph_projection_snapshots":
+          result = database.listGraphProjectionSnapshots(
+            GraphProjectionSnapshotListInputSchema.parse(request.payload),
           );
           break;
         case "claim_graph_projection_jobs":

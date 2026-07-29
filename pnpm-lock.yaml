@@ -79,6 +79,9 @@ importers:
       '@memo-graph/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@memo-graph/storage-sqlite':
+        specifier: workspace:*
+        version: link:../storage-sqlite
       zod:
         specifier: 4.4.3
         version: 4.4.3
