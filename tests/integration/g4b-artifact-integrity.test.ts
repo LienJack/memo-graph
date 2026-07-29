@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertSingleFrozenCandidate,
   evaluateG4BEligibility,
+  resolveG4BTaskArtifact,
   verifyG4BEvidence,
 } from "../../scripts/verify-g4b-evidence.mjs";
 
@@ -32,6 +33,16 @@ async function currentEvidence() {
 }
 
 describe("G4B evidence integrity", () => {
+  it("resolves immutable gate evidence after Trellis archives the task", () => {
+    expect(
+      resolveG4BTaskArtifact(
+        "evidence/u2-candidate-gate.json",
+      ),
+    ).toBe(
+      ".trellis/tasks/archive/2026-07/07-29-agent-memory-runtime-m4b/evidence/u2-candidate-gate.json",
+    );
+  });
+
   it("independently verifies the current hash-bound NO-GO evidence", async () => {
     const result = await verifyG4BEvidence();
     expect(result.eligibility.go).toBe(false);

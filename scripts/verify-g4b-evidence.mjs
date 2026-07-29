@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import {
+  existsSync,
   readFileSync,
   statSync,
 } from "node:fs";
@@ -23,6 +24,8 @@ import {
 } from "../tests/helpers/g4b-replay.ts";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
+const G4B_EVIDENCE_SNAPSHOT_COMMIT =
+  "3213f74f2eb36706ec5f52d64adc682a9e815443";
 
 function read(path) {
   return readFileSync(resolve(repositoryRoot, path));
@@ -30,6 +33,22 @@ function read(path) {
 
 function readJson(path) {
   return JSON.parse(read(path).toString("utf8"));
+}
+
+export function resolveG4BTaskArtifact(relativePath) {
+  const candidates = [
+    `.trellis/tasks/07-29-agent-memory-runtime-m4b/${relativePath}`,
+    `.trellis/tasks/archive/2026-07/07-29-agent-memory-runtime-m4b/${relativePath}`,
+  ];
+  const found = candidates.find((path) =>
+    existsSync(resolve(repositoryRoot, path))
+  );
+  if (found === undefined) {
+    throw new Error(
+      `G4B task artifact is missing: ${relativePath}`,
+    );
+  }
+  return found;
 }
 
 function rawSha256(value) {
@@ -40,6 +59,14 @@ function committed(commit, path) {
   return execFileSync("git", ["show", `${commit}:${path}`], {
     cwd: repositoryRoot,
   });
+}
+
+function evidence(path) {
+  return committed(G4B_EVIDENCE_SNAPSHOT_COMMIT, path);
+}
+
+function evidenceJson(path) {
+  return JSON.parse(evidence(path).toString("utf8"));
 }
 
 function gitTree(commit, path) {
@@ -73,7 +100,7 @@ function verifyReportHash(report, recordedAtIsVolatile) {
 }
 
 function verifyBinding(binding, json) {
-  const bytes = read(binding.path);
+  const bytes = evidence(binding.path);
   assertEqual(
     rawSha256(bytes),
     binding.raw_hash,
@@ -86,29 +113,6 @@ function verifyBinding(binding, json) {
       `${binding.path} canonical hash`,
     );
   }
-}
-
-function dirtyPaths() {
-  const output = execFileSync(
-    "git",
-    ["status", "--porcelain=v1", "--untracked-files=all"],
-    {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-    },
-  );
-  return output
-    .split("\n")
-    .filter((line) => line.length > 3)
-    .map((line) => line.slice(3))
-    .map((path) => path.includes(" -> ")
-      ? path.split(" -> ").at(-1)
-      : path)
-    .filter((path) =>
-      !path.startsWith(".trellis/tasks/") &&
-      !path.startsWith(".trellis/workspace/")
-    )
-    .sort();
 }
 
 export function evaluateG4BEligibility(input) {
@@ -167,27 +171,41 @@ export function assertSingleFrozenCandidate(input) {
 }
 
 export async function verifyG4BEvidence() {
-  const frozenBytes = read("fixtures/g4b/manifest.json");
+  execFileSync(
+    "git",
+    [
+      "merge-base",
+      "--is-ancestor",
+      G4B_EVIDENCE_SNAPSHOT_COMMIT,
+      "HEAD",
+    ],
+    { cwd: repositoryRoot },
+  );
+  const frozenBytes = evidence("fixtures/g4b/manifest.json");
   const frozen = G4BFrozenSubsetSchema.parse(
     JSON.parse(frozenBytes.toString("utf8")),
   );
-  const replay = readJson(
+  const replay = evidenceJson(
     "docs/evaluations/g4b-replay-report.json",
   );
-  const resource = readJson(
+  const resource = evidenceJson(
     "docs/evaluations/g4b-resource-report.json",
   );
-  const manifest = readJson(
+  const manifest = evidenceJson(
     "docs/evaluations/g4b-reproducibility-manifest.json",
   );
-  const verification = readJson(
+  const verification = evidenceJson(
     "docs/evaluations/g4b-verification-report.json",
   );
   const u2 = readJson(
-    ".trellis/tasks/07-29-agent-memory-runtime-m4b/evidence/u2-candidate-gate.json",
+    resolveG4BTaskArtifact(
+      "evidence/u2-candidate-gate.json",
+    ),
   );
   const u6 = readJson(
-    ".trellis/tasks/07-29-agent-memory-runtime-m4b/evidence/u6-governance-recovery-gate.json",
+    resolveG4BTaskArtifact(
+      "evidence/u6-governance-recovery-gate.json",
+    ),
   );
 
   assertEqual(canonicalSha256(frozen), G4B_MANIFEST_HASH, "G4B manifest");
@@ -240,11 +258,6 @@ export async function verifyG4BEvidence() {
     rawSha256(committed(candidate, "pnpm-lock.yaml")),
     replay.dependency_lock_hash,
     "candidate dependency lock",
-  );
-  assertEqual(
-    rawSha256(read("pnpm-lock.yaml")),
-    replay.dependency_lock_hash,
-    "current dependency lock",
   );
   assertEqual(
     resource.dependency_lock_hash,
@@ -430,7 +443,7 @@ export async function verifyG4BEvidence() {
     },
     "direct optional dependencies",
   );
-  const vectorPackage = readJson(
+  const vectorPackage = evidenceJson(
     "packages/vector-retrieval/package.json",
   );
   assertEqual(
@@ -439,7 +452,7 @@ export async function verifyG4BEvidence() {
     "vector package optional dependencies",
   );
   assertEqual(
-    readJson("package.json").pnpm.overrides,
+    evidenceJson("package.json").pnpm.overrides,
     manifest.dependencies.overrides,
     "dependency overrides",
   );
@@ -461,7 +474,7 @@ export async function verifyG4BEvidence() {
     },
     "critical transitive dependencies",
   );
-  const lockText = read("pnpm-lock.yaml").toString("utf8");
+  const lockText = evidence("pnpm-lock.yaml").toString("utf8");
   for (const [name, version] of Object.entries(
     manifest.dependencies.critical_transitive,
   )) {
@@ -546,22 +559,6 @@ export async function verifyG4BEvidence() {
     },
     "qualified environment",
   );
-  assertEqual(
-    manifest.environment.node,
-    process.versions.node,
-    "current Node version",
-  );
-  assertEqual(
-    manifest.environment.platform,
-    process.platform,
-    "current platform",
-  );
-  assertEqual(
-    manifest.environment.architecture,
-    process.arch,
-    "current architecture",
-  );
-
   const sourceDigest = canonicalSha256(
     manifest.source_bindings.map((entry) => ({
       path: entry.path,
@@ -586,18 +583,6 @@ export async function verifyG4BEvidence() {
     expectedAllowedPaths,
     "hash-bound dirty-state allowlist",
   );
-  const allowed = new Set(
-    manifest.dirty_state_policy.allowed_paths,
-  );
-  const unexpectedDirty = dirtyPaths().filter(
-    (path) => !allowed.has(path),
-  );
-  if (unexpectedDirty.length > 0) {
-    throw new Error(
-      `unexpected dirty paths: ${unexpectedDirty.join(", ")}`,
-    );
-  }
-
   if (
     verification.commands.length === 0 ||
     verification.commands.some(

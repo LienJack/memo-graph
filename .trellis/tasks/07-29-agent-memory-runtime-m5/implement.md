@@ -890,6 +890,23 @@ pnpm build
 tree remains available for forensic comparison but cannot be used for G5
 evidence.
 
+## 9B. U7S — Preserve archived G4B evidence verification
+
+**Requirement:** evidence continuity prerequisite for U8 full-suite closure.
+
+**Depends on:** U7R and the archived M4B task.
+
+- [x] Resolve the immutable M4B U2/U6 gate artifacts from either their active
+      Trellis task or the canonical monthly archive.
+- [x] Add a regression that proves the current archived path is selected.
+- [x] Run the focused G4B artifact-integrity test and full repository suite.
+- [x] Create only the U7S maintenance commit; exclude all in-progress U8
+      evidence files.
+
+**Rollback point:** revert U7S and continue excluding the archived G4B
+artifact-integrity test; this does not alter runtime behavior or the historical
+G4B `NO-GO`.
+
 ## 10. U8 — G5 evidence capture and verification
 
 **Requirements:** R16-R20; F4; AE6/AE7.
