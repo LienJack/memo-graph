@@ -1129,12 +1129,12 @@ After U9 is committed:
 
 ### Journal task
 
-- [ ] Record branch, baseline, brainstorm, research run/gate, plan, U1-U9,
+- [x] Record branch, baseline, brainstorm, research run/gate, plan, U1-U9,
       tested/evidence/decision commits, G5 outcome, fallback, limitations, and
       next M6 child.
-- [ ] Update the Trellis workspace index through the supported session script.
-- [ ] Create only the journal commit.
-- [ ] Confirm the worktree is clean.
+- [x] Update the Trellis workspace index through the supported session script.
+- [x] Create only the journal commit.
+- [x] Confirm the worktree is clean.
 
 Do not start or combine M6 in either closure commit.
 

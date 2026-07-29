@@ -333,3 +333,55 @@ Completed the Trellis M4B pipeline from frozen semantic gap through governed loc
 
 - Start M5 Learning Lab through ce-brainstorm -> research-to-article -> ce-plan -> ce-work under a new Trellis child.
 - Bind G4A graph NO-GO and G4B vector NO-GO retrieval configuration into every no-candidate/current/candidate learning arm and release receipt.
+
+
+## Session 9: M5 Governed Learning Lab completed
+
+**Date**: 2026-07-30
+**Task**: M5 Governed Learning Lab completed
+**Branch**: `codex/agent-memory-runtime-m5`
+
+### Summary
+
+Completed the Trellis M5 workflow from brainstorm through governed implementation and a verifier-backed G5 GO for one exact local synthetic release path. Baseline branch head was b2a36ab5e6b3e8da04b3b4ed158171cb83e9491b; graph/vector remain NO-GO and M6 remains pending.
+
+### Main Changes
+
+- Ran ce-brainstorm, research-to-article run RUN20260729-183807-m5-governed-learning-lif-896401 with 27/27 supported claims, ce-plan, and ce-work under Trellis.
+- Delivered U1-U9: strict learning contracts, SQLite learning authority, privacy-minimal traces, smallest reversible candidates, protected three-arm evaluation, lifecycle/canary authority, atomic release/rollback, pause/resume, MCP parity, review remediation, G5 evidence, and decision.
+- Tested implementation 91d810efe17632e64f5e9a3ddae81f8e9f0b9985; evidence commit b9c0907745cedf3315d7ab3f42a39c9afb8790eb; decision commit 7c71c455bc8837c013220440b8d1e1ce9903bd29; archived by 7e2ac788685f75468e4a5fcd64eee8058b73a81c.
+- G5 GO is limited to release release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68 and exact rollback to base null; automatic publication stays disabled.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `19bb6124d3a484fa775d449096c75d4bd0527ae0` | (see git log) |
+| `0a4a44d868160fd272ccef68baa7c41d020ba115` | (see git log) |
+| `e102b94c1c2da7f38cd19dcd63c3cf8891fff2a2` | (see git log) |
+| `6b95263a087deb67995af117ff6285711b8fd9df` | (see git log) |
+| `038aecdfe19dec067d158f42d3cc0947e6aa71a4` | (see git log) |
+| `fe79506842cf4b5ea4e594ff17e8fbac2e79dc9f` | (see git log) |
+| `a3ddae7770734633c435e9fc156187eabc24da7d` | (see git log) |
+| `2f9a74ff29dd22c9216fb499f9588b625261e445` | (see git log) |
+| `09be40ccba00cc3f1f99322399536fc8008d1830` | (see git log) |
+| `de1fdda7311c847a412f53236bd8bc8abf8ee4d8` | (see git log) |
+| `946d2a8ee5fb59549678779aee5906397422c3a6` | (see git log) |
+| `02bb7a1824e710b0736ee6e35c02b7d7e8925abc` | (see git log) |
+| `91d810efe17632e64f5e9a3ddae81f8e9f0b9985` | (see git log) |
+| `b9c0907745cedf3315d7ab3f42a39c9afb8790eb` | (see git log) |
+| `7c71c455bc8837c013220440b8d1e1ce9903bd29` | (see git log) |
+
+### Testing
+
+- [OK] Full repository gate: 98 test files passed, 481 tests passed, 6 skipped; lint, typecheck, build, high-level audit, focused artifact integrity, and pnpm verify:g5 passed.
+- [OK] Manifest sha256:12fe4d89de233dbe43ae3e1c416ca58a1e07684ed9602085416e2e40db6c6fac; verifier returned ELIGIBLE_FOR_U9 with zero unresolved P0/P1 review findings.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Create the M6 child under parent 07-28-agent-memory-runtime and run ce-brainstorm -> research-to-article -> ce-plan -> ce-work before G6.
+- Carry schema, tombstone, projection, learning release/control, and purge frontiers through backup/restore, migration, disk/WAL, observability, fault drills, runbooks, and final release evidence.
