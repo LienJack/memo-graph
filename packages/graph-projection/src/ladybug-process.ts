@@ -32,6 +32,7 @@ const StartupConfigSchema = z
     process_generation: z.number().int().positive(),
     restart_count: z.number().int().nonnegative(),
     max_ipc_bytes: z.number().int().min(1_024).max(16 * 1_024 * 1_024),
+    write_timeout_ms: z.number().int().min(1).max(120_000),
     test_hooks: z.object({
       adversarial_native_query: z.boolean(),
       adversarial_native_write: z.boolean(),
@@ -232,6 +233,7 @@ async function startAdapter(): Promise<{
       dependencyLockHash:
         config.expected_identity.dependency_lock_hash,
       expectedIdentity: config.expected_identity,
+      operationTimeoutMs: config.write_timeout_ms,
       ...(config.test_hooks === undefined
         ? {}
         : { testHooks: config.test_hooks }),

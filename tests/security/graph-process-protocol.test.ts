@@ -245,4 +245,19 @@ describe("graph child protocol security", () => {
     expect(adapterSource).not.toContain("querySync");
     expect(packageSource).not.toContain("ladybug-adapter");
   });
+
+  it("resets the native timeout before every non-query operation", async () => {
+    const adapterSource = await readFile(
+      new URL(
+        "../../packages/graph-projection/src/ladybug-adapter.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(
+      adapterSource.match(
+        /this\.#connection\.setQueryTimeout\(this\.#operationTimeoutMs\)/gu,
+      ),
+    ).toHaveLength(4);
+  });
 });

@@ -541,6 +541,7 @@ export class GraphProcessHost implements GraphStore {
       process_generation: generation,
       restart_count: this.#restartCount,
       max_ipc_bytes: this.#options.maxIpcBytes,
+      write_timeout_ms: this.#options.writeTimeoutMs,
       ...(this.#options.testHooks?.identityOverride === undefined
         ? {}
         : {

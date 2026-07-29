@@ -190,6 +190,7 @@ export class LadybugGraphAdapter {
   readonly #database: LadybugDatabase;
   readonly #connection: LadybugConnection;
   readonly identity: GraphBackendIdentity;
+  readonly #operationTimeoutMs: number;
   readonly #testHooks: {
     adversarial_native_query: boolean;
     adversarial_native_write: boolean;
@@ -201,6 +202,7 @@ export class LadybugGraphAdapter {
     database: LadybugDatabase;
     connection: LadybugConnection;
     identity: GraphBackendIdentity;
+    operationTimeoutMs: number;
     testHooks: {
       adversarial_native_query: boolean;
       adversarial_native_write: boolean;
@@ -209,6 +211,7 @@ export class LadybugGraphAdapter {
     this.#database = options.database;
     this.#connection = options.connection;
     this.identity = options.identity;
+    this.#operationTimeoutMs = options.operationTimeoutMs;
     this.#testHooks = options.testHooks;
   }
 
@@ -216,6 +219,7 @@ export class LadybugGraphAdapter {
     databasePath: string;
     dependencyLockHash: string;
     expectedIdentity: GraphBackendIdentity;
+    operationTimeoutMs: number;
     testHooks?: {
       adversarial_native_query: boolean;
       adversarial_native_write: boolean;
@@ -233,15 +237,19 @@ export class LadybugGraphAdapter {
     }
     const database = new ladybug.Database(options.databasePath);
     const connection = new ladybug.Connection(database, 1);
+    const operationTimeoutMs = z.number().int().min(1).max(120_000).parse(
+      options.operationTimeoutMs,
+    );
     try {
       await database.init();
       connection.setMaxNumThreadForExec(1);
-      connection.setQueryTimeout(5_000);
+      connection.setQueryTimeout(operationTimeoutMs);
       await connection.init();
       return new LadybugGraphAdapter({
         database,
         connection,
         identity,
+        operationTimeoutMs,
         testHooks: options.testHooks ?? {
           adversarial_native_query: false,
           adversarial_native_write: false,
@@ -261,6 +269,7 @@ export class LadybugGraphAdapter {
 
   async initialize(): Promise<void> {
     await this.#serialized(async () => {
+      this.#connection.setQueryTimeout(this.#operationTimeoutMs);
       await this.#execute(`
         CREATE NODE TABLE IF NOT EXISTS GraphRevision(
           node_key STRING PRIMARY KEY,
@@ -325,6 +334,7 @@ export class LadybugGraphAdapter {
   async replaceScope(input: unknown): Promise<GraphScopeSnapshot> {
     const snapshot = normalizeGraphScopeSnapshot(input);
     return this.#serialized(async () => {
+      this.#connection.setQueryTimeout(this.#operationTimeoutMs);
       const key = graphScopeKey(snapshot);
       await this.#transaction(async () => {
         await this.#execute(`
@@ -350,7 +360,6 @@ export class LadybugGraphAdapter {
                 "graph_node_adversarial_native_write",
           )
         ) {
-          this.#connection.setQueryTimeout(5_000);
           await this.#execute(
             "UNWIND range(1, 1000000) AS value RETURN sum(value);",
           );
@@ -460,6 +469,7 @@ export class LadybugGraphAdapter {
     scope: Scope;
   }): Promise<void> {
     await this.#serialized(async () => {
+      this.#connection.setQueryTimeout(this.#operationTimeoutMs);
       const key = graphScopeKey(input);
       await this.#transaction(async () => {
         await this.#execute(`
@@ -485,7 +495,10 @@ export class LadybugGraphAdapter {
     principal_id: string;
     scope: Scope;
   }): Promise<GraphScopeSnapshot | null> {
-    return this.#serialized(() => this.#readScopeSnapshot(input));
+    return this.#serialized(() => {
+      this.#connection.setQueryTimeout(this.#operationTimeoutMs);
+      return this.#readScopeSnapshot(input);
+    });
   }
 
   async queryPaths(input: unknown): Promise<GraphQueryResult> {
