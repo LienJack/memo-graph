@@ -1,0 +1,43 @@
+{
+  "id": "agent-memory-runtime-m6",
+  "name": "agent-memory-runtime-m6",
+  "title": "Agent Memory Runtime M6 Operational Hardening",
+  "description": "Operational hardening for backup/restore, migrations, WAL and disk pressure, doctor/rebuild/purge audit, redacted observability, fault injection, runbooks, and final G6 release evidence.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "M6 only: local operator diagnostics, complete frontier-aware backup/restore, application encryption and bounded key lifecycle for secret content, WAL/disk/backpressure, deterministic repair and purge audit, redacted observability, fault drills, runbooks, G6 evidence/decision; exclude remote sync, multi-user/HA, graph/vector reopening, automatic learning publication, and production fleet claims",
+  "package": null,
+  "priority": "P2",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-30",
+  "completedAt": null,
+  "branch": "codex/agent-memory-runtime-m6",
+  "base_branch": "codex/agent-memory-runtime-m5",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [
+    "docs/brainstorms/2026-07-30-m6-operational-hardening-requirements.md",
+    ".trellis/tasks/07-30-agent-memory-runtime-m6/prd.md"
+  ],
+  "notes": "Run ce-brainstorm, research-to-article, ce-plan, then ce-work under Trellis. Continuous roadmap authorization permits headless progress, but assumptions remain explicit and implementation waits for research/design/plan validation.",
+  "meta": {
+    "milestone": "M6",
+    "gate": "G6",
+    "implementation_authorized": true,
+    "workflow": [
+      "ce-brainstorm",
+      "research-to-article",
+      "ce-plan",
+      "ce-work"
+    ],
+    "product_contract": "docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md",
+    "brainstorm": "docs/brainstorms/2026-07-30-m6-operational-hardening-requirements.md",
+    "brainstorm_mode": "deep-feature-headless",
+    "brainstorm_status": "complete"
+  }
+}
