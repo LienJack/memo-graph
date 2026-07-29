@@ -17,6 +17,8 @@
     "benchmark:graph": "pnpm build:runtime && node scripts/run-g4a-baseline.mjs && node scripts/run-g4a-replay.mjs && node scripts/run-g4a-resource-benchmark.mjs",
     "benchmark:g3": "pnpm build:runtime && node scripts/run-g3-benchmark.mjs",
     "benchmark:g3:resources": "pnpm build:runtime && node scripts/run-g3-resource-benchmark.mjs",
+    "g4b:replay": "pnpm build:runtime && node scripts/run-g4b-replay.mjs",
+    "g4b:resources": "pnpm build:runtime && node scripts/run-g4b-resource-benchmark.mjs",
     "lint": "eslint .",
     "test": "pnpm build:runtime && vitest run",
     "test:contract": "vitest run tests/contract",

@@ -634,44 +634,44 @@ M4B-AC1/M4B-AC8/M4B-AC9.
 
 ### Test-first checklist
 
-- [ ] Load all nine case hashes and reject drift.
-- [ ] Run calibration only and freeze top-k/threshold/fusion configuration.
-- [ ] Seal calibration configuration before evaluator opens holdout/transfer.
-- [ ] Reject an implementation/tuning process that reads evaluation payloads.
-- [ ] Create identical canonical setup for all four arms.
-- [ ] Prove same reader, as-of time, permissions, filters, Context Compiler,
+- [x] Load all nine case hashes and reject drift.
+- [x] Run calibration only and freeze top-k/threshold/fusion configuration.
+- [x] Seal calibration configuration before evaluator opens holdout/transfer.
+- [x] Reject an implementation/tuning process that reads evaluation payloads.
+- [x] Create identical canonical setup for all four arms.
+- [x] Prove same reader, as-of time, permissions, filters, Context Compiler,
       budgets, and task scoring in every arm.
-- [ ] Run both token budgets for every case.
-- [ ] Score expected live revisions and exact negative exclusions.
-- [ ] Score provenance/explanation and task Oracle.
-- [ ] Measure duplicates, contradictions, distractors, token use, and Context
+- [x] Run both token budgets for every case.
+- [x] Score expected live revisions and exact negative exclusions.
+- [x] Score provenance/explanation and task Oracle.
+- [x] Measure duplicates, contradictions, distractors, token use, and Context
       pollution.
-- [ ] Credit strict gain only when hybrid completely passes and both
+- [x] Credit strict gain only when hybrid completely passes and both
       vector-free arms fail under identical limits.
-- [ ] Require hybrid positive success >=5/6.
-- [ ] Require strict gains >=4 including holdout and transfer.
-- [ ] Require zero negative-control/critical regression and no pollution
+- [x] Require hybrid positive success >=5/6.
+- [x] Require strict gains >=4 including holdout and transfer.
+- [x] Require zero negative-control/critical regression and no pollution
       increase.
-- [ ] Generate M0 expected profile deterministically.
-- [ ] Measure recall/context/fallback p50/p95/p99.
-- [ ] Require recall <=50/200 ms p50/p95.
-- [ ] Require Context <=100/400 ms p50/p95.
-- [ ] Require fallback p95 <=100 ms.
-- [ ] Measure cold ready, scope/full rebuild, epoch migration, install/model/
+- [x] Generate M0 expected profile deterministically.
+- [x] Measure recall/context/fallback p50/p95/p99.
+- [x] Require recall <=50/200 ms p50/p95.
+- [x] Require Context <=100/400 ms p50/p95.
+- [x] Require fallback p95 <=100 ms.
+- [x] Measure cold ready, scope/full rebuild, epoch migration, install/model/
       index/WAL/temp bytes, disk growth, and idle/peak RSS.
-- [ ] Report all costs even if a hard gate already fails.
-- [ ] Repeat and require deterministic case outcomes and bounded measurement
+- [x] Report all costs even if a hard gate already fails.
+- [x] Repeat and require deterministic case outcomes and bounded measurement
       variation.
 
 ### Implementation checklist
 
-- [ ] Create gated corpus loader with calibration/evaluator capabilities.
-- [ ] Implement four accepted runtime arms without alternate readers.
-- [ ] Implement paired case/task/pollution scorer.
-- [ ] Implement deterministic M0 profile generator.
-- [ ] Implement real-candidate latency/resource harness.
-- [ ] Emit schema-validated hash-bound reports and human scorecard.
-- [ ] Record the first failed hard gate and all subsequent observed costs.
+- [x] Create gated corpus loader with calibration/evaluator capabilities.
+- [x] Implement four accepted runtime arms without alternate readers.
+- [x] Implement paired case/task/pollution scorer.
+- [x] Implement deterministic M0 profile generator.
+- [x] Implement real-candidate latency/resource harness.
+- [x] Emit schema-validated hash-bound reports and human scorecard.
+- [x] Record the first failed hard gate and all subsequent observed costs.
 
 ### Focused verification
 
@@ -685,11 +685,11 @@ pnpm run g4b:resources
 
 ### Completion evidence
 
-- [ ] Calibration receipt and evaluation isolation pass.
-- [ ] Four-arm utility/pollution thresholds are mechanically evaluated.
-- [ ] M0 latency and all material resource costs are recorded.
-- [ ] Decide whether G4B is eligible for GO or forced NO-GO.
-- [ ] Create the U7 commit.
+- [x] Calibration receipt and evaluation isolation pass.
+- [x] Four-arm utility/pollution thresholds are mechanically evaluated.
+- [x] M0 latency and all material resource costs are recorded.
+- [x] Decide whether G4B is eligible for GO or forced NO-GO.
+- [x] Create the U7 commit.
 
 **Rollback point:** reports remain immutable; vector runtime stays disabled
 until U9.
