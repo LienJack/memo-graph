@@ -104,6 +104,10 @@ function dirtyPaths() {
     .map((path) => path.includes(" -> ")
       ? path.split(" -> ").at(-1)
       : path)
+    .filter((path) =>
+      !path.startsWith(".trellis/tasks/") &&
+      !path.startsWith(".trellis/workspace/")
+    )
     .sort();
 }
 

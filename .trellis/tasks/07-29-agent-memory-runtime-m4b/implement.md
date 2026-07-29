@@ -792,48 +792,50 @@ NO-GO.
 
 ### Decision checklist
 
-- [ ] Identify the first failed hard gate, if any.
-- [ ] Confirm no candidate substitution or threshold tuning occurred after
+- [x] Identify the first failed hard gate, if any.
+- [x] Confirm no candidate substitution or threshold tuning occurred after
       freeze.
-- [ ] Confirm dependency/audit/offline/process gate result.
-- [ ] Confirm governance/privacy/correction/purge/restore/recovery result.
-- [ ] Confirm disabled/degraded vector-free equality and fallback result.
-- [ ] Confirm four-arm semantic utility and pollution result.
-- [ ] Confirm M0 latency and separately reported resource result.
-- [ ] Confirm evidence verifier and full review result.
+- [x] Confirm dependency/audit/offline/process gate result.
+- [x] Confirm governance/privacy/correction/purge/restore/recovery result.
+- [x] Confirm disabled/degraded vector-free equality and fallback result.
+- [x] Confirm four-arm semantic utility and pollution result.
+- [x] Confirm M0 latency and separately reported resource result.
+- [x] Confirm evidence verifier and full review result.
 
 ### GO path
 
-- [ ] Hybrid passes >=5/6 positive cases.
-- [ ] Hybrid records >=4 strict gains including holdout and transfer.
-- [ ] Critical regressions and pollution increase equal zero.
-- [ ] Recall, Context, and fallback thresholds pass.
-- [ ] Every other hard gate and evidence check passes.
-- [ ] Keep `semantic_vector` disabled by default and opt-in only on the exact
-      tested identity/platform.
-- [ ] Name vector-free fallback and M6 limitations.
+- [x] Skipped by verified `NO-GO`: hybrid passes `0/6`, not `>=5/6`.
+- [x] Skipped by verified `NO-GO`: hybrid records `0`, not `>=4`, strict
+      gains and has no holdout or transfer gain.
+- [x] Skipped by verified `NO-GO`: two negative-control regressions remain;
+      pollution delta alone is zero.
+- [x] Skipped by verified `NO-GO`: successful governed recall and Context
+      outcomes fail even though typed fallback latency passes.
+- [x] Skipped by verified `NO-GO`: utility and resource hard gates are false.
+- [x] `semantic_vector` remains disabled; no opt-in adoption is activated.
+- [x] Name vector-free fallback and M6 limitations.
 
 ### NO-GO path
 
-- [ ] Record the first failed hard gate without obscuring later measurements.
-- [ ] Keep `semantic_vector` disabled and stop maintenance by default.
-- [ ] Keep FTS5/recency/layered/SQLite relations as active supported runtime.
-- [ ] Preserve candidate/evaluation evidence for a future dated gate.
-- [ ] Do not install/enable another model or index.
+- [x] Record the first failed hard gate without obscuring later measurements.
+- [x] Keep `semantic_vector` disabled and stop maintenance by default.
+- [x] Keep FTS5/recency/layered/SQLite relations as active supported runtime.
+- [x] Preserve candidate/evaluation evidence for a future dated gate.
+- [x] Do not install/enable another model or index.
 
 ### Closure checklist
 
-- [ ] Write the G4B decision and update scorecard/ADR.
-- [ ] Update unified M4B plan frontmatter/status/tested commit/decision.
-- [ ] Mark all completed/skipped checklist items honestly.
-- [ ] Update M4B PRD acceptance boxes from verified evidence only.
-- [ ] Update parent roadmap M4B/G4B boxes and preserve M5/M6 pending.
-- [ ] Run artifact verifier against final decision identities.
-- [ ] Run task-native Trellis context and status validation.
+- [x] Write the G4B decision and update scorecard/ADR.
+- [x] Update unified M4B plan frontmatter/status/tested commit/decision.
+- [x] Mark all completed/skipped checklist items honestly.
+- [x] Update M4B PRD acceptance boxes from verified evidence only.
+- [x] Update parent roadmap M4B/G4B boxes and preserve M5/M6 pending.
+- [x] Run artifact verifier against final decision identities.
+- [x] Run task-native Trellis context and status validation.
 - [ ] Finish/archive the child task without pushing or creating a PR.
 - [ ] Write the Trellis workspace journal with commits, tests, decision,
       limitations, and next M5 handoff.
-- [ ] Commit decision, archive, journal, and any final closure correction as
+- [x] Commit decision, archive, journal, and any final closure correction as
       separate logical units.
 
 ### Final verification
@@ -850,8 +852,8 @@ git diff --check
 
 ### Completion evidence
 
-- [ ] G4B has exactly one verified GO or NO-GO result.
-- [ ] Exactly one supported runtime path is active and documented.
+- [x] G4B has exactly one verified GO or NO-GO result.
+- [x] Exactly one supported runtime path is active and documented.
 - [ ] Task is archived, journaled, clean, and ready for M5.
 
 ## 12. Global decision rule

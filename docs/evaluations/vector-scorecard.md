@@ -1,8 +1,8 @@
 # G4B Vector Candidate Scorecard
 
-Status: **U7 measured outcome is NO-GO.** This scorecard records the
-frozen replay and resource evidence. It does not pre-empt the independent
-U8 review or the final U9 decision receipt.
+Status: **U9 activated G4B NO-GO.** This scorecard records the frozen replay
+and resource evidence used by the terminal
+[`g4b-decision.md`](./g4b-decision.md).
 
 ## Candidate and evidence
 

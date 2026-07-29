@@ -10,6 +10,9 @@ Do not adopt or enable the evaluated local semantic-vector candidate.
 Continue to support FTS5/recency, layered projections, and SQLite relations.
 SQLite remains the only memory authority.
 
+The terminal decision receipt is
+[`g4b-decision.md`](../evaluations/g4b-decision.md).
+
 The rejected candidate is:
 
 - `@huggingface/transformers@4.2.0`;

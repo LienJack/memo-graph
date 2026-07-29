@@ -548,22 +548,23 @@ These files are created only after the semantic-gap subset and privacy posture a
 
 ### Checklist
 
-- [ ] Declare the semantic-gap subset before selecting an embedding model or index.
-- [ ] Preserve the same scope, status, validity, sensitivity, lineage and tombstone filters used by all other lanes.
-- [ ] Pin the model, dimensions, normalization, local/remote execution boundary and embedding epoch.
-- [ ] Compare `fts_recency`, `layered`, `vector`, and `hybrid` on identical frozen cases, reader and Context budget.
-- [ ] Measure evidence utility, task outcome, Context pollution, p50/p95/p99 latency, disk growth and rebuild time separately.
-- [ ] Prove a source correction, revocation or purge invalidates all affected embeddings.
-- [ ] Prove a new embedding epoch rebuilds without changing canonical revision identity.
-- [ ] Prove the Context Compiler remains correct when the vector lane is unavailable or disabled.
-- [ ] Reject adoption when gains do not justify privacy, invalidation, latency, disk or recovery cost.
+- [x] Declare the semantic-gap subset before selecting an embedding model or index.
+- [x] Preserve the same scope, status, validity, sensitivity, lineage and tombstone filters used by all other lanes.
+- [x] Pin the model, dimensions, normalization, local/remote execution boundary and embedding epoch.
+- [x] Compare `fts_recency`, `layered`, `vector`, and `hybrid` on identical frozen cases, reader and Context budget.
+- [x] Measure evidence utility, task outcome, Context pollution, p50/p95/p99 latency, disk growth and rebuild time separately.
+- [x] Prove a source correction, revocation or purge invalidates all affected embeddings.
+- [x] Prove a new embedding epoch rebuilds without changing canonical revision identity.
+- [x] Prove the Context Compiler remains correct when the vector lane is unavailable or disabled.
+- [x] Reject adoption when gains do not justify privacy, invalidation, latency, disk or recovery cost.
 
 ### Validation contract
 
-- Planned command: `pnpm test:vector`
-- Planned command: `pnpm test:governance -- vector-purge`
-- Planned command: `pnpm test:recovery -- vector-rebuild`
-- Planned command: `pnpm benchmark:vector`
+- Verified command: `pnpm test`
+- Verified command: `pnpm vitest run tests/replay/vector-semantic-gap.test.ts tests/integration/vector-benchmark.integration.test.ts`
+- Verified command: `pnpm run g4b:replay`
+- Verified command: `pnpm run g4b:resources`
+- Verified command: `pnpm run verify:g4b`
 
 Assertions:
 
@@ -585,6 +586,22 @@ Enable vector-backed candidate generation only if:
 ### Hold/rollback
 
 Do not create or enable the vector lane; retain FTS5, recency and SQLite relations. A documented No-Go is a completed M4B outcome.
+
+### Recorded G4B result
+
+- [x] Final decision is `NO-GO` at tested implementation
+      `3eec7119b1e441d76523d0a57c328d4d811a4af3`.
+- [x] First failed hard gate is positive semantic utility: `0/6` positive
+      cases solved against a required `5/6`.
+- [x] Governance, privacy, correction, purge, restore, recovery, fallback,
+      dependency audit, offline startup, full review, and evidence verification
+      pass.
+- [x] Governed resource outcome fails: no governed recall or Context sample
+      completes semantic work within the end-to-end parent deadline.
+- [x] `semantic_vector` remains disabled; the accepted supported runtime is
+      FTS5/recency/layered projections plus SQLite relations.
+- [x] Decision receipt:
+      `docs/evaluations/g4b-decision.md`.
 
 ## 11. M5 — Learning Lab
 

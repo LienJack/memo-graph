@@ -453,11 +453,15 @@ gate decisions.
 | --- | --- | --- | --- |
 | G3 Layered Context | `GO` after H3 remediation on 2026-07-29 | `6224f782c86712488d416d8101ef7c9fa477c0ae` | `docs/evaluations/g3r-h3-decision.md` |
 | G4A Graph | `NO-GO` on 2026-07-29; SQLite adjacency retained | `36421f5cd75007a1421d3e0594e7881dd4b864b2` | `docs/evaluations/g4a-decision.md` |
+| G4B Vector | `NO-GO` on 2026-07-29; FTS5/layered/SQLite relations retained | `3eec7119b1e441d76523d0a57c328d4d811a4af3` | `docs/evaluations/g4b-decision.md` |
 
 G3R GO made M4A, M4B, and M5 eligible for separate Trellis workflows. G4A
 completed with `NO-GO`; it retains SQLite adjacency and does not enable the
-graph lane. M4B remains independent. Neither G3R nor G4A adopts vector,
-learning release, or M6 production readiness.
+graph lane. M4B independently completed with `NO-GO`; it retains
+FTS5/recency/layered projections and SQLite relations and does not enable the
+vector lane. M5 remains eligible in candidate-only mode and must bind both
+decision receipts. None of these gates establishes learning release or M6
+production readiness.
 
 ---
 
@@ -513,6 +517,7 @@ learning release, or M6 production readiness.
 - [ ] Verify correction, deletion and scope outcomes across every new store.
 - [ ] Compare against the last accepted baseline on identical frozen cases.
 - [x] Produce an explicit `GO`, `NO-GO`, `HOLD` or `FALLBACK` decision for G4A.
+- [x] Produce an explicit `GO`, `NO-GO`, `HOLD` or `FALLBACK` decision for G4B.
 
 ### Before release review
 

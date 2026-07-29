@@ -65,30 +65,30 @@ identifiers. It does not reopen the completed G4A graph decision.
 
 ## Acceptance Criteria
 
-- [ ] The semantic-gap subset and gain threshold are immutable before model or
+- [x] The semantic-gap subset and gain threshold are immutable before model or
       index selection.
-- [ ] Current candidates are compared from first-party evidence; no model,
+- [x] Current candidates are compared from first-party evidence; no model,
       runtime, or index is inherited from reputation.
-- [ ] No vector result enters Context without a live canonical revision,
+- [x] No vector result enters Context without a live canonical revision,
       exact-scope authorization, lineage, lifecycle, sensitivity, usage, and
       tombstone revalidation.
-- [ ] Cross-scope content and membership signals are excluded from embedding,
+- [x] Cross-scope content and membership signals are excluded from embedding,
       lookup, telemetry, receipts, and Context.
-- [ ] Correction, revoke, usage block, tombstone, and purge make old vectors
+- [x] Correction, revoke, usage block, tombstone, and purge make old vectors
       immediately ineligible and converge the physical index without affecting
       unrelated scopes.
-- [ ] A new embedding epoch rebuilds without changing canonical revision
+- [x] A new embedding epoch rebuilds without changing canonical revision
       identity or silently mixing old and new representations.
-- [ ] Missing, corrupt, locked, stale, timed-out, or rebuilding vector state
+- [x] Missing, corrupt, locked, stale, timed-out, or rebuilding vector state
       degrades explicitly and preserves accepted FTS5/layered behavior.
-- [ ] All four evaluation arms use identical governance filters, cases,
+- [x] All four evaluation arms use identical governance filters, cases,
       readers, Context budgets, and predeclared scoring.
-- [ ] `GO` requires material paired semantic gain plus zero critical
+- [x] `GO` requires material paired semantic gain plus zero critical
       governance, privacy, correction, purge, rebuild, recovery, budget, or
       partition regression.
-- [ ] `NO-GO` leaves no runtime vector dependency enabled and is reported as
+- [x] `NO-GO` leaves no runtime vector dependency enabled and is reported as
       completed M4B delivery.
-- [ ] Full repository tests, static checks, frozen install, dependency audit,
+- [x] Full repository tests, static checks, frozen install, dependency audit,
       artifact verification, and full-diff review pass before G4B decision.
 
 ## Out of Scope

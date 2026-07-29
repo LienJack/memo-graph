@@ -104,15 +104,11 @@
     },
     {
       "path": "scripts/verify-g4b-evidence.mjs",
-      "raw_hash": "sha256:a39fad9800addde8ee64db9eac4d48959d7a6b15d4127642120f4eb710330206"
+      "raw_hash": "sha256:dc8f94c42ac362742694d339250fa5b843f6bbe6d56907eb6d8f3b2757707ac2"
     },
     {
       "path": "tests/integration/g4b-artifact-integrity.test.ts",
       "raw_hash": "sha256:31ce3cdebe1c0e2a21846cd8fda964f071e5446db3ab70f5bbea78f68af3643c"
-    },
-    {
-      "path": ".trellis/tasks/07-29-agent-memory-runtime-m4b/implement.md",
-      "raw_hash": "sha256:f83eed3407de5529fc8d914c9ee68d7995a27aad2e94f353621f45897632057c"
     }
   ],
   "dependencies": {
@@ -227,7 +223,7 @@
   "documentation": {
     "scorecard": {
       "path": "docs/evaluations/vector-scorecard.md",
-      "raw_hash": "sha256:c843b82c49f0577cd06c006c4f3285edb542715f21e73725ec548553ea65912e"
+      "raw_hash": "sha256:3107486435ca911268e9165f4c541d0cece461bbf87f18363cfb6891e916fa08"
     },
     "review": {
       "path": "docs/evaluations/g4b-code-review.md",
@@ -239,7 +235,19 @@
     },
     "adr": {
       "path": "docs/adr/0004-local-vector-adoption.md",
-      "raw_hash": "sha256:cdb3e1472ea0e2b7daf757619569c7ed84ea144d0baefc7b58ab95938851bb61"
+      "raw_hash": "sha256:92806cff68abb28121d59fea0405f872fc798d547fbeee7469f593b61134cf3b"
+    },
+    "decision": {
+      "path": "docs/evaluations/g4b-decision.md",
+      "raw_hash": "sha256:8f638f8e685692397f5c309e27a592b703320b9c8c25da59b22e85af1d07f527"
+    },
+    "milestone_plan": {
+      "path": "docs/plans/2026-07-29-004-feat-local-vector-adoption-plan.md",
+      "raw_hash": "sha256:bbf1c13c2c0647e54c6ce31e5655727c7f47122b117831261ac362d1e4599d6c"
+    },
+    "parent_roadmap": {
+      "path": "docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md",
+      "raw_hash": "sha256:5cb657811d033c86d1563474e7059973c7b5cb584ef2179812c8a5f2f73652ec"
     }
   },
   "review": {
@@ -253,14 +261,16 @@
     "base_commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
     "policy": "Only the hash-bound U8 evidence overlay may differ from the frozen executable candidate",
     "allowed_paths": [
-      ".trellis/tasks/07-29-agent-memory-runtime-m4b/implement.md",
       "docs/adr/0004-local-vector-adoption.md",
       "docs/evaluations/g4b-code-review.md",
+      "docs/evaluations/g4b-decision.md",
       "docs/evaluations/g4b-replay-report.json",
       "docs/evaluations/g4b-reproducibility-manifest.json",
       "docs/evaluations/g4b-resource-report.json",
       "docs/evaluations/g4b-verification-report.json",
       "docs/evaluations/vector-scorecard.md",
+      "docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md",
+      "docs/plans/2026-07-29-004-feat-local-vector-adoption-plan.md",
       "docs/runbooks/vector-rebuild.md",
       "fixtures/g4b/manifest.json",
       "migrations/0013-vector-projection-delivery.sql",
@@ -276,7 +286,7 @@
       "tests/integration/g4b-artifact-integrity.test.ts",
       "vitest.config.ts"
     ],
-    "changed_path_digest": "sha256:cd3c500d83cb0c576b4ca934f046510ac2d7e066fcedf16ba9142412d9cc6b5e"
+    "changed_path_digest": "sha256:99d39ba615b80f5327cf95f962925ffd304d36fd46599f1003c4e399b49b6b51"
   },
   "decision_input": {
     "dependency_gate": true,

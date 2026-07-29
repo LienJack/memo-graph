@@ -1,11 +1,11 @@
 ---
 title: M4B Local Vector Adoption Decision
 type: feat
-status: active
+status: completed
 date: 2026-07-29
 deepened: 2026-07-29
 artifact_contract: ce-unified-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: decision-complete
 implementation_authorized: true
 origin: docs/brainstorms/2026-07-29-m4b-vector-adoption-requirements.md
 product_contract: docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md
@@ -15,25 +15,35 @@ research_handoff: .trellis/tasks/07-29-agent-memory-runtime-m4b/research/researc
 milestone: M4B
 gate: G4B
 baseline_commit: 6224f782c86712488d416d8101ef7c9fa477c0ae
+tested_implementation: 3eec7119b1e441d76523d0a57c328d4d811a4af3
+evidence_commit: 7d183f6
 candidate: "@huggingface/transformers@4.2.0 + Xenova/multilingual-e5-small@761b726d + sqlite-vec@0.1.9 on better-sqlite3@13.0.1"
-decision: pending
+decision: NO-GO
 ---
 
 # M4B Local Vector Adoption Decision
 
 ## Summary
 
-M4B will implement and evaluate one disabled-by-default local semantic-vector
+M4B implemented and evaluated one disabled-by-default local semantic-vector
 lane without changing SQLite authority or the accepted vector-free runtime.
-The implementation uses a hash-verified offline E5 snapshot, a disposable
-exact-scope `sqlite-vec` projection, a killable embedding process, and fresh
-canonical postvalidation before the unchanged Context Compiler.
+The tested implementation uses a hash-verified offline E5 snapshot, a
+disposable exact-scope `sqlite-vec` projection, a killable embedding process,
+and fresh canonical postvalidation before the unchanged Context Compiler.
 
 The milestone has two equally complete terminal outcomes. `GO` retains the
 tested lane as an opt-in candidate; any hard qualification, governance,
 privacy, recovery, dependency, performance, or utility failure records
 `NO-GO`, removes active vector enablement, and leaves FTS5/layered recall as
 the supported runtime.
+
+The terminal result is `NO-GO`. The first failed hard rule is positive
+semantic utility (`0/6` frozen positive cases against a requirement of at
+least `5/6`); the governed resource outcome also fails because per-request
+cold process startup cannot satisfy the parent lane deadline. Governance,
+privacy, purge, recovery, fallback, audit, offline startup, review, and
+evidence-verification gates pass. The authoritative decision is
+`docs/evaluations/g4b-decision.md`.
 
 ---
 
