@@ -19,6 +19,10 @@
     "benchmark:g3:resources": "pnpm build:runtime && node scripts/run-g3-resource-benchmark.mjs",
     "g4b:replay": "pnpm build:runtime && node scripts/run-g4b-replay.mjs",
     "g4b:resources": "pnpm build:runtime && node scripts/run-g4b-resource-benchmark.mjs",
+    "g5:replay": "pnpm build:runtime && node scripts/run-g5-replay.mjs",
+    "g5:canary": "pnpm build:runtime && node scripts/run-g5-canary.mjs",
+    "g5:resources": "pnpm build:runtime && node scripts/run-g5-resource-report.mjs",
+    "g5:manifest": "pnpm build:runtime && node scripts/build-g5-manifest.mjs",
     "lint": "eslint .",
     "test": "pnpm build:runtime && vitest run",
     "test:contract": "vitest run tests/contract",
@@ -35,7 +39,8 @@
     "typecheck": "pnpm build:runtime && tsc -p tsconfig.json --noEmit",
     "verify:g3r": "pnpm build:runtime && node scripts/verify-g3r-evidence.mjs",
     "verify:g4a": "pnpm build:runtime && node scripts/verify-g4a-evidence.mjs",
-    "verify:g4b": "pnpm build:runtime && node scripts/verify-g4b-evidence.mjs"
+    "verify:g4b": "pnpm build:runtime && node scripts/verify-g4b-evidence.mjs",
+    "verify:g5": "pnpm build:runtime && node scripts/verify-g5-evidence.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"

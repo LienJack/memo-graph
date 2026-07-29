@@ -1,0 +1,715 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G5_U8_CANARY",
+  "recorded_at": "2026-07-30T02:20:00.000+08:00",
+  "implementation": {
+    "commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+    "tree": "34719539c098343b3d47771cb0588be905faf6c5",
+    "dependency_lock_hash": "sha256:89b71c57b48310cd99dee5a054be88d08c8af18363b465f8dca2a98b186c5f82",
+    "migration_set_hash": "sha256:842ed0336266bd9a4ca7a740654671d021d1dff0bc294361b6ea9a5b17fb35b9"
+  },
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "Darwin lien.local 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132 arm64",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "authority": {
+    "canary_authorization": {
+      "schema_version": "1.0.0",
+      "authorization_id": "authorization_release_evidence",
+      "principal_id": "user_local",
+      "tool": "learning_canary",
+      "safety_class": "important_mutation",
+      "scopes": [
+        {
+          "kind": "user",
+          "id": "user_local"
+        },
+        {
+          "kind": "workspace",
+          "id": "workspace_local"
+        }
+      ],
+      "candidate_id": "candidate_storage_1",
+      "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+      "base_release_id": null,
+      "evaluation_receipt_id": "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+      "evaluation_receipt_hash": "sha256:38d4e3cf7568ebed0f4a5e0aff0e88d909fbbe6ad11f6b133daf16b1f3a4141e",
+      "canary_manifest_id": "manifest_run_g5_release_evidence",
+      "canary_manifest_hash": "sha256:fd70d7781eb53a008f42e5b4c5ce10c3e908d9d2f496584a274df18d443eb390",
+      "case_hashes": [
+        "sha256:ef6d616c4c7e2df5452d1ec1bd8370a8cd9bafbee2ca258954a92153fba4df97",
+        "sha256:f06f28b91a72898e0d0b96c80e4852b221ecdeeb5131eec53e4e5beb958c42c4",
+        "sha256:fe9f6f2e757b34707719c9d4254607a8b93db6aedaf67daa2e05347f8fd8f165"
+      ],
+      "maximum_exposures": 3,
+      "deadline_at": "2026-07-28T12:10:00.000Z",
+      "control_epoch": 0,
+      "request_hash": "sha256:d724cbcf7ea5d364701c56b50f4948c33db172700cd42c81f71f7f4f3a04dce3",
+      "issued_at": "2026-07-28T11:59:00.000Z",
+      "expires_at": "2026-07-28T12:11:00.000Z",
+      "authorization_hash": "sha256:9592ba76da78da7119a0fb1b98e224a29873575e14381dbd886ebd93a56e085c"
+    },
+    "post_canary_release_approval": {
+      "schema_version": "1.0.0",
+      "approval_id": "post_canary_release_evidence",
+      "principal_id": "user_local",
+      "action": "release",
+      "scopes": [
+        {
+          "kind": "user",
+          "id": "user_local"
+        },
+        {
+          "kind": "workspace",
+          "id": "workspace_local"
+        }
+      ],
+      "candidate_id": "candidate_storage_1",
+      "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+      "base_release_id": null,
+      "evaluation_receipt_id": "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+      "evaluation_receipt_hash": "sha256:38d4e3cf7568ebed0f4a5e0aff0e88d909fbbe6ad11f6b133daf16b1f3a4141e",
+      "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+      "canary_receipt_hash": "sha256:6f65357da73ced0caf17efe447bfcdbbf8b9231a3025dd19e1ce3e162df7fb5a",
+      "expected_pointer_revision": 0,
+      "target_release_id": null,
+      "control_epoch": 0,
+      "request_hash": "sha256:038ad2736a7c2ec403479975a36230bf304168d77268de76b8e5a111172a3cf8",
+      "effect_manifest_hash": "sha256:81c842c3a880a61c581be4a28cd5fc1c500972bfdf01b647509dd20134a9ea8b",
+      "issued_at": "2026-07-28T11:59:00.000Z",
+      "expires_at": "2026-07-28T12:11:00.000Z",
+      "approval_hash": "sha256:a62e4facd9fe34621f4ca7a55fe08834c9c210a3e07e3009cf450b6a1b2d18b9"
+    },
+    "verification_counts": {
+      "canary": 1,
+      "post_canary": 2,
+      "mutation_approval": 4
+    },
+    "precomputed_rejection": {
+      "rejected_with": "CANDIDATE_NOT_CANARY",
+      "release_count": 0,
+      "pointer_count": 0,
+      "post_canary_approval_id": "post_canary_release_precomputed",
+      "referenced_canary_receipt_id": "receipt_precomputed_canary"
+    }
+  },
+  "canary": {
+    "run": {
+      "schema_version": "1.0.0",
+      "canary_run_id": "canary:c2ecaba471ab5fcede5351849a0ea97455d7b4fcf",
+      "candidate_id": "candidate_storage_1",
+      "authorization_id": "authorization_release_evidence",
+      "canary_manifest_hash": "sha256:fd70d7781eb53a008f42e5b4c5ce10c3e908d9d2f496584a274df18d443eb390",
+      "stable_release_id": null,
+      "started_at": "2026-07-28T12:00:00.000Z",
+      "deadline_at": "2026-07-28T12:10:00.000Z",
+      "control_epoch": 0,
+      "status": "passed",
+      "exposure_count": 3,
+      "run_hash": "sha256:c94da4743b25c491089deccc24b4a4c353256b86b889c464f7e50f97c641b294"
+    },
+    "receipt": {
+      "schema_version": "1.0.0",
+      "receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+      "created_at": "2026-07-28T12:00:00.000Z",
+      "state": "durable",
+      "request_hash": "sha256:d724cbcf7ea5d364701c56b50f4948c33db172700cd42c81f71f7f4f3a04dce3",
+      "receipt_hash": "sha256:6f65357da73ced0caf17efe447bfcdbbf8b9231a3025dd19e1ce3e162df7fb5a",
+      "kind": "learning_canary",
+      "candidate_id": "candidate_storage_1",
+      "authorization_id": "authorization_release_evidence",
+      "authorization_hash": "sha256:9592ba76da78da7119a0fb1b98e224a29873575e14381dbd886ebd93a56e085c",
+      "evaluation_receipt_id": "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+      "canary_manifest_hash": "sha256:fd70d7781eb53a008f42e5b4c5ce10c3e908d9d2f496584a274df18d443eb390",
+      "exposures": 3,
+      "passed": true,
+      "failure_codes": [],
+      "control_epoch": 0
+    },
+    "forced_abort": {
+      "run": {
+        "schema_version": "1.0.0",
+        "canary_run_id": "canary:d922137e2cc09e60d309890c3cb156ff66d234f8d",
+        "candidate_id": "candidate_storage_1",
+        "authorization_id": "authorization_g5_forced_abort",
+        "canary_manifest_hash": "sha256:4b7b09c51afb4290148993906163a24c6c200d0a4ee98c1e5f779af3011a9555",
+        "stable_release_id": null,
+        "started_at": "2026-07-28T12:00:00.000Z",
+        "deadline_at": "2026-07-28T12:10:00.000Z",
+        "control_epoch": 0,
+        "status": "aborted",
+        "exposure_count": 1,
+        "run_hash": "sha256:1e35e2a501ea683ce765605d5a6cfb5944539133dd1a6dcfc31dc16d6a2de71b"
+      },
+      "receipt": {
+        "schema_version": "1.0.0",
+        "receipt_id": "canary-receipt:52d6e2cca83e10611848aa3b8e521c430ab98a522",
+        "created_at": "2026-07-28T12:10:01.000Z",
+        "state": "durable",
+        "request_hash": "sha256:3b99476a1ecbceedc2f7ab6f538a62c5e4df60d533fc3cb38119691fb87ad7e8",
+        "receipt_hash": "sha256:6e6f1fd2f03ade068fda1060f3eafd090b49ba6c6aa608c380fd6af5ee5de3ce",
+        "kind": "learning_canary",
+        "candidate_id": "candidate_storage_1",
+        "authorization_id": "authorization_g5_forced_abort",
+        "authorization_hash": "sha256:09f7e06b21eb97dfc3ca62429920680f093afd7cefe67c9c02693370f063eac3",
+        "evaluation_receipt_id": "evaluation:33d407628b7bb0ac2ed5b26054ddbdacffc658d4c",
+        "canary_manifest_hash": "sha256:4b7b09c51afb4290148993906163a24c6c200d0a4ee98c1e5f779af3011a9555",
+        "exposures": 1,
+        "passed": false,
+        "failure_codes": [
+          "CANARY_TIMEOUT"
+        ],
+        "control_epoch": 0
+      },
+      "pointer_count": 0
+    },
+    "early_access_rejection": "CANARY_ACCESS_DENIED"
+  },
+  "release": {
+    "result": {
+      "request": {
+        "schema_version": "1.0.0",
+        "action": "release",
+        "idempotency_key": "learning-release-evidence-001",
+        "principal_id": "user_local",
+        "scopes": [
+          {
+            "kind": "user",
+            "id": "user_local"
+          },
+          {
+            "kind": "workspace",
+            "id": "workspace_local"
+          }
+        ],
+        "candidate_id": "candidate_storage_1",
+        "approval_id": "post_canary_release_evidence",
+        "target_release_id": null,
+        "operator_lane_policy": {
+          "allowed_lanes": [
+            "recent_l1",
+            "topic",
+            "scenario_procedure",
+            "core",
+            "relation_sqlite"
+          ],
+          "limits": {
+            "max_candidates_per_lane": 20,
+            "relation_max_depth": 2,
+            "relation_max_fanout": 5,
+            "max_concurrent_lanes": 2
+          }
+        },
+        "base_configuration_hash": "sha256:64929db139aa201583787758847a1da09e0c26bc1a2d879c0851201237a2a265",
+        "monitor_contract_hash": "sha256:0ad4bfc17adcddda65b809147d5e41a1963a0f6626706bd528622a4d9b84641e",
+        "monitor_receipt_id": null,
+        "reason": "Publish the exact canary-qualified retrieval policy.",
+        "activated_at": "2026-07-28T12:05:00.000Z"
+      },
+      "release": {
+        "schema_version": "1.0.0",
+        "release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "action": "release",
+        "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+        "candidate_id": "candidate_storage_1",
+        "previous_release_id": null,
+        "restored_release_id": null,
+        "evaluation_receipt_id": "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "approval_id": "post_canary_release_evidence",
+        "monitor_contract_hash": "sha256:0ad4bfc17adcddda65b809147d5e41a1963a0f6626706bd528622a4d9b84641e",
+        "configuration_hash": "sha256:1e4f2868b9500ad514217fc1ad872ab2f1b95bed53cd40cba41c1d2e0dc76db8",
+        "activated_at": "2026-07-28T12:05:00.000Z",
+        "release_hash": "sha256:26b03ab596cdc02162aadde6682e45a1c36dce7bcd0f70b1491c1b4750368682"
+      },
+      "pointer": {
+        "schema_version": "1.0.0",
+        "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+        "active_release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "updated_at": "2026-07-28T12:05:00.000Z",
+        "pointer_hash": "sha256:d9b7e2d8497d26704ce49ddb0fd3edd4ce4e933a29b06e2dd9c36948597f9aa9"
+      },
+      "transition": {
+        "schema_version": "1.0.0",
+        "transition_id": "transition:52d457358282e0a9bcd7ca749fe92fb8601fa911e",
+        "candidate_id": "candidate_storage_1",
+        "sequence": 5,
+        "from_state": "canary",
+        "to_state": "released",
+        "expected_previous_transition_hash": "sha256:b0ad5bc4895d596423c47bb5ed17a5cdc344c4a4d47fbb6ceb7f0c21923cd23d",
+        "control_epoch": 0,
+        "actor_id": "user_local",
+        "authority_id": "post_canary_release_evidence",
+        "reason_code": "POST_CANARY_RELEASE_APPROVED",
+        "evidence_receipt_ids": [
+          "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+          "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae"
+        ],
+        "idempotency_key": "learning-release-evidence-001",
+        "transitioned_at": "2026-07-28T12:05:00.000Z",
+        "transition_hash": "sha256:a8d4b1ab54e4aa1a591c9d71e42739c30bd322eacf6858a5ade06224432bb77c"
+      },
+      "receipt": {
+        "schema_version": "1.0.0",
+        "receipt_id": "release-receipt:8b360c8ffef8ca5a6a397957bd0d813ba8859f9ed",
+        "created_at": "2026-07-28T12:05:00.000Z",
+        "state": "durable",
+        "request_hash": "sha256:038ad2736a7c2ec403479975a36230bf304168d77268de76b8e5a111172a3cf8",
+        "receipt_hash": "sha256:536dc185e8036d12d5b5a572c3a795b21f400f47a2a2735d4216420eafc73177",
+        "kind": "release",
+        "release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+        "candidate_id": "candidate_storage_1",
+        "previous_release_id": null,
+        "evaluation_receipt_id": "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "approval_id": "post_canary_release_evidence",
+        "approval_hash": "sha256:a62e4facd9fe34621f4ca7a55fe08834c9c210a3e07e3009cf450b6a1b2d18b9",
+        "resulting_pointer_revision": 1,
+        "control_epoch": 0,
+        "retrieval_configuration_hash": "sha256:1e4f2868b9500ad514217fc1ad872ab2f1b95bed53cd40cba41c1d2e0dc76db8"
+      },
+      "replayed": false
+    },
+    "replayed": true
+  },
+  "monitoring": {
+    "active_pointer_replay": [
+      {
+        "case_id": "g5_canary_pollution",
+        "active_release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "passed": true
+      },
+      {
+        "case_id": "g5_canary_rollback",
+        "active_release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "passed": true
+      },
+      {
+        "case_id": "g5_canary_scope",
+        "active_release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "passed": true
+      }
+    ],
+    "success": {
+      "monitor": {
+        "schema_version": "1.0.0",
+        "monitor_id": "monitor_g5_success",
+        "release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "replayed_case_ids": [
+          "g5_canary_pollution",
+          "g5_canary_rollback",
+          "g5_canary_scope"
+        ],
+        "passed": true,
+        "failure_codes": [],
+        "rollback_required": false,
+        "monitored_at": "2026-07-28T12:05:20.000Z",
+        "monitor_hash": "sha256:7ef4e483af7a7c0fef296c76b4966da504e952b265142fb0ae5783147a46e310"
+      },
+      "receipt": {
+        "schema_version": "1.0.0",
+        "receipt_id": "receipt_monitor_g5_success",
+        "created_at": "2026-07-28T12:05:20.000Z",
+        "state": "durable",
+        "request_hash": "sha256:c3061e4a2eff0d05ecfa752f1ff426c5fb4b6af4a2a11d8fa6f2aa1331c37575",
+        "receipt_hash": "sha256:c79d6621022897383ec31c17edc3fdd5fa4aef48dd81a10a24841468122742fb",
+        "kind": "learning_monitor",
+        "release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "monitor_contract_hash": "sha256:0ad4bfc17adcddda65b809147d5e41a1963a0f6626706bd528622a4d9b84641e",
+        "replayed_case_ids": [
+          "g5_canary_pollution",
+          "g5_canary_rollback",
+          "g5_canary_scope"
+        ],
+        "passed": true,
+        "failure_codes": [],
+        "rollback_required": false
+      }
+    },
+    "breach": {
+      "monitor": {
+        "schema_version": "1.0.0",
+        "monitor_id": "monitor_g5_breach",
+        "release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "replayed_case_ids": [
+          "g5_canary_pollution",
+          "g5_canary_rollback",
+          "g5_canary_scope"
+        ],
+        "passed": false,
+        "failure_codes": [
+          "ACTIVE_POINTER_REPLAY_MISMATCH"
+        ],
+        "rollback_required": true,
+        "monitored_at": "2026-07-28T12:05:30.000Z",
+        "monitor_hash": "sha256:c049af717b72c23d6d659a2d74d64f294262d4d876a8e14115f4c0b8e286810b"
+      },
+      "receipt": {
+        "schema_version": "1.0.0",
+        "receipt_id": "receipt_monitor_g5_breach",
+        "created_at": "2026-07-28T12:05:30.000Z",
+        "state": "durable",
+        "request_hash": "sha256:67cc1ede550b81276980fe77ef80364cd4d52fe2c6e91066616160f21fe3d93a",
+        "receipt_hash": "sha256:a86a8e50961328736b40ccf4aee0c36792ec88fbf3214500e816b49888a043e2",
+        "kind": "learning_monitor",
+        "release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "monitor_contract_hash": "sha256:0ad4bfc17adcddda65b809147d5e41a1963a0f6626706bd528622a4d9b84641e",
+        "replayed_case_ids": [
+          "g5_canary_pollution",
+          "g5_canary_rollback",
+          "g5_canary_scope"
+        ],
+        "passed": false,
+        "failure_codes": [
+          "ACTIVE_POINTER_REPLAY_MISMATCH"
+        ],
+        "rollback_required": true
+      }
+    }
+  },
+  "controls": {
+    "pause": {
+      "status": "OK",
+      "receipt_id": "learning-control-receipt:c6e596a2c2ea0ec6d857eda13a4be125f4d3598af2924784",
+      "data": {
+        "receipt": {
+          "schema_version": "1.0.0",
+          "receipt_id": "learning-control-receipt:c6e596a2c2ea0ec6d857eda13a4be125f4d3598af2924784",
+          "created_at": "2026-07-28T12:05:00.000Z",
+          "state": "durable",
+          "request_hash": "sha256:f9e62fc1f860cd2688c61c3d9c5a15611424fb708c64daa1ce82c9197fc96902",
+          "receipt_hash": "sha256:e2e9f0cb13edbdadaf66ce6daca5dc3ec9b40516371c5c26ea8031e622f8773b",
+          "kind": "learning_control",
+          "principal_id": "user_local",
+          "action": "pause",
+          "previous_epoch": 0,
+          "resulting_epoch": 1,
+          "previous_frontier_hash": "sha256:c94f3ab3053e0e76c58176ce74719815e333492a9dc2cdb397373bb055a61996",
+          "frontier_hash": "sha256:3132bbcae5e99e88980dc43406078bc8702d9daed59836aaeea0208e76122b4f",
+          "runtime_identity_hash": "sha256:55b37824a58007ffe21696ba1472d389f21e37ed7f4c20e2b10fba048c9ad7f0",
+          "configuration_hash": "sha256:30248b36c022c546c3649e4238e77cb127fb5218a3a610defc9f6ac7a7de7fad",
+          "corpus_hash": "sha256:bcccd398411d0134cf1f67872e2c60ba1b14e8c705ebde18f24a97b9f9f3b249",
+          "reason_code": "USER_REQUESTED"
+        },
+        "control": {
+          "schema_version": "1.0.0",
+          "principal_id": "user_local",
+          "status": "paused",
+          "control_epoch": 1,
+          "reason_code": "USER_REQUESTED",
+          "actor_id": "user_local",
+          "changed_at": "2026-07-28T12:05:00.000Z",
+          "frontier_hash": "sha256:3132bbcae5e99e88980dc43406078bc8702d9daed59836aaeea0208e76122b4f",
+          "runtime_identity_hash": "sha256:55b37824a58007ffe21696ba1472d389f21e37ed7f4c20e2b10fba048c9ad7f0",
+          "configuration_hash": "sha256:30248b36c022c546c3649e4238e77cb127fb5218a3a610defc9f6ac7a7de7fad",
+          "corpus_hash": "sha256:bcccd398411d0134cf1f67872e2c60ba1b14e8c705ebde18f24a97b9f9f3b249"
+        },
+        "replayed": false
+      }
+    },
+    "ordinary_runtime_while_paused": {
+      "status": "NO_MATCH",
+      "receipt_id": "retrieval:986a1a94ccb421017f271828299f2c34299c2160d0ae1e3a"
+    },
+    "resume": {
+      "status": "OK",
+      "receipt_id": "learning-control-receipt:07006bf457708fca0a5e77cd77d440691e047a80366ecfb6",
+      "data": {
+        "receipt": {
+          "schema_version": "1.0.0",
+          "receipt_id": "learning-control-receipt:07006bf457708fca0a5e77cd77d440691e047a80366ecfb6",
+          "created_at": "2026-07-28T12:05:00.000Z",
+          "state": "durable",
+          "request_hash": "sha256:f67660d2aa1ce792b4a021c0c0d719189caed2d89716ccb81271ba5095a7163d",
+          "receipt_hash": "sha256:947eae4253cb89a0a5e45d707ea76eb43a0d81a101f02a5424dfae97db5ed877",
+          "kind": "learning_control",
+          "principal_id": "user_local",
+          "action": "resume",
+          "previous_epoch": 1,
+          "resulting_epoch": 2,
+          "previous_frontier_hash": "sha256:f3ab2cbe971a3de2d2a2d308a6b54df0293807776f396e5abd4077700a040f0c",
+          "frontier_hash": "sha256:4a06f0bee1d07b73b7fe6b426c4e6684c8f74b578e2e2e0b67592efaf72fe260",
+          "runtime_identity_hash": "sha256:55b37824a58007ffe21696ba1472d389f21e37ed7f4c20e2b10fba048c9ad7f0",
+          "configuration_hash": "sha256:30248b36c022c546c3649e4238e77cb127fb5218a3a610defc9f6ac7a7de7fad",
+          "corpus_hash": "sha256:bcccd398411d0134cf1f67872e2c60ba1b14e8c705ebde18f24a97b9f9f3b249",
+          "reason_code": "IN_FLIGHT_ABANDONED_AFTER_DRIFT"
+        },
+        "control": {
+          "schema_version": "1.0.0",
+          "principal_id": "user_local",
+          "status": "active",
+          "control_epoch": 2,
+          "reason_code": "IN_FLIGHT_ABANDONED_AFTER_DRIFT",
+          "actor_id": "user_local",
+          "changed_at": "2026-07-28T12:05:00.000Z",
+          "frontier_hash": "sha256:4a06f0bee1d07b73b7fe6b426c4e6684c8f74b578e2e2e0b67592efaf72fe260",
+          "runtime_identity_hash": "sha256:55b37824a58007ffe21696ba1472d389f21e37ed7f4c20e2b10fba048c9ad7f0",
+          "configuration_hash": "sha256:30248b36c022c546c3649e4238e77cb127fb5218a3a610defc9f6ac7a7de7fad",
+          "corpus_hash": "sha256:bcccd398411d0134cf1f67872e2c60ba1b14e8c705ebde18f24a97b9f9f3b249"
+        },
+        "replayed": false
+      }
+    }
+  },
+  "rollback": {
+    "result": {
+      "request": {
+        "schema_version": "1.0.0",
+        "action": "rollback",
+        "idempotency_key": "learning-rollback-evidence-001",
+        "principal_id": "user_local",
+        "scopes": [
+          {
+            "kind": "user",
+            "id": "user_local"
+          },
+          {
+            "kind": "workspace",
+            "id": "workspace_local"
+          }
+        ],
+        "candidate_id": "candidate_storage_1",
+        "approval_id": "post_canary_rollback_evidence",
+        "target_release_id": null,
+        "operator_lane_policy": {
+          "allowed_lanes": [
+            "recent_l1",
+            "topic",
+            "scenario_procedure",
+            "core",
+            "relation_sqlite"
+          ],
+          "limits": {
+            "max_candidates_per_lane": 20,
+            "relation_max_depth": 2,
+            "relation_max_fanout": 5,
+            "max_concurrent_lanes": 2
+          }
+        },
+        "base_configuration_hash": "sha256:64929db139aa201583787758847a1da09e0c26bc1a2d879c0851201237a2a265",
+        "monitor_contract_hash": "sha256:0ad4bfc17adcddda65b809147d5e41a1963a0f6626706bd528622a4d9b84641e",
+        "monitor_receipt_id": "receipt_monitor_g5_breach",
+        "reason": "Restore the exact named safe release pointer.",
+        "activated_at": "2026-07-28T12:06:00.000Z"
+      },
+      "release": {
+        "schema_version": "1.0.0",
+        "release_id": "rollback:9e3bfbc0103b26085642e2dfa2b86843f4ac8fdca",
+        "action": "rollback",
+        "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+        "candidate_id": "candidate_storage_1",
+        "previous_release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "restored_release_id": null,
+        "evaluation_receipt_id": "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "approval_id": "post_canary_rollback_evidence",
+        "monitor_contract_hash": "sha256:0ad4bfc17adcddda65b809147d5e41a1963a0f6626706bd528622a4d9b84641e",
+        "configuration_hash": "sha256:64929db139aa201583787758847a1da09e0c26bc1a2d879c0851201237a2a265",
+        "activated_at": "2026-07-28T12:06:00.000Z",
+        "release_hash": "sha256:6a8ea2dec160255d39f5e3647bc1477b7646db187dca19dc125d0dd4bb533cb7"
+      },
+      "pointer": {
+        "schema_version": "1.0.0",
+        "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+        "active_release_id": null,
+        "pointer_revision": 2,
+        "updated_at": "2026-07-28T12:06:00.000Z",
+        "pointer_hash": "sha256:de5c3c21837c0ef5d039ba28cb84d3838113d01028c29c2573a864b1fe296126"
+      },
+      "transition": {
+        "schema_version": "1.0.0",
+        "transition_id": "transition:d0101ed106c71bce076d787ef4c03a7848ddebb60",
+        "candidate_id": "candidate_storage_1",
+        "sequence": 6,
+        "from_state": "released",
+        "to_state": "rolled_back",
+        "expected_previous_transition_hash": "sha256:a8d4b1ab54e4aa1a591c9d71e42739c30bd322eacf6858a5ade06224432bb77c",
+        "control_epoch": 1,
+        "actor_id": "user_local",
+        "authority_id": "post_canary_rollback_evidence",
+        "reason_code": "EXACT_ROLLBACK_APPROVED",
+        "evidence_receipt_ids": [
+          "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+          "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+          "receipt_monitor_g5_breach"
+        ],
+        "idempotency_key": "learning-rollback-evidence-001",
+        "transitioned_at": "2026-07-28T12:06:00.000Z",
+        "transition_hash": "sha256:5810fc4d4d865afb7e7bf37f740a753ce9ecf43048b6a141b3e99069a3921649"
+      },
+      "receipt": {
+        "schema_version": "1.0.0",
+        "receipt_id": "rollback-receipt:831a8f81d9d43bc5002d73ed97103fc66f2c0080a",
+        "created_at": "2026-07-28T12:06:00.000Z",
+        "state": "rolled_back",
+        "request_hash": "sha256:869d0e14f2f8044af2fc6206052b548dc93a165077c7ce322c016cf18fb52d9d",
+        "receipt_hash": "sha256:804d6f00fec93f415d7b8497b7d7330cd70321aa3989b11c20d23eff25a20c76",
+        "kind": "rollback",
+        "release_id": "rollback:9e3bfbc0103b26085642e2dfa2b86843f4ac8fdca",
+        "rolled_back_release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "restored_release_id": null,
+        "approval_id": "post_canary_rollback_evidence",
+        "approval_hash": "sha256:479711a8c521a78aac48c5caf913a8469afa154b4c414844454398654073196e",
+        "monitor_receipt_id": "receipt_monitor_g5_breach",
+        "resulting_pointer_revision": 2,
+        "control_epoch": 1,
+        "restored_configuration_hash": "sha256:64929db139aa201583787758847a1da09e0c26bc1a2d879c0851201237a2a265",
+        "reason": "Restore the exact named safe release pointer."
+      },
+      "replayed": false
+    },
+    "release_replay_after_rollback": {
+      "request": {
+        "schema_version": "1.0.0",
+        "action": "release",
+        "idempotency_key": "learning-release-evidence-001",
+        "principal_id": "user_local",
+        "scopes": [
+          {
+            "kind": "user",
+            "id": "user_local"
+          },
+          {
+            "kind": "workspace",
+            "id": "workspace_local"
+          }
+        ],
+        "candidate_id": "candidate_storage_1",
+        "approval_id": "post_canary_release_evidence",
+        "target_release_id": null,
+        "operator_lane_policy": {
+          "allowed_lanes": [
+            "recent_l1",
+            "topic",
+            "scenario_procedure",
+            "core",
+            "relation_sqlite"
+          ],
+          "limits": {
+            "max_candidates_per_lane": 20,
+            "relation_max_depth": 2,
+            "relation_max_fanout": 5,
+            "max_concurrent_lanes": 2
+          }
+        },
+        "base_configuration_hash": "sha256:64929db139aa201583787758847a1da09e0c26bc1a2d879c0851201237a2a265",
+        "monitor_contract_hash": "sha256:0ad4bfc17adcddda65b809147d5e41a1963a0f6626706bd528622a4d9b84641e",
+        "monitor_receipt_id": null,
+        "reason": "Publish the exact canary-qualified retrieval policy.",
+        "activated_at": "2026-07-28T12:05:00.000Z"
+      },
+      "release": {
+        "schema_version": "1.0.0",
+        "release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "action": "release",
+        "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+        "candidate_id": "candidate_storage_1",
+        "previous_release_id": null,
+        "restored_release_id": null,
+        "evaluation_receipt_id": "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "approval_id": "post_canary_release_evidence",
+        "monitor_contract_hash": "sha256:0ad4bfc17adcddda65b809147d5e41a1963a0f6626706bd528622a4d9b84641e",
+        "configuration_hash": "sha256:1e4f2868b9500ad514217fc1ad872ab2f1b95bed53cd40cba41c1d2e0dc76db8",
+        "activated_at": "2026-07-28T12:05:00.000Z",
+        "release_hash": "sha256:26b03ab596cdc02162aadde6682e45a1c36dce7bcd0f70b1491c1b4750368682"
+      },
+      "pointer": {
+        "schema_version": "1.0.0",
+        "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+        "active_release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "pointer_revision": 1,
+        "updated_at": "2026-07-28T12:05:00.000Z",
+        "pointer_hash": "sha256:d9b7e2d8497d26704ce49ddb0fd3edd4ce4e933a29b06e2dd9c36948597f9aa9"
+      },
+      "transition": {
+        "schema_version": "1.0.0",
+        "transition_id": "transition:52d457358282e0a9bcd7ca749fe92fb8601fa911e",
+        "candidate_id": "candidate_storage_1",
+        "sequence": 5,
+        "from_state": "canary",
+        "to_state": "released",
+        "expected_previous_transition_hash": "sha256:b0ad5bc4895d596423c47bb5ed17a5cdc344c4a4d47fbb6ceb7f0c21923cd23d",
+        "control_epoch": 0,
+        "actor_id": "user_local",
+        "authority_id": "post_canary_release_evidence",
+        "reason_code": "POST_CANARY_RELEASE_APPROVED",
+        "evidence_receipt_ids": [
+          "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+          "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae"
+        ],
+        "idempotency_key": "learning-release-evidence-001",
+        "transitioned_at": "2026-07-28T12:05:00.000Z",
+        "transition_hash": "sha256:a8d4b1ab54e4aa1a591c9d71e42739c30bd322eacf6858a5ade06224432bb77c"
+      },
+      "receipt": {
+        "schema_version": "1.0.0",
+        "receipt_id": "release-receipt:8b360c8ffef8ca5a6a397957bd0d813ba8859f9ed",
+        "created_at": "2026-07-28T12:05:00.000Z",
+        "state": "durable",
+        "request_hash": "sha256:038ad2736a7c2ec403479975a36230bf304168d77268de76b8e5a111172a3cf8",
+        "receipt_hash": "sha256:536dc185e8036d12d5b5a572c3a795b21f400f47a2a2735d4216420eafc73177",
+        "kind": "release",
+        "release_id": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+        "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+        "candidate_id": "candidate_storage_1",
+        "previous_release_id": null,
+        "evaluation_receipt_id": "evaluation:f97ea4bd07ef1af61146d3f66896cb571e034e756",
+        "canary_receipt_id": "canary-receipt:7ce02930d1cf250eef703de8c8fa8dc57aafffaae",
+        "approval_id": "post_canary_release_evidence",
+        "approval_hash": "sha256:a62e4facd9fe34621f4ca7a55fe08834c9c210a3e07e3009cf450b6a1b2d18b9",
+        "resulting_pointer_revision": 1,
+        "control_epoch": 0,
+        "retrieval_configuration_hash": "sha256:1e4f2868b9500ad514217fc1ad872ab2f1b95bed53cd40cba41c1d2e0dc76db8"
+      },
+      "replayed": true
+    },
+    "final_pointer": {
+      "schema_version": "1.0.0",
+      "release_slot_hash": "sha256:634ed733beb2ce00f30f9da0297e2f9dfd1f135ac7a8c10e6962dca144bd109f",
+      "active_release_id": null,
+      "pointer_revision": 2,
+      "updated_at": "2026-07-28T12:06:00.000Z",
+      "pointer_hash": "sha256:de5c3c21837c0ef5d039ba28cb84d3838113d01028c29c2573a864b1fe296126"
+    }
+  },
+  "hard_rules": {
+    "implementation_identity_bound": true,
+    "canary_hidden_before_approval": true,
+    "precomputed_post_canary_approval_rejected": true,
+    "separate_authority_chains": true,
+    "exact_single_consumption": true,
+    "bounded_canary_success": true,
+    "forced_abort_terminal": true,
+    "exact_monitor_replay": true,
+    "breach_blocks_until_rollback": true,
+    "pause_resume_runtime_continuity": true,
+    "no_resurrection": true,
+    "release_and_rollback_exact": true
+  },
+  "evidence_boundary": {
+    "synthetic_canary": true,
+    "production_traffic": false,
+    "production_readiness_claimed": false,
+    "graph_enabled": false,
+    "vector_enabled": false
+  },
+  "report_hash": "sha256:a9ce07df47ca55ed93c256a3f474f649556f38db98217c88001e01f4f6fd1680"
+}

@@ -13,7 +13,7 @@ import {
   type CandidateChange,
   type LanePolicy,
   type PostCanaryApproval,
-} from "../../packages/contracts/src/index.js";
+} from "../../packages/contracts/dist/index.js";
 import {
   CandidateLifecycle,
   G5PartitionLoader,
@@ -21,29 +21,30 @@ import {
   type LearningReleaseInput,
   type LearningReleaseResult,
   type CanaryRunResult,
-} from "../../packages/learning-lab/src/index.js";
+} from "../../packages/learning-lab/dist/index.js";
 import type { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 
 import {
   NOW,
   USER_SCOPE,
-} from "./examples.js";
+} from "./examples.ts";
 import {
   canaryAuthorization,
   canaryInput,
   postCanaryApproval,
   prepareApprovedCandidate,
   TestLearningAuthorityRegistry,
-} from "./g5-canary.js";
+} from "./g5-canary.ts";
 import {
   G5_FIXTURE_ROOT,
   runG5Evaluation,
-} from "./g5-replay.js";
+  type G5ExecutionIdentity,
+} from "./g5-replay.ts";
 import {
   LEARNING_WORKSPACE_SCOPE,
   learningCandidate,
   learningTrace,
-} from "./learning-examples.js";
+} from "./learning-examples.ts";
 
 export const RELEASE_CLOCK = "2026-07-28T12:05:00.000Z";
 export const BASE_LANE_POLICY = {
@@ -162,6 +163,7 @@ export async function preparePassedCanary(options: {
   storage: SqliteStorageClient;
   suffix: string;
   candidate?: CandidateChange;
+  executionIdentity?: G5ExecutionIdentity;
 }): Promise<{
   authority: TestLearningAuthorityRegistry;
   candidate: CandidateChange;
@@ -177,6 +179,9 @@ export async function preparePassedCanary(options: {
       storage: options.storage,
       runId: `run_g5_release_${options.suffix}`,
       evaluationKey: `g5-release-evaluation-${options.suffix}-001`,
+      ...(options.executionIdentity === undefined
+        ? {}
+        : { executionIdentity: options.executionIdentity }),
     });
   } else {
     const trace = learningTrace({
@@ -210,6 +215,9 @@ export async function preparePassedCanary(options: {
         `g5-release-evaluation-${options.suffix}-001`,
       runId: `run_g5_release_${options.suffix}`,
       candidate,
+      ...(options.executionIdentity === undefined
+        ? {}
+        : { executionIdentity: options.executionIdentity }),
     });
     const lifecycle = new CandidateLifecycle({
       storage: options.storage,

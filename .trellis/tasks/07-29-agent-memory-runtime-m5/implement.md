@@ -931,53 +931,54 @@ G4B `NO-GO`.
 
 ### Pre-evidence gate
 
-- [ ] Worktree is clean on committed U7R.
-- [ ] Record tested commit/tree and lockfile hash before executing.
-- [ ] Record migration, runtime, platform, G3R/G4A/G4B, retrieval config,
+- [x] Worktree is clean on committed U7R plus the isolated U7S archived-evidence
+      verifier maintenance commit.
+- [x] Record tested commit/tree and lockfile hash before executing.
+- [x] Record migration, runtime, platform, G3R/G4A/G4B, retrieval config,
       fixture, partition, threshold, scorer, and seed identities.
-- [ ] Confirm graph/vector remain disabled/default-off.
-- [ ] Confirm candidate was frozen before holdout/transfer execution.
+- [x] Confirm graph/vector remain disabled/default-off.
+- [x] Confirm candidate was frozen before holdout/transfer execution.
 
 ### Harness checklist
 
-- [ ] Run one complete safe narrowing retrieval-policy path.
-- [ ] Run one harmful calibration-only/negative-transfer path.
-- [ ] Prove safe path has all three arms and D5 per-partition deltas.
-- [ ] Prove harmful path is rejected with zero pointer change.
-- [ ] Exercise exact approval and single consumption.
-- [ ] Exercise separate canary authorization and post-canary release approval;
+- [x] Run one complete safe narrowing retrieval-policy path.
+- [x] Run one harmful calibration-only/negative-transfer path.
+- [x] Prove safe path has all three arms and D5 per-partition deltas.
+- [x] Prove harmful path is rejected with zero pointer change.
+- [x] Exercise exact approval and single consumption.
+- [x] Exercise separate canary authorization and post-canary release approval;
       reject circular/precomputed canary-receipt binding.
-- [ ] Exercise bounded canary success and forced abort.
-- [ ] Prove exactly three independent canary exposures, no early visibility,
+- [x] Exercise bounded canary success and forced abort.
+- [x] Prove exactly three independent canary exposures, no early visibility,
       and completion inside the frozen deadline.
-- [ ] Exercise release, monitor success/breach, pause, resume, rollback, and
+- [x] Exercise release, monitor success/breach, pause, resume, rollback, and
       no-resurrection.
-- [ ] Replay each independent canary input exactly once through the active
+- [x] Replay each independent canary input exactly once through the active
       pointer for monitoring; prove a mismatch/breach blocks G5 until an
       authorized rollback receipt restores the safe pointer.
-- [ ] Exercise crash recovery at pointer/receipt/approval boundaries.
-- [ ] Exercise ordinary runtime continuity while paused and after NO-GO
+- [x] Exercise crash recovery at pointer/receipt/approval boundaries.
+- [x] Exercise ordinary runtime continuity while paused and after NO-GO
       fallback.
-- [ ] Measure task units, errors, negative transfer, Context/tokens, latency,
+- [x] Measure task units, errors, negative transfer, Context/tokens, latency,
       side effects, governance, privacy, release, and rollback separately.
-- [ ] Capture limitations and synthetic-evidence boundary.
+- [x] Capture limitations and synthetic-evidence boundary.
 
 ### Evidence verifier checklist
 
-- [ ] Recompute source commit/tree and lockfile hash.
-- [ ] Recompute every migration, fixture, partition, threshold, scorer,
+- [x] Recompute source commit/tree and lockfile hash.
+- [x] Recompute every migration, fixture, partition, threshold, scorer,
       report, approval, canary, release, monitor, rollback, and decision-input
       hash.
-- [ ] Verify G3R/G4A/G4B decisions and vector-free configuration.
-- [ ] Verify candidate/common identity and all three arms.
-- [ ] Verify D5 rules conjunctively.
-- [ ] Verify release/rollback receipt chain and exact prior pointer.
-- [ ] Verify canary authorization and post-canary release approval are distinct
+- [x] Verify G3R/G4A/G4B decisions and vector-free configuration.
+- [x] Verify candidate/common identity and all three arms.
+- [x] Verify D5 rules conjunctively.
+- [x] Verify release/rollback receipt chain and exact prior pointer.
+- [x] Verify canary authorization and post-canary release approval are distinct
       exact single-use chains.
-- [ ] Verify monitor replay consumed the active pointer and any breach remained
+- [x] Verify monitor replay consumed the active pointer and any breach remained
       a G5 blocker until authorized rollback.
-- [ ] Verify focused/full quality outputs and code-review result.
-- [ ] Fail on missing/tampered/extra unbound evidence.
+- [x] Verify focused/full quality outputs and code-review result.
+- [x] Fail on missing/tampered/extra unbound evidence.
 
 ### Focused and global verification
 
@@ -1000,12 +1001,35 @@ P0/P1 finding before evidence capture; record lower-priority debt explicitly.
 
 ### Completion evidence
 
-- [ ] Full repository gates pass on the tested implementation.
-- [ ] Replay/canary/resource reports and manifest are generated from the
+- [x] Full repository gates pass on the tested implementation.
+- [x] Replay/canary/resource reports and manifest are generated from the
       committed tree.
-- [ ] Verifier reports every hard rule and passes artifact integrity.
-- [ ] Reports make no production/M6 claim.
-- [ ] Create only the U8 evidence commit; do not include the G5 decision.
+- [x] Verifier reports every hard rule and passes artifact integrity.
+- [x] Reports make no production/M6 claim.
+- [x] Create only the U8 evidence commit; do not include the G5 decision.
+
+### Recorded U8 evidence
+
+- Tested implementation:
+  `91d810efe17632e64f5e9a3ddae81f8e9f0b9985`,
+  tree `34719539c098343b3d47771cb0588be905faf6c5`.
+- Dependency lock:
+  `sha256:89b71c57b48310cd99dee5a054be88d08c8af18363b465f8dca2a98b186c5f82`;
+  migration set:
+  `sha256:842ed0336266bd9a4ca7a740654671d021d1dff0bc294361b6ea9a5b17fb35b9`.
+- Replay, canary, and resource hard rules passed; the independent verifier
+  returned `ELIGIBLE_FOR_U9` while leaving `decision_recorded=false`.
+- Manifest:
+  `sha256:12fe4d89de233dbe43ae3e1c416ca58a1e07684ed9602085416e2e40db6c6fac`;
+  verifier report:
+  `sha256:8b8d41bd2242efd065ec7cb96528d8278b31cfaff37e3498799546311317e82f`.
+- `pnpm test`: 98 files passed; 481 tests passed and 6 skipped.
+- `pnpm lint`, `pnpm typecheck`, `pnpm build`,
+  `pnpm audit --audit-level high`, `pnpm g5:replay`, `pnpm g5:canary`,
+  `pnpm g5:resources`, `pnpm verify:g5`, and the focused four-test G5
+  artifact-integrity suite passed.
+- The evidence is deterministic local synthetic evidence only. It contains no
+  production-traffic, production-readiness, or M6-hardening claim.
 
 **Rollback point:** delete/regenerate U8 evidence from the same tested commit;
 do not change implementation to make the report pass without a new U-ID plan

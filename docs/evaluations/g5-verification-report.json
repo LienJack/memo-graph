@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G5_U8_VERIFICATION",
+  "recorded_at": "2026-07-30T02:20:00.000+08:00",
+  "candidate_commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+  "candidate_tree": "34719539c098343b3d47771cb0588be905faf6c5",
+  "manifest_hash": "sha256:12fe4d89de233dbe43ae3e1c416ca58a1e07684ed9602085416e2e40db6c6fac",
+  "commands": [
+    {
+      "command": "pnpm g5:replay",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm g5:canary",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm g5:resources",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm g5:manifest",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm verify:g5",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm vitest run tests/integration/g5-artifact-integrity.test.ts",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm test",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm lint",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm typecheck",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm build",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm audit --audit-level high",
+      "result": "PASS"
+    },
+    {
+      "command": "python3 .trellis/scripts/task.py validate .trellis/tasks/07-29-agent-memory-runtime-m5",
+      "result": "PASS"
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "review": {
+    "path": "docs/evaluations/g5-code-review.md",
+    "raw_hash": "sha256:61c1973eb8d8fc0c1fe10f2df2b4bce6a92599e145ff1250cc0c822376f7673c",
+    "result": "PASS",
+    "unresolved_p0": 0,
+    "unresolved_p1": 0,
+    "lower_debt_recorded": true
+  },
+  "checks": {
+    "implementation_identity": true,
+    "lock_and_migrations": true,
+    "frozen_fixture_identity": true,
+    "graph_vector_disabled": true,
+    "safe_three_arm_d5": true,
+    "harmful_candidate_rejected": true,
+    "canary_authority_and_bounds": true,
+    "release_monitor_rollback_chain": true,
+    "resource_measurement": true,
+    "review": true,
+    "evidence_bindings": true,
+    "synthetic_boundary": true
+  },
+  "first_false_hard_rule": null,
+  "eligible_for_u9_decision": true,
+  "decision_recorded": false,
+  "evidence_boundary": {
+    "local_synthetic_evidence": true,
+    "production_traffic": false,
+    "production_readiness_claimed": false,
+    "m6_hardening_claimed": false
+  },
+  "report_hash": "sha256:8b8d41bd2242efd065ec7cb96528d8278b31cfaff37e3498799546311317e82f"
+}

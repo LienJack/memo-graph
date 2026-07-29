@@ -6,30 +6,42 @@ import {
   canonicalSha256Omitting,
   type EvaluationArm,
   type CandidateChange,
-} from "../../packages/contracts/src/index.js";
+} from "../../packages/contracts/dist/index.js";
 import {
   G5PartitionLoader,
   LearningEvaluationRunner,
   type ArmExecutionRequest,
   type ArmExecutionResult,
   type EvaluationRunResult,
-} from "../../packages/learning-lab/src/index.js";
+} from "../../packages/learning-lab/dist/index.js";
 import type { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 import {
   NOW,
   USER_SCOPE,
-} from "./examples.js";
+} from "./examples.ts";
 import {
   LEARNING_WORKSPACE_SCOPE,
   learningCandidate,
   learningTrace,
-} from "./learning-examples.js";
+} from "./learning-examples.ts";
 
 export const G5_FIXTURE_ROOT = "fixtures/g5";
 export const G5_STATE_HASH = canonicalSha256({
   canonical_memory: "unchanged",
   release_pointer: null,
 });
+
+export type G5ExecutionIdentity = {
+  implementation_commit: string;
+  implementation_tree: string;
+  dependency_lock_hash: `sha256:${string}`;
+  migration_set_hash: `sha256:${string}`;
+  runtime_identity_hash: `sha256:${string}`;
+  corpus_hash: `sha256:${string}`;
+  scorer_hash: `sha256:${string}`;
+  seed: number;
+  environment_hash: `sha256:${string}`;
+};
 
 export async function seedLearningCandidate(
   storage: SqliteStorageClient,
@@ -63,6 +75,7 @@ export async function g5EvaluationIdentity(options?: {
   environmentHash?: `sha256:${string}`;
   baseReleaseId?: string | null;
   currentReleaseId?: string | null;
+  executionIdentity?: G5ExecutionIdentity;
 }) {
   const loader = new G5PartitionLoader({
     fixtureRoot: G5_FIXTURE_ROOT,
@@ -75,23 +88,39 @@ export async function g5EvaluationIdentity(options?: {
     candidate_id: options?.candidateId ?? "candidate_storage_1",
     base_release_id: options?.baseReleaseId ?? null,
     current_release_id: options?.currentReleaseId ?? null,
-    implementation_commit: "a".repeat(40),
-    implementation_tree: "b".repeat(40),
-    dependency_lock_hash: canonicalSha256("g5-lock"),
-    migration_set_hash: canonicalSha256("g5-migrations"),
-    runtime_identity_hash: canonicalSha256("node-24-runtime"),
+    implementation_commit:
+      options?.executionIdentity?.implementation_commit ??
+      "a".repeat(40),
+    implementation_tree:
+      options?.executionIdentity?.implementation_tree ??
+      "b".repeat(40),
+    dependency_lock_hash:
+      options?.executionIdentity?.dependency_lock_hash ??
+      canonicalSha256("g5-lock"),
+    migration_set_hash:
+      options?.executionIdentity?.migration_set_hash ??
+      canonicalSha256("g5-migrations"),
+    runtime_identity_hash:
+      options?.executionIdentity?.runtime_identity_hash ??
+      canonicalSha256("node-24-runtime"),
     accepted_g3r_commit: manifest.accepted_baseline.g3r.commit,
     accepted_g4a_commit: manifest.accepted_baseline.graph.commit,
     accepted_g4b_commit: manifest.accepted_baseline.vector.commit,
     retrieval_configuration_hash:
       manifest.accepted_baseline.retrieval_configuration_hash,
-    corpus_hash: canonicalSha256(manifest.evaluation_cases),
+    corpus_hash:
+      options?.executionIdentity?.corpus_hash ??
+      canonicalSha256(manifest.evaluation_cases),
     partition_manifest_hash: manifest.manifest_hash,
-    scorer_hash: canonicalSha256("g5-scorer-v1"),
+    scorer_hash:
+      options?.executionIdentity?.scorer_hash ??
+      canonicalSha256("g5-scorer-v1"),
     thresholds_hash: manifest.thresholds_hash,
-    seed: 7,
+    seed: options?.executionIdentity?.seed ?? 7,
     environment_hash:
-      options?.environmentHash ?? canonicalSha256("g5-environment"),
+      options?.executionIdentity?.environment_hash ??
+      options?.environmentHash ??
+      canonicalSha256("g5-environment"),
     common_identity_hash: canonicalSha256("placeholder"),
   };
   return EvaluationCommonIdentitySchema.parse({
@@ -175,8 +204,11 @@ export async function runG5Evaluation(options: {
   executeArm?: (
     request: ArmExecutionRequest,
   ) => ArmExecutionResult | Promise<ArmExecutionResult>;
-  loader?: G5PartitionLoader;
+  loader?: ConstructorParameters<
+    typeof LearningEvaluationRunner
+  >[0]["partitions"];
   stateProbe?: () => string | Promise<string>;
+  executionIdentity?: G5ExecutionIdentity;
 }): Promise<EvaluationRunResult> {
   const loader =
     options.loader ??
@@ -192,7 +224,11 @@ export async function runG5Evaluation(options: {
     storage: options.storage,
     partitions: loader,
     executeArm: options.executeArm ?? safeArmExecution,
-    stateProbe: options.stateProbe ?? (() => G5_STATE_HASH),
+    stateProbe:
+      options.stateProbe ??
+      (() =>
+        options.executionIdentity?.environment_hash ??
+        G5_STATE_HASH),
   });
   return runner.run({
     schema_version: "1.0.0",
@@ -204,6 +240,9 @@ export async function runG5Evaluation(options: {
       candidateId: candidate.candidate_id,
       baseReleaseId: candidate.active_base_release_id,
       currentReleaseId: candidate.active_base_release_id,
+      ...(options.executionIdentity === undefined
+        ? {}
+        : { executionIdentity: options.executionIdentity }),
     }),
     candidate_hash: candidate.candidate_hash,
     fixture_manifest_hash: manifest.manifest_hash,

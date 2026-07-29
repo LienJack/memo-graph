@@ -7,33 +7,34 @@ import {
   type CanaryAuthorization,
   type CandidateState,
   type PostCanaryApproval,
-} from "../../packages/contracts/src/index.js";
+} from "../../packages/contracts/dist/index.js";
 import {
   CandidateLifecycle,
   G5PartitionLoader,
   type CandidateLifecycleResult,
-} from "../../packages/learning-lab/src/index.js";
+} from "../../packages/learning-lab/dist/index.js";
 import type {
   LearningAuthorityRegistry,
   VerifiedCanaryAuthorization,
   VerifiedPostCanaryApproval,
-} from "../../packages/memory-kernel/src/index.js";
+} from "../../packages/memory-kernel/dist/index.js";
 import type { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 import {
   HASH_A,
   HASH_B,
   NOW,
   USER_SCOPE,
-} from "./examples.js";
+} from "./examples.ts";
 import {
   G5_FIXTURE_ROOT,
   runG5Evaluation,
   seedLearningCandidate,
-} from "./g5-replay.js";
+  type G5ExecutionIdentity,
+} from "./g5-replay.ts";
 import {
   LEARNING_WORKSPACE_SCOPE,
   learningCandidate,
-} from "./learning-examples.js";
+} from "./learning-examples.ts";
 
 export const CANARY_DEADLINE = "2026-07-28T12:10:00.000Z";
 export const CANARY_EXPIRES = "2026-07-28T12:11:00.000Z";
@@ -107,6 +108,7 @@ export async function prepareApprovedCandidate(options: {
   storage: SqliteStorageClient;
   runId: string;
   evaluationKey: string;
+  executionIdentity?: G5ExecutionIdentity;
 }): Promise<{
   evaluation: Awaited<ReturnType<typeof runG5Evaluation>>;
   latest: CandidateLifecycleResult;
@@ -116,6 +118,9 @@ export async function prepareApprovedCandidate(options: {
     storage: options.storage,
     idempotencyKey: options.evaluationKey,
     runId: options.runId,
+    ...(options.executionIdentity === undefined
+      ? {}
+      : { executionIdentity: options.executionIdentity }),
   });
   const lifecycle = new CandidateLifecycle({
     storage: options.storage,

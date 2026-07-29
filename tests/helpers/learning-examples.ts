@@ -27,8 +27,8 @@ import {
   type CandidateChange,
   type CandidateTransition,
   type LearningTrace,
-} from "../../packages/contracts/src/index.js";
-import { HASH_A, HASH_B, LATER, NOW, USER_SCOPE } from "./examples.js";
+} from "../../packages/contracts/dist/index.js";
+import { HASH_A, HASH_B, LATER, NOW, USER_SCOPE } from "./examples.ts";
 
 export const LEARNING_WORKSPACE_SCOPE = {
   kind: "workspace",

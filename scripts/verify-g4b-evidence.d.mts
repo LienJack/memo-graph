@@ -22,6 +22,10 @@ export function assertSingleFrozenCandidate(
   input: unknown,
 ): void;
 
+export function resolveG4BTaskArtifact(
+  relativePath: string,
+): string;
+
 export function verifyG4BEvidence(): Promise<{
   eligibility: G4BEligibility;
   replay: unknown;
