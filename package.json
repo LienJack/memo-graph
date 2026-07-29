@@ -34,7 +34,8 @@
     "test:storage": "pnpm build:storage && vitest run tests/storage",
     "typecheck": "pnpm build:runtime && tsc -p tsconfig.json --noEmit",
     "verify:g3r": "pnpm build:runtime && node scripts/verify-g3r-evidence.mjs",
-    "verify:g4a": "pnpm build:runtime && node scripts/verify-g4a-evidence.mjs"
+    "verify:g4a": "pnpm build:runtime && node scripts/verify-g4a-evidence.mjs",
+    "verify:g4b": "pnpm build:runtime && node scripts/verify-g4b-evidence.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"

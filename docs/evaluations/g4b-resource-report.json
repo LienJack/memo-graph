@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
-  "recorded_at": "2026-07-29T08:58:06.023Z",
+  "recorded_at": "2026-07-29T10:08:30.209Z",
   "gate": "G4B_RESOURCE",
-  "candidate_commit": "b1f7b293ceea46ab67ac25d7b761aa035527433d",
+  "candidate_commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
   "dependency_lock_hash": "sha256:87f5c3f5dde4b8f29758d83866e2afb7d4fd2ae5748e30d3aeed96738faaf585",
   "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
   "thresholds_hash": "sha256:f76018937b09ef56ff4687112712749e61894ad8bf34d43124a30cf02ba29d55",
@@ -12,10 +12,10 @@
     "os": "Darwin 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132",
     "platform": "darwin",
     "architecture": "arm64",
-    "vector_epoch_id": "sha256:afb55d86f227325a6a7c0bdd079ad888ed1b6ed7cc3d8af2b928a1bff157d7fc",
-    "migration_epoch_id": "sha256:82a4a7c8dc4379c65aa4cc5d5e881510c26e653b821b876858681ad7a2b89812",
-    "runner_source_hash": "sha256:14945dfa06d040d5091eecde559270f89ef4656ef8d2a92afb66d434e9fac7d7",
-    "replay_helper_source_hash": "sha256:c60153d09929cc9d0d6e8636364f4a90f81d082416990f29d9e33106e09d00fa",
+    "vector_epoch_id": "sha256:05bde32839153fa41ba5359fd19112a1246aa1d7ebaf7dfef448b7869e8ed5cf",
+    "migration_epoch_id": "sha256:ae0a64d70cffa63acf1c3feb945c96cb4a3642f9376db5793649aa83735f6d67",
+    "runner_source_hash": "sha256:af913339dce5600768cb2292152c66a8b1aeca67da7b04dea86418b453d98ba0",
+    "replay_helper_source_hash": "sha256:f7db363869f2b821bb6e526d32dea78843c21d5a0c46a11edba4ca7795a05070",
     "runtime_source_hash": "sha256:4b9fc03797b467274637d9af5085c1e2bf7b7e5832accac2b5ef21bf5dc81cec",
     "sample_identity": "sha256:6643ca7f6c77cab04bc2edd946ff7ac213c82115ad0ae898539aeffbe3bd37fc"
   },
@@ -39,40 +39,39 @@
     "samples": {
       "warmups": 20,
       "measured": 100,
-      "governed_hash": "sha256:d21bf2c09c274446d0d693a9368f431ba3abadf430a8fd0ec12eee41a50cdab3",
-      "context_hash": "sha256:19b45fec404835070d2fb19d2b4eb44227c529843d537aaca57a40d6973dc1b6",
-      "fallback_hash": "sha256:eb6a85f63d4f38ccab195f1f0a76cb18a2aab14423e024695891f889d85fbb56",
-      "direct_warm_hash": "sha256:a613a83050de9ba01ac872dd063e7cd107cd3c48aa444af58c18e3f68d9b6e6d"
+      "governed_hash": "sha256:2f9e083ab4757a390f7296d48d4882903ea70bb3b78e7756078153de86fb087e",
+      "context_hash": "sha256:1db8fbb8a5f40d22ddab6ceb8454873f4ff64a5f12ae15a8ec0d144e290d3fd9",
+      "fallback_hash": "sha256:54a61df89b827458c55ad1dc461a6906b69b10d5d23b679e5a9da56c9a824bf0",
+      "direct_warm_hash": "sha256:00934c03478357946cf55042c1fdc1fe817dab66a06a58658710e6da61938ec0"
     },
     "latency_ms": {
-      "governed_recall_p50": 598.3333749999983,
-      "governed_recall_p95": 779.624625000004,
-      "governed_recall_p99": 1625.5367499999993,
-      "context_compile_p50": 1256.365959000017,
-      "context_compile_p95": 1770.726416999998,
-      "context_compile_p99": 2025.6724170000089,
-      "fallback_p95": 1.1478749999951106,
-      "cold_ready": 1122.6250420000001,
-      "scope_rebuild": 821.726584,
-      "full_rebuild": 3721.0964169999934,
-      "epoch_migration": 3587.5239159999765,
-      "direct_warm_p50": 20.80904099999998,
-      "direct_warm_p95": 26.66175000000021,
-      "direct_warm_p99": 31.559541999999965
+      "governed_recall_p50": 0.5058330000001661,
+      "governed_recall_p95": 1.3285419999992882,
+      "governed_recall_p99": 3.3823750000001382,
+      "context_compile_p50": 3.162833000000319,
+      "context_compile_p95": 5.641125000000102,
+      "context_compile_p99": 8.727666000000681,
+      "fallback_p95": 0.5807080000004134,
+      "cold_ready": 848.4482499999999,
+      "scope_rebuild": 937.633208,
+      "full_rebuild": 3624.8158750000002,
+      "epoch_migration": 3632.589167,
+      "direct_warm_p50": 20.916667000000416,
+      "direct_warm_p95": 25.29137499999979,
+      "direct_warm_p99": 26.27670799999987
     },
     "outcomes": {
       "direct": {
         "complete": 100
       },
       "governed": {
-        "complete": 70,
-        "degraded:VECTOR_PROCESS_TIMEOUT": 30
+        "degraded:VECTOR_PROCESS_TIMEOUT": 100
       },
       "context": {
         "DEGRADED": 100
       },
       "fallback": {
-        "degraded:VECTOR_MODEL_MISSING": 100
+        "degraded:VECTOR_PROCESS_TIMEOUT": 100
       }
     },
     "physical_bytes": {
@@ -84,14 +83,17 @@
       "index_wal_temp_total": 0
     },
     "rss_bytes": {
-      "parent_before": 282509312,
-      "parent_after": 465059840,
-      "child_idle": 570818560,
-      "child_peak_observed": 732381184
+      "parent_before": 279412736,
+      "parent_after": 472563712,
+      "child_idle": 600522752,
+      "child_peak_observed": 929185792
     },
     "exact_scope_rebuild": {
+      "embedding_epoch_id": "sha256:05bde32839153fa41ba5359fd19112a1246aa1d7ebaf7dfef448b7869e8ed5cf",
+      "generation_id": "g4b_resource_direct_generation",
+      "source_frontier_hash": "sha256:f9b5a3fea931731ed66461b6626bb7c9fb44f3a531d4f6442ba92cd1eaebbfb4",
       "scope_records": 250,
-      "logical_digest": "sha256:8ba20275275d2f7cdab15a57ad2723087873a17fcfc79eb845592e7fc08bcecf"
+      "logical_digest": "sha256:1b1a0e18715063f59de01d2c66426e02c04c66c0337132c1773207da2b75b5d2"
     },
     "expected_profile": {
       "evidence_events": 250000,
@@ -103,11 +105,11 @@
       "logical_digest": "sha256:f0de95850a78c2703cd3370b430e434e488d4174a3b5feb461a32111e87e1de9",
       "native_physical_materialized": true,
       "native_record_count": 25000,
-      "native_logical_digest": "sha256:5b170ea7c8d693287d91b986017c8bf123bc333eec53d9b45e9f835be784ca6f",
+      "native_logical_digest": "sha256:577b6bf5a273928e218ca46e21a0529d17e0104141eb6c2dbba50cf228bee1a2",
       "native_full_rebuild_measured": true,
       "epoch_migration_measured": true,
       "migration_record_count": 25000,
-      "migration_logical_digest": "sha256:eab344282ca9a91d585c6e312f38a6d384986e8243af5d4ef2a09f216e1ff3ce",
+      "migration_logical_digest": "sha256:b989e018a0664fb9d8753628b4614934aa64db5911dc0abb6a9bb671d44f1204",
       "physical_boundary": "100 exact-scope sqlite-vec indexes with deterministic normalized vectors; semantic model latency is measured separately through the real governed runtime"
     }
   },
@@ -118,10 +120,10 @@
     "governed_recall_outcomes": false,
     "context_compile_outcomes": false,
     "fallback_outcomes": true,
-    "governed_recall_p50": false,
-    "governed_recall_p95": false,
-    "context_compile_p50": false,
-    "context_compile_p95": false,
+    "governed_recall_p50": true,
+    "governed_recall_p95": true,
+    "context_compile_p50": true,
+    "context_compile_p95": true,
     "fallback_p95": true,
     "expected_logical_profile": true,
     "expected_native_profile": true,
@@ -129,5 +131,5 @@
     "expected_epoch_migration": true
   },
   "resource_gate": false,
-  "report_hash": "sha256:9fc2d5e7d23e4bcf728605e3193e285401d33610c9e20bbb81d5b7a806728251"
+  "report_hash": "sha256:2c0bec6b23d071d128ed190724d73af1e2ca58f32fa3691d42e8d04eace7b960"
 }

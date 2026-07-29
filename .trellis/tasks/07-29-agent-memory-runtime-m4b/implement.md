@@ -712,40 +712,40 @@ until U9.
 
 ### Evidence checklist
 
-- [ ] Bind accepted baseline commit and lock hash.
-- [ ] Bind tested candidate implementation commit.
-- [ ] Bind dirty-state policy and changed-path digest.
-- [ ] Bind Node/pnpm/OS/architecture and relevant environment.
-- [ ] Bind exact direct/transitive dependency and override identities.
-- [ ] Bind high-severity audit output and frozen-install outcomes.
-- [ ] Bind model repository/revision and all four file hashes/sizes.
-- [ ] Bind embedding epoch and active generation identity.
-- [ ] Bind corpus, partition, calibration configuration, thresholds, and
+- [x] Bind accepted baseline commit and lock hash.
+- [x] Bind tested candidate implementation commit.
+- [x] Bind dirty-state policy and changed-path digest.
+- [x] Bind Node/pnpm/OS/architecture and relevant environment.
+- [x] Bind exact direct/transitive dependency and override identities.
+- [x] Bind high-severity audit output and frozen-install outcomes.
+- [x] Bind model repository/revision and all four file hashes/sizes.
+- [x] Bind embedding epoch and active generation identity.
+- [x] Bind corpus, partition, calibration configuration, thresholds, and
       evaluator capability hashes.
-- [ ] Bind replay and resource report hashes.
-- [ ] Bind focused/full test, lint, typecheck, build, no-optional startup, and
+- [x] Bind replay and resource report hashes.
+- [x] Bind focused/full test, lint, typecheck, build, no-optional startup, and
       artifact-verifier results.
-- [ ] Bind governance/privacy/purge/recovery/fallback outcomes.
-- [ ] Bind scorecard, review, limitations, platform boundary, and active
+- [x] Bind governance/privacy/purge/recovery/fallback outcomes.
+- [x] Bind scorecard, review, limitations, platform boundary, and active
       fallback.
-- [ ] Record commands as data without embedding user secrets or model content.
-- [ ] Verify cross-artifact identity/reference/hash consistency.
-- [ ] Reject GO when any hard rule is false or evidence is missing.
-- [ ] Reject a second candidate or post-holdout calibration change.
+- [x] Record commands as data without embedding user secrets or model content.
+- [x] Verify cross-artifact identity/reference/hash consistency.
+- [x] Reject GO when any hard rule is false or evidence is missing.
+- [x] Reject a second candidate or post-holdout calibration change.
 
 ### Documentation checklist
 
-- [ ] Document private local model materialization and verification.
-- [ ] Document no-network runtime and optional-dependency behavior.
-- [ ] Document vector modes, health, typed degradation, and fallback.
-- [ ] Document exact-scope path/privacy boundary without exposing clear scope
+- [x] Document private local model materialization and verification.
+- [x] Document no-network runtime and optional-dependency behavior.
+- [x] Document vector modes, health, typed degradation, and fallback.
+- [x] Document exact-scope path/privacy boundary without exposing clear scope
       in filenames.
-- [ ] Document rebuild, epoch migration, corruption, outage, purge, restore,
+- [x] Document rebuild, epoch migration, corruption, outage, purge, restore,
       disable, and rollback.
-- [ ] State process containment is not an OS sandbox.
-- [ ] State Darwin arm64/Node 24 is the only tested platform.
-- [ ] State GO is opt-in local evidence, not M6 production readiness.
-- [ ] State NO-GO is a complete supported vector-free outcome.
+- [x] State process containment is not an OS sandbox.
+- [x] State Darwin arm64/Node 24 is the only tested platform.
+- [x] State GO is opt-in local evidence, not M6 production readiness.
+- [x] State NO-GO is a complete supported vector-free outcome.
 
 ### Verification checklist
 
@@ -760,13 +760,13 @@ pnpm audit --audit-level high
 git diff --check
 ```
 
-- [ ] Run a clean frozen-lockfile installation check.
-- [ ] Run vector-disabled build/start with optional dependencies omitted.
-- [ ] Run full-diff correctness, maintainability, testing, security, data
+- [x] Run a clean frozen-lockfile installation check.
+- [x] Run vector-disabled build/start with optional dependencies omitted.
+- [x] Run full-diff correctness, maintainability, testing, security, data
       integrity, reliability, performance, API-contract, and project-standards
       review sequentially in the main thread.
-- [ ] Resolve every critical/high finding and rerun affected gates.
-- [ ] Create the U8 commit.
+- [x] Resolve every critical/high finding and rerun affected gates.
+- [x] Create the U8 commit.
 
 **Rollback point:** documentation/evidence is additive and remains useful for a
 NO-GO.

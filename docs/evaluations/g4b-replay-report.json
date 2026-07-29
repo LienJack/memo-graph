@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "recorded_at": "2026-07-29T08:59:41.638Z",
+  "recorded_at": "2026-07-29T10:07:48.499Z",
   "gate": "G4B_REPLAY",
   "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
   "thresholds_hash": "sha256:f76018937b09ef56ff4687112712749e61894ad8bf34d43124a30cf02ba29d55",
@@ -23,7 +23,7 @@
     "tuner_payload_hash": "sha256:de7201493651274153ac0c581cb312bd3b9bfe9194b1d4b674f2007e8dca0f42",
     "sealed_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
   },
-  "implementation_commit": "b1f7b293ceea46ab67ac25d7b761aa035527433d",
+  "implementation_commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
   "dependency_lock_hash": "sha256:87f5c3f5dde4b8f29758d83866e2afb7d4fd2ae5748e30d3aeed96738faaf585",
   "arms": [
     "fts_recency",
@@ -42,8 +42,8 @@
       "case_role": "positive_gap",
       "family": "english_paraphrase",
       "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
-      "hybrid_passed": true,
-      "strict_gain": true,
+      "hybrid_passed": false,
+      "strict_gain": false,
       "budgets": [
         {
           "case_id": "g4b_cal_irrecoverable_forgetting",
@@ -85,7 +85,7 @@
                 "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -121,7 +121,7 @@
                 "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:789a53863527916d5b80642088f9c56383a7bd25ce5ab5f2fc1cf07f4ae48f56",
               "receipt_hash": "sha256:805daaca339bc49e7fd20906b0b04e89d5d3d228e0a8133ffef723e91e9a0285"
             },
@@ -129,19 +129,10 @@
               "arm": "vector",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "token_used": 677,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -166,27 +157,18 @@
                 "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:554e48f32f6b5e4d345bd4d738f8d44e7dbd33a4b781548f2ae9c8b718e6fa28",
-              "receipt_hash": "sha256:0cc1d4bc36c022d5ef92d22d19ce70e1fbf50446711ae78f4d0d6576d629edb6"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:9500bd89f34e3e3bfb5c0744cd50267d645213479677deac2b9ea15781ba5b84",
+              "receipt_hash": "sha256:8720756b34999a5298cd987fb54106360fc5e13ee171c63c9effbf8fa6e9c5cf"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "token_used": 677,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -211,9 +193,9 @@
                 "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:ab47b947875fa2db4640ad77d4f5651a594ca0ad879df4100fa9a131e7d76e6e",
-              "receipt_hash": "sha256:a0f781ce99bd32cbdf0d122b556c95a70d32fc5b336d13d56564ad81cfed9733"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:367016aef773d7a94d9a8d04ca4cc26ecf489470e43e81f646a10377400319e9",
+              "receipt_hash": "sha256:0c36c4ce41c619d065d5dd527e19487370b6ae5ea68bd2493c4349f4c60b8077"
             }
           },
           "scores": {
@@ -242,32 +224,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_cal_backup"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 677
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_cal_backup"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 677
+              "token_used": 0
             }
           }
         },
@@ -311,7 +289,7 @@
                 "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -347,7 +325,7 @@
                 "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:2205738fd890101d2c2358907a41a0399f312399c05002977a7143fbc6a3d129",
               "receipt_hash": "sha256:4d940c40c3c8555001c1f7eabd5493dfa6c868438e00190bfbd80ecb03342544"
             },
@@ -355,19 +333,10 @@
               "arm": "vector",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "token_used": 677,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -392,27 +361,18 @@
                 "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:4ae6f07cf12da70c9e3a4ddae30864a3bcb08664c8c67fe6f711a8521e2fd0dd",
-              "receipt_hash": "sha256:628767563372e0ba2d8b76081700a72f66272dab46f2d55c195c9f002ff7774e"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:c4dd312c6cc23bb8bac97b1c073624b07ba6a27a285851301fc3201c2be2216f",
+              "receipt_hash": "sha256:e38ff784208f914e28acc5fecee0de7a31bcc31d4065c6b9c987e76800f40480"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_backup",
-                "revision_g4b_cal_purge"
-              ],
-              "token_used": 677,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -437,9 +397,9 @@
                 "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:ab9cd8841ba1081a048afcba20e426f35bf9e881ae6fe3d5b85f5e586aef9785",
-              "receipt_hash": "sha256:878a23135505aee12286305fb6ea91af9477c672f3bf17c0b7fc5e7e1706708b"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:74e2c61bee8e3ae9aeaf88ace26fb879850c58a75e85080edfb9d481aab79439",
+              "receipt_hash": "sha256:f7065f7eb57579aff392a36ef0ba1057c1403b104826f6c173bbf8ccb40306ad"
             }
           },
           "scores": {
@@ -468,32 +428,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_cal_backup"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 677
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_cal_backup"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 677
+              "token_used": 0
             }
           }
         }
@@ -505,8 +461,8 @@
       "case_role": "positive_gap",
       "family": "cross_language",
       "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
-      "hybrid_passed": true,
-      "strict_gain": true,
+      "hybrid_passed": false,
+      "strict_gain": false,
       "budgets": [
         {
           "case_id": "g4b_cal_learning_pause_zh_en",
@@ -548,7 +504,7 @@
                 "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -584,7 +540,7 @@
                 "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:1943a92090aadda4cb0acf93a951d08de47b1319fa3355b3f4080b3a73ffaaaa",
               "receipt_hash": "sha256:22e6a7c778b91bd95c4b010946156daa5a2596aeda774424566f0e7bdfd0d845"
             },
@@ -592,19 +548,10 @@
               "arm": "vector",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "token_used": 677,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -629,27 +576,18 @@
                 "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:bd59b141a21fbac64aacede5d45e0f6007fe8c19863b922a2a1e31c6f4c1ab11",
-              "receipt_hash": "sha256:0084151824fdb097908886ef145671b0a578c9ce4f0e18d77ddf0116bbfa14a5"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:2f2c978b9d546efcccc7f23000a84e0df300436bb2f1064de6793698bf049ecc",
+              "receipt_hash": "sha256:64d27e4b2bb2a739006a9e33e74c3666e614b8702829aae6a19826b9ba546d86"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "token_used": 677,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -674,9 +612,9 @@
                 "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:40d39b26a15b2e4093686a110da9037ca2449b77b24fc0d11c2bbe84d7db3335",
-              "receipt_hash": "sha256:1ace85a4ec4df5193c2b70f931ebf30df4392dfdc3c255c9b46d64588034b97b"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:a0249f73cf2341dd63efff915f5c6c0a831b3923b9f1918b38fa1a26b53b1ab4",
+              "receipt_hash": "sha256:b1370ffb4f8805b04be77e64ec9a06dfa79ac7ea9e0a2f38c058443cc766b9ab"
             }
           },
           "scores": {
@@ -705,32 +643,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_cal_release"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 677
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_cal_release"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 677
+              "token_used": 0
             }
           }
         },
@@ -774,7 +708,7 @@
                 "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -810,7 +744,7 @@
                 "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:3651ce0e4bb41704ba38bf8a6918606393db57b82a3b0438e15d8a7f329c27fb",
               "receipt_hash": "sha256:23a320fe65117be43e890bb8c0be79278615f1ed1ce9e09d169685b69bbf0018"
             },
@@ -818,19 +752,10 @@
               "arm": "vector",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "token_used": 677,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -855,27 +780,18 @@
                 "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:02335f6b102edafb54cc81060040ca03c75618a8245f0f6df929d02cb70e83a1",
-              "receipt_hash": "sha256:c3d9de363f787229c979ce577e1bf869819628174b132be13fb8688805cc7a3c"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:4a0d1dde9dd5afae61df70b26b641561bbb5bdab4986b18298d5fa20866d2492",
+              "receipt_hash": "sha256:05383cd1805c80f7b7e74b82e608c860ee75f560890309afabfdebdaf83be950"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_pause",
-                "revision_g4b_cal_release"
-              ],
-              "token_used": 677,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -900,9 +816,9 @@
                 "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:9c9c628d00f94545b3fba533473a315fab080914aaedcfc45b1c0a4c205fed6d",
-              "receipt_hash": "sha256:c6d3bd3d8c0797626271cfcc31b76718c1545e7b24a8360baec34c26696eb8a8"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:053ea505b0bcb7b59a3e7e595a39ba4da8748c31727b75805272383b7001bcef",
+              "receipt_hash": "sha256:38ab7161036e8ec57557c717193351fc9877b37e1f9ad9c56bb8521dbddca4ca"
             }
           },
           "scores": {
@@ -931,32 +847,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_cal_release"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 677
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_cal_release"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 677
+              "token_used": 0
             }
           }
         }
@@ -968,7 +880,7 @@
       "case_role": "negative_control",
       "family": "scope_negative_control",
       "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
-      "hybrid_passed": true,
+      "hybrid_passed": false,
       "strict_gain": false,
       "budgets": [
         {
@@ -1011,7 +923,7 @@
                 "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -1047,7 +959,7 @@
                 "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:94c508224329dd216204f2bd4daa58fbf60be9e1aaffa99ac77ae4d9061d8701",
               "receipt_hash": "sha256:ce4adb02c6278d25bb304f981619822026db8cc9066d9b9806a9ff6dbe535ba9"
             },
@@ -1055,16 +967,10 @@
               "arm": "vector",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "token_used": 335,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1089,24 +995,18 @@
                 "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:8e74879d635dc9930fcfa12309b75302b4036ca34ab4ca40e4a21d1fc1ae8c4f",
-              "receipt_hash": "sha256:830ac9583ce968bd80da6b65e848335b6059f5ea576845cd437675f0e2813230"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:43970e5b424e867b4970a38e81df20da6c8c846a730ba334ffe3666ca5287441",
+              "receipt_hash": "sha256:1f7ad1d3cf29abd95fec1e42014c5033bb8b3550a497eb7eddb41e2320858f35"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "token_used": 335,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1131,9 +1031,9 @@
                 "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:fdeb0f4bf566f1b6356d5a5218d9476ac6da8c7b3512a01001f52c0cd4ef4b8a",
-              "receipt_hash": "sha256:03ba41a3d087e03619b7bf3164c023aac37770d4cb8f19a3ec3027a451710569"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:356913fe7f59901932b383eb66c3bb84153b646be2a9bebdfcb90a368713f241",
+              "receipt_hash": "sha256:13baf54c869abe08dbff1d98de0e0fda7fb7c8eeae5c0333f85ba0dfc71930f6"
             }
           },
           "scores": {
@@ -1162,28 +1062,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 335
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 335
+              "token_used": 0
             }
           }
         },
@@ -1227,7 +1127,7 @@
                 "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -1263,7 +1163,7 @@
                 "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:6ba04271ea99d8f2ee099eaccb2559e494e2e4677c25955e7ccf3f0e19e5ad65",
               "receipt_hash": "sha256:9c9c994140046bb6a3438b949bcf5d9741ac068689d4573e034ba591a44ed523"
             },
@@ -1271,16 +1171,10 @@
               "arm": "vector",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "token_used": 335,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1305,24 +1199,18 @@
                 "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:1a8496da6b20405afd13b46375f95935017f90df12bee2dba3af3e0c50f14470",
-              "receipt_hash": "sha256:d0131d5eb262a5796f11074ca76b41981c7832ddf8c29ab7c9bbd51fba625b82"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:5a87a14d8f968bcf219292c73e415934837ec8db07cbfa46278c7073e5ec49ca",
+              "receipt_hash": "sha256:a30271448396517f34da4e59462718ca07460665ecd8397a1ff2713ec0e00444"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_cal_node_local"
-              ],
-              "token_used": 335,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1347,9 +1235,9 @@
                 "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:5581184a5178434cff52d7df86834a2bc69bd94d3ec6e468f9481fda2a40338d",
-              "receipt_hash": "sha256:9d5140620dfb16d6870d2f98014520b882ec441b120302ba687d6443f9d0a7da"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:7fb471f25e27c74ac0bd76ffb876a1c968ac9298642282c8ae60e4157c611cf5",
+              "receipt_hash": "sha256:2af66e54be03df9c280a2b810efd8134eed7112217e3c962484b492e01aa43ea"
             }
           },
           "scores": {
@@ -1378,28 +1266,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 335
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 335
+              "token_used": 0
             }
           }
         }
@@ -1411,8 +1299,8 @@
       "case_role": "positive_gap",
       "family": "operational_paraphrase",
       "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
-      "hybrid_passed": true,
-      "strict_gain": true,
+      "hybrid_passed": false,
+      "strict_gain": false,
       "budgets": [
         {
           "case_id": "g4b_hold_projection_fallback",
@@ -1454,7 +1342,7 @@
                 "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -1490,7 +1378,7 @@
                 "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:8e89fff6c41b8de87373cc8f524a31767bebae8d29d5fd45c4fd64d73b156cb4",
               "receipt_hash": "sha256:87c5fd74b71497c99706487b4814bc58a7c6d9f6207540955fa4c956b35d4e54"
             },
@@ -1498,19 +1386,10 @@
               "arm": "vector",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "token_used": 673,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1535,27 +1414,18 @@
                 "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:6b5e8bc720c42c5a628d27b22bc262e057e9aa4d4d03f1c4aef259b299346e5e",
-              "receipt_hash": "sha256:a5f8ee51a9cf289a9f7eee891851cbd1b54bda5ccf69f8af1141a2f8163d2b6c"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:90a537038804559c013bc0dba31a2d256bf8afe89cba873b47a251f2c868ccfa",
+              "receipt_hash": "sha256:d55b9e1fe10ab54f8a443dda958ffa31f5688fd56187ba3f90a466dde2618e4c"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "token_used": 673,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1580,9 +1450,9 @@
                 "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:ecc4fb2c0e017e8164381886e99b39af8a002ed0106e55b5f9bd934d8ea77805",
-              "receipt_hash": "sha256:25d90b1b072a7a337859a9e4550e28a278bf2877da90bb0fb1fcbe5a395e8842"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:c09c37ee6da8417b81e6573e83e4e63a77eaaed3f53a803876520f426398ec27",
+              "receipt_hash": "sha256:583bd467ee539b7f9c6264fea4594300575adb235d5689214cdb9d9f873215a0"
             }
           },
           "scores": {
@@ -1611,32 +1481,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_hold_retry"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 673
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_hold_retry"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 673
+              "token_used": 0
             }
           }
         },
@@ -1680,7 +1546,7 @@
                 "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -1716,7 +1582,7 @@
                 "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:6ece79cfb869b1489eb955a70be32dca6d619d82cbdea91a68a2a1cd6b16a0e9",
               "receipt_hash": "sha256:6d118ae4bb0c4f5541e3841473f36465d66a8ca40076619962ab52954fdcd20a"
             },
@@ -1724,19 +1590,10 @@
               "arm": "vector",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "token_used": 673,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1761,27 +1618,18 @@
                 "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:d7fc14aec1f472acf76c11bda4d755b5eaeaaecc87586db3e15d94fed2cee11c",
-              "receipt_hash": "sha256:b4b49ab853c29f03a638435a86c70db2c1e1f1110d5da0f3c2d1bb20eb5bdaef"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:a8c0561bb166bfe36baf752a49e8ce180c383dd77f0417a1b9f7742e74aa8158",
+              "receipt_hash": "sha256:a41824fdb0405817e505d6001fd1c2eb71c9299d47910c61159205757c5c1bef"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_fallback",
-                "revision_g4b_hold_retry"
-              ],
-              "token_used": 673,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1806,9 +1654,9 @@
                 "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:040f331f2ae2d0c0e3a3edfdd8c0b5360ffda892a96bafac0bb340bf2c3b8e5e",
-              "receipt_hash": "sha256:e49086ca8ca9429509df7db0e9b8c710794fabe9b73d9c0187fdbffda5033576"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:2aa107f38f6ce46a11f4b0307ee01ef3d6637f9e20260c78bc4bd6a792715833",
+              "receipt_hash": "sha256:dca0b2158a4acd5258a25ffb8ae11eed0cf95e4a0837242d271ec95833584eb7"
             }
           },
           "scores": {
@@ -1837,32 +1685,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_hold_retry"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 673
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
-              "distractor_revision_ids": [
-                "revision_g4b_hold_retry"
-              ],
+              "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 673
+              "token_used": 0
             }
           }
         }
@@ -1874,8 +1718,8 @@
       "case_role": "positive_gap",
       "family": "cross_language_correction",
       "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
-      "hybrid_passed": true,
-      "strict_gain": true,
+      "hybrid_passed": false,
+      "strict_gain": false,
       "budgets": [
         {
           "case_id": "g4b_hold_correction_zh_en",
@@ -1917,7 +1761,7 @@
                 "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -1953,7 +1797,7 @@
                 "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:a3e882b1df313625d20422078ba572b8ff1aab51d8c963f3413ff53109a04df4",
               "receipt_hash": "sha256:c566462d5ca2b29462f98bda87aca1a686b4563247f5d96af363fb36f069f0d7"
             },
@@ -1961,16 +1805,10 @@
               "arm": "vector",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "token_used": 347,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -1995,24 +1833,18 @@
                 "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:4a8cef8096f52a1ab127f736c7c60cc81901ec8e02a83a61fe3154ba9af00cb8",
-              "receipt_hash": "sha256:ddabee4548362e3a7bbc7e76fe7b69761062da9fb36d9cf47092d0c45e14f26b"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:d701f125f98c8834a63dd7a00c972ff23878fe1ad5b262b27dedc3321bb4f60c",
+              "receipt_hash": "sha256:92b611ad0a586e5aca867a92e685d3a5aebf17a8857cd7f9ca1ae72af12297ac"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "token_used": 347,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2037,9 +1869,9 @@
                 "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:f2ae80d18506f4e23633cda423fb957bf03b072bd5cd560f353f8e2048d7883e",
-              "receipt_hash": "sha256:d07efb2c9aa866e3f8bad23983f2b2250357f3679c69e8618fdc4c1be34c52ff"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:e6c79e441563a3321709aafc76d2175139e900830270b3d95fa5f09fb276d327",
+              "receipt_hash": "sha256:c558ed9589175caaa58131175d18c27eda57fb2f603aab3f903f89c696ba29c5"
             }
           },
           "scores": {
@@ -2068,28 +1900,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 347
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 347
+              "token_used": 0
             }
           }
         },
@@ -2133,7 +1965,7 @@
                 "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -2169,7 +2001,7 @@
                 "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:a3c04f5332c004a1964f7265d2f78dc9c4ccbe88c472f4c1caa5cd8b4d3087c8",
               "receipt_hash": "sha256:9808c89a7d67f2441d66c0942a331140fe064a67e6148c55975e8e82c0dfb763"
             },
@@ -2177,16 +2009,10 @@
               "arm": "vector",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "token_used": 347,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2211,24 +2037,18 @@
                 "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:6e1dca6b73805be61e43a5c160f0300a8e7f0e7ce66915ed611b25205f2f15b7",
-              "receipt_hash": "sha256:8b1b3ed3d68fb0ae457b1b7f0cbaf870f9bd6dcb1aedae4ec3d9de6f9eca30be"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:4ad00dcb2d9bb8c7828c284455145e46d8ae10d473c9b06ccd752af1ca915317",
+              "receipt_hash": "sha256:8562fa23e8e1fd9bbedddbb36630e5e1ce05235a51ee38e13fdc61d4082d92ef"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_correction"
-              ],
-              "token_used": 347,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2253,9 +2073,9 @@
                 "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:7f3410e874a9942beaecf9bb39fa8132f9063d3d7450d74af4bc42a0506af6e2",
-              "receipt_hash": "sha256:84a7e6bcf338391012127c01bbb2bea33a54a346e083fbdbcda8f9f70490a520"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:c140480734a7b6a56c990d9373d6d4717bd80ade0386886f1c74afefbdd37d98",
+              "receipt_hash": "sha256:48fcd4f745f833ef80a1d92e7e71c29977eb7129d0cfbc6702035c4bd8db801a"
             }
           },
           "scores": {
@@ -2284,28 +2104,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 347
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 347
+              "token_used": 0
             }
           }
         }
@@ -2317,7 +2137,7 @@
       "case_role": "negative_control",
       "family": "lifecycle_negative_control",
       "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
-      "hybrid_passed": true,
+      "hybrid_passed": false,
       "strict_gain": false,
       "budgets": [
         {
@@ -2360,7 +2180,7 @@
                 "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -2396,7 +2216,7 @@
                 "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:77b88c03fcff923a856b6cee55cad3e6c842d303938cf3a68e17cb9cf0b68a49",
               "receipt_hash": "sha256:0ed83fdf0ddca5d6aca51f46a17fee83decac66aaacc9f46c2945a69881bf370"
             },
@@ -2404,16 +2224,10 @@
               "arm": "vector",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "token_used": 336,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2438,24 +2252,18 @@
                 "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:a73f8dbabc6294c77961aef2e505478a56858737b335330b7feca3ea639ff864",
-              "receipt_hash": "sha256:c5ed78b3666e725fa10a82128829a372cd611211b2c269fb762942cc813f9bed"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:2dd095cf39c7298932abc92b9f2f844f5da9a50bece9be5279972bf4b9e950c1",
+              "receipt_hash": "sha256:d7f5ece2bed113bd90be8974122167c47a781187713969f953af48f01e1cd172"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "token_used": 336,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2480,9 +2288,9 @@
                 "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:e164e6bd7c2537744a40ea83d837db5a7475ad4340212e2491f889b6ad5216f9",
-              "receipt_hash": "sha256:4dc8b8ad6e11a823e752bf9a2c02db3252d4612a07d9f50d1b2d71fcd6561d7d"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:097a3bac8b487a110c860a69149bc82892142a3b70b52a8894ad4f73fcef7311",
+              "receipt_hash": "sha256:4fb121f903a488db5060d41140df94d90395bd0bc138f1249cbddc865afa1038"
             }
           },
           "scores": {
@@ -2511,28 +2319,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 336
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 336
+              "token_used": 0
             }
           }
         },
@@ -2576,7 +2384,7 @@
                 "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -2612,7 +2420,7 @@
                 "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:ddac213521a3eefeacadd6e93b390b3c2bb9bf0ae37ea99870f8ca944df59dcb",
               "receipt_hash": "sha256:a2cda09392aba9a5dde471d564971b0cea5035335ef06bfcf107887cd69ccd47"
             },
@@ -2620,16 +2428,10 @@
               "arm": "vector",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "token_used": 336,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2654,24 +2456,18 @@
                 "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:ccce817e3c80ab2f50483bd0b718e9aa6644c4dfda7e8c19a3a003f0d14443bf",
-              "receipt_hash": "sha256:2b730eec67068ba00a1c89ddeb149d4b08b6d046fe945ef181f971d1960ae215"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:2ee96f02e91d85307775656a6d106839971968f1dbe4ef435e3e68a9e81161ba",
+              "receipt_hash": "sha256:61bf9e83060f45dfd82a06aed98ab2daefd1fbed1ee550ca7b1a8189795a171e"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_hold_withdrawal"
-              ],
-              "token_used": 336,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2696,9 +2492,9 @@
                 "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:872faeb77d6075d3824ccdeb01657690d2322077d97adddb592cbe71c24c5d50",
-              "receipt_hash": "sha256:b86b6d8ac8defa42dd2aecac0c3614fea24fad6630df5c816034c47d9d150645"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:efd5655ae8a8ab33719177cc9b73f5cf6fa4a8c5f902317956b5f3fdbe580639",
+              "receipt_hash": "sha256:cc8d02c8dbf8cc84d32e210aba8e5d6471efeaf34318d7fea1557c1cb42f209d"
             }
           },
           "scores": {
@@ -2727,28 +2523,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 336
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 336
+              "token_used": 0
             }
           }
         }
@@ -2760,8 +2556,8 @@
       "case_role": "positive_gap",
       "family": "offline_semantic_operation",
       "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
-      "hybrid_passed": true,
-      "strict_gain": true,
+      "hybrid_passed": false,
+      "strict_gain": false,
       "budgets": [
         {
           "case_id": "g4b_transfer_offline_operation",
@@ -2803,7 +2599,7 @@
                 "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -2839,7 +2635,7 @@
                 "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:82821e4886d862b04e914c8ba19deba944de613394903cb036fafba78a22127a",
               "receipt_hash": "sha256:aaf3a07b0be243fcef28855368dfc8d185f4743f0ce36c9fcbff60628cb99973"
             },
@@ -2847,16 +2643,10 @@
               "arm": "vector",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "token_used": 346,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2881,24 +2671,18 @@
                 "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:143122384c74cd636d1a091ca8b99612bb71258ac5f89a4d7629856abadeb7e7",
-              "receipt_hash": "sha256:6611ce7a413d751675377a4f774b8ff646fd39a5b6e04a0556c19afc07cedf0a"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:3101db7f95a0f963a33844f08f264f7090a6194964352ac7212d69d7ce2f56c4",
+              "receipt_hash": "sha256:5c44ffd7ffa444e0fbe48918deac55321f338d3b350d56d0666d808419239c27"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "token_used": 346,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -2923,9 +2707,9 @@
                 "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:95ac4debf01cff970c76dee37e7f44e4d9eb4a3fd6573be1ba7b14a376b23c0a",
-              "receipt_hash": "sha256:3fb4371ce90f7857946cc49273e304de5bfb8dc80ad968680b3c23e6d8786d61"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:b8676b6120f25d39ba6432b71c499d0b54db733da3b93e5cbdaf2e49137dad91",
+              "receipt_hash": "sha256:0c4ac4f370d44faa70b47317a30ab216451a37b65c2137f2a1ae3b41781ec1ef"
             }
           },
           "scores": {
@@ -2954,28 +2738,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 346
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 346
+              "token_used": 0
             }
           }
         },
@@ -3019,7 +2803,7 @@
                 "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -3055,7 +2839,7 @@
                 "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:ae4fd8208140b403df7264089051b29e247cceec900cfeb55f43085b3c15913e",
               "receipt_hash": "sha256:8277f6133810f820fc34cbf715a21dfa9bee56824963ca681d24ce47799b22a3"
             },
@@ -3063,16 +2847,10 @@
               "arm": "vector",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "token_used": 346,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -3097,24 +2875,18 @@
                 "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:3b7ffa089da66b962bb0230b85bf2da86bae970aef4b7e7fe5c0dad780f4309a",
-              "receipt_hash": "sha256:bb6454302251cd3f65cc0ae334eacc144929b733d66907fd39ddc62dd5b8227f"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:7c914383613bf539dfdc5114c0a33b6bdbd9c21531a99eb6bda4eca3b0e5f8dd",
+              "receipt_hash": "sha256:2194a4fb2bc9c74e26c9c355472f67225d67be57fa62d09131951bbdcc860479"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_transfer_offline"
-              ],
-              "token_used": 346,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -3139,9 +2911,9 @@
                 "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:9050a6d1a71b79f05319d9f30ba8f6e15fdd9b600de9384c7c136ebb15ffb5b9",
-              "receipt_hash": "sha256:fdc7160705c2ccf462fbb8d05b9efbfc3e93b19c92d8132939dfed0ae477d094"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:56d2fd8698cc90edbba749ebf2f5e1dde45ae561bfbc444c8e0b80a0c15a4f66",
+              "receipt_hash": "sha256:5bb2ba0c04d603ad032b5793392a982800be09f62581719b7d60dbbce5dc6c0e"
             }
           },
           "scores": {
@@ -3170,28 +2942,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 346
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 346
+              "token_used": 0
             }
           }
         }
@@ -3203,8 +2975,8 @@
       "case_role": "positive_gap",
       "family": "conceptual_paraphrase",
       "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
-      "hybrid_passed": true,
-      "strict_gain": true,
+      "hybrid_passed": false,
+      "strict_gain": false,
       "budgets": [
         {
           "case_id": "g4b_transfer_context_pollution",
@@ -3246,7 +3018,7 @@
                 "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -3282,7 +3054,7 @@
                 "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:8bb3d47ac478e960851d4d7497ff71ddc7653705c8418ce91900bb41abee36c5",
               "receipt_hash": "sha256:a1e9313bf75473eae71609d5e34d1c7d72f94a5243d77b8346f258b578922103"
             },
@@ -3290,16 +3062,10 @@
               "arm": "vector",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "token_used": 347,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -3324,24 +3090,18 @@
                 "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:e2b48a42da3416c33234c5f738c89b003046ef2e47f02079fa283d2b8d59cade",
-              "receipt_hash": "sha256:71473630b3c90864dbe363e15243d7b52895fa8969065d6981d38e96ac8ddfdc"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:eea64623f7c01c5b0a0b05bdcecf40c4aad53c20cb2304b23a36105b798e0df7",
+              "receipt_hash": "sha256:d91048c0a7ab1c9f68dfa6efe37979a2578cf6dabcd8cbd3ed2c121dd1989dd7"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 1800,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "token_used": 347,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -3366,9 +3126,9 @@
                 "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:a4e533285630501d4579be6d44295178ce3758b6d4b10c1d6aef7012366c8741",
-              "receipt_hash": "sha256:83261b7925332d98ecbff94d83fe3abea1c6865bf161b913346a8f8de25953e9"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:23c98422315871c5e5cf03ba6896a4ff6784634910519f2acba808e8091b0028",
+              "receipt_hash": "sha256:0bfc4e75d8633791c323e9fe0faed679ad439b782b0ce867bf9e268ace18ad65"
             }
           },
           "scores": {
@@ -3397,28 +3157,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 347
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 347
+              "token_used": 0
             }
           }
         },
@@ -3462,7 +3222,7 @@
                 "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -3498,7 +3258,7 @@
                 "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:c9328ddc7832a09c923c952b1af3ae02a15b0673c7972ddcaa923c935b01ee3e",
               "receipt_hash": "sha256:08cee333a2c3511e038cb4d46af9393f4df3f8004c932b46704b3999a3d06b6d"
             },
@@ -3506,16 +3266,10 @@
               "arm": "vector",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "token_used": 347,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -3540,24 +3294,18 @@
                 "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:8f5633506657b649ed339f904bd99a06a1722079e69b8ace6892b0cd0240f250",
-              "receipt_hash": "sha256:c865662c82655b6a6f8f1c797e04e8aad117aa32ebba208683d1b33ac682644c"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:a1d553ec15585e5534547f194587b07eb518ad2f30a52e91d3043f323c36e23b",
+              "receipt_hash": "sha256:3ab36d0e780c94405d6d357531e4694e10cecfe8f4be4702e7b4ab89a4b43477"
             },
             "hybrid": {
               "arm": "hybrid",
               "token_budget": 4096,
               "status": "DEGRADED",
-              "included_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "evidence_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "selection_revision_ids": [
-                "revision_g4b_transfer_budget"
-              ],
-              "token_used": 347,
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
               "duplicate_count": 0,
               "contradiction_count": 0,
               "canonical_eligibility": {
@@ -3582,9 +3330,9 @@
                 "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:7da680ebeb5653d21c542f2bffe4a63d5038fb13e0063db4165d6913f3d17c5a",
-              "receipt_hash": "sha256:39fe39764111c8d98653cbd938f8a89e6d12f29fe313707370e8cc864f0b665b"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:2a4f62bc8ddd0bb252da557b536a7099cd9b2f72ab5a40d2c694fb654a17c64f",
+              "receipt_hash": "sha256:84e76c8016d62f2c01855bf8600124fa737be059c7927a1e33896a26d5d212f7"
             }
           },
           "scores": {
@@ -3613,28 +3361,28 @@
               "token_used": 0
             },
             "vector": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 347
+              "token_used": 0
             },
             "hybrid": {
-              "passed": true,
-              "task_passed": true,
-              "provenance_passed": true,
-              "explanation_passed": true,
-              "expected_included": true,
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
               "prohibited_revision_ids": [],
               "distractor_revision_ids": [],
               "duplicate_count": 0,
               "contradiction_count": 0,
-              "token_used": 347
+              "token_used": 0
             }
           }
         }
@@ -3689,7 +3437,7 @@
                 "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -3725,7 +3473,7 @@
                 "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:6d84021e265fc7f5fe6ced2732117bd7b15e341e035f8dee5a0ff52a896adedb",
               "receipt_hash": "sha256:ee4c35a14d5bcd3138bcb4606efe3cade3027ffc5377630718f3fff824a4ff51"
             },
@@ -3761,9 +3509,9 @@
                 "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:91aca55671eb086c95773a389a0253ca27f4ccf6b98d027a8de507cf512168d9",
-              "receipt_hash": "sha256:351454d27abcc3f0f9395553f22dbc37b241eb04b062dedac563763aa80f0535"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:a9c147c1a776e5cb57a759da0d82ca8589fab41c72a533b19d6a3067ccaa1478",
+              "receipt_hash": "sha256:5553e99d8543f3364448d9a284730d0e36895b41b684f22274f0809b6d921548"
             },
             "hybrid": {
               "arm": "hybrid",
@@ -3797,9 +3545,9 @@
                 "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:1b5b38e82cc4d9a26142039843223ff4a7c9fdbe25729ee4a74a74ad006c384d",
-              "receipt_hash": "sha256:a276eb64119702e9d7ea2d152b8dd2cc490e355c012cfc9e132ae9f231b4e23c"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:a2bd294858332ae3a12ecff878e54b42e0071da258dcda4516212ce9f99561af",
+              "receipt_hash": "sha256:40e7169dc8be9aa72560597ecab57f3a69c553826c5fb065c72e6695398f190f"
             }
           },
           "scores": {
@@ -3893,7 +3641,7 @@
                 "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:199cee7d2c7bf159811ba46e9ea86d92e5b4fe05fe215c8c83c2f65c96ecb8c0",
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
               "context_hash": null,
               "receipt_hash": null
             },
@@ -3929,7 +3677,7 @@
                 "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:eaee4dea5ccf81ac1518acadb0933947cc6e1fc3324e9634e889b0efcd96bd58",
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
               "context_hash": "sha256:66af4fdbe7502a7d9bbc741298d75f545cb7393c76965d5b679e132ceda2ab11",
               "receipt_hash": "sha256:caff834fc42ae814726f172188189dd7bd28b6d1fdbb128831ed9b35009e1c00"
             },
@@ -3965,9 +3713,9 @@
                 "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:15b7040e62b7d269b4686984cf17af9e3579f284b39390481cd2c990e2df6fab",
-              "context_hash": "sha256:b4fc644ca600c52e369248f8c2aacfec64452e91815c23f993f76daa22732907",
-              "receipt_hash": "sha256:4c710d298d9db2d7e2a1a23e85ffa1d4504062293861057b490b54cdcfd4b027"
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:b8daf6ad5dfddd372845cd5028a557580e93011d160c0fa2e120cab79f16b635",
+              "receipt_hash": "sha256:526e607a95220f63a91442ad36ef5383cfc425024f60643714611c1a84da59a2"
             },
             "hybrid": {
               "arm": "hybrid",
@@ -4001,9 +3749,9 @@
                 "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
                 "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
               },
-              "arm_configuration_hash": "sha256:205b0601c0c5c942790508137824f7855ea990e513e10e6f037cbcf4fcf2282f",
-              "context_hash": "sha256:750f4ec484f5355b6845dfd58600488f86481b75d0dfc53b7d642b5859a06b43",
-              "receipt_hash": "sha256:5017534bcb708e55b8fdb05d20026e9f462ccf1c34d4304c42412f399507dd4f"
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:3f4cf10b670ce85367da378f7533ee7d73e13bb7b77eb0a479161306d48c7c0d",
+              "receipt_hash": "sha256:bc247a5ca86f5889742c007fb340721647b5497ba34e156f69826da2919e067a"
             }
           },
           "scores": {
@@ -4061,39 +3809,42 @@
     }
   ],
   "summary": {
-    "positive_cases_solved": 6,
-    "strict_case_gains": 6,
-    "holdout_gains": 2,
-    "transfer_gains": 2,
-    "critical_regressions": [],
+    "positive_cases_solved": 0,
+    "strict_case_gains": 0,
+    "holdout_gains": 0,
+    "transfer_gains": 0,
+    "critical_regressions": [
+      "g4b_cal_exact_scope_isolation:HYBRID_NEGATIVE_CONTROL_FAILED",
+      "g4b_hold_revoked_similarity_trap:HYBRID_NEGATIVE_CONTROL_FAILED"
+    ],
     "pollution_deltas": [
       {
         "case_id": "g4b_cal_irrecoverable_forgetting",
         "token_budget": 1800,
         "layered": 0,
-        "hybrid": 1,
-        "delta": 1
+        "hybrid": 0,
+        "delta": 0
       },
       {
         "case_id": "g4b_cal_irrecoverable_forgetting",
         "token_budget": 4096,
         "layered": 0,
-        "hybrid": 1,
-        "delta": 1
+        "hybrid": 0,
+        "delta": 0
       },
       {
         "case_id": "g4b_cal_learning_pause_zh_en",
         "token_budget": 1800,
         "layered": 0,
-        "hybrid": 1,
-        "delta": 1
+        "hybrid": 0,
+        "delta": 0
       },
       {
         "case_id": "g4b_cal_learning_pause_zh_en",
         "token_budget": 4096,
         "layered": 0,
-        "hybrid": 1,
-        "delta": 1
+        "hybrid": 0,
+        "delta": 0
       },
       {
         "case_id": "g4b_cal_exact_scope_isolation",
@@ -4113,15 +3864,15 @@
         "case_id": "g4b_hold_projection_fallback",
         "token_budget": 1800,
         "layered": 0,
-        "hybrid": 1,
-        "delta": 1
+        "hybrid": 0,
+        "delta": 0
       },
       {
         "case_id": "g4b_hold_projection_fallback",
         "token_budget": 4096,
         "layered": 0,
-        "hybrid": 1,
-        "delta": 1
+        "hybrid": 0,
+        "delta": 0
       },
       {
         "case_id": "g4b_hold_correction_zh_en",
@@ -4196,24 +3947,24 @@
     ]
   },
   "threshold_results": {
-    "hybrid_positive_success": true,
-    "strict_case_gains": true,
-    "holdout_gain": true,
-    "transfer_gain": true,
-    "critical_regressions": true,
-    "negative_controls": true,
-    "context_pollution": false
+    "hybrid_positive_success": false,
+    "strict_case_gains": false,
+    "holdout_gain": false,
+    "transfer_gain": false,
+    "critical_regressions": false,
+    "negative_controls": false,
+    "context_pollution": true
   },
   "utility_gate": false,
-  "logical_results_hash": "sha256:4bc49ae27ef5988032df8659684f6a67667760f980dcfb0e7e6bd6171460ea7c",
+  "logical_results_hash": "sha256:24740004c4021d24a61086129af2aeb8d59233acc0db6a275e81fdbb6169f606",
   "repeat": {
     "schema_version": "1.0.0",
     "runs": 2,
     "deterministic": true,
     "logical_results_hashes": [
-      "sha256:4bc49ae27ef5988032df8659684f6a67667760f980dcfb0e7e6bd6171460ea7c",
-      "sha256:4bc49ae27ef5988032df8659684f6a67667760f980dcfb0e7e6bd6171460ea7c"
+      "sha256:24740004c4021d24a61086129af2aeb8d59233acc0db6a275e81fdbb6169f606",
+      "sha256:24740004c4021d24a61086129af2aeb8d59233acc0db6a275e81fdbb6169f606"
     ]
   },
-  "report_hash": "sha256:484420e712396923f3add4be21a4ed8ca925446d55b0f404f757330c805c9d75"
+  "report_hash": "sha256:58b088d8cf943ed5bee1c86c91937eb093f77dd473a84124c563dcf09eb05318"
 }

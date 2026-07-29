@@ -573,6 +573,10 @@ try {
         child_peak_observed: childPeakRss,
       },
       exact_scope_rebuild: {
+        embedding_epoch_id: directSnapshot.embedding_epoch_id,
+        generation_id: directSnapshot.generation_id,
+        source_frontier_hash:
+          directSnapshot.frontier.source_frontier_hash,
         scope_records: directSnapshot.records.length,
         logical_digest: directSnapshot.logical_digest,
       },
