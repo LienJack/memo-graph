@@ -452,9 +452,11 @@ gate decisions.
 | Gate | Current status | Tested implementation | Decision |
 | --- | --- | --- | --- |
 | G3 Layered Context | `GO` after H3 remediation on 2026-07-29 | `6224f782c86712488d416d8101ef7c9fa477c0ae` | `docs/evaluations/g3r-h3-decision.md` |
+| G4A Graph | `NO-GO` on 2026-07-29; SQLite adjacency retained | `36421f5cd75007a1421d3e0594e7881dd4b864b2` | `docs/evaluations/g4a-decision.md` |
 
-G3R GO makes M4A, M4B, and M5 eligible for separate Trellis workflows. It
-does not enable projection lanes by default and does not adopt graph, vector,
+G3R GO made M4A, M4B, and M5 eligible for separate Trellis workflows. G4A
+completed with `NO-GO`; it retains SQLite adjacency and does not enable the
+graph lane. M4B remains independent. Neither G3R nor G4A adopts vector,
 learning release, or M6 production readiness.
 
 ---
@@ -494,7 +496,7 @@ learning release, or M6 production readiness.
 - [x] Confirm Trellis parent remains `planning` after the fresh implementation request.
 - [x] Create the M0 child task after implementation approval.
 - [ ] Ensure each child task has one owner, explicit files, dependencies, first failing tests, Gate and rollback.
-- [ ] Revalidate current MCP SDK, Node, SQLite and maintained graph candidates at implementation time.
+- [x] Revalidate current MCP SDK, Node, SQLite and maintained graph candidates at M4A implementation time.
 
 ### Before each implementation batch
 
@@ -510,7 +512,7 @@ learning release, or M6 production readiness.
 - [ ] Record included/excluded cases, versions, hashes and unresolved debt.
 - [ ] Verify correction, deletion and scope outcomes across every new store.
 - [ ] Compare against the last accepted baseline on identical frozen cases.
-- [ ] Produce an explicit `GO`, `NO-GO`, `HOLD` or `FALLBACK` decision.
+- [x] Produce an explicit `GO`, `NO-GO`, `HOLD` or `FALLBACK` decision for G4A.
 
 ### Before release review
 

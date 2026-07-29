@@ -1,6 +1,6 @@
 # ADR 0003: Local Graph Selection Gate
 
-- Status: Accepted gate; no backend selected
+- Status: Accepted gate; G4A completed NO-GO
 - Date: 2026-07-28
 - Gate: G0, with implementation decision deferred to G4A
 
@@ -39,3 +39,27 @@ Every candidate must be scored on:
 Kùzu is not a default candidate for this new project because the upstream
 repository is archived. A future scorecard must evaluate products maintained
 at G4A execution time instead of freezing a vendor choice in this ADR.
+
+## G4A result — 2026-07-29
+
+G4A evaluated `@ladybugdb/core@0.18.3` on Darwin arm64 against accepted G3R
+commit `6224f782c86712488d416d8101ef7c9fa477c0ae`. The reviewed implementation
+candidate was `36421f5cd75007a1421d3e0594e7881dd4b864b2`.
+
+Decision: **NO-GO**.
+
+The first failed hard gate was structural value: the graph-enabled arm
+produced zero strict gains over both the accepted baseline and graph-free
+reference, and the cycle/fanout transfer case regressed. The resource gate
+also failed because the Expected native rebuild was not measured and idle
+child RSS exceeded the frozen 128 MiB threshold.
+
+SQLite adjacency remains the active implementation. The graph lane remains
+default-off and unavailable for Context, the native process is not
+auto-started, and additive graph state remains inert/rebuildable evidence.
+The complete decision and rerun conditions are recorded in
+`docs/evaluations/g4a-decision.md`.
+
+This dated result preserves the original gate decision: local graph adoption
+requires measured structural value and all hard invariants; process
+containment alone is not sufficient.

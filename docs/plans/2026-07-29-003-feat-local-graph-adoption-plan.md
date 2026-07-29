@@ -1,11 +1,11 @@
 ---
 title: M4A Local Graph Projection Adoption
 type: feat
-status: ready
+status: completed
 date: 2026-07-29
 deepened: 2026-07-29
 artifact_contract: ce-unified-plan/v1
-artifact_readiness: implementation-plan-ready
+artifact_readiness: decision-complete
 implementation_authorized: true
 origin: docs/brainstorms/2026-07-29-m4a-local-graph-adoption-requirements.md
 product_contract: docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md
@@ -16,17 +16,27 @@ milestone: M4A
 gate: G4A
 baseline_commit: 6224f782c86712488d416d8101ef7c9fa477c0ae
 candidate: "@ladybugdb/core@0.18.3"
+tested_candidate_commit: 36421f5cd75007a1421d3e0594e7881dd4b864b2
+decision: NO-GO
+decision_evidence: docs/evaluations/g4a-decision.md
 ---
 
 # M4A Local Graph Projection Adoption
 
 ## Summary
 
-M4A will test one pinned LadybugDB adapter as a disposable L2/L3 projection
+M4A tested one pinned LadybugDB adapter as a disposable L2/L3 projection
 behind SQLite authority. The implementation freezes its structural corpus and
 thresholds first, isolates all native queries in a killable local process, and
 admits the graph lane only if paired replay proves material value with no
 governance, recovery, resource, or fallback regression.
+
+The completed G4A decision is **NO-GO**. Containment, governance, recovery and
+artifact integrity passed, but the first hard failure was structural value:
+zero strict gains and one transfer regression. The resource gate also failed
+because Expected native rebuild evidence is missing and idle RSS exceeds the
+frozen threshold. SQLite adjacency remains active and the graph lane remains
+disabled for Context.
 
 ## Problem Frame
 
@@ -986,6 +996,10 @@ frozen structural/resource evaluation.
 
 Land U8 evidence against one candidate, then U9 records G4A `GO` or `NO-GO`.
 
+Completed on 2026-07-29 as `NO-GO` against candidate
+`36421f5cd75007a1421d3e0594e7881dd4b864b2`. See
+`docs/evaluations/g4a-decision.md`.
+
 ## Documentation / Operational Notes
 
 - `docs/runbooks/graph-rebuild.md` must be executable by a local operator and
@@ -995,6 +1009,8 @@ Land U8 evidence against one candidate, then U9 records G4A `GO` or `NO-GO`.
 - README changes occur only after G4A status is known and must not imply
   default enablement.
 - A `NO-GO` records useful evidence and is not an implementation failure.
+- The recorded G4A outcome is `NO-GO`; SQLite adjacency is the active
+  fallback and graph-derived state is inert.
 - A `GO` is scoped to the tested local environment and opt-in configuration;
   it is not M6 production release evidence.
 - M4B may start after M4A completion regardless of G4A outcome.

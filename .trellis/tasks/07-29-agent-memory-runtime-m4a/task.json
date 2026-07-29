@@ -30,10 +30,15 @@
     ".trellis/tasks/07-29-agent-memory-runtime-m4a/implement.md",
     "docs/plans/2026-07-29-003-feat-local-graph-adoption-plan.md"
   ],
-  "notes": "Run ce-brainstorm, research-to-article, ce-plan, and ce-work in order under Trellis. Commit every completed unit separately. GO and NO-GO are both complete G4A outcomes.",
+  "notes": "Completed evidence supports G4A NO-GO. SQLite adjacency remains active; relation_graph is unavailable for Context and default-off. M4B remains independent.",
   "meta": {
     "milestone": "M4A",
     "gate": "G4A",
-    "implementation_authorized": "true"
+    "implementation_authorized": "true",
+    "decision": "NO-GO",
+    "tested_candidate": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+    "evidence_manifest": "docs/evaluations/g4a-reproducibility-manifest.json",
+    "first_failed_gate": "structural_gate",
+    "active_fallback": "accepted_g3r_sqlite"
   }
 }

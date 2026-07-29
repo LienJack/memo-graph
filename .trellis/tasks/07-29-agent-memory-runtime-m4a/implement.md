@@ -896,17 +896,20 @@ pnpm audit --prod
 
 ### Decision checklist
 
-- [ ] Verify the decision references exactly one tested candidate/evidence
+- [x] Verify the decision references exactly one tested candidate/evidence
       identity or one U2 hard-stop identity.
-- [ ] List qualification, implementation, structural, governance, recovery,
+- [x] List qualification, implementation, structural, governance, recovery,
       resource, review, and artifact results separately.
-- [ ] Record each threshold with measured value or explicit missing evidence.
-- [ ] Record limitations, platform scope, unverified platforms, and synthetic
+- [x] Record each threshold with measured value or explicit missing evidence.
+- [x] Record limitations, platform scope, unverified platforms, and synthetic
       evidence boundary.
-- [ ] Record default policy and active SQLite fallback.
-- [ ] Record graph database/process/package status after decision.
+- [x] Record default policy and active SQLite fallback.
+- [x] Record graph database/process/package status after decision.
 
 ### GO branch
+
+Not applicable because the recorded decision is `NO-GO`; the GO-only
+checkboxes remain intentionally unselected.
 
 - [ ] Require all six hard-gate families to pass.
 - [ ] Require material structural gain and no partition regression.
@@ -919,29 +922,29 @@ pnpm audit --prod
 
 ### NO-GO branch
 
-- [ ] Name the first failed hard gate and supporting artifact.
-- [ ] Mark graph lane unavailable/disabled for Context.
-- [ ] Preserve SQLite adjacency and accepted G3R behavior.
-- [ ] Keep additive graph state inert or delete graph files safely.
-- [ ] Avoid runtime auto-start or enabled native dependency.
-- [ ] Record exact conditions required for future reevaluation.
-- [ ] Mark NO-GO as completed M4A, not `HOLD` or unfinished work.
+- [x] Name the first failed hard gate and supporting artifact.
+- [x] Mark graph lane unavailable/disabled for Context.
+- [x] Preserve SQLite adjacency and accepted G3R behavior.
+- [x] Keep additive graph state inert or delete graph files safely.
+- [x] Avoid runtime auto-start or enabled native dependency.
+- [x] Record exact conditions required for future reevaluation.
+- [x] Mark NO-GO as completed M4A, not `HOLD` or unfinished work.
 
 ### Closure checklist
 
-- [ ] Update ADR 0003 with the dated G4A result without erasing the original
+- [x] Update ADR 0003 with the dated G4A result without erasing the original
       gate decision.
-- [ ] Mark the unified plan and Trellis task completed with the decision.
+- [x] Mark the unified plan and Trellis task completed with the decision.
 - [ ] Run Trellis check and finish/archive workflow.
 - [ ] Record journal summary, commits, tests, decision, limitations, and
       fallback.
-- [ ] Create a scoped decision commit.
+- [x] Create a scoped decision commit.
 - [ ] Create separate archive and journal commits when those logical tasks
       complete.
-- [ ] Do not push or create a pull request without explicit user permission.
-- [ ] State that M4B is independent and may start its own
+- [x] Do not push or create a pull request without explicit user permission.
+- [x] State that M4B is independent and may start its own
       brainstorm→research→plan→work flow.
-- [ ] State that G4A does not authorize M5 or M6.
+- [x] State that G4A does not authorize M5 or M6.
 
 ### Final closure verification
 
