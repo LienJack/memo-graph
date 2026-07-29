@@ -18,8 +18,11 @@ The only product requirement numbering is R1-R20 in
 M4A requirements are captured in
 `docs/brainstorms/2026-07-29-m4a-local-graph-adoption-requirements.md`.
 
-M4A implements R8, R9, R12, R14, R19, and R20 without creating new product
+M4A implements R8, R12, R14, R19, and R20 without creating new product
 requirement identifiers.
+
+Product Contract R9 remains the independent M4B vector boundary. M4A neither
+implements nor redefines it.
 
 ## Confirmed Facts
 

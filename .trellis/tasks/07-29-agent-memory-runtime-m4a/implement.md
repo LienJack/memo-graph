@@ -1,0 +1,901 @@
+# Agent Memory Runtime M4A — Execution Checklist
+
+## 1. Execution contract
+
+This checklist implements M4A only. Product requirements keep their existing
+R8, R12, R14, R19, and R20 identities. Product Contract R9 remains the
+independent M4B vector boundary. Work is test-first, dependency ordered, and
+committed once per completed logical unit.
+
+Use Node `24.18.0` and pnpm `10.33.2` for every meaningful verification:
+
+```bash
+source /Users/lienli/.nvm/nvm.sh
+nvm use 24.18.0
+```
+
+### Commit policy
+
+| Unit | Commit intent |
+| --- | --- |
+| U1 | `feat(graph): freeze adoption contracts and corpus` |
+| U2 | `feat(graph): isolate LadybugDB process` |
+| U3 | `feat(storage): persist graph delivery checkpoints` |
+| U4 | `feat(graph): project and rebuild exact scopes` |
+| U5 | `feat(memory): add governed graph recall lane` |
+| U6 | `test(graph): close governance and recovery oracles` |
+| U7 | `test(graph): freeze G4A replay and resources` |
+| U8 | `docs(graph): bind G4A verification evidence` |
+| U9 | `docs(graph): record G4A decision` |
+
+Before each commit:
+
+- run the unit's focused verification;
+- run lint/typecheck/build whenever public or cross-package contracts change;
+- run `git diff --check`;
+- inspect staged paths and exclude unrelated user work;
+- record the exact commit in the next dependent artifact.
+
+### Hard-stop rule
+
+U2 is a mandatory containment gate. If the parent process cannot:
+
+1. return a typed SQLite fallback by p95 100 ms after the 75 ms graph
+   deadline;
+2. terminate/quarantine the native child;
+3. reopen or rebuild the graph without publishing corruption; and
+4. continue SQLite-only operation,
+
+then mark U3–U8 skipped with evidence and proceed directly to U9 `NO-GO`.
+
+Any later critical governance, privacy, purge, or authority failure also stops
+feature expansion and proceeds to the decision path.
+
+## 2. Non-negotiable invariants
+
+- SQLite owns identity, authority, scope, lifecycle, validity, sensitivity,
+  evidence, tombstones, deletion receipts, projection frontier, and Context
+  receipts.
+- LadybugDB stores only rebuildable IDs, hashes, epochs, and lineage metadata.
+- Native graph work never runs in the MCP process.
+- The wrapper timeout is cooperative; the parent process deadline is final.
+- Graph starts are SQLite-approved and exact-scope.
+- Every graph path element is postvalidated in SQLite.
+- Incomplete graph work is degraded and cannot be clean `NO_MATCH`.
+- Correction, block, revoke, tombstone, and purge suppress the next read before
+  physical graph convergence.
+- A graph failure never blocks valid SQLite mutation, delete, restore, or
+  recall.
+- Incremental exact-scope state and full rebuild have the same canonical
+  logical digest.
+- The six cases, partitions, thresholds, and expected results freeze before
+  adapter tuning.
+- Holdout and transfer payloads are evaluation-only.
+- Graph-disabled behavior remains equal to accepted G3R.
+- `relation_graph` stays disabled by default in GO and NO-GO outcomes.
+- M4B, M5, and M6 remain outside this task.
+
+## 3. U1 — Freeze contracts, structural corpus, and thresholds
+
+**Requirements:** R8, R12, R19–R20; F1/F3/F4;
+M4A-AC1/M4A-AC5/M4A-AC8/M4A-AC9.
+
+**Depends on:** None.
+
+**Files:**
+
+- `packages/contracts/src/graph.ts`
+- `packages/contracts/src/projections.ts`
+- `packages/contracts/src/replay.ts`
+- `packages/contracts/src/mcp.ts`
+- `packages/contracts/src/receipts.ts`
+- `packages/contracts/src/index.ts`
+- `fixtures/g4a/manifest.json`
+- `fixtures/g4a/cases/*.json`
+- `tests/contract/graph-store.contract.test.ts`
+- `tests/contract/projections.contract.test.ts`
+- `tests/contract/mcp.contract.test.ts`
+- `tests/contract/receipts.contract.test.ts`
+- `tests/fixtures/g4a-overlay.fixture.test.ts`
+
+### Test-first checklist
+
+- [ ] Add valid minimal graph node, edge, scope snapshot, checkpoint, delivery
+      receipt, backend identity, and ordered path fixtures.
+- [ ] Reject graph nodes or edges that contain rendered memory content,
+      evidence bodies, approvals, ACLs, or deletion receipts.
+- [ ] Reject mismatched principal, exact scope, lifecycle, validity, epoch,
+      hash, transform, or lineage across snapshot elements.
+- [ ] Reject duplicate node, edge, revision, relation, evidence, or path
+      identities.
+- [ ] Prove unordered physical input normalizes to one canonical logical
+      digest.
+- [ ] Prove changed scope, edge direction, validity, hash, or lineage changes
+      the digest.
+- [ ] Reject graph queries with no explicit depth, starts, path/result bound,
+      or parent deadline.
+- [ ] Reject raw Cypher, caller-provided graph paths, path escape, symlink
+      substitution, or unbounded relation allowlists.
+- [ ] Reject a partial/incomplete graph result without a stable reason.
+- [ ] Add `relation_graph` lane tests while preserving `relation_sqlite`.
+- [ ] Add graph starts, path/result, depth, timeout, and process bounded-work
+      categories with count invariants.
+- [ ] Prove request graph limits can only narrow operator policy.
+- [ ] Prove disabled graph lane reports zero candidates/selections.
+- [ ] Prove old G3 lane policies, Contexts, receipts, and hashes remain
+      unchanged.
+- [ ] Freeze six case bodies with two calibration, two holdout, and two
+      transfer partitions.
+- [ ] Freeze exact expected revision sets, ordered proof paths, evidence
+      lineage, completeness, and abstention.
+- [ ] Freeze material gain: three strict improvements, including one holdout
+      and one transfer, with no regression.
+- [ ] Define a strict improvement as C matching the complete expected
+      assertions while both A and B fail at least one under identical
+      semantics and limits; reject candidate-count, ordering-only, or
+      latency-only credit.
+- [ ] Freeze host deadline, fallback, latency, startup, rebuild, disk, install,
+      and RSS thresholds.
+- [ ] Add fixture tests that reject any case, partition, threshold, or expected
+      result hash drift.
+- [ ] Add partition-access tests that prevent tuning code from opening
+      holdout/transfer payloads.
+
+### Implementation checklist
+
+- [ ] Define backend/native identity without importing LadybugDB types.
+- [ ] Define minimal graph node and edge envelopes.
+- [ ] Define exact-scope graph snapshot and canonical logical digest builder.
+- [ ] Define graph delivery/checkpoint/rebuild evidence.
+- [ ] Define bounded graph query and ordered path evidence.
+- [ ] Define process health and typed failure/degradation categories.
+- [ ] Extend lane policy, telemetry, Context, receipt, and replay contracts
+      through optional/versioned fields.
+- [ ] Add `relation_graph` to every exhaustive lane mapping and ensure old
+      callers are not default-enabled.
+- [ ] Create immutable G4A manifest and case files.
+- [ ] Export all new public schemas, builders, and types.
+
+### Focused verification
+
+```bash
+pnpm vitest run \
+  tests/contract/graph-store.contract.test.ts \
+  tests/contract/projections.contract.test.ts \
+  tests/contract/mcp.contract.test.ts \
+  tests/contract/receipts.contract.test.ts \
+  tests/fixtures/g4a-overlay.fixture.test.ts
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+### Completion evidence
+
+- [ ] Contract invalid/boundary cases fail for the intended reason.
+- [ ] G3 artifact compatibility is exact.
+- [ ] G4A corpus and threshold hashes are recorded.
+- [ ] Create the U1 commit.
+
+**Rollback point:** revert U1; no dependency, migration, or graph state exists.
+
+## 4. U2 — Process-isolated LadybugDB GraphStore
+
+**Requirements:** R8, R14, R19–R20; F1/F3;
+M4A-AC1/M4A-AC6/M4A-AC7.
+
+**Depends on:** U1.
+
+**Files:**
+
+- `packages/graph-projection/package.json`
+- `packages/graph-projection/tsconfig.json`
+- `packages/graph-projection/src/graph-store.ts`
+- `packages/graph-projection/src/process-host.ts`
+- `packages/graph-projection/src/ladybug-process.ts`
+- `packages/graph-projection/src/ladybug-adapter.ts`
+- `packages/graph-projection/src/logical-digest.ts`
+- `packages/graph-projection/src/index.ts`
+- `package.json`
+- `pnpm-lock.yaml`
+- `tests/contract/graph-store.contract.test.ts`
+- `tests/recovery/graph-process.recovery.test.ts`
+- `tests/security/graph-process-protocol.test.ts`
+
+### Test-first checklist
+
+- [ ] Prove the package top level imports with optional LadybugDB absent.
+- [ ] Prove `pnpm install --frozen-lockfile --no-optional`, build, and MCP
+      SQLite-only startup succeed without the LadybugDB native dependency.
+- [ ] Reject startup when package version, storage version, platform,
+      architecture, or native binary identity differs from configuration.
+- [ ] Prove a valid child reports exact backend/native identity.
+- [ ] Reject oversized, malformed, unknown-version, unknown-operation,
+      duplicate-ID, or late IPC messages.
+- [ ] Reject graph paths outside the canonical data root and symlink
+      substitution.
+- [ ] Prove child environment excludes unrelated parent secrets and paths.
+- [ ] Prove documentation and health evidence describe the child as
+      crash/availability containment, not an OS sandbox or malicious-native
+      defense.
+- [ ] Prove only closed typed query operations reach the adapter; raw Cypher
+      is rejected before IPC.
+- [ ] Prove one read/write child owns one database path.
+- [ ] Prove concurrent writes are serialized and concurrent query bounds are
+      enforced.
+- [ ] Prove schema creation, scope replacement, scope delete, bounded path,
+      logical snapshot, close, and reopen.
+- [ ] Prove explicit transaction rollback leaves no partial node/edge state.
+- [ ] Start an adversarial native query and prove the parent returns typed
+      fallback by the 75 ms deadline.
+- [ ] Measure at least 100 timeout/fallback samples and require p95 <=100 ms.
+- [ ] Kill the child during a query and prove the parent remains responsive.
+- [ ] Kill the child during an uncommitted write and prove reopen has only the
+      prior committed logical digest.
+- [ ] Prove duplicate, late, or post-timeout response cannot satisfy another
+      request.
+- [ ] Prove replacement starts outside the timed-out request critical path.
+- [ ] Prove a replacement child becomes healthy within 2 seconds.
+- [ ] Repeatedly fail the child and prove restart rate limiting/circuit breaker
+      prevents fork, CPU, timer, and process storms.
+- [ ] Prove parent shutdown leaves no orphan child.
+- [ ] Prove process stderr/logs contain no graph payload or memory content.
+- [ ] Prove a graph crash cannot close or corrupt SQLite storage.
+
+### Implementation checklist
+
+- [ ] Pin `@ladybugdb/core@0.18.3` and approved native build metadata.
+- [ ] Declare it as the graph package's optional dependency and add the graph
+      package to the root workspace build order after storage and before MCP.
+- [ ] Keep the memory kernel dependent only on a backend-neutral retriever
+      port; compose the optional graph package at the MCP boundary without a
+      package cycle.
+- [ ] Add the workspace package without making graph a default lane.
+- [ ] Dynamically import LadybugDB only inside the child.
+- [ ] Implement runtime-decoded bounded IPC.
+- [ ] Derive and confine graph paths; construct a minimal child environment.
+- [ ] Implement parent request identity, deadline, response matching, and
+      quarantine state.
+- [ ] Implement OS process termination and non-blocking replacement.
+- [ ] Implement restart rate limit and bounded circuit-breaker cooldown.
+- [ ] Use async graph APIs for user/structural queries; ban sync query path.
+- [ ] Keep explicit transactions for scope writes and lifecycle operations.
+- [ ] Close native results, connections, database, IPC, and timers.
+- [ ] Compute logical digest through the shared contract builder.
+- [ ] Emit content-free stable failure categories.
+
+### Focused verification
+
+```bash
+pnpm vitest run \
+  tests/contract/graph-store.contract.test.ts \
+  tests/recovery/graph-process.recovery.test.ts \
+  tests/security/graph-process-protocol.test.ts
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+### Completion evidence
+
+- [ ] Native identity and dependency hashes are recorded.
+- [ ] Timeout fallback p95 and process replacement threshold pass.
+- [ ] Kill-during-query/write recovery passes without SQLite impact.
+- [ ] Decide whether the hard-stop gate permits U3.
+- [ ] Create the U2 commit.
+
+**Rollback point:** remove/disable the optional graph package; SQLite runtime
+is unchanged.
+
+## 5. U3 — SQLite graph-delivery queue and scope checkpoints
+
+**Requirements:** R8, R14, R19; F2/F3;
+M4A-AC4/M4A-AC5/M4A-AC7.
+
+**Depends on:** U2 hard-stop pass.
+
+**Files:**
+
+- `migrations/0012-graph-projection-delivery.sql`
+- `packages/storage-sqlite/src/graph-projection-repository.ts`
+- `packages/storage-sqlite/src/migrations.ts`
+- `packages/storage-sqlite/src/protocol.ts`
+- `packages/storage-sqlite/src/database.ts`
+- `packages/storage-sqlite/src/client.ts`
+- `packages/storage-sqlite/src/storage-worker.ts`
+- `packages/storage-sqlite/src/projection-repository.ts`
+- `packages/storage-sqlite/src/projection-effects.ts`
+- `packages/storage-sqlite/src/index.ts`
+- `tests/storage/graph-projection-schema.integration.test.ts`
+- `tests/storage/data-root-and-migrations.integration.test.ts`
+- `tests/governance/derived-invalidation.integration.test.ts`
+
+### Test-first checklist
+
+- [ ] Apply migration `0012` after `0011` on empty and populated databases.
+- [ ] Prove old canonical and projection rows remain byte/logically unchanged.
+- [ ] Prove SQLite-only open and queries work with no graph package/process.
+- [ ] Create distinct graph checkpoints for two exact scopes and one backend.
+- [ ] Reject decreasing ledger, tombstone, projection, or graph epochs.
+- [ ] Reject ready scope without non-null frontier, digest, and backend
+      identity.
+- [ ] Reject content or evidence body in job, checkpoint, receipt, or error.
+- [ ] Prove projection batch apply enqueues the exact affected scope.
+- [ ] Prove correction/revoke/tombstone/purge marks only affected graph scope
+      pending in the same canonical transaction.
+- [ ] Prove unrelated scope remains ready and unchanged.
+- [ ] Prove stable job identity makes duplicate canonical effect idempotent.
+- [ ] Prove one worker claims a job lease and another cannot steal it early.
+- [ ] Prove expired lease can be reclaimed with attempts preserved.
+- [ ] Prove stale frontier job cannot publish ready.
+- [ ] Prove apply compares job lease, expected frontier, backend, and digest.
+- [ ] Prove failure preserves pending/unavailable state and typed retry
+      evidence.
+- [ ] Prove reset/rebuild marks the intended scopes without deleting history.
+- [ ] Runtime-decode every new storage worker command and result.
+- [ ] Prove restore opens with graph scopes unavailable until reverified.
+
+### Implementation checklist
+
+- [ ] Add guarded append-only delivery/checkpoint/receipt tables and indexes.
+- [ ] Add stable job IDs, bounded lease/attempt state, and content-free error
+      categories.
+- [ ] Add exact-scope canonical graph snapshot query and expected logical
+      digest.
+- [ ] Couple graph pending/enqueue to projection apply/invalidation
+      transactions.
+- [ ] Add claim, apply, fail, reset, rebuild, scope state, counts, and health
+      repository operations.
+- [ ] Route every operation through database, worker, client, and public
+      storage exports.
+- [ ] Preserve one serialized SQLite writer and short transactions.
+- [ ] Keep absent graph state disabled/inert rather than failed.
+
+### Focused verification
+
+```bash
+pnpm vitest run \
+  tests/storage/graph-projection-schema.integration.test.ts \
+  tests/storage/data-root-and-migrations.integration.test.ts \
+  tests/governance/derived-invalidation.integration.test.ts
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+### Completion evidence
+
+- [ ] Migration and old-database compatibility pass.
+- [ ] Scope isolation, monotonicity, lease/retry, and stale apply pass.
+- [ ] Canonical mutation and graph pending evidence are atomic.
+- [ ] Create the U3 commit.
+
+**Rollback point:** code may ignore the additive graph tables; leave them inert.
+
+## 6. U4 — Exact-scope projector and deterministic rebuild
+
+**Requirements:** R8, R14, R19; F2/F3;
+M4A-AC3/M4A-AC4/M4A-AC5/M4A-AC7.
+
+**Depends on:** U3.
+
+**Files:**
+
+- `packages/graph-projection/src/projector.ts`
+- `packages/graph-projection/src/rebuilder.ts`
+- `packages/graph-projection/src/sqlite-baseline.ts`
+- `packages/graph-projection/src/logical-digest.ts`
+- `packages/storage-sqlite/src/graph-projection-repository.ts`
+- `tests/integration/graph-projection.integration.test.ts`
+- `tests/recovery/graph-rebuild.recovery.test.ts`
+- `tests/recovery/graph-backup-restore.test.ts`
+
+### Test-first checklist
+
+- [ ] Project one exact scope with topic, scenario, procedure, relation, core,
+      and evidence-lineage identities.
+- [ ] Prove graph nodes/edges contain IDs/hashes/epochs only, no memory text.
+- [ ] Prove scope replacement removes obsolete edges/nodes and preserves
+      unrelated scopes.
+- [ ] Prove graph scope logical digest equals SQLite expected digest.
+- [ ] Prove a digest mismatch fails the job and leaves scope non-ready.
+- [ ] Prove duplicate job and replay after crash converge idempotently.
+- [ ] Prove a job whose canonical frontier changes before write is abandoned.
+- [ ] Prove a frontier change after graph write cannot publish stale ready.
+- [ ] Kill the child before scope transaction commit and prove no partial
+      scope.
+- [ ] Kill the child after graph commit but before SQLite checkpoint and prove
+      safe idempotent replay.
+- [ ] Build the same logical graph through different scope/job order and prove
+      equal digest.
+- [ ] Run full rebuild into a fresh path and compare every scope plus global
+      digest.
+- [ ] Close/reopen the rebuilt path and repeat the digest comparison.
+- [ ] Prove physical graph file hashes may differ while logical equality
+      passes.
+- [ ] Corrupt the rebuild target and prove it is never published.
+- [ ] Restore SQLite plus stale/missing graph and prove graph remains
+      unavailable until rebuild.
+- [ ] Prove backup/import/rebuild cannot publish a graph whose digest differs
+      from restored SQLite.
+
+### Implementation checklist
+
+- [ ] Convert exact-scope canonical snapshot to minimal graph node/edge
+      envelopes.
+- [ ] Implement an evaluation-only deterministic graph-free reference over
+      the same bounded SQLite slice, typed/shortest-path semantics, tie-breaks,
+      and limits as the graph arm.
+- [ ] Recheck job/frontier before child dispatch.
+- [ ] Replace one exact scope inside one graph transaction.
+- [ ] Read back and compare canonical scope digest.
+- [ ] Advance SQLite checkpoint only after lease/frontier/digest equality.
+- [ ] Implement bounded claim/drain loop with idempotent retry.
+- [ ] Implement fresh-path full rebuild and stable scope enumeration.
+- [ ] Verify close/reopen before publish.
+- [ ] Quarantine failed/corrupt targets.
+- [ ] Record content-free projection and rebuild receipts.
+
+### Focused verification
+
+```bash
+pnpm vitest run \
+  tests/integration/graph-projection.integration.test.ts \
+  tests/recovery/graph-rebuild.recovery.test.ts \
+  tests/recovery/graph-backup-restore.test.ts
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+### Completion evidence
+
+- [ ] Scope replacement and full rebuild logical equality pass.
+- [ ] Crash windows and stale frontier cannot publish.
+- [ ] Restore trusts SQLite, not graph backup.
+- [ ] Create the U4 commit.
+
+**Rollback point:** stop projector, mark graph unavailable, use SQLite lanes.
+
+## 7. U5 — Governed graph recall lane and Context integration
+
+**Requirements:** R8, R12, R14, R19; F3;
+M4A-AC4/M4A-AC5/M4A-AC6/M4A-AC7.
+
+**Depends on:** U4.
+
+**Files:**
+
+- `packages/graph-projection/src/graph-retriever.ts`
+- `packages/memory-kernel/src/lane-retrievers.ts`
+- `packages/memory-kernel/src/recall-orchestrator.ts`
+- `packages/memory-kernel/src/index.ts`
+- `packages/context-compiler/src/hard-filters.ts`
+- `packages/context-compiler/src/receipt-builder.ts`
+- `packages/context-compiler/src/index.ts`
+- `packages/mcp-server/src/index.ts`
+- `packages/mcp-server/src/cli.ts`
+- `tests/integration/graph-recall.integration.test.ts`
+- `tests/integration/layered-recall.integration.test.ts`
+- `tests/compiler/layered-context-compiler.test.ts`
+- `tests/mcp/context-compiler.test.ts`
+
+### Test-first checklist
+
+- [ ] Prove default runtime and MCP policy excludes `relation_graph`.
+- [ ] Prove request cannot enable graph when operator policy denies it.
+- [ ] Prove explicit permitted graph lane starts the optional retriever only
+      when dependency/process/checkpoint are healthy.
+- [ ] Build starts only from SQLite-approved exact-scope revisions.
+- [ ] Build a canonical SQLite bounded structural slice with allowed relation
+      revision IDs and exact start/fanout/work counts.
+- [ ] Prove the graph query cannot traverse outside the SQLite allowlist.
+- [ ] Reject graph query before dispatch when scope checkpoint is pending,
+      stale, rebuilding, unavailable, wrong backend, or wrong frontier.
+- [ ] Return exact typed explanatory path and shortest valid path fixtures.
+- [ ] Enforce relation pattern, direction, `as_of`, depth, path/result, and
+      parent deadline.
+- [ ] Prove raw query text cannot be supplied through MCP, kernel, retriever,
+      IPC, or GraphStore contracts.
+- [ ] Prove start truncation and graph path/result truncation have separate
+      counts/reasons.
+- [ ] Prove timeout, result+1, process exit, or unknown backend work is
+      incomplete/degraded.
+- [ ] Prove truncated empty graph result cannot be `NO_MATCH`.
+- [ ] Revalidate every node and edge identity in one or bounded exact SQLite
+      snapshot.
+- [ ] Reject whole path if any node/edge is missing, stale, wrong scope,
+      outside validity, blocked, revoked, tombstoned, purged, or invalidated.
+- [ ] Reject whole path if evidence/lower-layer lineage or graph frontier
+      differs.
+- [ ] Prove graph score/path length cannot override a canonical exclusion.
+- [ ] Prove correction between graph response and postvalidation excludes the
+      path.
+- [ ] Prove unrelated valid path remains eligible.
+- [ ] Seal ordered proof IDs, query hash, frontier, completeness, counts,
+      elapsed time, and reasons into Context/receipt.
+- [ ] Prove receipt bytes do not include graph database content or diagnostic
+      payload.
+- [ ] Prove graph failure retains `relation_sqlite` and `recent_l1`.
+- [ ] Prove graph-disabled candidate produces accepted G3R semantic outputs.
+- [ ] Prove graph package absent still starts MCP and serves SQLite tools.
+
+### Implementation checklist
+
+- [ ] Extend lane retrieval composition without creating package cycles.
+- [ ] Select canonical starts and current exact scope checkpoint.
+- [ ] Reuse SQLite bounded relation traversal to produce the structural
+      allowlist and authoritative fanout/work telemetry.
+- [ ] Dispatch only bounded, decoded graph query requests.
+- [ ] Convert graph paths to raw ID/hash evidence, not final content.
+- [ ] Batch exact canonical node/edge/source validation.
+- [ ] Attribute every exclusion/degradation to graph telemetry.
+- [ ] Keep clean no-match conditional on complete graph and active fallback
+      work.
+- [ ] Extend compiler hard filters and receipt sealing for graph proof paths.
+- [ ] Add explicit optional graph configuration with default disabled.
+- [ ] Keep SQLite-only startup and shutdown independent of graph child.
+
+### Focused verification
+
+```bash
+pnpm vitest run \
+  tests/integration/graph-recall.integration.test.ts \
+  tests/integration/layered-recall.integration.test.ts \
+  tests/compiler/layered-context-compiler.test.ts \
+  tests/mcp/context-compiler.test.ts
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+### Completion evidence
+
+- [ ] Every graph result has live canonical node/edge/evidence proof.
+- [ ] All incomplete/failure modes degrade and fall back honestly.
+- [ ] Default-off and graph-absent compatibility pass.
+- [ ] Create the U5 commit.
+
+**Rollback point:** disable `relation_graph`; keep additive state and graph file
+for inspection while serving SQLite.
+
+## 8. U6 — Governance, purge, privacy, and recovery Oracles
+
+**Requirements:** R8, R14, R19–R20; F2/F3;
+M4A-AC4/M4A-AC5/M4A-AC6/M4A-AC7.
+
+**Depends on:** U5.
+
+**Files:**
+
+- `tests/governance/graph-purge-propagation.test.ts`
+- `tests/governance/graph-correction.integration.test.ts`
+- `tests/recovery/graph-rebuild.test.ts`
+- `tests/recovery/graph-backup-restore.test.ts`
+- `tests/recovery/graph-outage.recovery.test.ts`
+- `tests/security/graph-content-residual.test.ts`
+- `docs/runbooks/graph-rebuild.md`
+- `packages/graph-projection/src/projector.ts`
+- `packages/graph-projection/src/rebuilder.ts`
+- `packages/graph-projection/src/graph-retriever.ts`
+
+### Test-first checklist
+
+- [ ] Correct an intermediate path revision and prove immediate suppression
+      before graph delivery drains.
+- [ ] Demote, usage block, revoke, tombstone, and purge each intermediate
+      node/edge and prove next-read suppression.
+- [ ] Prove correction/revoke in scope A does not change scope B readiness or
+      result.
+- [ ] Prove concurrent graph response cannot outrun a canonical frontier
+      change.
+- [ ] Prove repeated invalidation and delivery are idempotent.
+- [ ] Prove a failed delete/replacement leaves scope pending and path excluded.
+- [ ] Scan live graph, WAL/checkpoint files, export/import, backup, IPC,
+      stderr, logs, error receipts, benchmark reports, and test artifacts for
+      purged plaintext.
+- [ ] Prove graph database missing at startup yields typed SQLite fallback.
+- [ ] Prove locked database yields typed fallback and bounded restart/retry.
+- [ ] Prove child crash during query and write yields typed fallback.
+- [ ] Prove malformed child response cannot enter Context.
+- [ ] Prove deliberate graph corruption quarantines the store and starts
+      rebuild without affecting SQLite.
+- [ ] Prove backup/restore marks graph unavailable until logical equality.
+- [ ] Prove graph backup with stale extra path cannot resurrect it.
+- [ ] Prove full graph deletion and rebuild preserve authoritative memory.
+- [ ] Prove no failure emits a memory-content diagnostic.
+- [ ] Prove repeated outage does not create unbounded child processes,
+      timers, leases, queue work, or disk growth.
+- [ ] Prove the runbook commands/steps identify active path, frontier, digest,
+      fallback, and publish evidence without exposing content.
+
+### Implementation checklist
+
+- [ ] Complete stable lifecycle/failure category mapping.
+- [ ] Ensure canonical effects mark graph scope pending synchronously.
+- [ ] Ensure projector removes or replaces stale scope state.
+- [ ] Keep fallback active throughout backup/restore/rebuild.
+- [ ] Add residual scanning for every graph-derived artifact surface.
+- [ ] Bound retry, lease, process replacement, quarantine, and retained backup
+      state.
+- [ ] Write inspect/disable/quarantine/delete/rebuild/verify/publish runbook.
+
+### Focused verification
+
+```bash
+pnpm vitest run \
+  tests/governance/graph-purge-propagation.test.ts \
+  tests/governance/graph-correction.integration.test.ts \
+  tests/recovery/graph-rebuild.test.ts \
+  tests/recovery/graph-backup-restore.test.ts \
+  tests/recovery/graph-outage.recovery.test.ts \
+  tests/security/graph-content-residual.test.ts
+pnpm test:governance
+pnpm test:recovery
+pnpm lint
+pnpm typecheck
+```
+
+### Completion evidence
+
+- [ ] Zero resurrection, cross-scope change, or prohibited residual.
+- [ ] All outage/corruption/restore paths retain SQLite operation.
+- [ ] Runbook matches tested behavior.
+- [ ] Create the U6 commit.
+
+**Rollback point:** disable graph lane/process and keep SQLite-only runtime.
+
+## 9. U7 — Frozen paired replay and physical resource evidence
+
+**Requirements:** R12, R19–R20; F3/F4;
+M4A-AC3/M4A-AC5/M4A-AC8.
+
+**Depends on:** U5; run after U6 for final evidence.
+
+**Files:**
+
+- `packages/graph-projection/src/benchmark.ts`
+- `scripts/run-g4a-replay.mjs`
+- `scripts/run-g4a-resource-benchmark.mjs`
+- `scripts/run-g4a-baseline.mjs`
+- `scripts/verify-g4a-evidence.mjs`
+- `tests/replay/graph-multihop.test.ts`
+- `tests/integration/graph-benchmark.integration.test.ts`
+- `docs/evaluations/graph-scorecard.md`
+- `.trellis/tasks/07-29-agent-memory-runtime-m4a/check.jsonl`
+
+### Test-first checklist
+
+- [ ] Reject baseline arm unless its commit equals accepted G3R.
+- [ ] Reject B/C unless they share one candidate commit and lockfile.
+- [ ] Reject package/native/corpus/partition/policy/request/frontier/budget/
+      threshold identity drift.
+- [ ] Prove calibration runner cannot open holdout/transfer payloads.
+- [ ] Prove all arms receive identical canonical SQLite input and limits.
+- [ ] Prove Arms B and C receive identical typed/shortest-path task semantics
+      and governed slices; reject any comparison that withholds the reference
+      algorithm from B.
+- [ ] Prove Arm B's runtime output outside the evaluation-only reference is
+      semantically equal to accepted G3R.
+- [ ] Score exact revision set, ordered proof path, evidence, completeness, and
+      abstention for each case.
+- [ ] Reject top-k/candidate count as task gain.
+- [ ] Reject ordering-only or latency-only differences as strict structural
+      gain.
+- [ ] Require three strict gains including one holdout and one transfer.
+- [ ] Reject any case or partition regression.
+- [ ] Reject any governance, privacy, correction, purge, rebuild, recovery, or
+      budget violation.
+- [ ] Reject missing Expected physical dataset or measurement.
+- [ ] Require at least 20 warm-ups and 100 measured query samples.
+- [ ] Measure graph-assisted p50/p95 and fallback p95.
+- [ ] Measure process startup/replacement and Expected full rebuild.
+- [ ] Measure graph database, WAL, export/backup, install delta, idle RSS, peak
+      RSS, queue debt, and retained quarantine bytes.
+- [ ] Record Node, pnpm, OS, architecture, SQLite, LadybugDB, storage, native
+      binary, compiler, transform, schema, sample, and warm-up identity.
+- [ ] Prove missing/failed/mixed report cannot be interpreted as GO.
+- [ ] Prove repeated evaluation produces the same logical scores and hashes.
+
+### Implementation checklist
+
+- [ ] Implement exact accepted-baseline isolation.
+- [ ] Implement versioned A/B/C evaluation protocol.
+- [ ] Run Arm B through the evaluation-only graph-free structural reference
+      and Arm C through LadybugDB over the identical governed slice.
+- [ ] Implement calibration/holdout/transfer access guard.
+- [ ] Implement structural scorer and strict-gain comparison.
+- [ ] Implement physical Expected profile materialization.
+- [ ] Implement latency, fallback, startup, rebuild, disk, install, RSS, and
+      process-resource measurements.
+- [ ] Emit machine-readable reports plus human scorecard.
+- [ ] Implement independent evidence hash verifier.
+- [ ] Add root focused graph test/benchmark/verify scripts.
+
+### Focused verification
+
+```bash
+pnpm test:graph
+pnpm benchmark:graph
+pnpm verify:g4a
+pnpm test:g3r:h3
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+### Completion evidence
+
+- [ ] A/B/C identity and frozen-input checks pass.
+- [ ] Structural material-gain result is explicit.
+- [ ] Every hard safety/resource gate is explicit.
+- [ ] Reports distinguish measured Darwin arm64 evidence from declarations.
+- [ ] Create the U7 commit.
+
+**Rollback point:** evidence can conclude NO-GO without changing SQLite runtime.
+
+## 10. U8 — Candidate freeze, full verification, and full-diff review
+
+**Requirements:** R19–R20; F4; M4A-AC8/M4A-AC9.
+
+**Depends on:** U6–U7.
+
+**Files:**
+
+- `docs/evaluations/g4a-code-review.md`
+- `docs/evaluations/g4a-reproducibility-manifest.json`
+- `scripts/verify-g4a-evidence.mjs`
+- `.trellis/tasks/07-29-agent-memory-runtime-m4a/check.jsonl`
+
+### Freeze checklist
+
+- [ ] Record candidate commit before final evidence generation.
+- [ ] Record dependency lock and every workspace package hash.
+- [ ] Record package/native binary, Node, pnpm, OS, architecture, SQLite,
+      storage schema, graph schema, compiler, transform, protocol, corpus,
+      threshold, and environment identity.
+- [ ] Record all focused and full command outputs as immutable artifacts or
+      hash-bound reports.
+
+### Full verification checklist
+
+- [ ] Fresh frozen install under Node `24.18.0` and pnpm `10.33.2`.
+- [ ] Frozen install with optional dependencies omitted builds and starts the
+      SQLite-only MCP runtime.
+- [ ] Production dependency audit has no unaccepted finding.
+- [ ] Full build passes.
+- [ ] Full lint passes.
+- [ ] Full typecheck passes.
+- [ ] Full repository test suite passes.
+- [ ] All graph contract/storage/integration/governance/recovery/security/
+      replay suites pass.
+- [ ] Accepted G3R focused suite and evidence verification pass.
+- [ ] SQLite-only startup and graph-disabled parity pass.
+- [ ] Migration upgrade from every supported fixture passes.
+- [ ] Structural and resource reports verify against frozen hashes.
+- [ ] No untracked executable artifact influences results.
+- [ ] `git diff --check`, JSON parsing, Markdown fences, and Trellis context
+      validation pass.
+
+### Full-diff review checklist
+
+- [ ] Correctness review covers timeout, late response, epoch, digest, and
+      clean-no-match failure scenarios.
+- [ ] Architecture review confirms one-way authority and no package cycle.
+- [ ] Security review covers IPC validation, process control, paths, logs,
+      native identity, child environment, closed queries, restart storms, and
+      content residual.
+- [ ] Data-integrity review covers migration, leases, checkpoints, crash
+      windows, restore, and purge.
+- [ ] Reliability review covers startup, shutdown, kill, orphan, restart,
+      lock, corruption, and fallback.
+- [ ] Performance review covers query work, child churn, queue debt, disk, RSS,
+      rebuild, and benchmark representativeness.
+- [ ] Contract/API review covers lane/version compatibility and optional
+      dependency behavior.
+- [ ] Testing review maps every AC and hard gate to executable evidence.
+- [ ] Project-standards review confirms Trellis, TypeScript, storage worker,
+      diagnostics, and commit constraints.
+- [ ] Resolve every P0/P1 before decision.
+- [ ] If executable code changes, freeze a new candidate and regenerate all
+      dependent evidence.
+
+### Final verification
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:graph
+pnpm test:g3r:h3
+pnpm benchmark:graph
+pnpm verify:g3r
+pnpm verify:g4a
+pnpm audit --prod
+```
+
+### Completion evidence
+
+- [ ] One manifest binds all code, dependency, native, corpus, threshold,
+      report, review, and environment identities.
+- [ ] No unresolved P0/P1 remains.
+- [ ] The first failing gate, if any, is unambiguous.
+- [ ] Create the U8 evidence commit without executable changes.
+
+**Rollback point:** graph remains default-off; decision may be NO-GO.
+
+## 11. U9 — G4A decision, closure, and next-gate boundary
+
+**Requirements:** R8, R19–R20; F4; M4A-AC2/M4A-AC8/M4A-AC9.
+
+**Depends on:** U2 hard-stop failure or U8 complete evidence.
+
+**Files:**
+
+- `docs/evaluations/g4a-decision.md`
+- `docs/adr/0003-local-graph-selection-gate.md`
+- `docs/plans/2026-07-29-003-feat-local-graph-adoption-plan.md`
+- `.trellis/tasks/07-29-agent-memory-runtime-m4a/task.json`
+- `.trellis/tasks/07-29-agent-memory-runtime-m4a/check.jsonl`
+- `.trellis/workspace/*/journal-*`
+
+### Decision checklist
+
+- [ ] Verify the decision references exactly one tested candidate/evidence
+      identity or one U2 hard-stop identity.
+- [ ] List qualification, implementation, structural, governance, recovery,
+      resource, review, and artifact results separately.
+- [ ] Record each threshold with measured value or explicit missing evidence.
+- [ ] Record limitations, platform scope, unverified platforms, and synthetic
+      evidence boundary.
+- [ ] Record default policy and active SQLite fallback.
+- [ ] Record graph database/process/package status after decision.
+
+### GO branch
+
+- [ ] Require all six hard-gate families to pass.
+- [ ] Require material structural gain and no partition regression.
+- [ ] Require zero critical correctness/governance/privacy failure.
+- [ ] Require all Expected resource thresholds and full evidence.
+- [ ] Require no unresolved P0/P1.
+- [ ] Mark graph lane available only through explicit operator opt-in.
+- [ ] Keep default runtime policy graph-disabled.
+- [ ] Scope GO to the physically tested platform/environment.
+
+### NO-GO branch
+
+- [ ] Name the first failed hard gate and supporting artifact.
+- [ ] Mark graph lane unavailable/disabled for Context.
+- [ ] Preserve SQLite adjacency and accepted G3R behavior.
+- [ ] Keep additive graph state inert or delete graph files safely.
+- [ ] Avoid runtime auto-start or enabled native dependency.
+- [ ] Record exact conditions required for future reevaluation.
+- [ ] Mark NO-GO as completed M4A, not `HOLD` or unfinished work.
+
+### Closure checklist
+
+- [ ] Update ADR 0003 with the dated G4A result without erasing the original
+      gate decision.
+- [ ] Mark the unified plan and Trellis task completed with the decision.
+- [ ] Run Trellis check and finish/archive workflow.
+- [ ] Record journal summary, commits, tests, decision, limitations, and
+      fallback.
+- [ ] Create a scoped decision commit.
+- [ ] Create separate archive and journal commits when those logical tasks
+      complete.
+- [ ] Do not push or create a pull request without explicit user permission.
+- [ ] State that M4B is independent and may start its own
+      brainstorm→research→plan→work flow.
+- [ ] State that G4A does not authorize M5 or M6.
+
+### Final closure verification
+
+```bash
+pnpm verify:g4a
+git status --short
+```
+
+**Final outcome:** exactly one of `GO` or `NO-GO`, with SQLite authority and
+default graph-disabled behavior in both cases.

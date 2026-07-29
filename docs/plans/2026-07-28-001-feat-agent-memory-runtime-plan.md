@@ -365,7 +365,7 @@ flowchart LR
 
 ### U6. Graph projection adoption decision
 
-- **Covers:** R8–R9, R12, R14, R19–R20; F2/F3; AE4.
+- **Covers:** R8, R12, R14, R19–R20; F2/F3; AE4.
 - **Dependencies:** U5.
 - **Outputs:** `GraphStore` port, maintained-candidate scorecard, read-only adapter spike, projector/rebuilder, graph lane, adoption or rejection receipt.
 - **Approach:** prefilter in SQLite; project versioned L2/L3 nodes/edges through outbox; revalidate traversal results; compare only declared structural cases against SQLite adjacency.

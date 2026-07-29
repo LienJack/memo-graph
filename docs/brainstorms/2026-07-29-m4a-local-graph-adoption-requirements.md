@@ -65,7 +65,7 @@ increase carrying cost without proving user value.
     `NO-GO` without forcing an adapter dependency.
   - **Outcome:** the spike has one reproducible candidate identity or a
     complete qualification-based rejection.
-  - **Covered by:** R8, R9, R19, R20
+  - **Covered by:** R8, R19, R20
 
 - F2. Derived projection and rebuild
   - **Trigger:** a qualified candidate is selected for a spike.
@@ -94,7 +94,7 @@ increase carrying cost without proving user value.
     SQLite adjacency/L1 fallback.
   - **Outcome:** graph traversal cannot weaken authority, privacy, or Context
     explanations.
-  - **Covered by:** R8, R9, R12, R14, R19
+  - **Covered by:** R8, R12, R14, R19
 
 - F4. G4A adoption decision
   - **Trigger:** qualification, spike, paired replay, resource, recovery, and
@@ -109,7 +109,7 @@ increase carrying cost without proving user value.
     `NO-GO`.
   - **Outcome:** downstream work can name one immutable graph decision and
     fallback configuration.
-  - **Covered by:** R9, R19, R20
+  - **Covered by:** R19, R20
 
 ---
 
@@ -125,11 +125,11 @@ namespace.
 - R8. Every graph node, edge, traversal result, and Context item must
   drill down to live canonical SQLite revisions and evidence. Graph
   structure, traversal frequency, or connectivity never upgrades authority.
-- R9. Graph retrieval is an optional structural signal. The accepted SQLite
-  relation path remains complete and usable when the graph is absent,
-  rejected, disabled, stale, rebuilding, or failed.
-
 **Governed recall and propagation**
+
+Product Contract R9 remains unchanged and belongs to the independent M4B
+vector decision; M4A does not create a graph-specific replacement definition
+for R9.
 
 - R12. Exact principal, scope, lifecycle, validity, sensitivity, conflict,
   usage-block, and tombstone rules apply before traversal and again before a
@@ -259,11 +259,11 @@ namespace.
 
 ### Deferred to Research and Planning
 
-- [Affects R8/R9/R20][Needs research] Which currently maintained local graph
+- [Affects R8/R20][Needs research] Which currently maintained local graph
   candidates have first-party evidence for Node support, temporal properties,
   bounded multi-hop queries, transactions, backup/export, deterministic
   deletion, and local distribution?
-- [Affects R9/R20][Needs research] Which frozen cases demonstrate a structural
+- [Affects R8/R20][Needs research] Which frozen cases demonstrate a structural
   gap beyond the accepted SQLite adjacency behavior, and what gain is
   material enough to justify the added dependency?
 - [Affects R14/R19][Technical] What backend-neutral logical projection

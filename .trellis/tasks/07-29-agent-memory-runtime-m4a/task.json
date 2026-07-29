@@ -21,6 +21,8 @@
   "children": [],
   "parent": "07-28-agent-memory-runtime",
   "relatedFiles": [
+    "docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md",
+    "docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md",
     "docs/brainstorms/2026-07-29-m4a-local-graph-adoption-requirements.md",
     ".trellis/tasks/07-29-agent-memory-runtime-m4a/prd.md",
     ".trellis/tasks/07-29-agent-memory-runtime-m4a/research/research-handoff.md",
