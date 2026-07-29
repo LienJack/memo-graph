@@ -484,6 +484,7 @@ export class VectorScopeProjector {
     await mkdir(layout.quarantineRoot, { recursive: true });
     let runtime: VectorProjectionRuntime | null = null;
     let publishedPath = false;
+    let publishedLogicalDigest: string | null = null;
     try {
       const before = ProjectionSourceListSchema.parse(
         await this.#storage.listProjectionSources({
@@ -585,6 +586,7 @@ export class VectorScopeProjector {
       }
       await rename(layout.quarantineRoot, layout.activeRoot);
       publishedPath = true;
+      publishedLogicalDigest = snapshot.logical_digest;
       const appliedReceipt = receipt({
         job,
         receiptId: `vector-receipt:${digestSegment({
@@ -638,6 +640,31 @@ export class VectorScopeProjector {
       };
     } catch (error) {
       if (publishedPath) {
+        try {
+          const committed = VectorScopeCheckpointSchema.parse(
+            await this.#storage.vectorProjectionCheckpoint({
+              principal_id: job.principal_id,
+              scope: job.scope,
+            }),
+          );
+          if (
+            committed.state === "published" &&
+            committed.active_epoch_id === job.desired_epoch_id &&
+            committed.active_generation_id ===
+              job.desired_generation_id &&
+            committed.logical_digest === publishedLogicalDigest
+          ) {
+            return {
+              job_id: job.job_id,
+              status: "published",
+              generation_id: job.desired_generation_id,
+              logical_digest: committed.logical_digest,
+              failure_category: null,
+            };
+          }
+        } catch {
+          // Unknown commit state falls through to quarantine cleanup.
+        }
         await removeGenerationPath(
           layout.vectorRoot,
           layout.activeRoot,

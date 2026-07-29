@@ -479,7 +479,7 @@ export class SemanticVectorRetriever {
         reasonCode,
       );
     } finally {
-      await runtime?.close().catch(() => undefined);
+      void runtime?.close().catch(() => undefined);
     }
     const responseBytes = Buffer.byteLength(
       canonicalJson(result),

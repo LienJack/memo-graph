@@ -434,4 +434,54 @@ describe("governed semantic vector recall", () => {
       await harness.storage.close();
     }
   });
+
+  it("returns at the parent deadline while a timed-out query closes in the background", async () => {
+    let releaseClose: () => void = () => {};
+    let markCloseStarted: () => void = () => {};
+    const closeBarrier = new Promise<void>((resolve) => {
+      releaseClose = resolve;
+    });
+    const closeStarted = new Promise<void>((resolve) => {
+      markCloseStarted = resolve;
+    });
+    const harness = await projectedHarness({
+      queryFactory: (base) => ({
+        open: async (input) => {
+          const runtime = await base.open(input);
+          return {
+            query: () => new Promise<never>(() => {}),
+            close: async () => {
+              markCloseStarted();
+              await closeBarrier;
+              await runtime.close();
+            },
+          };
+        },
+      }),
+    });
+    try {
+      const startedAt = performance.now();
+      const result = await recall(
+        harness.orchestrator,
+        ["semantic_vector"],
+      );
+
+      expect(performance.now() - startedAt).toBeLessThan(200);
+      expect(result.status).toBe("DEGRADED");
+      expect(result.degraded_lanes).toEqual(["semantic_vector"]);
+      expect(
+        result.telemetry.find(
+          (item) => item.lane === "semantic_vector",
+        ),
+      ).toMatchObject({
+        status: "degraded",
+        reason_codes: ["VECTOR_PROCESS_TIMEOUT"],
+      });
+      await closeStarted;
+      releaseClose();
+    } finally {
+      releaseClose();
+      await harness.storage.close();
+    }
+  });
 });

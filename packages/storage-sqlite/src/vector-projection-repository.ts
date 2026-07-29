@@ -894,6 +894,7 @@ export class VectorProjectionRepository {
       reason: input.reason,
       cause_id: input.causeId ?? null,
       revision_id: input.revisionId ?? null,
+      occurred_at: input.occurredAt,
     });
     this.#database
       .prepare(

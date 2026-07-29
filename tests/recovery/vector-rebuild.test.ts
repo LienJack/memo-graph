@@ -367,6 +367,152 @@ describe("vector projection rebuild and stale publication", () => {
     }
   });
 
+  it("rebuilds when an epoch cycles from A to B and back to A", async () => {
+    const current = await fixture();
+    try {
+      const epochInput = {
+        schema_version: current.epoch.schema_version,
+        runtime: current.epoch.runtime,
+        sqlite_binding: current.epoch.sqlite_binding,
+        model: current.epoch.model,
+        index: current.epoch.index,
+        projection_schema_version:
+          current.epoch.projection_schema_version,
+        dependency_lock_hash:
+          current.epoch.dependency_lock_hash,
+      };
+      const nextEpoch = buildVectorEmbeddingEpoch({
+        ...epochInput,
+        dependency_lock_hash: vectorHash("f"),
+      });
+      const rebuild = async (
+        epoch: typeof current.epoch,
+        workerId: string,
+        startedAt: string,
+      ) =>
+        new VectorFullRebuilder({
+          storage: current.storage,
+          dataRoot: current.root,
+          modelRoot: join(current.root, "models"),
+          epoch,
+          runtimeFactory: current.runtime.runtimeFactory(),
+        }).rebuild({
+          worker_id: workerId,
+          started_at: startedAt,
+          activate: true,
+        });
+
+      await expect(
+        rebuild(
+          current.epoch,
+          "vector_epoch_cycle_a1",
+          "2026-07-29T09:00:00.000Z",
+        ),
+      ).resolves.toMatchObject({
+        status: "complete",
+        activated: true,
+        published_jobs: 1,
+      });
+      await expect(
+        rebuild(
+          nextEpoch,
+          "vector_epoch_cycle_b",
+          "2026-07-29T10:00:00.000Z",
+        ),
+      ).resolves.toMatchObject({
+        status: "complete",
+        activated: true,
+        published_jobs: 1,
+      });
+      await expect(
+        rebuild(
+          current.epoch,
+          "vector_epoch_cycle_a2",
+          "2026-07-29T11:00:00.000Z",
+        ),
+      ).resolves.toMatchObject({
+        status: "complete",
+        activated: true,
+        published_jobs: 1,
+      });
+      await expect(
+        current.storage.vectorProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: VECTOR_SCOPE,
+        }),
+      ).resolves.toMatchObject({
+        desired_epoch_id: current.epoch.epoch_id,
+        active_epoch_id: current.epoch.epoch_id,
+        state: "published",
+      });
+    } finally {
+      await current.storage.close();
+    }
+  });
+
+  it("preserves a committed active generation when the apply acknowledgement is lost", async () => {
+    const current = await fixture();
+    try {
+      const storage = current.storage;
+      const projector = new VectorScopeProjector({
+        storage: {
+          claimVectorProjectionJobs: (input) =>
+            storage.claimVectorProjectionJobs(input),
+          vectorProjectionCheckpoint: (input) =>
+            storage.vectorProjectionCheckpoint(input),
+          listProjectionSources: (input) =>
+            storage.listProjectionSources(input),
+          applyVectorProjectionJob: async (input) => {
+            await storage.applyVectorProjectionJob(input);
+            throw new Error("simulated acknowledgement loss");
+          },
+          staleVectorProjectionJob: (input) =>
+            storage.staleVectorProjectionJob(input),
+          failVectorProjectionJob: (input) =>
+            storage.failVectorProjectionJob(input),
+        },
+        dataRoot: current.root,
+        modelRoot: join(current.root, "models"),
+        epoch: current.epoch,
+        runtimeFactory: current.runtime.runtimeFactory(),
+      });
+
+      const result = await projector.drain({
+        worker_id: "vector_ack_loss_worker",
+        claimed_at: "2026-07-29T06:00:01.000Z",
+        lease_expires_at: "2026-07-29T06:01:00.000Z",
+        completed_at: "2026-07-29T06:00:05.000Z",
+        retry_at: "2026-07-29T06:01:05.000Z",
+      });
+      expect(result).toMatchObject({
+        claimed: 1,
+        published: 1,
+        stale: 0,
+        failed: 0,
+      });
+      const checkpoint =
+        await current.storage.vectorProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: VECTOR_SCOPE,
+        });
+      expect(checkpoint).toMatchObject({
+        state: "published",
+        active_epoch_id: current.epoch.epoch_id,
+        logical_digest: result.outcomes[0]?.logical_digest,
+      });
+      const layout = await vectorGenerationLayout({
+        dataRoot: current.root,
+        principalId: "user_local",
+        scope: VECTOR_SCOPE,
+        epochId: current.epoch.epoch_id,
+        generationId: checkpoint.active_generation_id ?? "",
+      });
+      await expect(access(layout.activeRoot)).resolves.toBeUndefined();
+    } finally {
+      await current.storage.close();
+    }
+  });
+
   it("keeps a failed quarantine inactive and publishes only a later clean retry", async () => {
     const current = await fixture();
     try {
