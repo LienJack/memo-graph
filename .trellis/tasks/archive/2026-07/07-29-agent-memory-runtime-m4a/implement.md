@@ -935,11 +935,11 @@ checkboxes remain intentionally unselected.
 - [x] Update ADR 0003 with the dated G4A result without erasing the original
       gate decision.
 - [x] Mark the unified plan and Trellis task completed with the decision.
-- [ ] Run Trellis check and finish/archive workflow.
-- [ ] Record journal summary, commits, tests, decision, limitations, and
+- [x] Run Trellis check and finish/archive workflow.
+- [x] Record journal summary, commits, tests, decision, limitations, and
       fallback.
 - [x] Create a scoped decision commit.
-- [ ] Create separate archive and journal commits when those logical tasks
+- [x] Create separate archive and journal commits when those logical tasks
       complete.
 - [x] Do not push or create a pull request without explicit user permission.
 - [x] State that M4B is independent and may start its own
