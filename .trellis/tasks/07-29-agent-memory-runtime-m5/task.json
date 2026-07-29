@@ -22,7 +22,9 @@
   "parent": "07-28-agent-memory-runtime",
   "relatedFiles": [
     "docs/brainstorms/2026-07-29-m5-learning-lab-requirements.md",
-    ".trellis/tasks/07-29-agent-memory-runtime-m5/prd.md"
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/prd.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/research/claim-map.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/research/research-handoff.md"
   ],
   "notes": "Run ce-brainstorm, research-to-article, ce-plan, then ce-work under Trellis. Keep implementation inactive until research, design, plan, and context validation are complete.",
   "meta": {
@@ -36,6 +38,15 @@
       "ce-work"
     ],
     "planning_validation": "pending",
+    "research_topic": "memo-graph-m5-learning-lab",
+    "research_run": "RUN20260729-183807-m5-governed-learning-lif-896401",
+    "research_ready_gate": "passed",
+    "research_claims": {
+      "total": 27,
+      "supported": 27,
+      "core": 25,
+      "supported_core": 25
+    },
     "gates": [
       "G5"
     ]
