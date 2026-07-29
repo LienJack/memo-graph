@@ -1,0 +1,14 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_transfer_negative",
+  "partition": "transfer",
+  "visibility": "sealed_evaluator",
+  "expected_status": "OK",
+  "expected_task_unit_ids": [
+    "retain_required_relation_lane"
+  ],
+  "expected_included_ids": [
+    "projection_relation_dependency"
+  ],
+  "expected_exclusion_codes": []
+}

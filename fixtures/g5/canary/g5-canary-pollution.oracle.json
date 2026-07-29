@@ -1,0 +1,15 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_canary_pollution",
+  "visibility": "approved_for_canary",
+  "expected_status": "OK",
+  "expected_task_unit_ids": [
+    "identify_release_pointer"
+  ],
+  "expected_included_ids": [
+    "memory_release_pointer"
+  ],
+  "expected_exclusion_codes": [
+    "LOW_RELEVANCE"
+  ]
+}

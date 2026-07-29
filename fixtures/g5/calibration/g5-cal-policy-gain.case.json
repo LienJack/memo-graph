@@ -1,0 +1,27 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_cal_policy_gain",
+  "partition": "calibration",
+  "family": "positive_gain",
+  "description": "A narrow policy removes one noisy lane while retaining the required memory.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "input": {
+    "query": "Which runtime owns canonical memory?",
+    "candidate_policy": {
+      "requested_lanes": [
+        "recent_l1"
+      ]
+    }
+  },
+  "required_task_unit_ids": [
+    "identify_sqlite_authority"
+  ],
+  "prohibited_outcomes": [
+    "enable_graph_or_vector"
+  ]
+}

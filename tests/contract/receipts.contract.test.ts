@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CanaryReceiptSchema,
+  CandidateTransitionReceiptSchema,
+  LearningControlReceiptSchema,
+  LearningStopReceiptSchema,
+  MonitorReceiptSchema,
   MutationReceiptSchema,
   PurgeReceiptSchema,
   ReceiptSchema,
@@ -43,6 +48,112 @@ describe("receipt contracts", () => {
         schema_version: "1.0.0",
         created_at: NOW,
         state: "durable",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("seals privacy-minimal learning stop and transition receipts", () => {
+    const stop = LearningStopReceiptSchema.parse(
+      sealReceipt({
+        schema_version: "1.0.0",
+        receipt_id: "receipt_learning_stop_1",
+        created_at: NOW,
+        state: "durable",
+        request_hash: HASH_A,
+        kind: "learning_stop",
+        principal_id: "user_local",
+        trace_id: "trace_1",
+        candidate_id: null,
+        control_epoch: 0,
+        reason_code: "TRACE_INCOMPLETE",
+      }),
+    );
+    const transition = CandidateTransitionReceiptSchema.parse(
+      sealReceipt({
+        schema_version: "1.0.0",
+        receipt_id: "receipt_transition_1",
+        created_at: NOW,
+        state: "durable",
+        request_hash: HASH_A,
+        kind: "learning_transition",
+        candidate_id: "candidate_1",
+        transition_id: "transition_1",
+        sequence: 1,
+        from_state: "proposed",
+        to_state: "quarantined",
+        authority_id: null,
+        evidence_receipt_ids: ["receipt_learning_stop_1"],
+        control_epoch: 0,
+      }),
+    );
+    expect(receiptHashIsValid(stop)).toBe(true);
+    expect(receiptHashIsValid(transition)).toBe(true);
+  });
+
+  it("binds canary, monitor, and learning-control receipts to exact releases", () => {
+    const canary = CanaryReceiptSchema.parse(
+      sealReceipt({
+        schema_version: "1.0.0",
+        receipt_id: "receipt_canary_1",
+        created_at: NOW,
+        state: "durable",
+        request_hash: HASH_A,
+        kind: "learning_canary",
+        candidate_id: "candidate_1",
+        authorization_id: "canary_authorization_1",
+        authorization_hash: HASH_B,
+        evaluation_receipt_id: "receipt_eval_1",
+        canary_manifest_hash: HASH_A,
+        exposures: 3,
+        passed: true,
+        failure_codes: [],
+        control_epoch: 0,
+      }),
+    );
+    const monitor = MonitorReceiptSchema.parse(
+      sealReceipt({
+        schema_version: "1.0.0",
+        receipt_id: "receipt_monitor_1",
+        created_at: NOW,
+        state: "durable",
+        request_hash: HASH_A,
+        kind: "learning_monitor",
+        release_id: "release_1",
+        pointer_revision: 1,
+        canary_receipt_id: canary.receipt_id,
+        monitor_contract_hash: HASH_B,
+        replayed_case_ids: ["canary_case_1", "canary_case_2", "canary_case_3"],
+        passed: true,
+        failure_codes: [],
+        rollback_required: false,
+      }),
+    );
+    const control = LearningControlReceiptSchema.parse(
+      sealReceipt({
+        schema_version: "1.0.0",
+        receipt_id: "receipt_control_1",
+        created_at: NOW,
+        state: "durable",
+        request_hash: HASH_A,
+        kind: "learning_control",
+        principal_id: "user_local",
+        action: "pause",
+        previous_epoch: 0,
+        resulting_epoch: 1,
+        previous_frontier_hash: HASH_A,
+        frontier_hash: HASH_B,
+        runtime_identity_hash: HASH_A,
+        configuration_hash: HASH_B,
+        corpus_hash: HASH_A,
+        reason_code: "USER_REQUESTED",
+      }),
+    );
+    expect(receiptHashIsValid(monitor)).toBe(true);
+    expect(receiptHashIsValid(control)).toBe(true);
+    expect(
+      MonitorReceiptSchema.safeParse({
+        ...monitor,
+        canary_receipt_id: undefined,
       }).success,
     ).toBe(false);
   });
@@ -148,6 +259,60 @@ describe("receipt contracts", () => {
 
     expect(receiptHashIsValid(receipt)).toBe(true);
     expect(receipt.lane_telemetry?.[0]?.selected_count).toBe(1);
+  });
+
+  it("binds retrieval receipts to the effective active learning release", () => {
+    const receipt = {
+      schema_version: "1.0.0",
+      receipt_id: "receipt_learning_release_1",
+      created_at: NOW,
+      state: "durable",
+      request_hash: HASH_A,
+      kind: "retrieval",
+      context_slice_id: "context_learning_release_1",
+      compiler_version: "1.0.0",
+      policy_version: "1.0.0",
+      effective_lane_configuration: {
+        policy_hash: HASH_A,
+        active_learning_release_id: "release_1",
+        active_learning_release_hash: HASH_B,
+        requested_lanes: ["recent_l1"],
+        enabled_lanes: ["recent_l1"],
+        limits: {
+          max_candidates_per_lane: 10,
+          max_concurrent_lanes: 1,
+          relation_max_depth: 2,
+          relation_max_fanout: 10,
+        },
+        reason_codes: [],
+      },
+      active_learning_release_id: "release_1",
+      active_learning_release_hash: HASH_B,
+      items: [],
+    } as const;
+
+    expect(
+      RetrievalReceiptSchema.safeParse(sealReceipt(receipt)).success,
+    ).toBe(true);
+    expect(
+      RetrievalReceiptSchema.safeParse(
+        sealReceipt({
+          ...receipt,
+          active_learning_release_hash: HASH_A,
+        }),
+      ).success,
+    ).toBe(false);
+    expect(
+      RetrievalReceiptSchema.safeParse(
+        sealReceipt(
+          (({
+            active_learning_release_id: _releaseId,
+            active_learning_release_hash: _releaseHash,
+            ...withoutReleaseIdentity
+          }) => withoutReleaseIdentity)(receipt),
+        ),
+      ).success,
+    ).toBe(false);
   });
 
   it("seals canonical V2 scoped frontier and bounded-work evidence", () => {

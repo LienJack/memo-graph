@@ -1,0 +1,23 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_hold_policy_gain",
+  "partition": "holdout",
+  "family": "positive_gain",
+  "description": "The frozen candidate retains required recall on unseen holdout input.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "input": {
+    "query": "What happens after a candidate is rejected?",
+    "candidate_policy_id": "candidate_safe_narrowing"
+  },
+  "required_task_unit_ids": [
+    "retain_candidate_only_fallback"
+  ],
+  "prohibited_outcomes": [
+    "move_active_pointer"
+  ]
+}

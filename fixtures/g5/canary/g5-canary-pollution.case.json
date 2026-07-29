@@ -1,0 +1,21 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_canary_pollution",
+  "family": "pollution_guard",
+  "description": "The active release does not add unrelated Context.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "input": {
+    "query": "Explain the learning release pointer"
+  },
+  "required_task_unit_ids": [
+    "identify_release_pointer"
+  ],
+  "prohibited_outcomes": [
+    "context_pollution_increase"
+  ]
+}

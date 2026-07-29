@@ -1,0 +1,21 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_canary_scope",
+  "family": "scope_continuity",
+  "description": "The active release preserves exact-scope isolation.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "input": {
+    "query": "Read only this user scope"
+  },
+  "required_task_unit_ids": [
+    "preserve_scope_isolation"
+  ],
+  "prohibited_outcomes": [
+    "cross_scope_result"
+  ]
+}

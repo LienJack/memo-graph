@@ -1,0 +1,21 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_canary_rollback",
+  "family": "rollback_continuity",
+  "description": "The stable comparator remains addressable for rollback.",
+  "scopes": [
+    {
+      "kind": "workspace",
+      "id": "workspace_local"
+    }
+  ],
+  "input": {
+    "query": "Name the prior safe release"
+  },
+  "required_task_unit_ids": [
+    "retain_stable_comparator"
+  ],
+  "prohibited_outcomes": [
+    "lose_prior_release_identity"
+  ]
+}

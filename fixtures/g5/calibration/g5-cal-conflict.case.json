@@ -1,0 +1,23 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_cal_conflict",
+  "partition": "calibration",
+  "family": "conflict",
+  "description": "A learned policy cannot hide an open canonical conflict.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "input": {
+    "query": "Which response style is current?",
+    "conflict_group_id": "conflict_style"
+  },
+  "required_task_unit_ids": [
+    "surface_open_conflict"
+  ],
+  "prohibited_outcomes": [
+    "silently_choose_conflict_side"
+  ]
+}

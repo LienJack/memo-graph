@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0.0",
+  "frozen_at": "2026-07-29T12:30:00.000Z",
+  "arms": [
+    "no_candidate",
+    "current",
+    "candidate"
+  ],
+  "accepted_baseline": {
+    "g3r": {
+      "decision": "GO",
+      "commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+      "artifact_sha256": "sha256:54cde9f9b85527a2c3bd4770a6b4f50ee34f66c3b91362502b19d5cbcb43416d"
+    },
+    "graph": {
+      "decision": "NO-GO",
+      "commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+      "artifact_sha256": "sha256:52dc230b6ad1831d070ea9f868e5754180fe903db6a385da2294750cab1f9c8c"
+    },
+    "vector": {
+      "decision": "NO-GO",
+      "commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+      "artifact_sha256": "sha256:8f638f8e685692397f5c309e27a592b703320b9c8c25da59b22e85af1d07f527"
+    },
+    "vector_enabled": false,
+    "retrieval_configuration_hash": "sha256:c094fcf736a09e19d4845d494ff0d633aee8831da8bcaf41e81ec5ec0c7f1e49"
+  },
+  "thresholds_file": "thresholds.json",
+  "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+  "evaluation_cases": [
+    {
+      "case_id": "g5_cal_conflict",
+      "partition": "calibration",
+      "family": "conflict",
+      "case_file": "calibration/g5-cal-conflict.case.json",
+      "oracle_file": "calibration/g5-cal-conflict.oracle.json",
+      "case_hash": "sha256:e67bb564419b0e37439016386206d18c05d3a26f10e7eddf9dcc4c70e5788c93",
+      "oracle_hash": "sha256:666be967581a47374d189409cbc186d45e0c7fdd1b5b7cc34d7e216e1367e1f8"
+    },
+    {
+      "case_id": "g5_cal_policy_gain",
+      "partition": "calibration",
+      "family": "positive_gain",
+      "case_file": "calibration/g5-cal-policy-gain.case.json",
+      "oracle_file": "calibration/g5-cal-policy-gain.oracle.json",
+      "case_hash": "sha256:5094c841c06872b5ffc17fcfca78cd71c2bc3563651c7c15b1813851a373c503",
+      "oracle_hash": "sha256:6d1f8b5d9573b778891cdd78946ca0faf5083f2ecc1afd3cb3a5085d41bfa0e1"
+    },
+    {
+      "case_id": "g5_cal_pollution",
+      "partition": "calibration",
+      "family": "context_pollution",
+      "case_file": "calibration/g5-cal-pollution.case.json",
+      "oracle_file": "calibration/g5-cal-pollution.oracle.json",
+      "case_hash": "sha256:2ce29340f1127ab0962d8334393b8910c5906a7cfa0fd65d12d690d9ad10357f",
+      "oracle_hash": "sha256:3de9bc030d65185bd7428c25e02775db7b70c0c44e8375247403869541405ad5"
+    },
+    {
+      "case_id": "g5_hold_policy_gain",
+      "partition": "holdout",
+      "family": "positive_gain",
+      "case_file": "holdout/g5-hold-policy-gain.case.json",
+      "oracle_file": "holdout/g5-hold-policy-gain.oracle.json",
+      "case_hash": "sha256:46797da5125d9d05ac09f65dba52e9b9dd568f40c10ad58fa0339362b1fbd9da",
+      "oracle_hash": "sha256:9ac01c6a6001325839067cc15a6024ac33b0487ddecd6c1a1608a4c36275f343"
+    },
+    {
+      "case_id": "g5_hold_scope_privacy",
+      "partition": "holdout",
+      "family": "scope_privacy",
+      "case_file": "holdout/g5-hold-scope-privacy.case.json",
+      "oracle_file": "holdout/g5-hold-scope-privacy.oracle.json",
+      "case_hash": "sha256:7b190e5d26d2a8b4860232a50b1ba431d23dd604c6f2af7206d333e30402a624",
+      "oracle_hash": "sha256:e3f4cabfacd605d09624f3828d2df60a11fcff99f58fa3cf730c9ad2676a11e5"
+    },
+    {
+      "case_id": "g5_hold_tombstone",
+      "partition": "holdout",
+      "family": "tombstone",
+      "case_file": "holdout/g5-hold-tombstone.case.json",
+      "oracle_file": "holdout/g5-hold-tombstone.oracle.json",
+      "case_hash": "sha256:bbf1fd14d1de8954b4a104e1526fe163140f9f2039942eded347e42b5f76a918",
+      "oracle_hash": "sha256:8e3cddd2a32d8cb438fb5d2ad2f5f52f8b1c6beee7436904e70a466c200c2158"
+    },
+    {
+      "case_id": "g5_transfer_negative",
+      "partition": "transfer",
+      "family": "negative_transfer",
+      "case_file": "transfer/g5-transfer-negative.case.json",
+      "oracle_file": "transfer/g5-transfer-negative.oracle.json",
+      "case_hash": "sha256:afe7559264cc9228830b48c071f28d2db566a613c61a6f516310b5b3f29abc02",
+      "oracle_hash": "sha256:e225aaeae47a71e05c9078d376df0d93ead31d566bdbbc505e47f28965805cec"
+    },
+    {
+      "case_id": "g5_transfer_policy_gain",
+      "partition": "transfer",
+      "family": "positive_gain",
+      "case_file": "transfer/g5-transfer-policy-gain.case.json",
+      "oracle_file": "transfer/g5-transfer-policy-gain.oracle.json",
+      "case_hash": "sha256:10365a06ebe888e8c41f5974a6e97c8a77222c3423e3cc5da7986aa4c9a86939",
+      "oracle_hash": "sha256:30118d1731eb3890e582b149439aff9cceb2688e52e985a7f016e9a9f68253a6"
+    },
+    {
+      "case_id": "g5_transfer_rollback",
+      "partition": "transfer",
+      "family": "rollback",
+      "case_file": "transfer/g5-transfer-rollback.case.json",
+      "oracle_file": "transfer/g5-transfer-rollback.oracle.json",
+      "case_hash": "sha256:a870946c5657ee3a589f1b722786eb0050f96c664dce1bb0946b1ecb9f6ccc7f",
+      "oracle_hash": "sha256:8bd44e28ce7d17565654a7294c1f2d4375c94430d6643b291a9f7078df905ec6"
+    }
+  ],
+  "canary_cases": [
+    {
+      "case_id": "g5_canary_pollution",
+      "family": "pollution_guard",
+      "case_file": "canary/g5-canary-pollution.case.json",
+      "oracle_file": "canary/g5-canary-pollution.oracle.json",
+      "case_hash": "sha256:ef6d616c4c7e2df5452d1ec1bd8370a8cd9bafbee2ca258954a92153fba4df97",
+      "oracle_hash": "sha256:8f052b70a9cfb9bff81dfe68897626fb70521b3649b0287c8d9d1db3c6ff4146"
+    },
+    {
+      "case_id": "g5_canary_rollback",
+      "family": "rollback_continuity",
+      "case_file": "canary/g5-canary-rollback.case.json",
+      "oracle_file": "canary/g5-canary-rollback.oracle.json",
+      "case_hash": "sha256:f06f28b91a72898e0d0b96c80e4852b221ecdeeb5131eec53e4e5beb958c42c4",
+      "oracle_hash": "sha256:ecc9bc1ee94615087a92ec18a35e0554d925e7a64a7a1dd6e880e4fe4f286171"
+    },
+    {
+      "case_id": "g5_canary_scope",
+      "family": "scope_continuity",
+      "case_file": "canary/g5-canary-scope.case.json",
+      "oracle_file": "canary/g5-canary-scope.oracle.json",
+      "case_hash": "sha256:fe9f6f2e757b34707719c9d4254607a8b93db6aedaf67daa2e05347f8fd8f165",
+      "oracle_hash": "sha256:0be11add067418ded45d651d98c36cfc347daabf881f11efc7ffb88f85228722"
+    }
+  ],
+  "manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6"
+}

@@ -1,0 +1,23 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_cal_pollution",
+  "partition": "calibration",
+  "family": "context_pollution",
+  "description": "The candidate must not add unrelated Context while narrowing retrieval.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "input": {
+    "query": "How is learning paused?",
+    "unrelated_memory_id": "memory_unrelated_recipe"
+  },
+  "required_task_unit_ids": [
+    "explain_learning_pause"
+  ],
+  "prohibited_outcomes": [
+    "include_unrelated_memory"
+  ]
+}

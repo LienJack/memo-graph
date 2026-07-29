@@ -7,8 +7,14 @@ import {
   NonEmptyReasonSchema,
   ScopeSchema,
   UtcTimestampSchema,
+  scopeKey,
 } from "./common.js";
-import { EvaluationPartitionSchema } from "./learning.js";
+import { canonicalSha256Omitting } from "./canonical-json.js";
+import {
+  CandidateStateSchema,
+  EvaluationArmSchema,
+  EvaluationPartitionSchema,
+} from "./learning.js";
 import { RecallStatusSchema } from "./mcp.js";
 import {
   GraphPathEvidenceSchema,
@@ -35,6 +41,373 @@ export const ReplayRiskFamilySchema = z.enum([
   "failure",
   "negative_transfer",
 ]);
+
+const GitCommitSchema = z.string().regex(/^[a-f0-9]{40}$/);
+
+function addG5UniqueIssue(
+  values: readonly string[],
+  context: z.RefinementCtx,
+  path: PropertyKey[],
+  message: string,
+): void {
+  if (new Set(values).size !== values.length) {
+    context.addIssue({ code: "custom", path, message });
+  }
+}
+
+export const G5RiskFamilySchema = z.enum([
+  "positive_gain",
+  "negative_transfer",
+  "context_pollution",
+  "scope_privacy",
+  "conflict",
+  "tombstone",
+  "rollback",
+]);
+
+export const G5CaseBodySchema = z
+  .object({
+    fixture_schema_version: ContractVersionSchema,
+    case_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    family: G5RiskFamilySchema,
+    description: NonEmptyReasonSchema,
+    scopes: z.array(ScopeSchema).min(1),
+    input: z.record(z.string(), z.json()),
+    required_task_unit_ids: z.array(IdentifierSchema).min(1),
+    prohibited_outcomes: z.array(z.string().trim().min(1)).min(1),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    addG5UniqueIssue(
+      value.scopes.map(scopeKey),
+      context,
+      ["scopes"],
+      "G5 case scopes must be unique",
+    );
+    addG5UniqueIssue(
+      value.required_task_unit_ids,
+      context,
+      ["required_task_unit_ids"],
+      "G5 required task units must be unique",
+    );
+    addG5UniqueIssue(
+      value.prohibited_outcomes,
+      context,
+      ["prohibited_outcomes"],
+      "G5 prohibited outcomes must be unique",
+    );
+  });
+
+export const G5CaseOracleSchema = z
+  .object({
+    fixture_schema_version: ContractVersionSchema,
+    case_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    visibility: z.enum(["calibration", "sealed_evaluator"]),
+    expected_status: RecallStatusSchema,
+    expected_task_unit_ids: z.array(IdentifierSchema).min(1),
+    expected_included_ids: z.array(IdentifierSchema),
+    expected_exclusion_codes: z.array(z.string().trim().min(1)),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.partition !== "calibration" &&
+      value.visibility !== "sealed_evaluator"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["visibility"],
+        message: "holdout and transfer oracles must remain sealed",
+      });
+    }
+    for (const [field, entries] of [
+      ["expected_task_unit_ids", value.expected_task_unit_ids],
+      ["expected_included_ids", value.expected_included_ids],
+      ["expected_exclusion_codes", value.expected_exclusion_codes],
+    ] as const) {
+      addG5UniqueIssue(
+        entries,
+        context,
+        [field],
+        `${field} must be unique`,
+      );
+    }
+  });
+
+export const G5EvaluationCaseDescriptorSchema = z
+  .object({
+    case_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    family: G5RiskFamilySchema,
+    case_file: z
+      .string()
+      .regex(
+        /^(calibration|holdout|transfer)\/[A-Za-z0-9._-]+\.case\.json$/,
+      ),
+    oracle_file: z
+      .string()
+      .regex(
+        /^(calibration|holdout|transfer)\/[A-Za-z0-9._-]+\.oracle\.json$/,
+      ),
+    case_hash: CanonicalHashSchema,
+    oracle_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      !value.case_file.startsWith(`${value.partition}/`) ||
+      !value.oracle_file.startsWith(`${value.partition}/`)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["case_file"],
+        message: "G5 case and oracle paths must match their partition",
+      });
+    }
+  });
+
+export const G5CanaryCaseBodySchema = z
+  .object({
+    fixture_schema_version: ContractVersionSchema,
+    case_id: IdentifierSchema,
+    family: z.string().trim().min(1).max(120),
+    description: NonEmptyReasonSchema,
+    scopes: z.array(ScopeSchema).min(1),
+    input: z.record(z.string(), z.json()),
+    required_task_unit_ids: z.array(IdentifierSchema).min(1),
+    prohibited_outcomes: z.array(z.string().trim().min(1)).min(1),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    addG5UniqueIssue(
+      value.scopes.map(scopeKey),
+      context,
+      ["scopes"],
+      "G5 canary scopes must be unique",
+    );
+    addG5UniqueIssue(
+      value.required_task_unit_ids,
+      context,
+      ["required_task_unit_ids"],
+      "G5 canary task units must be unique",
+    );
+    addG5UniqueIssue(
+      value.prohibited_outcomes,
+      context,
+      ["prohibited_outcomes"],
+      "G5 canary prohibited outcomes must be unique",
+    );
+  });
+
+export const G5CanaryOracleSchema = z
+  .object({
+    fixture_schema_version: ContractVersionSchema,
+    case_id: IdentifierSchema,
+    visibility: z.literal("approved_for_canary"),
+    expected_status: RecallStatusSchema,
+    expected_task_unit_ids: z.array(IdentifierSchema).min(1),
+    expected_included_ids: z.array(IdentifierSchema),
+    expected_exclusion_codes: z.array(z.string().trim().min(1)),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    for (const [field, entries] of [
+      ["expected_task_unit_ids", value.expected_task_unit_ids],
+      ["expected_included_ids", value.expected_included_ids],
+      ["expected_exclusion_codes", value.expected_exclusion_codes],
+    ] as const) {
+      addG5UniqueIssue(
+        entries,
+        context,
+        [field],
+        `${field} must be unique`,
+      );
+    }
+  });
+
+export const G5CanaryCaseDescriptorSchema = z
+  .object({
+    case_id: IdentifierSchema,
+    family: z.string().trim().min(1).max(120),
+    case_file: z
+      .string()
+      .regex(/^canary\/[A-Za-z0-9._-]+\.case\.json$/),
+    oracle_file: z
+      .string()
+      .regex(/^canary\/[A-Za-z0-9._-]+\.oracle\.json$/),
+    case_hash: CanonicalHashSchema,
+    oracle_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const G5ThresholdsSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    minimum_task_unit_gain_over_current_per_partition: z
+      .number()
+      .int()
+      .positive(),
+    minimum_task_unit_gain_over_no_candidate_per_partition: z
+      .number()
+      .int()
+      .positive(),
+    maximum_required_task_unit_losses: z.literal(0),
+    maximum_critical_regressions: z.literal(0),
+    maximum_scope_privacy_violations: z.literal(0),
+    maximum_unauthorized_effects: z.literal(0),
+    maximum_tombstone_resurrections: z.literal(0),
+    maximum_context_pollution_increase: z.literal(0),
+    maximum_token_overflows: z.literal(0),
+    context_compile_p95_ms: z.number().int().positive().max(400),
+    context_compile_max_relative_increase: z.number().min(0).max(0.2),
+    context_compile_max_absolute_increase_ms: z
+      .number()
+      .int()
+      .positive()
+      .max(25),
+    canary_case_count: z.literal(3),
+    canary_maximum_exposures_per_case: z.literal(1),
+    canary_deadline_ms: z.literal(600_000),
+  })
+  .strict();
+
+export const G5FixtureManifestSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    frozen_at: UtcTimestampSchema,
+    arms: z.array(EvaluationArmSchema).length(3),
+    accepted_baseline: z
+      .object({
+        g3r: z
+          .object({
+            decision: z.literal("GO"),
+            commit: GitCommitSchema,
+            artifact_sha256: CanonicalHashSchema,
+          })
+          .strict(),
+        graph: z
+          .object({
+            decision: z.literal("NO-GO"),
+            commit: GitCommitSchema,
+            artifact_sha256: CanonicalHashSchema,
+          })
+          .strict(),
+        vector: z
+          .object({
+            decision: z.literal("NO-GO"),
+            commit: GitCommitSchema,
+            artifact_sha256: CanonicalHashSchema,
+          })
+          .strict(),
+        vector_enabled: z.literal(false),
+        retrieval_configuration_hash: CanonicalHashSchema,
+      })
+      .strict(),
+    thresholds_file: z.literal("thresholds.json"),
+    thresholds_hash: CanonicalHashSchema,
+    evaluation_cases: z.array(G5EvaluationCaseDescriptorSchema).min(9),
+    canary_cases: z.array(G5CanaryCaseDescriptorSchema).length(3),
+    manifest_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const expectedArms = [...EvaluationArmSchema.options];
+    if (
+      value.arms.some((arm, index) => arm !== expectedArms[index])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["arms"],
+        message: "G5 manifest must freeze the exact ordered three arms",
+      });
+    }
+    const caseIds = value.evaluation_cases.map((entry) => entry.case_id);
+    const canaryIds = value.canary_cases.map((entry) => entry.case_id);
+    if (new Set([...caseIds, ...canaryIds]).size !== caseIds.length + canaryIds.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["evaluation_cases"],
+        message: "G5 case identifiers must be globally unique",
+      });
+    }
+    addG5UniqueIssue(
+      value.canary_cases.map((entry) => entry.family),
+      context,
+      ["canary_cases"],
+      "G5 canary cases must use independent families",
+    );
+    for (const partition of EvaluationPartitionSchema.options) {
+      if (
+        value.evaluation_cases.filter(
+          (entry) => entry.partition === partition,
+        ).length !== 3
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["evaluation_cases"],
+          message: `G5 requires exactly three ${partition} cases`,
+        });
+      }
+    }
+    const coveredFamilies = new Set(
+      value.evaluation_cases.map((entry) => entry.family),
+    );
+    for (const family of G5RiskFamilySchema.options) {
+      if (!coveredFamilies.has(family)) {
+        context.addIssue({
+          code: "custom",
+          path: ["evaluation_cases"],
+          message: `G5 is missing risk family ${family}`,
+        });
+      }
+    }
+    if (
+      value.manifest_hash !==
+      canonicalSha256Omitting(value, ["manifest_hash"])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["manifest_hash"],
+        message: "G5 manifest hash must bind the canonical manifest",
+      });
+    }
+  });
+
+export function assertG5PartitionAccess(
+  roleInput: unknown,
+  partitionInput: unknown,
+  artifactInput: unknown,
+): void {
+  const role = z
+    .enum(["calibration_tuning", "gate_evaluator"])
+    .parse(roleInput);
+  const partition = EvaluationPartitionSchema.parse(partitionInput);
+  z.enum(["case", "oracle"]).parse(artifactInput);
+  if (role === "calibration_tuning" && partition !== "calibration") {
+    throw new Error(
+      "calibration tuning cannot access holdout or transfer artifacts",
+    );
+  }
+}
+
+export function assertG5CanaryAccess(
+  stateInput: unknown,
+  artifactInput: unknown,
+): void {
+  const state = CandidateStateSchema.parse(stateInput);
+  z.enum(["case", "oracle"]).parse(artifactInput);
+  if (
+    !["approved_for_canary", "canary", "released", "rolled_back"].includes(
+      state,
+    )
+  ) {
+    throw new Error(
+      "canary cases and oracles remain sealed before approved_for_canary",
+    );
+  }
+}
 
 export const ReplayExpectedOutcomeSchema = z
   .object({
@@ -1034,6 +1407,19 @@ export type G4BCandidateRevision = z.infer<
 export type G4BFrozenCase = z.infer<typeof G4BFrozenCaseSchema>;
 export type G4BFrozenSubset = z.infer<typeof G4BFrozenSubsetSchema>;
 export type G4BThresholds = z.infer<typeof G4BThresholdsSchema>;
+export type G5CanaryCaseBody = z.infer<typeof G5CanaryCaseBodySchema>;
+export type G5CanaryCaseDescriptor = z.infer<
+  typeof G5CanaryCaseDescriptorSchema
+>;
+export type G5CanaryOracle = z.infer<typeof G5CanaryOracleSchema>;
+export type G5CaseBody = z.infer<typeof G5CaseBodySchema>;
+export type G5CaseOracle = z.infer<typeof G5CaseOracleSchema>;
+export type G5EvaluationCaseDescriptor = z.infer<
+  typeof G5EvaluationCaseDescriptorSchema
+>;
+export type G5FixtureManifest = z.infer<typeof G5FixtureManifestSchema>;
+export type G5RiskFamily = z.infer<typeof G5RiskFamilySchema>;
+export type G5Thresholds = z.infer<typeof G5ThresholdsSchema>;
 export type ReplayCaseBody = z.infer<typeof ReplayCaseBodySchema>;
 export type ReplayCaseDescriptor = z.infer<typeof ReplayCaseDescriptorSchema>;
 export type ReplayManifest = z.infer<typeof ReplayManifestSchema>;

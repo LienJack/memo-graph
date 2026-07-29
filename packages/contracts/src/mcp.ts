@@ -15,8 +15,12 @@ import {
   UtcTimestampSchema,
   scopeKey,
 } from "./common.js";
-import { canonicalSha256Omitting } from "./canonical-json.js";
+import {
+  canonicalSha256,
+  canonicalSha256Omitting,
+} from "./canonical-json.js";
 import { GraphPathEvidenceSchema } from "./graph.js";
+import { LearningApprovalDetailsSchema } from "./learning.js";
 import {
   ContextConflictSetSchema,
   ContextFrontierSchema,
@@ -157,6 +161,7 @@ export const ApprovalGrantSchema = z
     issued_at: UtcTimestampSchema,
     expires_at: UtcTimestampSchema,
     manifest_hash: CanonicalHashSchema,
+    learning: LearningApprovalDetailsSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -194,6 +199,30 @@ export const ApprovalGrantSchema = z
         message: "approval manifest hash must bind the canonical grant",
       });
     }
+    const isReleaseTool =
+      value.tool === "learning_release" ||
+      value.tool === "learning_rollback";
+    if (isReleaseTool !== (value.learning !== undefined)) {
+      context.addIssue({
+        code: "custom",
+        path: ["learning"],
+        message:
+          "learning release and rollback grants require exact post-canary binding details",
+      });
+    }
+    if (
+      value.learning !== undefined &&
+      ((value.tool === "learning_release" &&
+        value.learning.action !== "release") ||
+        (value.tool === "learning_rollback" &&
+          value.learning.action !== "rollback"))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["learning", "action"],
+        message: "learning approval action must match the governed tool",
+      });
+    }
   });
 
 export const ApprovalRegistryManifestSchema = z
@@ -224,12 +253,43 @@ export const ApprovalBindingSchema = z
       "memory_usage_set",
       "memory_revoke",
       "memory_delete",
+      "learning_pause",
+      "learning_resume",
+      "learning_release",
+      "learning_rollback",
     ]),
     safety_class: z.enum(["important_mutation", "destructive"]),
     scopes: z.array(ScopeSchema).min(1),
     request_hash: CanonicalHashSchema,
+    learning: LearningApprovalDetailsSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const isReleaseTool =
+      value.tool === "learning_release" ||
+      value.tool === "learning_rollback";
+    if (isReleaseTool !== (value.learning !== undefined)) {
+      context.addIssue({
+        code: "custom",
+        path: ["learning"],
+        message:
+          "learning release and rollback bindings require exact post-canary details",
+      });
+    }
+    if (
+      value.learning !== undefined &&
+      ((value.tool === "learning_release" &&
+        value.learning.action !== "release") ||
+        (value.tool === "learning_rollback" &&
+          value.learning.action !== "rollback"))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["learning", "action"],
+        message: "learning approval action must match the governed tool",
+      });
+    }
+  });
 
 export function approvalGrantMatches(
   bindingInput: unknown,
@@ -246,6 +306,10 @@ export function approvalGrantMatches(
     grant.tool === binding.tool &&
     grant.safety_class === binding.safety_class &&
     grant.request_hash === binding.request_hash &&
+    (grant.learning === undefined) === (binding.learning === undefined) &&
+    (grant.learning === undefined ||
+      binding.learning === undefined ||
+      canonicalSha256(grant.learning) === canonicalSha256(binding.learning)) &&
     grantScopes.length === bindingScopes.length &&
     grantScopes.every((scope, index) => scope === bindingScopes[index]) &&
     Date.parse(verifiedAt) >= Date.parse(grant.issued_at) &&
@@ -549,6 +613,8 @@ export const ContextSliceSchema = z
       EffectiveLaneConfigurationSchema.optional(),
     lane_telemetry: z.array(LaneTelemetrySchema).optional(),
     conflict_sets: z.array(ContextConflictSetSchema).optional(),
+    active_learning_release_id: IdentifierSchema.optional(),
+    active_learning_release_hash: CanonicalHashSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -604,6 +670,30 @@ export const ContextSliceSchema = z
           message: "Context item conflict reference must resolve",
         });
       }
+    }
+    if (
+      (value.active_learning_release_id === undefined) !==
+      (value.active_learning_release_hash === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["active_learning_release_id"],
+        message:
+          "Context learning release identity and hash must appear together",
+      });
+    }
+    if (
+      value.active_learning_release_id !==
+        value.effective_lane_configuration?.active_learning_release_id ||
+      value.active_learning_release_hash !==
+        value.effective_lane_configuration?.active_learning_release_hash
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["effective_lane_configuration"],
+        message:
+          "Context and effective lane configuration must bind the same active learning release",
+      });
     }
   });
 

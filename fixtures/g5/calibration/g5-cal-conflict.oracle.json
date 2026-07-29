@@ -1,0 +1,14 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_cal_conflict",
+  "partition": "calibration",
+  "visibility": "calibration",
+  "expected_status": "POLICY_EXCLUDED",
+  "expected_task_unit_ids": [
+    "surface_open_conflict"
+  ],
+  "expected_included_ids": [],
+  "expected_exclusion_codes": [
+    "OPEN_CONFLICT"
+  ]
+}

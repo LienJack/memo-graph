@@ -25,6 +25,7 @@ import {
   MemoryCandidateSchema,
 } from "./memory.js";
 import { canonicalJson } from "./canonical-json.js";
+import { LearningOutcomeSchema } from "./learning.js";
 
 function withExpectedTool<T extends z.ZodType>(
   schema: T,
@@ -184,6 +185,113 @@ export const MemoryProposeInputSchema = withExpectedTool(
   "memory_propose",
 );
 
+export const MemoryFeedbackInputSchema = withExpectedTool(
+  z
+    .object({
+      envelope: ProposalRequestEnvelopeSchema,
+      feedback: z
+        .object({
+          task_id: IdentifierSchema,
+          context_slice_id: IdentifierSchema,
+          outcome: LearningOutcomeSchema,
+          evidence_ids: z.array(IdentifierSchema),
+          error_codes: z.array(z.string().trim().min(1).max(200)),
+          gap_codes: z.array(z.string().trim().min(1).max(200)),
+          observed_at: z.iso.datetime({ offset: true }),
+        })
+        .strict()
+        .superRefine((value, context) => {
+          if (
+            value.evidence_ids.length === 0 &&
+            value.error_codes.length === 0 &&
+            value.gap_codes.length === 0
+          ) {
+            context.addIssue({
+              code: "custom",
+              path: ["evidence_ids"],
+              message:
+                "learning feedback requires evidence, a typed error, or a typed gap",
+            });
+          }
+          for (const [field, entries] of [
+            ["evidence_ids", value.evidence_ids],
+            ["error_codes", value.error_codes],
+            ["gap_codes", value.gap_codes],
+          ] as const) {
+            if (new Set(entries).size !== entries.length) {
+              context.addIssue({
+                code: "custom",
+                path: [field],
+                message: `${field} must be unique`,
+              });
+            }
+          }
+        }),
+    })
+    .strict(),
+  "memory_feedback",
+);
+
+const LearningControlFrontierInputShape = {
+  expected_control_epoch: z.number().int().nonnegative(),
+  expected_frontier_hash: CanonicalHashSchema,
+  runtime_identity_hash: CanonicalHashSchema,
+  configuration_hash: CanonicalHashSchema,
+  corpus_hash: CanonicalHashSchema,
+};
+
+export const LearningPauseInputSchema = withExpectedTool(
+  z
+    .object({
+      envelope: MutationRequestEnvelopeSchema,
+      ...LearningControlFrontierInputShape,
+    })
+    .strict(),
+  "learning_pause",
+);
+
+export const LearningResumeInputSchema = withExpectedTool(
+  z
+    .object({
+      envelope: MutationRequestEnvelopeSchema,
+      ...LearningControlFrontierInputShape,
+      abandon_in_flight: z.boolean(),
+    })
+    .strict(),
+  "learning_resume",
+);
+
+export const LearningReleaseInputSchema = withExpectedTool(
+  z
+    .object({
+      envelope: MutationRequestEnvelopeSchema,
+      candidate_id: IdentifierSchema,
+      release_slot_hash: CanonicalHashSchema,
+      evaluation_receipt_id: IdentifierSchema,
+      canary_receipt_id: IdentifierSchema,
+      expected_pointer_revision: z.number().int().nonnegative(),
+      expected_control_epoch: z.number().int().nonnegative(),
+      effect_manifest_hash: CanonicalHashSchema,
+    })
+    .strict(),
+  "learning_release",
+);
+
+export const LearningRollbackInputSchema = withExpectedTool(
+  z
+    .object({
+      envelope: MutationRequestEnvelopeSchema,
+      release_id: IdentifierSchema,
+      restore_release_id: IdentifierSchema.nullable(),
+      monitor_receipt_id: IdentifierSchema,
+      expected_pointer_revision: z.number().int().nonnegative(),
+      expected_control_epoch: z.number().int().nonnegative(),
+      effect_manifest_hash: CanonicalHashSchema,
+    })
+    .strict(),
+  "learning_rollback",
+);
+
 export const MemoryCorrectionSchema = z
   .object({
     content: ContentRefSchema,
@@ -334,6 +442,12 @@ export type MemoryContextCompileInput = z.infer<
 export type MemoryEpisodeCommitInput = z.infer<
   typeof MemoryEpisodeCommitInputSchema
 >;
+export type LearningPauseInput = z.infer<typeof LearningPauseInputSchema>;
+export type LearningReleaseInput = z.infer<typeof LearningReleaseInputSchema>;
+export type LearningResumeInput = z.infer<typeof LearningResumeInputSchema>;
+export type LearningRollbackInput = z.infer<
+  typeof LearningRollbackInputSchema
+>;
 export type MemoryCorrectInput = z.infer<typeof MemoryCorrectInputSchema>;
 export type MemoryDeleteInput = z.infer<typeof MemoryDeleteInputSchema>;
 export type MemoryDemoteInput = z.infer<typeof MemoryDemoteInputSchema>;
@@ -341,6 +455,7 @@ export type MemoryEvidenceLookupInput = z.infer<
   typeof MemoryEvidenceLookupInputSchema
 >;
 export type MemoryExplainInput = z.infer<typeof MemoryExplainInputSchema>;
+export type MemoryFeedbackInput = z.infer<typeof MemoryFeedbackInputSchema>;
 export type MemoryGetInput = z.infer<typeof MemoryGetInputSchema>;
 export type MemoryPinInput = z.infer<typeof MemoryPinInputSchema>;
 export type MemoryProposeInput = z.infer<typeof MemoryProposeInputSchema>;

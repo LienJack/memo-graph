@@ -8,19 +8,29 @@ import {
 import { describe, expect, it } from "vitest";
 
 import {
+  ApprovalBindingSchema,
+  ApprovalGrantSchema,
+  ContextSliceSchema,
   GovernedResponseSchema,
   ContextSliceItemSchema,
   LaneRequestOverridesSchema,
+  LearningPauseInputSchema,
+  LearningReleaseInputSchema,
+  LearningResumeInputSchema,
+  LearningRollbackInputSchema,
   LocalPrincipalSchema,
   MEMORY_TOOL_SAFETY_CLASS,
   MemoryContextCompileInputSchema,
   MemoryEpisodeCommitInputSchema,
+  MemoryFeedbackInputSchema,
   MemorySearchInputSchema,
   MutationRequestEnvelopeSchema,
   RecallRequestSchema,
   ReadRequestEnvelopeSchema,
+  approvalGrantMatches,
   authorizeRequestClaims,
   buildGraphPathEvidence,
+  canonicalSha256Omitting,
 } from "../../packages/contracts/src/index.js";
 import {
   HASH_A,
@@ -91,6 +101,209 @@ describe("MCP boundary contracts", () => {
       "important_mutation",
     );
     expect(MEMORY_TOOL_SAFETY_CLASS.memory_delete).toBe("destructive");
+  });
+
+  it("binds all five M5 inputs to exact tool and frontier identities", () => {
+    const proposalEnvelope = {
+      ...validReadRequest(),
+      request_id: "request_feedback_1",
+      tool: "memory_feedback",
+      safety_class: "proposal",
+      idempotency_key: "feedback-request-001",
+    } as const;
+    expect(
+      MemoryFeedbackInputSchema.safeParse({
+        envelope: proposalEnvelope,
+        feedback: {
+          task_id: "task_1",
+          context_slice_id: "context_1",
+          outcome: "failed",
+          evidence_ids: ["evidence_feedback_1"],
+          error_codes: ["NO_RELEVANT_MEMORY"],
+          gap_codes: ["RETRIEVAL_POLICY_TOO_BROAD"],
+          observed_at: NOW,
+        },
+      }).success,
+    ).toBe(true);
+
+    const mutationEnvelope = (
+      tool:
+        | "learning_pause"
+        | "learning_resume"
+        | "learning_release"
+        | "learning_rollback",
+    ) => ({
+      ...validReadRequest(),
+      request_id: `request_${tool}`,
+      tool,
+      safety_class: "important_mutation",
+      idempotency_key: `${tool}-request-001`,
+      expected_revision_id: null,
+      approval_id: `approval_${tool}`,
+      dry_run: false,
+    });
+    const frontier = {
+      expected_control_epoch: 0,
+      expected_frontier_hash: HASH_A,
+      runtime_identity_hash: HASH_B,
+      configuration_hash: HASH_A,
+      corpus_hash: HASH_B,
+    };
+    expect(
+      LearningPauseInputSchema.safeParse({
+        envelope: mutationEnvelope("learning_pause"),
+        ...frontier,
+      }).success,
+    ).toBe(true);
+    expect(
+      LearningResumeInputSchema.safeParse({
+        envelope: mutationEnvelope("learning_resume"),
+        ...frontier,
+        abandon_in_flight: false,
+      }).success,
+    ).toBe(true);
+    expect(
+      LearningReleaseInputSchema.safeParse({
+        envelope: mutationEnvelope("learning_release"),
+        candidate_id: "candidate_1",
+        release_slot_hash: HASH_A,
+        evaluation_receipt_id: "receipt_eval_1",
+        canary_receipt_id: "receipt_canary_1",
+        expected_pointer_revision: 0,
+        expected_control_epoch: 0,
+        effect_manifest_hash: HASH_B,
+      }).success,
+    ).toBe(true);
+    expect(
+      LearningRollbackInputSchema.safeParse({
+        envelope: mutationEnvelope("learning_rollback"),
+        release_id: "release_1",
+        restore_release_id: null,
+        monitor_receipt_id: "receipt_monitor_1",
+        expected_pointer_revision: 1,
+        expected_control_epoch: 0,
+        effect_manifest_hash: HASH_B,
+      }).success,
+    ).toBe(true);
+    expect(
+      LearningReleaseInputSchema.safeParse({
+        envelope: mutationEnvelope("learning_pause"),
+        candidate_id: "candidate_1",
+        release_slot_hash: HASH_A,
+        evaluation_receipt_id: "receipt_eval_1",
+        canary_receipt_id: "receipt_canary_1",
+        expected_pointer_revision: 0,
+        expected_control_epoch: 0,
+        effect_manifest_hash: HASH_B,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("matches exact post-canary approval bindings without changing old grants", () => {
+    const learning = {
+      action: "release",
+      candidate_id: "candidate_1",
+      release_slot_hash: HASH_A,
+      base_release_id: null,
+      evaluation_receipt_id: "receipt_eval_1",
+      evaluation_receipt_hash: HASH_A,
+      canary_receipt_id: "receipt_canary_1",
+      canary_receipt_hash: HASH_B,
+      expected_pointer_revision: 0,
+      target_release_id: null,
+      control_epoch: 0,
+      effect_manifest_hash: HASH_B,
+    } as const;
+    const binding = ApprovalBindingSchema.parse({
+      approval_id: "approval_learning_release",
+      principal_id: "user_local",
+      tool: "learning_release",
+      safety_class: "important_mutation",
+      scopes: [USER_SCOPE],
+      request_hash: HASH_A,
+      learning,
+    });
+    const unsignedGrant = {
+      schema_version: "1.0.0",
+      ...binding,
+      issued_at: NOW,
+      expires_at: "2026-07-28T13:00:00.000Z",
+      manifest_hash: HASH_A,
+    };
+    const grant = ApprovalGrantSchema.parse({
+      ...unsignedGrant,
+      manifest_hash: canonicalSha256Omitting(unsignedGrant, ["manifest_hash"]),
+    });
+    expect(approvalGrantMatches(binding, grant, NOW)).toBe(true);
+    expect(
+      approvalGrantMatches(
+        {
+          ...binding,
+          learning: {
+            ...learning,
+            expected_pointer_revision: 1,
+          },
+        },
+        grant,
+        NOW,
+      ),
+    ).toBe(false);
+
+    const ordinary = ApprovalBindingSchema.parse({
+      approval_id: "approval_memory_pin",
+      principal_id: "user_local",
+      tool: "memory_pin",
+      safety_class: "important_mutation",
+      scopes: [USER_SCOPE],
+      request_hash: HASH_A,
+    });
+    expect(ordinary).not.toHaveProperty("learning");
+  });
+
+  it("binds compiled Context to one active learning release identity", () => {
+    const laneConfiguration = {
+      policy_hash: HASH_A,
+      active_learning_release_id: "release_1",
+      active_learning_release_hash: HASH_B,
+      requested_lanes: ["recent_l1"],
+      enabled_lanes: ["recent_l1"],
+      limits: {
+        max_candidates_per_lane: 10,
+        max_concurrent_lanes: 1,
+        relation_max_depth: 2,
+        relation_max_fanout: 10,
+      },
+      reason_codes: [],
+    } as const;
+    const contextSlice = {
+      schema_version: "1.0.0",
+      context_slice_id: "context_1",
+      request_id: "request_context_1",
+      compiler_version: "1.0.0",
+      created_at: NOW,
+      token_budget: 1_800,
+      token_used: 0,
+      items: [],
+      frozen_hash: HASH_A,
+      effective_lane_configuration: laneConfiguration,
+      active_learning_release_id: "release_1",
+      active_learning_release_hash: HASH_B,
+    };
+
+    expect(ContextSliceSchema.safeParse(contextSlice).success).toBe(true);
+    expect(
+      ContextSliceSchema.safeParse({
+        ...contextSlice,
+        active_learning_release_id: undefined,
+        active_learning_release_hash: undefined,
+      }).success,
+    ).toBe(false);
+    expect(
+      ContextSliceSchema.safeParse({
+        ...contextSlice,
+        active_learning_release_hash: HASH_A,
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects a payload that understates a destructive tool safety class", () => {

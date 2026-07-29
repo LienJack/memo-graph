@@ -746,6 +746,8 @@ export const LaneRequestOverridesSchema = z
 export const EffectiveLaneConfigurationSchema = z
   .object({
     policy_hash: CanonicalHashSchema,
+    active_learning_release_id: IdentifierSchema.optional(),
+    active_learning_release_hash: CanonicalHashSchema.optional(),
     requested_lanes: z.array(RecallLaneSchema),
     enabled_lanes: z.array(RecallLaneSchema),
     limits: LaneLimitsSchema,
@@ -765,6 +767,17 @@ export const EffectiveLaneConfigurationSchema = z
         code: "custom",
         path: ["enabled_lanes"],
         message: "effective lanes must be requested lanes",
+      });
+    }
+    if (
+      (value.active_learning_release_id === undefined) !==
+      (value.active_learning_release_hash === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["active_learning_release_id"],
+        message:
+          "active learning release identity and hash must appear together",
       });
     }
   });
