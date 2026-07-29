@@ -5,6 +5,17 @@ import {
   ApprovalBindingSchema,
   ApprovalGrantSchema,
   CanonicalHashSchema,
+  CandidateChangeSchema,
+  CandidateStateSchema,
+  CandidateTransitionSchema,
+  CandidateTransitionReceiptSchema,
+  CanaryAuthorizationSchema,
+  CanaryReceiptSchema,
+  CanaryRunSchema,
+  EvalReceiptSchema,
+  EvaluationCaseResultSetSchema,
+  EvaluationCommonIdentitySchema,
+  EvaluationPartitionSchema,
   EpisodeSchema,
   EvidenceRecordSchema,
   GovernedSearchItemSchema,
@@ -23,6 +34,14 @@ import {
   MemoryUsageSetInputSchema,
   MemoryRevokeInputSchema,
   MutationReceiptSchema,
+  LearningControlReceiptSchema,
+  LearningControlSchema,
+  LearningReleaseVersionSchema,
+  LearningStopReceiptSchema,
+  LearningTraceSchema,
+  MonitorReceiptSchema,
+  MonitorResultSchema,
+  PostCanaryApprovalSchema,
   PurgeReceiptSchema,
   ProjectionFrontierSchema,
   ProjectionRevisionSchema,
@@ -30,7 +49,10 @@ import {
   ProjectionTypeSchema,
   RecallRequestSchema,
   ReceiptSchema,
+  ReleasePointerSchema,
+  ReleaseReceiptSchema,
   RelationTypeSchema,
+  RollbackReceiptSchema,
   RetrievalReceiptSchema,
   ScopeSchema,
   SensitivitySchema,
@@ -61,6 +83,277 @@ export const CommitEpisodeCommandSchema = z
     episode: EpisodeSchema,
     evidence: z.array(EvidenceRecordSchema).min(1),
     blobs: z.array(BlobWriteSchema),
+  })
+  .strict();
+
+export const VerifiedApprovalCommandSchema = z
+  .object({
+    grant: ApprovalGrantSchema,
+    registry_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+    verified_at: UtcTimestampSchema,
+  })
+  .strict();
+
+const LearningWriteBaseShape = {
+  idempotency_key: z.string().trim().min(8).max(200),
+  request_hash: CanonicalHashSchema,
+};
+
+export const LearningPartitionSealSchema = z
+  .object({
+    seal_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    manifest_hash: CanonicalHashSchema,
+    case_hashes: z.array(CanonicalHashSchema).min(3),
+    oracle_hashes: z.array(CanonicalHashSchema).min(3),
+    sealed_at: UtcTimestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    for (const [field, values] of [
+      ["case_hashes", value.case_hashes],
+      ["oracle_hashes", value.oracle_hashes],
+    ] as const) {
+      if (new Set(values).size !== values.length) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} must be unique`,
+        });
+      }
+    }
+  });
+
+export const LearningContaminationEventSchema = z
+  .object({
+    contamination_event_id: IdentifierSchema,
+    run_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    case_id: IdentifierSchema.nullable(),
+    code: z.string().trim().min(1).max(200),
+    detected_at: UtcTimestampSchema,
+    event_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+const LearningTraceWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.literal("trace"),
+    trace: LearningTraceSchema,
+  })
+  .strict();
+
+const LearningStopWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.literal("stop"),
+    principal_id: IdentifierSchema,
+    scopes: z.array(ScopeSchema).min(1),
+    receipt: LearningStopReceiptSchema,
+  })
+  .strict();
+
+const LearningCandidateWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.literal("candidate"),
+    candidate: CandidateChangeSchema,
+  })
+  .strict();
+
+const LearningTransitionWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.literal("transition"),
+    transition: CandidateTransitionSchema,
+    receipt: CandidateTransitionReceiptSchema.optional(),
+  })
+  .strict();
+
+const LearningEvaluationWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.literal("evaluation"),
+    principal_id: IdentifierSchema,
+    scopes: z.array(ScopeSchema).min(1),
+    identity: EvaluationCommonIdentitySchema,
+    partition_seals: z.array(LearningPartitionSealSchema).length(3),
+    result_sets: z.array(EvaluationCaseResultSetSchema).min(1),
+    contamination_events: z.array(LearningContaminationEventSchema),
+    receipt: EvalReceiptSchema,
+  })
+  .strict();
+
+const LearningCanaryWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.literal("canary"),
+    principal_id: IdentifierSchema,
+    scopes: z.array(ScopeSchema).min(1),
+    authorization: CanaryAuthorizationSchema,
+    run: CanaryRunSchema,
+    receipt: CanaryReceiptSchema,
+  })
+  .strict();
+
+const LearningMonitorWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.literal("monitor"),
+    principal_id: IdentifierSchema,
+    scopes: z.array(ScopeSchema).min(1),
+    monitor: MonitorResultSchema,
+    receipt: MonitorReceiptSchema,
+  })
+  .strict();
+
+const LearningControlWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.literal("control"),
+    expected_control_epoch: z.number().int().nonnegative(),
+    expected_frontier_hash: CanonicalHashSchema,
+    control: LearningControlSchema,
+    receipt: LearningControlReceiptSchema,
+    approval_binding: ApprovalBindingSchema,
+    approval: VerifiedApprovalCommandSchema,
+    test_failure_point: z
+      .enum([
+        "after_guard",
+        "after_control",
+        "after_receipt",
+        "after_approval",
+        "after_idempotency",
+      ])
+      .optional(),
+  })
+  .strict();
+
+const LearningReleaseWriteCommandSchema = z
+  .object({
+    ...LearningWriteBaseShape,
+    kind: z.enum(["release", "rollback"]),
+    principal_id: IdentifierSchema,
+    scopes: z.array(ScopeSchema).min(1),
+    expected_control_epoch: z.number().int().nonnegative(),
+    expected_pointer_revision: z.number().int().nonnegative(),
+    approval_artifact: PostCanaryApprovalSchema,
+    approval_binding: ApprovalBindingSchema,
+    approval: VerifiedApprovalCommandSchema,
+    release: LearningReleaseVersionSchema,
+    pointer: ReleasePointerSchema,
+    transition: CandidateTransitionSchema,
+    receipt: z.union([ReleaseReceiptSchema, RollbackReceiptSchema]),
+    test_failure_point: z
+      .enum([
+        "after_guard",
+        "after_release",
+        "after_pointer",
+        "after_transition",
+        "after_receipt",
+        "after_approval",
+        "after_idempotency",
+      ])
+      .optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const releaseMatches =
+      value.kind === "release" &&
+      value.release.action === "release" &&
+      value.receipt.kind === "release";
+    const rollbackMatches =
+      value.kind === "rollback" &&
+      value.release.action === "rollback" &&
+      value.receipt.kind === "rollback";
+    if (!releaseMatches && !rollbackMatches) {
+      context.addIssue({
+        code: "custom",
+        path: ["kind"],
+        message: "learning release command kind, version, and receipt must agree",
+      });
+    }
+  });
+
+export const LearningLedgerWriteCommandSchema = z.discriminatedUnion("kind", [
+  LearningTraceWriteCommandSchema,
+  LearningStopWriteCommandSchema,
+  LearningCandidateWriteCommandSchema,
+  LearningTransitionWriteCommandSchema,
+  LearningEvaluationWriteCommandSchema,
+  LearningCanaryWriteCommandSchema,
+  LearningMonitorWriteCommandSchema,
+  LearningControlWriteCommandSchema,
+  LearningReleaseWriteCommandSchema,
+]);
+
+export const LearningLedgerWriteResultSchema = z
+  .object({
+    kind: z.enum([
+      "trace",
+      "stop",
+      "candidate",
+      "transition",
+      "evaluation",
+      "canary",
+      "monitor",
+      "control",
+      "release",
+      "rollback",
+    ]),
+    replayed: z.boolean(),
+    ledger_epoch: z.number().int().nonnegative(),
+    receipt: ReceiptSchema.nullable(),
+  })
+  .strict();
+
+export const LearningLedgerReadInputSchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scopes: z.array(ScopeSchema).min(1),
+    trace_id: IdentifierSchema.optional(),
+    candidate_id: IdentifierSchema.optional(),
+    release_slot_hash: CanonicalHashSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const keys = value.scopes.map(scopeKey);
+    if (new Set(keys).size !== keys.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["scopes"],
+        message: "learning read scopes must be unique",
+      });
+    }
+  });
+
+export const LearningCandidateStateSchema = z
+  .object({
+    candidate_id: IdentifierSchema,
+    state: CandidateStateSchema,
+    sequence: z.number().int().nonnegative(),
+    transition_hash: CanonicalHashSchema.nullable(),
+  })
+  .strict();
+
+export const LearningLedgerReadResultSchema = z
+  .object({
+    traces: z.array(LearningTraceSchema),
+    candidates: z.array(CandidateChangeSchema),
+    transitions: z.array(CandidateTransitionSchema),
+    candidate_states: z.array(LearningCandidateStateSchema),
+    evaluation_identities: z.array(EvaluationCommonIdentitySchema),
+    evaluation_result_sets: z.array(EvaluationCaseResultSetSchema),
+    contamination_events: z.array(LearningContaminationEventSchema),
+    canary_authorizations: z.array(CanaryAuthorizationSchema),
+    canary_runs: z.array(CanaryRunSchema),
+    releases: z.array(LearningReleaseVersionSchema),
+    pointers: z.array(ReleasePointerSchema),
+    monitors: z.array(MonitorResultSchema),
+    controls: z.array(LearningControlSchema),
+    receipts: z.array(ReceiptSchema),
+    invalid_candidate_ids: z.array(IdentifierSchema),
   })
   .strict();
 
@@ -125,6 +418,16 @@ export const StorageCountsSchema = z
     relation_revisions: z.number().int().nonnegative(),
     projection_outbox_pending: z.number().int().nonnegative(),
     projection_rebuild_receipts: z.number().int().nonnegative(),
+    learning_traces: z.number().int().nonnegative(),
+    learning_candidates: z.number().int().nonnegative(),
+    learning_transitions: z.number().int().nonnegative(),
+    learning_evaluation_runs: z.number().int().nonnegative(),
+    learning_canary_runs: z.number().int().nonnegative(),
+    learning_release_versions: z.number().int().nonnegative(),
+    learning_release_pointers: z.number().int().nonnegative(),
+    learning_monitor_results: z.number().int().nonnegative(),
+    learning_control_rows: z.number().int().nonnegative(),
+    learning_receipts: z.number().int().nonnegative(),
     ...GovernanceCountsSchema.shape,
     ...PurgeCountsSchema.shape,
   })
@@ -199,6 +502,14 @@ export const ProjectionScopeFrontierInputSchema = z
   })
   .strict();
 
+export const LearningStorageFrontierSchema = z
+  .object({
+    control_epoch: z.number().int().nonnegative(),
+    release_revision: z.number().int().nonnegative(),
+    frontier_hash: CanonicalHashSchema,
+  })
+  .strict();
+
 export const StorageHealthSchema = z
   .object({
     schema_version: z.string().regex(/^\d{4}$/),
@@ -225,6 +536,7 @@ export const StorageHealthSchema = z
       "unavailable",
     ]),
     projection_frontier: ProjectionStorageFrontierSchema,
+    learning_frontier: LearningStorageFrontierSchema,
     filesystem_type: z.number().int(),
     migrations: z.array(MigrationEvidenceSchema),
     counts: StorageCountsSchema,
@@ -268,14 +580,6 @@ export const AdmitMemoryCommandSchema = z
   .object({
     request: MemoryProposeInputSchema,
     evaluation: AdmissionEvaluationSchema,
-  })
-  .strict();
-
-export const VerifiedApprovalCommandSchema = z
-  .object({
-    grant: ApprovalGrantSchema,
-    registry_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
-    verified_at: UtcTimestampSchema,
   })
   .strict();
 
@@ -743,6 +1047,9 @@ export const BackupResultSchema = z
     path: z.string().min(1),
     ledger_epoch: z.number().int().nonnegative(),
     tombstone_epoch: z.number().int().nonnegative(),
+    learning_control_epoch: z.number().int().nonnegative(),
+    learning_release_revision: z.number().int().nonnegative(),
+    learning_frontier_hash: CanonicalHashSchema,
     latest_receipt_hash: z.string().regex(/^sha256:[a-f0-9]{64}$/).nullable(),
     blob_hashes: z.array(z.string().regex(/^sha256:[a-f0-9]{64}$/)),
     integrity_check: z.literal("ok"),
@@ -768,6 +1075,10 @@ export const RestoreVerificationResultSchema = z
     context_slices_verified: z.number().int().nonnegative(),
     receipts_verified: z.number().int().nonnegative(),
     purge_jobs_verified: z.number().int().nonnegative(),
+    learning_traces_verified: z.number().int().nonnegative(),
+    learning_candidates_verified: z.number().int().nonnegative(),
+    learning_releases_verified: z.number().int().nonnegative(),
+    learning_control_rows_verified: z.number().int().nonnegative(),
     incomplete_purge_jobs: z.number().int().nonnegative(),
     residual_hashes: z.array(
       z.string().regex(/^sha256:[a-f0-9]{64}$/),
@@ -1823,6 +2134,8 @@ export const WorkerOperationSchema = z.enum([
   "mark_vector_restore_degraded",
   "run_vector_temporal_sweep",
   "vector_projection_status",
+  "write_learning_ledger",
+  "read_learning_ledger",
   "test_block",
   "test_hold_write_lock",
   "close",
@@ -1862,6 +2175,30 @@ export const WorkerResponseSchema = z.discriminatedUnion("ok", [
 ]);
 
 export type BackupResult = z.infer<typeof BackupResultSchema>;
+export type LearningContaminationEvent = z.infer<
+  typeof LearningContaminationEventSchema
+>;
+export type LearningLedgerReadInput = z.input<
+  typeof LearningLedgerReadInputSchema
+>;
+export type LearningLedgerReadResult = z.output<
+  typeof LearningLedgerReadResultSchema
+>;
+export type LearningLedgerWriteCommand = z.input<
+  typeof LearningLedgerWriteCommandSchema
+>;
+export type ParsedLearningLedgerWriteCommand = z.output<
+  typeof LearningLedgerWriteCommandSchema
+>;
+export type LearningLedgerWriteResult = z.output<
+  typeof LearningLedgerWriteResultSchema
+>;
+export type LearningPartitionSeal = z.infer<
+  typeof LearningPartitionSealSchema
+>;
+export type LearningStorageFrontier = z.infer<
+  typeof LearningStorageFrontierSchema
+>;
 export type ApplyProjectionBatchCommand = z.input<
   typeof ApplyProjectionBatchCommandSchema
 >;

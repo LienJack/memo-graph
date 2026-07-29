@@ -53,6 +53,10 @@ import {
   FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   InvalidateProjectionDescendantsResultSchema,
+  LearningLedgerReadInputSchema,
+  LearningLedgerReadResultSchema,
+  LearningLedgerWriteCommandSchema,
+  LearningLedgerWriteResultSchema,
   MemoryRevisionCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryEligibilityResultSchema,
@@ -145,6 +149,10 @@ import {
   type FailVectorProjectionJobCommand,
   type InvalidateProjectionDescendantsCommand,
   type InvalidateProjectionDescendantsResult,
+  type LearningLedgerReadInput,
+  type LearningLedgerReadResult,
+  type LearningLedgerWriteCommand,
+  type LearningLedgerWriteResult,
   type MemoryRevisionCommand,
   type MemoryEligibilityInput,
   type MemoryEligibilityResult,
@@ -688,6 +696,30 @@ export class SqliteStorageClient {
       "vector_projection_status",
       null,
       VectorProjectionStatusSchema,
+    );
+  }
+
+  writeLearningLedger(
+    input: LearningLedgerWriteCommand,
+  ): Promise<LearningLedgerWriteResult> {
+    const command = LearningLedgerWriteCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "write_learning_ledger",
+        command,
+        LearningLedgerWriteResultSchema,
+      ),
+    );
+  }
+
+  readLearningLedger(
+    input: LearningLedgerReadInput,
+  ): Promise<LearningLedgerReadResult> {
+    const request = LearningLedgerReadInputSchema.parse(input);
+    return this.#request(
+      "read_learning_ledger",
+      request,
+      LearningLedgerReadResultSchema,
     );
   }
 

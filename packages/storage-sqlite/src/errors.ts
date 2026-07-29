@@ -7,6 +7,7 @@ export const STORAGE_ERROR_CODES = [
   "APPROVAL_INVALID",
   "INCOMPLETE_PURGE",
   "STALE_TOMBSTONE_FRONTIER",
+  "STALE_LEARNING_FRONTIER",
   "CORRUPTION",
   "MIGRATION_DRIFT",
   "ENCRYPTION_REQUIRED",
@@ -35,6 +36,8 @@ const PUBLIC_MESSAGES: Record<StorageErrorCode, string> = {
   INCOMPLETE_PURGE: "the purge still has residual or failed stores",
   STALE_TOMBSTONE_FRONTIER:
     "the backup predates the required tombstone frontier",
+  STALE_LEARNING_FRONTIER:
+    "the backup predates the required learning release or control frontier",
   CORRUPTION: "stored content failed an integrity check",
   MIGRATION_DRIFT: "the migration history differs from the applied schema",
   ENCRYPTION_REQUIRED:

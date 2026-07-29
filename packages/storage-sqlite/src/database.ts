@@ -13,14 +13,19 @@ import {
 import { basename, join } from "node:path";
 
 import {
+  CandidateChangeSchema,
   ContextSliceSchema,
   EpisodeSchema,
   EvidenceRecordSchema,
   MutationReceiptSchema,
+  LearningControlSchema,
+  LearningReleaseVersionSchema,
+  LearningTraceSchema,
   ProjectionRevisionSchema,
   RecallRequestSchema,
   ReceiptSchema,
   RetrievalReceiptSchema,
+  ReleasePointerSchema,
   canonicalJson,
   canonicalSha256,
   canonicalSha256Omitting,
@@ -38,6 +43,7 @@ import { FtsIndex } from "./fts-index.js";
 import { GovernanceRepository } from "./governance-repository.js";
 import { GovernedMemoryReader } from "./governed-memory-reader.js";
 import { GraphProjectionRepository } from "./graph-projection-repository.js";
+import { LearningRepository } from "./learning-repository.js";
 import { applyMigrations } from "./migrations.js";
 import { ProjectionRepository } from "./projection-repository.js";
 import { PurgeRepository } from "./purge-repository.js";
@@ -87,6 +93,8 @@ import {
   PurgeRunInputSchema,
   RecordRecallCommandSchema,
   RelationTraversalInputSchema,
+  LearningLedgerReadInputSchema,
+  LearningLedgerWriteCommandSchema,
   ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
   type BackupResult,
@@ -127,6 +135,8 @@ import {
   type RecordProjectionRebuildResult,
   type ResetGraphProjectionScopesResult,
   type RelationTraversalResult,
+  type LearningLedgerReadResult,
+  type LearningLedgerWriteResult,
   type RestoreVerificationResult,
   type StorageHealth,
 } from "./protocol.js";
@@ -266,12 +276,14 @@ export class StorageDatabase {
   readonly #vector: VectorProjectionRepository;
   readonly #projections: ProjectionRepository;
   readonly #relations: RelationRepository;
+  readonly #learning: LearningRepository;
   readonly #journalMode: string;
 
   constructor(options: {
     layout: DataRootLayout;
     migrationsDir: string;
     busyTimeoutMs: number;
+    testOperations?: boolean;
   }) {
     this.#layout = options.layout;
     this.#database = new Database(options.layout.database);
@@ -306,12 +318,16 @@ export class StorageDatabase {
       this.#graph,
     );
     this.#relations = new RelationRepository(this.#database);
+    this.#learning = new LearningRepository(this.#database, {
+      allowTestOperations: options.testOperations ?? false,
+    });
   }
 
   health(): StorageHealth {
     const projection = this.#fts.state();
     const governance = this.#governance.counts();
     const purge = this.#purge.counts();
+    const learningFrontier = this.#learning.frontier();
     const layeredProjection = this.#projections.state();
     const count = (table: string, where = ""): number =>
       Number(
@@ -357,6 +373,7 @@ export class StorageDatabase {
       projection_state: projection.status,
       layered_projection_state: layeredProjection.status,
       projection_frontier: this.#projections.frontier(),
+      learning_frontier: learningFrontier,
       filesystem_type: this.#layout.filesystem_type,
       migrations: this.#migrations,
       counts: {
@@ -377,8 +394,19 @@ export class StorageDatabase {
         ...this.#projections.counts(),
         ...governance,
         ...purge,
+        ...this.#learning.counts(),
       },
     };
+  }
+
+  writeLearningLedger(input: unknown): LearningLedgerWriteResult {
+    return this.#learning.write(
+      LearningLedgerWriteCommandSchema.parse(input),
+    );
+  }
+
+  readLearningLedger(input: unknown): LearningLedgerReadResult {
+    return this.#learning.read(LearningLedgerReadInputSchema.parse(input));
   }
 
   governanceStatus(): GovernanceStorageStatus {
@@ -783,6 +811,7 @@ export class StorageDatabase {
   async createBackup(): Promise<BackupResult> {
     const epoch = this.#ledgerEpoch();
     const tombstoneEpoch = this.#purge.tombstoneEpoch();
+    const learningFrontier = this.#learning.frontier();
     const backupId = `backup:${randomUUID()}`;
     const directory = join(
       this.#layout.backups,
@@ -865,6 +894,26 @@ export class StorageDatabase {
             .get() as { tombstone_epoch: number }
         ).tombstone_epoch,
       );
+      const backupLearningControlEpoch = Number(
+        (
+          backup
+            .prepare(
+              `SELECT coalesce(max(control_epoch), 0) AS value
+               FROM learning_control_state`,
+            )
+            .get() as { value: number }
+        ).value,
+      );
+      const backupLearningReleaseRevision = Number(
+        (
+          backup
+            .prepare(
+              `SELECT coalesce(max(pointer_revision), 0) AS value
+               FROM learning_release_pointers`,
+            )
+            .get() as { value: number }
+        ).value,
+      );
       const backupMigrations = backup
         .prepare(
           "SELECT version, name, hash, applied_at FROM schema_migrations ORDER BY version",
@@ -875,6 +924,8 @@ export class StorageDatabase {
         integrityCheck !== "ok" ||
         backupEpoch !== epoch ||
         backupTombstoneEpoch !== tombstoneEpoch ||
+        backupLearningControlEpoch !== learningFrontier.control_epoch ||
+        backupLearningReleaseRevision !== learningFrontier.release_revision ||
         backupReceipt?.receipt_hash !== latestReceipt?.receipt_hash ||
         canonicalJson(backupMigrations) !== canonicalJson(this.#migrations)
       ) {
@@ -890,9 +941,10 @@ export class StorageDatabase {
         `INSERT INTO backup_manifests (
            backup_id, relative_path, created_at, ledger_epoch,
            tombstone_epoch,
+           learning_control_epoch, learning_release_revision,
            latest_receipt_hash, migration_hashes_json, blob_hashes_json,
            size_bytes, integrity_check
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         backupId,
@@ -900,6 +952,8 @@ export class StorageDatabase {
         now(),
         epoch,
         tombstoneEpoch,
+        learningFrontier.control_epoch,
+        learningFrontier.release_revision,
         latestReceipt?.receipt_hash ?? null,
         canonicalJson(this.#migrations),
         canonicalJson(artifacts.map((artifact) => artifact.content_hash)),
@@ -913,6 +967,9 @@ export class StorageDatabase {
       path,
       ledger_epoch: epoch,
       tombstone_epoch: tombstoneEpoch,
+      learning_control_epoch: learningFrontier.control_epoch,
+      learning_release_revision: learningFrontier.release_revision,
+      learning_frontier_hash: learningFrontier.frontier_hash,
       latest_receipt_hash: latestReceipt?.receipt_hash ?? null,
       blob_hashes: artifacts.map((artifact) => artifact.content_hash),
       integrity_check: "ok",
@@ -1406,6 +1463,116 @@ export class StorageDatabase {
       residualHashes.push(...receipt.residual_hashes);
     }
 
+    const learningTraceRows = this.#database
+      .prepare(
+        "SELECT trace_id, trace_hash, artifact_json FROM learning_traces",
+      )
+      .all() as Array<{
+      trace_id: string;
+      trace_hash: string;
+      artifact_json: string;
+    }>;
+    for (const row of learningTraceRows) {
+      const trace = LearningTraceSchema.parse(
+        JSON.parse(row.artifact_json) as unknown,
+      );
+      if (
+        trace.trace_id !== row.trace_id ||
+        trace.trace_hash !== row.trace_hash
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+    const learningCandidateRows = this.#database
+      .prepare(
+        `SELECT candidate_id, candidate_hash, artifact_json
+         FROM learning_candidates`,
+      )
+      .all() as Array<{
+      candidate_id: string;
+      candidate_hash: string;
+      artifact_json: string;
+    }>;
+    for (const row of learningCandidateRows) {
+      const candidate = CandidateChangeSchema.parse(
+        JSON.parse(row.artifact_json) as unknown,
+      );
+      if (
+        candidate.candidate_id !== row.candidate_id ||
+        candidate.candidate_hash !== row.candidate_hash
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+    const learningReleaseRows = this.#database
+      .prepare(
+        `SELECT release_id, release_hash, artifact_json
+         FROM learning_release_versions`,
+      )
+      .all() as Array<{
+      release_id: string;
+      release_hash: string;
+      artifact_json: string;
+    }>;
+    for (const row of learningReleaseRows) {
+      const release = LearningReleaseVersionSchema.parse(
+        JSON.parse(row.artifact_json) as unknown,
+      );
+      if (
+        release.release_id !== row.release_id ||
+        release.release_hash !== row.release_hash
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+    const learningPointerRows = this.#database
+      .prepare(
+        `SELECT release_slot_hash, active_release_id, pointer_revision,
+                artifact_json
+         FROM learning_release_pointers`,
+      )
+      .all() as Array<{
+      release_slot_hash: string;
+      active_release_id: string | null;
+      pointer_revision: number;
+      artifact_json: string;
+    }>;
+    for (const row of learningPointerRows) {
+      const pointer = ReleasePointerSchema.parse(
+        JSON.parse(row.artifact_json) as unknown,
+      );
+      if (
+        pointer.release_slot_hash !== row.release_slot_hash ||
+        pointer.active_release_id !== row.active_release_id ||
+        pointer.pointer_revision !== Number(row.pointer_revision)
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+    const learningControlRows = this.#database
+      .prepare(
+        `SELECT principal_id, control_epoch, frontier_hash, artifact_json
+         FROM learning_control_state`,
+      )
+      .all() as Array<{
+      principal_id: string;
+      control_epoch: number;
+      frontier_hash: string;
+      artifact_json: string;
+    }>;
+    for (const row of learningControlRows) {
+      const control = LearningControlSchema.parse(
+        JSON.parse(row.artifact_json) as unknown,
+      );
+      if (
+        control.principal_id !== row.principal_id ||
+        control.control_epoch !== Number(row.control_epoch) ||
+        control.frontier_hash !== row.frontier_hash
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+
     return {
       integrity_check: "ok",
       foreign_key_violations: 0,
@@ -1426,6 +1593,10 @@ export class StorageDatabase {
       context_slices_verified: contextRows.length,
       receipts_verified: receiptRows.length,
       purge_jobs_verified: purgeJobs.length,
+      learning_traces_verified: learningTraceRows.length,
+      learning_candidates_verified: learningCandidateRows.length,
+      learning_releases_verified: learningReleaseRows.length,
+      learning_control_rows_verified: learningControlRows.length,
       incomplete_purge_jobs: incompletePurgeJobs,
       residual_hashes: [...new Set(residualHashes)].sort(),
     };

@@ -20,6 +20,7 @@ import type Database from "better-sqlite3";
 
 import type { BlobStore } from "./blob-store.js";
 import { StorageError } from "./errors.js";
+import { invalidateLearningTargets } from "./learning-repository.js";
 import { suppressProjectionDescendants } from "./projection-effects.js";
 import {
   MemoryDeleteResultSchema,
@@ -242,6 +243,13 @@ export class PurgeRepository {
       if (changed.changes !== 1) {
         throw new StorageError("STALE_REVISION");
       }
+      invalidateLearningTargets(this.#database, {
+        memoryId: memory.memory_id,
+        revisionId,
+        reason: "tombstoned",
+        tombstoneEpoch,
+        createdAt: occurredAt,
+      });
       this.#database
         .prepare(
           `INSERT INTO memory_status_events (

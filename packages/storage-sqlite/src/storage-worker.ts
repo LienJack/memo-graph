@@ -29,6 +29,8 @@ import {
   FailGraphProjectionJobCommandSchema,
   FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
+  LearningLedgerReadInputSchema,
+  LearningLedgerWriteCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryControlCommandSchema,
   MemoryCorrectionBasisInputSchema,
@@ -78,6 +80,7 @@ try {
     layout: prepareDataRoot(options.dataRoot),
     migrationsDir: options.migrationsDir,
     busyTimeoutMs: options.busyTimeoutMs,
+    testOperations: options.testOperations,
   });
 } catch (error) {
   initializationError = error;
@@ -289,6 +292,16 @@ port.on("message", (message: unknown) => {
           break;
         case "vector_projection_status":
           result = database.vectorProjectionStatus();
+          break;
+        case "write_learning_ledger":
+          result = database.writeLearningLedger(
+            LearningLedgerWriteCommandSchema.parse(request.payload),
+          );
+          break;
+        case "read_learning_ledger":
+          result = database.readLearningLedger(
+            LearningLedgerReadInputSchema.parse(request.payload),
+          );
           break;
         case "admit_memory":
           result = database.admitMemory(

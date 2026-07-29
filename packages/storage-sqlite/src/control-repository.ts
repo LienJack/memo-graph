@@ -10,6 +10,7 @@ import {
 import type Database from "better-sqlite3";
 
 import { StorageError } from "./errors.js";
+import { invalidateLearningTargets } from "./learning-repository.js";
 import {
   enqueueProjectionRefresh,
   suppressProjectionDescendants,
@@ -277,6 +278,13 @@ export class ControlRepository {
           throw new StorageError("CONFLICT");
         }
         this.#setLifecycle(memory.memory_id, revisionId, "revoked", occurredAt);
+        invalidateLearningTargets(this.#database, {
+          memoryId: memory.memory_id,
+          revisionId,
+          reason: "revoked",
+          tombstoneEpoch: null,
+          createdAt: occurredAt,
+        });
         this.#insertStatus(
           request,
           revisionId,

@@ -29,12 +29,16 @@ export type RestoreBackupOptions = {
   backup: BackupResult;
   dataRoot: string;
   minimumTombstoneEpoch: number;
+  minimumLearningControlEpoch?: number;
+  minimumLearningReleaseRevision?: number;
   migrationsDir?: string;
 };
 
 export type RestoreBackupResult = {
   data_root: string;
   minimum_tombstone_epoch: number;
+  minimum_learning_control_epoch: number;
+  minimum_learning_release_revision: number;
   health: StorageHealth;
   verified_blobs: number;
   verification: RestoreVerificationResult;
@@ -61,6 +65,24 @@ export async function restoreBackupToEmptyDataRoot(
   }
   if (backup.tombstone_epoch < options.minimumTombstoneEpoch) {
     throw new StorageError("STALE_TOMBSTONE_FRONTIER");
+  }
+  const minimumLearningControlEpoch =
+    options.minimumLearningControlEpoch ?? 0;
+  const minimumLearningReleaseRevision =
+    options.minimumLearningReleaseRevision ?? 0;
+  if (
+    !Number.isSafeInteger(minimumLearningControlEpoch) ||
+    minimumLearningControlEpoch < 0 ||
+    !Number.isSafeInteger(minimumLearningReleaseRevision) ||
+    minimumLearningReleaseRevision < 0
+  ) {
+    throw new StorageError("INVALID_INPUT");
+  }
+  if (
+    backup.learning_control_epoch < minimumLearningControlEpoch ||
+    backup.learning_release_revision < minimumLearningReleaseRevision
+  ) {
+    throw new StorageError("STALE_LEARNING_FRONTIER");
   }
   const target = resolve(options.dataRoot);
   if (
@@ -133,6 +155,12 @@ export async function restoreBackupToEmptyDataRoot(
       health.ledger_epoch !== backup.ledger_epoch ||
       health.tombstone_epoch !== backup.tombstone_epoch ||
       health.latest_receipt_hash !== backup.latest_receipt_hash ||
+      health.learning_frontier.control_epoch !==
+        backup.learning_control_epoch ||
+      health.learning_frontier.release_revision !==
+        backup.learning_release_revision ||
+      health.learning_frontier.frontier_hash !==
+        backup.learning_frontier_hash ||
       verification.verified_artifacts !== backup.blob_hashes.length
     ) {
       throw new StorageError("CORRUPTION");
@@ -144,6 +172,8 @@ export async function restoreBackupToEmptyDataRoot(
     return {
       data_root: target,
       minimum_tombstone_epoch: options.minimumTombstoneEpoch,
+      minimum_learning_control_epoch: minimumLearningControlEpoch,
+      minimum_learning_release_revision: minimumLearningReleaseRevision,
       health,
       verified_blobs: verification.verified_artifacts,
       verification,
