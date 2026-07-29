@@ -1505,7 +1505,8 @@ export class LearningRepository {
         : "learning_rollback";
     if (
       Number(control?.control_epoch ?? 0) !== command.expected_control_epoch ||
-      control?.status === "paused" ||
+      (command.kind === "release" &&
+        control?.status === "paused") ||
       command.approval_binding.tool !== expectedTool ||
       command.approval_binding.principal_id !== command.principal_id ||
       scopesJson(command.approval_binding.scopes) !==

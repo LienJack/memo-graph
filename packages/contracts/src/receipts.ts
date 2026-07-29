@@ -9,7 +9,10 @@ import {
   UtcTimestampSchema,
 } from "./common.js";
 import { GraphPathEvidenceSchema } from "./graph.js";
-import { CandidateStateSchema } from "./learning.js";
+import {
+  CandidateStateSchema,
+  LearningOutcomeSchema,
+} from "./learning.js";
 import {
   ContextFrontierSchema,
   ContextScoreComponentsSchema,
@@ -186,6 +189,46 @@ export const MutationReceiptSchema = z
   })
   .strict();
 
+export const LearningFeedbackObservationSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    feedback_id: IdentifierSchema,
+    task_id: IdentifierSchema,
+    context_slice_id: IdentifierSchema,
+    outcome: LearningOutcomeSchema,
+    evidence_ids: z.array(IdentifierSchema).max(100),
+    error_codes: z.array(z.string().trim().min(1).max(200)).max(100),
+    gap_codes: z.array(z.string().trim().min(1).max(200)).max(100),
+    observed_at: UtcTimestampSchema,
+    feedback_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    for (const [field, entries] of [
+      ["evidence_ids", value.evidence_ids],
+      ["error_codes", value.error_codes],
+      ["gap_codes", value.gap_codes],
+    ] as const) {
+      if (new Set(entries).size !== entries.length) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} must be unique`,
+        });
+      }
+    }
+    if (
+      value.feedback_hash !==
+        canonicalSha256Omitting(value, ["feedback_hash"])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["feedback_hash"],
+        message: "feedback_hash must bind the canonical observation",
+      });
+    }
+  });
+
 export const LearningStopReceiptSchema = z
   .object({
     ...ReceiptBaseShape,
@@ -195,6 +238,7 @@ export const LearningStopReceiptSchema = z
     candidate_id: IdentifierSchema.nullable(),
     control_epoch: z.number().int().nonnegative(),
     reason_code: z.string().trim().min(1).max(200),
+    feedback: LearningFeedbackObservationSchema.optional(),
   })
   .strict();
 
@@ -541,6 +585,9 @@ export type LearningControlReceipt = z.infer<
   typeof LearningControlReceiptSchema
 >;
 export type LearningStopReceipt = z.infer<typeof LearningStopReceiptSchema>;
+export type LearningFeedbackObservation = z.infer<
+  typeof LearningFeedbackObservationSchema
+>;
 export type MonitorReceipt = z.infer<typeof MonitorReceiptSchema>;
 export type MutationReceipt = z.infer<typeof MutationReceiptSchema>;
 export type PurgeReceipt = z.infer<typeof PurgeReceiptSchema>;

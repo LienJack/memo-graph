@@ -341,6 +341,7 @@ function toolResult(response: z.infer<typeof GovernedResponseSchema>) {
   return {
     content: [{ type: "text" as const, text: canonicalJson(response) }],
     structuredContent: response,
+    isError: response.status === "FAILED",
   };
 }
 
@@ -352,8 +353,31 @@ function annotations(name: (typeof MEMORY_TOOL_METADATA)[number]["name"]) {
   return metadata.annotations;
 }
 
+export type MemoryMcpRuntime = Pick<
+  MemoryRuntime,
+  | "learningInspection"
+  | "learningPause"
+  | "learningRelease"
+  | "learningResume"
+  | "learningRollback"
+  | "memoryContextCompile"
+  | "memoryCorrect"
+  | "memoryDelete"
+  | "memoryDemote"
+  | "memoryEpisodeCommit"
+  | "memoryExplain"
+  | "memoryFeedback"
+  | "memoryGet"
+  | "memoryPin"
+  | "memoryPropose"
+  | "memoryReceiptGet"
+  | "memoryRevoke"
+  | "memorySearch"
+  | "memoryUsageSet"
+>;
+
 export function createMemoryMcpServer(options: {
-  runtime: MemoryRuntime;
+  runtime: MemoryMcpRuntime;
   storage: SqliteStorageClient;
 }): McpServer {
   const server = new McpServer(

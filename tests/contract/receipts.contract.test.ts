@@ -13,6 +13,7 @@ import {
   RetrievalReceiptSchema,
   buildContextFrontierV2,
   buildGraphPathEvidence,
+  canonicalSha256Omitting,
   receiptHashIsValid,
   sealReceipt,
 } from "../../packages/contracts/src/index.js";
@@ -53,6 +54,24 @@ describe("receipt contracts", () => {
   });
 
   it("seals privacy-minimal learning stop and transition receipts", () => {
+    const feedbackInput = {
+      schema_version: "1.0.0",
+      feedback_id: "feedback_task_1",
+      task_id: "task_1",
+      context_slice_id: "context_1",
+      outcome: "failed",
+      evidence_ids: ["evidence_1"],
+      error_codes: ["NO_RELEVANT_MEMORY"],
+      gap_codes: ["RETRIEVAL_POLICY_TOO_BROAD"],
+      observed_at: NOW,
+      feedback_hash: HASH_A,
+    } as const;
+    const feedback = {
+      ...feedbackInput,
+      feedback_hash: canonicalSha256Omitting(feedbackInput, [
+        "feedback_hash",
+      ]),
+    };
     const stop = LearningStopReceiptSchema.parse(
       sealReceipt({
         schema_version: "1.0.0",
@@ -66,6 +85,7 @@ describe("receipt contracts", () => {
         candidate_id: null,
         control_epoch: 0,
         reason_code: "TRACE_INCOMPLETE",
+        feedback,
       }),
     );
     const transition = CandidateTransitionReceiptSchema.parse(
@@ -88,6 +108,23 @@ describe("receipt contracts", () => {
     );
     expect(receiptHashIsValid(stop)).toBe(true);
     expect(receiptHashIsValid(transition)).toBe(true);
+    expect(stop.feedback).toMatchObject({
+      task_id: "task_1",
+      context_slice_id: "context_1",
+      outcome: "failed",
+      evidence_ids: ["evidence_1"],
+      error_codes: ["NO_RELEVANT_MEMORY"],
+      gap_codes: ["RETRIEVAL_POLICY_TOO_BROAD"],
+    });
+    expect(
+      LearningStopReceiptSchema.safeParse({
+        ...stop,
+        feedback: {
+          ...stop.feedback,
+          evidence_ids: ["evidence_1", "evidence_1"],
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("binds canary, monitor, and learning-control receipts to exact releases", () => {

@@ -7,8 +7,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  Client,
+  InMemoryTransport,
+} from "@modelcontextprotocol/client";
 
 import {
+  GovernedResponseSchema,
+  MemoryFeedbackInputSchema,
   LearningPauseInputSchema,
   MEMORY_TOOL_SAFETY_CLASS,
   MonitorReceiptSchema,
@@ -21,6 +27,7 @@ import {
 import {
   MEMORY_RESOURCE_URIS,
   MEMORY_TOOL_METADATA,
+  createMemoryMcpServer,
 } from "../../packages/mcp-server/src/index.js";
 import type {
   LearningReleaseResult,
@@ -44,14 +51,14 @@ import {
   rollbackRequest,
 } from "../helpers/g5-release.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
+import {
+  verifiedLearningApproval,
+} from "../helpers/learning-examples.js";
 
 const WORKSPACE_SCOPE = {
   kind: "workspace",
   id: "workspace_local",
 } as const;
-const HASH_RUNTIME = `sha256:${"1".repeat(64)}` as const;
-const HASH_CONFIGURATION = `sha256:${"2".repeat(64)}` as const;
-const HASH_CORPUS = `sha256:${"3".repeat(64)}` as const;
 const cleanupPaths: string[] = [];
 
 function temporaryRoot(prefix: string): string {
@@ -123,6 +130,26 @@ function runtime(
   });
 }
 
+async function actionFrontier(memory: MemoryRuntime) {
+  return (await memory.learningInspection()).action_frontier;
+}
+
+async function connectInMemory(
+  memory: MemoryRuntime,
+  storage: SqliteStorageClient,
+) {
+  const server = createMemoryMcpServer({ runtime: memory, storage });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  const client = new Client({
+    name: "learning-controls-in-memory-client",
+    version: "0.1.0",
+  });
+  await client.connect(clientTransport);
+  return { client, server };
+}
+
 afterEach(() => {
   while (cleanupPaths.length > 0) {
     const target = cleanupPaths.pop();
@@ -144,9 +171,9 @@ describe("governed MCP learning controls", () => {
       envelope,
       expected_control_epoch: 0,
       expected_frontier_hash: `sha256:${"0".repeat(64)}`,
-      runtime_identity_hash: HASH_RUNTIME,
-      configuration_hash: HASH_CONFIGURATION,
-      corpus_hash: HASH_CORPUS,
+      runtime_identity_hash: `sha256:${"1".repeat(64)}`,
+      configuration_hash: `sha256:${"2".repeat(64)}`,
+      corpus_hash: `sha256:${"3".repeat(64)}`,
     };
     expect(LearningPauseInputSchema.safeParse(exact).success).toBe(true);
     expect(
@@ -161,6 +188,23 @@ describe("governed MCP learning controls", () => {
         envelope: {
           ...envelope,
           expected_revision_id: "revision_not_allowed",
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      MemoryFeedbackInputSchema.safeParse({
+        envelope: proposalEnvelope("bounded"),
+        feedback: {
+          task_id: "task_feedback_bounded",
+          context_slice_id: "context_feedback_bounded",
+          outcome: "failed",
+          evidence_ids: Array.from(
+            { length: 101 },
+            (_value, index) => `evidence_${index}`,
+          ),
+          error_codes: [],
+          gap_codes: [],
+          observed_at: NOW,
         },
       }).success,
     ).toBe(false);
@@ -214,18 +258,31 @@ describe("governed MCP learning controls", () => {
       expect(afterFeedback.candidates).toEqual([]);
       expect(afterFeedback.pointers).toEqual([]);
       expect(afterFeedback.receipts).toEqual([
-        expect.objectContaining({ kind: "learning_stop" }),
+        expect.objectContaining({
+          kind: "learning_stop",
+          feedback: expect.objectContaining({
+            task_id: "task_feedback_1",
+            context_slice_id: "context_feedback_1",
+            outcome: "failed",
+            evidence_ids: ["evidence_feedback_secret_marker"],
+            error_codes: ["NO_RELEVANT_MEMORY"],
+            gap_codes: ["RETRIEVAL_POLICY_TOO_BROAD"],
+          }),
+        }),
       ]);
 
       const pauseEnvelope = mutationEnvelope("learning_pause", "pause");
+      const pauseFrontier = await actionFrontier(memory);
       const pauseRequest = {
         envelope: pauseEnvelope,
-        expected_control_epoch: 0,
+        expected_control_epoch: pauseFrontier.expected_control_epoch,
         expected_frontier_hash:
-          (await storage.health()).learning_frontier.frontier_hash,
-        runtime_identity_hash: HASH_RUNTIME,
-        configuration_hash: HASH_CONFIGURATION,
-        corpus_hash: HASH_CORPUS,
+          pauseFrontier.expected_frontier_hash,
+        runtime_identity_hash:
+          pauseFrontier.runtime_identity_hash,
+        configuration_hash:
+          pauseFrontier.configuration_hash,
+        corpus_hash: pauseFrontier.corpus_hash,
       } as const;
       approvals.approve(pauseRequest);
       const paused = await memory.learningPause(pauseRequest);
@@ -239,7 +296,11 @@ describe("governed MCP learning controls", () => {
           replayed: false,
         },
       });
-      expect(await memory.learningPause(pauseRequest)).toMatchObject({
+      const pausedAfterRelease = await memory.learningPause(pauseRequest);
+      expect(
+        pausedAfterRelease,
+        canonicalJson(pausedAfterRelease),
+      ).toMatchObject({
         status: "OK",
         receipt_id: paused.receipt_id,
         data: {
@@ -265,6 +326,19 @@ describe("governed MCP learning controls", () => {
         status: "paused",
         control_epoch: 1,
       });
+      expect(inspection.action_frontier).toMatchObject({
+        expected_control_epoch: 1,
+        runtime_identity_hash: expect.stringMatching(
+          /^sha256:[a-f0-9]{64}$/,
+        ),
+        configuration_hash: expect.stringMatching(
+          /^sha256:[a-f0-9]{64}$/,
+        ),
+        corpus_hash: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+        learning_state_hash: expect.stringMatching(
+          /^sha256:[a-f0-9]{64}$/,
+        ),
+      });
       expect(inspection.candidates).toEqual([]);
       expect(inspection.pointers).toEqual([]);
       expect(canonicalJson(inspection)).not.toContain(
@@ -272,14 +346,17 @@ describe("governed MCP learning controls", () => {
       );
 
       const resumeEnvelope = mutationEnvelope("learning_resume", "resume");
+      const resumeFrontier = await actionFrontier(memory);
       const resumeRequest = {
         envelope: resumeEnvelope,
-        expected_control_epoch: 1,
+        expected_control_epoch: resumeFrontier.expected_control_epoch,
         expected_frontier_hash:
-          (await storage.health()).learning_frontier.frontier_hash,
-        runtime_identity_hash: HASH_RUNTIME,
-        configuration_hash: HASH_CONFIGURATION,
-        corpus_hash: HASH_CORPUS,
+          resumeFrontier.expected_frontier_hash,
+        runtime_identity_hash:
+          resumeFrontier.runtime_identity_hash,
+        configuration_hash:
+          resumeFrontier.configuration_hash,
+        corpus_hash: resumeFrontier.corpus_hash,
         abandon_in_flight: false,
       } as const;
       approvals.approve(resumeRequest);
@@ -295,6 +372,314 @@ describe("governed MCP learning controls", () => {
         },
       });
     } finally {
+      await storage.close();
+    }
+  });
+
+  it("round-trips feedback after restart and rejects foreign exact-scope evidence", async () => {
+    const dataRoot = temporaryRoot("mcp-learning-feedback-restart");
+    let storage = await SqliteStorageClient.open({ dataRoot });
+    const evidence = inlineEpisode({
+      evidenceId: "evidence_feedback_roundtrip",
+      text: "RAW_FEEDBACK_SOURCE_MUST_STAY_OUT_OF_THE_LEARNING_RECEIPT",
+    });
+    await storage.commitEpisode({
+      idempotencyKey: evidence.idempotencyKey,
+      episode: evidence.episode,
+      evidence: evidence.evidence,
+      blobs: [],
+    });
+    const approvals = new TestApprovalRegistry();
+    const memory = runtime(storage, approvals);
+    const request = {
+      envelope: proposalEnvelope("roundtrip"),
+      feedback: {
+        task_id: "task_feedback_roundtrip",
+        context_slice_id: "context_feedback_roundtrip",
+        outcome: "partial",
+        evidence_ids: ["evidence_feedback_roundtrip"],
+        error_codes: ["TASK_UNIT_INCOMPLETE"],
+        gap_codes: ["MISSING_RELATION"],
+        observed_at: NOW,
+      },
+    } as const;
+    const recorded = await memory.memoryFeedback(request);
+    expect(recorded).toMatchObject({ status: "OK" });
+    const receiptId = recorded.receipt_id;
+    await storage.close();
+
+    storage = await SqliteStorageClient.open({ dataRoot });
+    try {
+      if (receiptId === null) {
+        throw new Error("feedback receipt is required");
+      }
+      const receipt = await storage.getReceipt({
+        receipt_id: receiptId,
+        principal_id: "user_local",
+        scopes: [WORKSPACE_SCOPE],
+      });
+      expect(receipt).toMatchObject({
+        kind: "learning_stop",
+        feedback: {
+          task_id: "task_feedback_roundtrip",
+          context_slice_id: "context_feedback_roundtrip",
+          outcome: "partial",
+          evidence_ids: ["evidence_feedback_roundtrip"],
+          error_codes: ["TASK_UNIT_INCOMPLETE"],
+          gap_codes: ["MISSING_RELATION"],
+        },
+      });
+      expect(canonicalJson(receipt)).not.toContain(
+        "RAW_FEEDBACK_SOURCE_MUST_STAY_OUT_OF_THE_LEARNING_RECEIPT",
+      );
+
+      const foreign = inlineEpisode({
+        episodeId: "episode_feedback_foreign",
+        evidenceId: "evidence_feedback_foreign",
+        idempotencyKey: "commit:episode_feedback_foreign:0001",
+        scopeId: "workspace_foreign",
+      });
+      await storage.commitEpisode({
+        idempotencyKey: foreign.idempotencyKey,
+        episode: foreign.episode,
+        evidence: foreign.evidence,
+        blobs: [],
+      });
+      const foreignRuntime = new MemoryRuntime({
+        storage,
+        approvalRegistry: approvals,
+        clock: () => NOW,
+        policy: {
+          principal: {
+            principal_id: "user_local",
+            allowed_scopes: [
+              WORKSPACE_SCOPE,
+              { kind: "workspace", id: "workspace_foreign" },
+            ],
+            allowed_authorities: ["user_stated"],
+            destructive_tools_enabled: false,
+          },
+        },
+      });
+      const before = await storage.readLearningLedger({
+        principal_id: "user_local",
+        scopes: [WORKSPACE_SCOPE],
+      });
+      expect(
+        await foreignRuntime.memoryFeedback({
+          envelope: proposalEnvelope("foreign"),
+          feedback: {
+            ...request.feedback,
+            evidence_ids: ["evidence_feedback_foreign"],
+          },
+        }),
+      ).toMatchObject({
+        status: "FAILED",
+        error: { code: "PERMISSION_DENIED" },
+      });
+      const after = await storage.readLearningLedger({
+        principal_id: "user_local",
+        scopes: [WORKSPACE_SCOPE],
+      });
+      expect(after.receipts).toEqual(before.receipts);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("requires the complete configured scope set for principal-wide controls", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("mcp-learning-control-complete-scope"),
+    });
+    try {
+      const approvals = new TestApprovalRegistry();
+      const memory = new MemoryRuntime({
+        storage,
+        approvalRegistry: approvals,
+        clock: () => NOW,
+        policy: {
+          principal: {
+            principal_id: "user_local",
+            allowed_scopes: RELEASE_SCOPES,
+            allowed_authorities: ["user_stated"],
+            destructive_tools_enabled: false,
+          },
+        },
+      });
+      const frontier = await actionFrontier(memory);
+      const subset = {
+        envelope: mutationEnvelope(
+          "learning_pause",
+          "subset_scope",
+        ),
+        expected_control_epoch: frontier.expected_control_epoch,
+        expected_frontier_hash: frontier.expected_frontier_hash,
+        runtime_identity_hash: frontier.runtime_identity_hash,
+        configuration_hash: frontier.configuration_hash,
+        corpus_hash: frontier.corpus_hash,
+      } as const;
+      approvals.approve(subset);
+      expect(await memory.learningPause(subset)).toMatchObject({
+        status: "FAILED",
+        error: { code: "PERMISSION_DENIED" },
+      });
+      expect(
+        (await memory.learningInspection()).control,
+      ).toBeNull();
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("exposes all governed learning calls and failures through MCP semantics", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("mcp-learning-in-memory-transport"),
+    });
+    const approvals = new TestApprovalRegistry();
+    const memory = runtime(storage, approvals);
+    const { client, server } = await connectInMemory(memory, storage);
+    try {
+      const resource = await client.readResource({
+        uri: "memory://runtime/learning",
+      });
+      const first = resource.contents[0];
+      if (first === undefined || !("text" in first)) {
+        throw new Error("learning resource must contain JSON text");
+      }
+      const inspection = JSON.parse(first.text) as Awaited<
+        ReturnType<MemoryRuntime["learningInspection"]>
+      >;
+      const feedback = await client.callTool({
+        name: "memory_feedback",
+        arguments: {
+          envelope: proposalEnvelope("transport"),
+          feedback: {
+            task_id: "task_feedback_transport",
+            context_slice_id: "context_feedback_transport",
+            outcome: "failed",
+            evidence_ids: [],
+            error_codes: ["NO_RELEVANT_MEMORY"],
+            gap_codes: [],
+            observed_at: NOW,
+          },
+        },
+      });
+      expect(feedback.isError).not.toBe(true);
+      expect(
+        GovernedResponseSchema.parse(feedback.structuredContent),
+      ).toMatchObject({ status: "OK" });
+
+      const pauseRequest = {
+        envelope: mutationEnvelope("learning_pause", "transport_pause"),
+        expected_control_epoch:
+          inspection.action_frontier.expected_control_epoch,
+        expected_frontier_hash:
+          inspection.action_frontier.expected_frontier_hash,
+        runtime_identity_hash:
+          inspection.action_frontier.runtime_identity_hash,
+        configuration_hash:
+          inspection.action_frontier.configuration_hash,
+        corpus_hash: inspection.action_frontier.corpus_hash,
+      } as const;
+      approvals.approve(pauseRequest);
+      const paused = await client.callTool({
+        name: "learning_pause",
+        arguments: pauseRequest,
+      });
+      expect(paused.isError).not.toBe(true);
+      expect(
+        GovernedResponseSchema.parse(paused.structuredContent),
+      ).toMatchObject({ status: "OK" });
+
+      const pausedInspection = await memory.learningInspection();
+      const resumeRequest = {
+        envelope: mutationEnvelope(
+          "learning_resume",
+          "transport_resume",
+        ),
+        expected_control_epoch:
+          pausedInspection.action_frontier.expected_control_epoch,
+        expected_frontier_hash:
+          pausedInspection.action_frontier.expected_frontier_hash,
+        runtime_identity_hash:
+          pausedInspection.action_frontier.runtime_identity_hash,
+        configuration_hash:
+          pausedInspection.action_frontier.configuration_hash,
+        corpus_hash:
+          pausedInspection.action_frontier.corpus_hash,
+        abandon_in_flight: false,
+      } as const;
+      approvals.approve(resumeRequest);
+      const resumed = await client.callTool({
+        name: "learning_resume",
+        arguments: resumeRequest,
+      });
+      expect(resumed.isError).not.toBe(true);
+      expect(
+        GovernedResponseSchema.parse(resumed.structuredContent),
+      ).toMatchObject({ status: "OK" });
+
+      const active = await memory.learningInspection();
+      const missingRelease = await client.callTool({
+        name: "learning_release",
+        arguments: {
+          envelope: {
+            ...mutationEnvelope(
+              "learning_pause",
+              "transport_release",
+            ),
+            tool: "learning_release",
+          },
+          candidate_id: "candidate_missing_transport",
+          release_slot_hash: canonicalSha256("missing-slot"),
+          evaluation_receipt_id: "evaluation_missing_transport",
+          canary_receipt_id: "canary_missing_transport",
+          expected_pointer_revision: 0,
+          expected_control_epoch:
+            active.action_frontier.expected_control_epoch,
+          base_configuration_hash:
+            active.action_frontier.configuration_hash,
+          monitor_contract_hash: canonicalSha256("missing-monitor"),
+          effect_manifest_hash: canonicalSha256("missing-effect"),
+        },
+      });
+      expect(missingRelease.isError).toBe(true);
+      expect(
+        GovernedResponseSchema.parse(
+          missingRelease.structuredContent,
+        ),
+      ).toMatchObject({ status: "FAILED" });
+
+      const missingRollback = await client.callTool({
+        name: "learning_rollback",
+        arguments: {
+          envelope: {
+            ...mutationEnvelope(
+              "learning_pause",
+              "transport_rollback",
+            ),
+            tool: "learning_rollback",
+          },
+          release_id: "release_missing_transport",
+          restore_release_id: null,
+          monitor_receipt_id: "monitor_missing_transport",
+          expected_pointer_revision: 0,
+          expected_control_epoch:
+            active.action_frontier.expected_control_epoch,
+          base_configuration_hash:
+            active.action_frontier.configuration_hash,
+          effect_manifest_hash: canonicalSha256("missing-effect"),
+        },
+      });
+      expect(missingRollback.isError).toBe(true);
+      expect(
+        GovernedResponseSchema.parse(
+          missingRollback.structuredContent,
+        ),
+      ).toMatchObject({ status: "FAILED" });
+    } finally {
+      await client.close();
+      await server.close();
       await storage.close();
     }
   });
@@ -370,6 +755,38 @@ describe("governed MCP learning controls", () => {
           resultingConfigurationHash: releaseConfigurationHash,
         }),
       } as const;
+      const pauseFrontier = await actionFrontier(memory);
+      const pauseRequest = {
+        envelope: {
+          schema_version: "1.0.0",
+          request_id: "request_pause_after_public_release",
+          tool: "learning_pause",
+          actor_claim: {
+            principal_id: "user_local",
+            authority: "user_stated",
+          },
+          scopes: RELEASE_SCOPES,
+          purpose: "freeze learning after a published regression",
+          reason: "retain the release and permit exact safety rollback",
+          requested_at: RELEASE_CLOCK,
+          safety_class: "important_mutation",
+          idempotency_key: "learning-pause-after-public-release-001",
+          expected_revision_id: null,
+          approval_id: "approval_learning_pause_storage_1",
+          dry_run: false,
+        },
+        expected_control_epoch:
+          pauseFrontier.expected_control_epoch,
+        expected_release_revision:
+          pauseFrontier.expected_release_revision,
+        expected_frontier_hash:
+          pauseFrontier.expected_frontier_hash,
+        runtime_identity_hash:
+          pauseFrontier.runtime_identity_hash,
+        configuration_hash:
+          pauseFrontier.configuration_hash,
+        corpus_hash: pauseFrontier.corpus_hash,
+      } as const;
       authorizeRelease({
         request: internalRelease,
         prepared,
@@ -390,6 +807,29 @@ describe("governed MCP learning controls", () => {
         throw new Error(canonicalJson(released));
       }
       const releasedData = released.data as LearningReleaseResult;
+      const pauseApproval = verifiedLearningApproval({
+        tool: "learning_pause",
+        requestHash: canonicalSha256(pauseRequest),
+      });
+      approvals.grants.set(
+        pauseApproval.approval.grant.approval_id,
+        pauseApproval.approval.grant,
+      );
+      const pausedAfterPublicRelease =
+        await memory.learningPause(pauseRequest);
+      expect(
+        pausedAfterPublicRelease,
+        canonicalJson(pausedAfterPublicRelease),
+      ).toMatchObject({
+        status: "OK",
+        data: {
+          control: {
+            status: "paused",
+            control_epoch: 1,
+            reason_code: "RELEASE_COMPLETED_BEFORE_PAUSE",
+          },
+        },
+      });
       const monitorInput = {
         schema_version: "1.0.0",
         monitor_id: "monitor_mcp_public",
@@ -481,7 +921,7 @@ describe("governed MCP learning controls", () => {
         monitor_receipt_id: "receipt_monitor_mcp_public",
         expected_pointer_revision:
           releasedData.pointer.pointer_revision,
-        expected_control_epoch: 0,
+        expected_control_epoch: 1,
         base_configuration_hash:
           internalRollback.base_configuration_hash,
         effect_manifest_hash: releaseEffectManifest({
@@ -498,6 +938,7 @@ describe("governed MCP learning controls", () => {
         released: releasedData,
         approvals,
         requestHash: canonicalSha256(publicRollback),
+        controlEpoch: 1,
       });
       expect(await memory.learningRollback(publicRollback)).toMatchObject({
         status: "OK",

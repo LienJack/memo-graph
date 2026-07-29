@@ -1,9 +1,11 @@
 import {
   LearningStopReceiptSchema,
+  LearningFeedbackObservationSchema,
   canonicalSha256,
   canonicalSha256Omitting,
   sealReceipt,
   type Scope,
+  type LearningFeedbackObservation,
 } from "@memo-graph/contracts";
 
 import type { LearningLabStorage } from "./storage-port.js";
@@ -18,6 +20,7 @@ export async function persistLearningStop(options: {
   reasonCode: string;
   createdAt: string;
   requestIdentity: unknown;
+  feedback?: LearningFeedbackObservation;
 }): Promise<{
   receipt: ReturnType<typeof LearningStopReceiptSchema.parse>;
   replayed: boolean;
@@ -40,6 +43,13 @@ export async function persistLearningStop(options: {
       candidate_id: null,
       control_epoch: options.controlEpoch,
       reason_code: options.reasonCode,
+      ...(options.feedback === undefined
+        ? {}
+        : {
+            feedback: LearningFeedbackObservationSchema.parse(
+              options.feedback,
+            ),
+          }),
     }),
   );
   const command = {

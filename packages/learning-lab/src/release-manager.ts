@@ -330,7 +330,10 @@ export class LearningReleaseManager {
     }
 
     const control = ledger.controls.at(-1);
-    if (control?.status === "paused") {
+    if (
+      control?.status === "paused" &&
+      request.action === "release"
+    ) {
       throw new LearningReleaseError("LEARNING_PAUSED");
     }
     const controlEpoch = control?.control_epoch ?? 0;
@@ -389,6 +392,14 @@ export class LearningReleaseManager {
       evaluationReceipt.invalidated ||
       canaryReceipt?.kind !== "learning_canary" ||
       !canaryReceipt.passed
+    ) {
+      throw new LearningReleaseError("RELEASE_INELIGIBLE");
+    }
+    if (
+      request.action === "release" &&
+      control?.reason_code ===
+        "IN_FLIGHT_ABANDONED_AFTER_DRIFT" &&
+      canaryReceipt.control_epoch < control.control_epoch
     ) {
       throw new LearningReleaseError("RELEASE_INELIGIBLE");
     }

@@ -46,6 +46,7 @@ Planned commit map:
 | U5 | `feat(learning): govern lifecycle authority and canary` |
 | U6 | `feat(learning): publish and roll back releases` |
 | U7 | `feat(mcp): expose governed learning controls` |
+| U7R | `fix(learning): harden governed learning controls` |
 | U8 | `docs(learning): bind G5 verification evidence` |
 | U9 | `docs(learning): record G5 decision` |
 | archive | `chore(trellis): archive M5 learning lab` |
@@ -794,11 +795,106 @@ pnpm build
 **Rollback point:** unregister M5 handlers and keep learning publication
 disabled; base MCP/runtime continues.
 
+## 9A. U7R — Resolve required U7 review findings
+
+**Requirements:** R16-R20; F4; AE7.
+
+**Depends on:** U7.
+
+**Files:**
+
+- `packages/contracts/src/receipts.ts`
+- `packages/contracts/src/tool-inputs.ts`
+- `packages/contracts/src/learning.ts`
+- `packages/learning-lab/src/learning-stop.ts`
+- `packages/learning-lab/src/release-manager.ts`
+- `packages/memory-kernel/src/index.ts`
+- `packages/mcp-server/src/index.ts`
+- `packages/storage-sqlite/src/learning-repository.ts`
+- `tests/contract/receipts.contract.test.ts`
+- `tests/mcp/learning-controls.integration.test.ts`
+- `tests/integration/learning-pause-runtime-continuity.integration.test.ts`
+- `tests/recovery/learning-pause-resume.recovery.test.ts`
+- `tests/integration/learning-release.integration.test.ts`
+
+### Review-fix gate
+
+- [x] Persist the privacy-minimal `memory_feedback` task/Context/outcome/
+      evidence/error/gap observation in the durable receipt and prove restart
+      readback without raw content.
+- [x] Bound feedback evidence/scope lookup work and reject foreign exact-scope
+      evidence without a learning write.
+- [x] Require principal-wide pause/resume requests and approvals to use the
+      configured complete scope set.
+- [x] Derive runtime, configuration, and corpus identities from authoritative
+      runtime/storage state; expose those content-free identities for MCP
+      action preparation.
+- [x] Remove the global maximum-control-epoch comparison from principal-local
+      pause/resume validation and prove two principals can advance
+      independently.
+- [x] Persist one principal-scoped learning-work frontier over candidate,
+      evaluation, canary, release, pointer, monitor, and invalidation state.
+- [x] Reject resume after allowed paused-state terminal work or corpus drift
+      unless the approved request explicitly abandons in-flight work.
+- [x] Serialize release-first/pause-first correctly and emit
+      `RELEASE_COMPLETED_BEFORE_PAUSE` only for an observed release-first
+      retry.
+- [x] Block release while paused but permit an exact authorized safety
+      rollback from the current control epoch.
+- [x] Mark failed governed MCP tool results with `isError` and exercise all
+      five tools plus the learning resource through an MCP client transport.
+- [x] Add negative release/rollback actor, scope, receipt, pointer, control,
+      manifest, monitor, and approval assertions with zero unintended effect.
+- [x] Queue non-blocking review debt explicitly for the U8 review report.
+
+Queued U8 review-report debt:
+
+- Extract learning-control orchestration from the growing
+  `MemoryRuntime` module without changing the governed boundary.
+- Validate feedback `context_slice_id` provenance instead of accepting only
+  its privacy-minimal identifier.
+- Replace the bounded evidence-by-scope lookup loop with a batched repository
+  query if G5 resource evidence shows material cost.
+- Narrow the conservative global corpus identity to principal/exact-scope
+  state if false-positive drift becomes operationally significant.
+- Extend MCP action preparation beyond pause/resume identities to exact
+  release/rollback readiness and remove any remaining handwritten internal
+  release execution payload duplication.
+
+### Focused verification
+
+```bash
+source /Users/lienli/.nvm/nvm.sh
+nvm use 24.18.0
+pnpm vitest run \
+  tests/contract/receipts.contract.test.ts \
+  tests/mcp/learning-controls.integration.test.ts \
+  tests/integration/learning-pause-runtime-continuity.integration.test.ts \
+  tests/recovery/learning-pause-resume.recovery.test.ts \
+  tests/integration/learning-release.integration.test.ts
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+### Completion evidence
+
+- [x] Every verified U7 P0/P1 review finding is fixed or explicitly
+      reclassified with code-backed evidence.
+- [x] Full repository gates pass without the known archived G4B verifier
+      path defect.
+- [x] `trellis-check` has no unresolved U7R finding.
+- [x] Create only the U7R commit; do not amend U7 or include U8 evidence.
+
+**Rollback point:** revert U7R and keep publication disabled; the committed U7
+tree remains available for forensic comparison but cannot be used for G5
+evidence.
+
 ## 10. U8 — G5 evidence capture and verification
 
 **Requirements:** R16-R20; F4; AE6/AE7.
 
-**Depends on:** U4, U7.
+**Depends on:** U4, U7R.
 
 **Files:**
 
@@ -818,7 +914,7 @@ disabled; base MCP/runtime continues.
 
 ### Pre-evidence gate
 
-- [ ] Worktree is clean on committed U7.
+- [ ] Worktree is clean on committed U7R.
 - [ ] Record tested commit/tree and lockfile hash before executing.
 - [ ] Record migration, runtime, platform, G3R/G4A/G4B, retrieval config,
       fixture, partition, threshold, scorer, and seed identities.

@@ -888,6 +888,25 @@ export const LearningInspectionSchema = z
   .object({
     schema_version: ContractVersionSchema,
     principal_id: IdentifierSchema,
+    action_frontier: z
+      .object({
+        expected_control_epoch: z.number().int().nonnegative(),
+        expected_release_revision: z.number().int().nonnegative(),
+        expected_frontier_hash: CanonicalHashSchema,
+        runtime_identity_hash: CanonicalHashSchema,
+        configuration_hash: CanonicalHashSchema,
+        corpus_hash: CanonicalHashSchema,
+        learning_state_hash: CanonicalHashSchema,
+        required_scopes: z.array(ScopeSchema).min(1),
+      })
+      .strict()
+      .superRefine((value, context) => {
+        addCanonicalScopeSetIssues(
+          value.required_scopes,
+          context,
+          ["required_scopes"],
+        );
+      }),
     storage_frontier: z
       .object({
         control_epoch: z.number().int().nonnegative(),

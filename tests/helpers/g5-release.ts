@@ -132,7 +132,9 @@ export class TestReleaseApprovalRegistry {
         safety_class: grant.safety_class,
         scopes: grant.scopes,
         request_hash: grant.request_hash,
-        learning: grant.learning,
+        ...(grant.learning === undefined
+          ? {}
+          : { learning: grant.learning }),
       }) !== canonicalJson(binding)
     ) {
       throw new Error("APPROVAL_INVALID");
@@ -478,6 +480,7 @@ export function authorizeRollback(options: {
   approvals: TestReleaseApprovalRegistry;
   targetRelease?: LearningReleaseResult;
   requestHash?: `sha256:${string}`;
+  controlEpoch?: number;
 }): PostCanaryApproval {
   const requestHash =
     options.requestHash ?? canonicalSha256(options.request);
@@ -509,7 +512,7 @@ export function authorizeRollback(options: {
     expected_pointer_revision:
       options.released.pointer.pointer_revision,
     target_release_id: options.request.target_release_id,
-    control_epoch: 0,
+    control_epoch: options.controlEpoch ?? 0,
     request_hash: requestHash,
     effect_manifest_hash: releaseEffectManifest({
       request: options.request,

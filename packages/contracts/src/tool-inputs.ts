@@ -194,9 +194,13 @@ export const MemoryFeedbackInputSchema = withExpectedTool(
           task_id: IdentifierSchema,
           context_slice_id: IdentifierSchema,
           outcome: LearningOutcomeSchema,
-          evidence_ids: z.array(IdentifierSchema),
-          error_codes: z.array(z.string().trim().min(1).max(200)),
-          gap_codes: z.array(z.string().trim().min(1).max(200)),
+          evidence_ids: z.array(IdentifierSchema).max(100),
+          error_codes: z
+            .array(z.string().trim().min(1).max(200))
+            .max(100),
+          gap_codes: z
+            .array(z.string().trim().min(1).max(200))
+            .max(100),
           observed_at: z.iso.datetime({ offset: true }),
         })
         .strict()
@@ -228,12 +232,27 @@ export const MemoryFeedbackInputSchema = withExpectedTool(
           }
         }),
     })
-    .strict(),
+    .strict()
+    .superRefine((value, context) => {
+      if (
+        value.feedback.evidence_ids.length *
+          value.envelope.scopes.length >
+        100
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["feedback", "evidence_ids"],
+          message:
+            "feedback exact-scope evidence checks are bounded to 100 pairs",
+        });
+      }
+    }),
   "memory_feedback",
 );
 
 const LearningControlFrontierInputShape = {
   expected_control_epoch: z.number().int().nonnegative(),
+  expected_release_revision: z.number().int().nonnegative().optional(),
   expected_frontier_hash: CanonicalHashSchema,
   runtime_identity_hash: CanonicalHashSchema,
   configuration_hash: CanonicalHashSchema,

@@ -15,6 +15,7 @@ import {
   LaneTelemetrySchema,
   LearningControlReceiptSchema,
   LearningControlSchema,
+  LearningFeedbackObservationSchema,
   LearningInspectionSchema,
   LearningPauseInputSchema,
   LearningReleaseInputSchema,
@@ -43,6 +44,7 @@ import {
   buildContextFrontierV2,
   canonicalJson,
   canonicalSha256,
+  canonicalSha256Omitting,
   scopeKey,
   sealReceipt,
 } from "@memo-graph/contracts";
@@ -185,6 +187,9 @@ type MemoryControlRequest =
 type LearningControlRequest =
   | z.output<typeof LearningPauseInputSchema>
   | z.output<typeof LearningResumeInputSchema>;
+type LearningLedgerSnapshot = Awaited<
+  ReturnType<SqliteStorageClient["readLearningLedger"]>
+>;
 type L0ContextCandidate = Extract<
   ContextCandidate,
   { abstraction: "l0_evidence" }
@@ -206,6 +211,68 @@ function stableIdentifier(prefix: string, value: unknown): string {
     .update(canonicalJson(value), "utf8")
     .digest("hex");
   return `${prefix}:${digest.slice(0, 48)}`;
+}
+
+function sameScopeSet(
+  left: readonly z.output<typeof ScopeSchema>[],
+  right: readonly z.output<typeof ScopeSchema>[],
+): boolean {
+  const leftKeys = left.map(scopeKey).sort();
+  const rightKeys = right.map(scopeKey).sort();
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key, index) => key === rightKeys[index])
+  );
+}
+
+function learningStateHash(ledger: LearningLedgerSnapshot) {
+  return canonicalSha256({
+    candidates: ledger.candidates.map((candidate) => ({
+      candidate_id: candidate.candidate_id,
+      candidate_hash: candidate.candidate_hash,
+    })),
+    candidate_states: ledger.candidate_states,
+    evaluation_identities: ledger.evaluation_identities.map(
+      (identity) => ({
+        run_id: identity.run_id,
+        common_identity_hash: identity.common_identity_hash,
+      }),
+    ),
+    evaluation_result_sets: ledger.evaluation_result_sets.map(
+      (resultSet) => ({
+        run_id: resultSet.run_id,
+        case_id: resultSet.case_id,
+        result_set_hash: resultSet.result_set_hash,
+      }),
+    ),
+    contamination_events: ledger.contamination_events.map((event) => ({
+      contamination_event_id: event.contamination_event_id,
+      event_hash: event.event_hash,
+    })),
+    canary_authorizations: ledger.canary_authorizations.map(
+      (authorization) => ({
+        authorization_id: authorization.authorization_id,
+        authorization_hash: authorization.authorization_hash,
+      }),
+    ),
+    canary_runs: ledger.canary_runs.map((run) => ({
+      canary_run_id: run.canary_run_id,
+      run_hash: run.run_hash,
+    })),
+    releases: ledger.releases.map((release) => ({
+      release_id: release.release_id,
+      release_hash: release.release_hash,
+    })),
+    pointers: ledger.pointers.map((pointer) => ({
+      release_slot_hash: pointer.release_slot_hash,
+      pointer_hash: pointer.pointer_hash,
+    })),
+    monitors: ledger.monitors.map((monitor) => ({
+      monitor_id: monitor.monitor_id,
+      monitor_hash: monitor.monitor_hash,
+    })),
+    invalid_candidate_ids: ledger.invalid_candidate_ids,
+  });
 }
 
 function publicFailure(
@@ -760,6 +827,27 @@ export class MemoryRuntime {
         scopes: request.envelope.scopes,
       });
       const control = ledger.controls.at(-1);
+      const feedbackInput = {
+        schema_version: request.envelope.schema_version,
+        feedback_id: stableIdentifier("learning-feedback", {
+          idempotency_key: request.envelope.idempotency_key,
+          request_hash: requestHash,
+        }),
+        task_id: request.feedback.task_id,
+        context_slice_id: request.feedback.context_slice_id,
+        outcome: request.feedback.outcome,
+        evidence_ids: [...request.feedback.evidence_ids].sort(),
+        error_codes: [...request.feedback.error_codes].sort(),
+        gap_codes: [...request.feedback.gap_codes].sort(),
+        observed_at: request.feedback.observed_at,
+        feedback_hash: canonicalSha256("placeholder"),
+      };
+      const feedback = LearningFeedbackObservationSchema.parse({
+        ...feedbackInput,
+        feedback_hash: canonicalSha256Omitting(feedbackInput, [
+          "feedback_hash",
+        ]),
+      });
       const stopped = await persistLearningStop({
         storage: this.#storage,
         idempotencyKey: request.envelope.idempotency_key,
@@ -773,6 +861,7 @@ export class MemoryRuntime {
             : "FEEDBACK_RECORDED_PENDING_TRACE",
         createdAt: request.feedback.observed_at,
         requestIdentity: request,
+        feedback,
       });
       return GovernedResponseSchema.parse({
         status: "OK",
@@ -940,13 +1029,8 @@ export class MemoryRuntime {
   }
 
   async learningInspection() {
-    const [health, ledger] = await Promise.all([
-      this.#storage.health(),
-      this.#storage.readLearningLedger({
-        principal_id: this.#policy.principal.principal_id,
-        scopes: this.#policy.principal.allowed_scopes,
-      }),
-    ]);
+    const snapshot = await this.#learningActionSnapshot();
+    const { health, ledger } = snapshot;
     const states = new Map(
       ledger.candidate_states.map((state) => [
         state.candidate_id,
@@ -956,6 +1040,19 @@ export class MemoryRuntime {
     return LearningInspectionSchema.parse({
       schema_version: "1.0.0",
       principal_id: this.#policy.principal.principal_id,
+      action_frontier: {
+        expected_control_epoch:
+          snapshot.currentControl?.control_epoch ?? 0,
+        expected_release_revision:
+          health.learning_frontier.release_revision,
+        expected_frontier_hash:
+          health.learning_frontier.frontier_hash,
+        runtime_identity_hash: snapshot.runtimeIdentityHash,
+        configuration_hash: snapshot.configurationHash,
+        corpus_hash: snapshot.corpusHash,
+        learning_state_hash: snapshot.learningStateHash,
+        required_scopes: snapshot.requiredScopes,
+      },
       storage_frontier: health.learning_frontier,
       control: ledger.controls.at(-1) ?? null,
       candidates: ledger.candidates
@@ -1792,6 +1889,78 @@ export class MemoryRuntime {
     });
   }
 
+  async #learningActionSnapshot() {
+    const requiredScopes = [
+      ...this.#policy.principal.allowed_scopes,
+    ].sort((left, right) =>
+      scopeKey(left).localeCompare(scopeKey(right))
+    );
+    const [health, ledger] = await Promise.all([
+      this.#storage.health(),
+      this.#storage.readLearningLedger({
+        principal_id: this.#policy.principal.principal_id,
+        scopes: requiredScopes,
+      }),
+    ]);
+    const runtimeIdentityHash = canonicalSha256({
+      node: process.versions.node,
+      platform: process.platform,
+      architecture: process.arch,
+      storage_schema_version: health.schema_version,
+      sqlite_version: health.sqlite_version,
+      context_compiler_version: CONTEXT_COMPILER_VERSION,
+      context_policy_version: CONTEXT_POLICY_VERSION,
+      migrations: health.migrations.map((migration) => ({
+        version: migration.version,
+        hash: migration.hash,
+      })),
+    });
+    const configurationHash = canonicalSha256({
+      default_token_budget: this.#policy.default_token_budget,
+      lane_policy: this.#policy.lane_policy,
+      principal: {
+        principal_id: this.#policy.principal.principal_id,
+        allowed_scopes: requiredScopes,
+        allowed_authorities: [
+          ...this.#policy.principal.allowed_authorities,
+        ].sort(),
+        destructive_tools_enabled:
+          this.#policy.principal.destructive_tools_enabled,
+      },
+    });
+    const corpusHash = canonicalSha256({
+      tombstone_epoch: health.tombstone_epoch,
+      projection_frontier: health.projection_frontier,
+      canonical_counts: {
+        evidence_events: health.counts.evidence_events,
+        episodes: health.counts.episodes,
+        memory_candidates: health.counts.memory_candidates,
+        memory_objects: health.counts.memory_objects,
+        memory_revisions: health.counts.memory_revisions,
+        admission_decisions: health.counts.admission_decisions,
+        conflict_groups: health.counts.conflict_groups,
+        status_events: health.counts.status_events,
+        pin_events: health.counts.pin_events,
+        usage_rules: health.counts.usage_rules,
+        projection_objects: health.counts.projection_objects,
+        projection_revisions: health.counts.projection_revisions,
+        projection_sources: health.counts.projection_sources,
+        relation_objects: health.counts.relation_objects,
+        relation_revisions: health.counts.relation_revisions,
+      },
+    });
+    return {
+      health,
+      ledger,
+      requiredScopes,
+      currentControl: ledger.controls.at(-1),
+      runtimeIdentityHash,
+      configurationHash,
+      corpusHash,
+      learningStateHash: learningStateHash(ledger),
+    };
+  }
+
   async #learningControl(
     request: LearningControlRequest,
     action: "pause" | "resume",
@@ -1799,6 +1968,17 @@ export class MemoryRuntime {
     const unauthorized = this.#authorize(request.envelope);
     if (unauthorized !== null) {
       return unauthorized;
+    }
+    if (
+      !sameScopeSet(
+        request.envelope.scopes,
+        this.#policy.principal.allowed_scopes,
+      )
+    ) {
+      return publicFailure(
+        "PERMISSION_DENIED",
+        "learning controls require the complete configured scope set",
+      );
     }
     const requestHash = canonicalSha256(request);
     const replay = await this.#storage.replayLearningLedger({
@@ -1833,128 +2013,9 @@ export class MemoryRuntime {
       });
     }
 
-    const [health, ledger] = await Promise.all([
-      this.#storage.health(),
-      this.#storage.readLearningLedger({
-        principal_id: request.envelope.actor_claim.principal_id,
-        scopes: request.envelope.scopes,
-      }),
-    ]);
-    const current = ledger.controls.at(-1);
-    const currentEpoch = current?.control_epoch ?? 0;
-    if (
-      request.expected_control_epoch !== currentEpoch ||
-      request.expected_frontier_hash !==
-        health.learning_frontier.frontier_hash ||
-      health.learning_frontier.control_epoch !== currentEpoch
-    ) {
-      throw new StorageError("CONFLICT");
-    }
-    if (
-      (action === "pause" && current?.status === "paused") ||
-      (action === "resume" && current?.status !== "paused")
-    ) {
-      throw new StorageError("CONFLICT");
-    }
-
-    const identityDrift =
-      current !== undefined &&
-      (current.runtime_identity_hash !==
-        request.runtime_identity_hash ||
-        current.configuration_hash !== request.configuration_hash ||
-        current.corpus_hash !== request.corpus_hash);
     const abandonInFlight =
       "abandon_in_flight" in request &&
       request.abandon_in_flight;
-    if (
-      action === "resume" &&
-      identityDrift &&
-      !abandonInFlight
-    ) {
-      throw new StorageError("CONFLICT");
-    }
-
-    const reasonCode =
-      action === "pause"
-        ? health.learning_frontier.release_revision > 0 ||
-            ledger.pointers.some(
-              (pointer) => pointer.active_release_id !== null,
-            )
-          ? "RELEASE_COMPLETED_BEFORE_PAUSE"
-          : "USER_REQUESTED"
-        : identityDrift
-          ? "IN_FLIGHT_ABANDONED_AFTER_DRIFT"
-          : "EXACT_FRONTIER_RESUMED";
-    const changedAt = this.#clock();
-    const resultingEpoch = currentEpoch + 1;
-    const frontierHash = canonicalSha256({
-      schema_version: request.envelope.schema_version,
-      action,
-      observed_storage_frontier: health.learning_frontier,
-      candidate_states: ledger.candidate_states.map((state) => ({
-        candidate_id: state.candidate_id,
-        state: state.state,
-        sequence: state.sequence,
-        transition_hash: state.transition_hash,
-      })),
-      evaluation_identities: ledger.evaluation_identities.map(
-        (identity) => ({
-          run_id: identity.run_id,
-          common_identity_hash: identity.common_identity_hash,
-        }),
-      ),
-      canary_runs: ledger.canary_runs.map((run) => ({
-        canary_run_id: run.canary_run_id,
-        run_hash: run.run_hash,
-      })),
-      pointers: ledger.pointers.map((pointer) => ({
-        release_slot_hash: pointer.release_slot_hash,
-        active_release_id: pointer.active_release_id,
-        pointer_revision: pointer.pointer_revision,
-        pointer_hash: pointer.pointer_hash,
-      })),
-      runtime_identity_hash: request.runtime_identity_hash,
-      configuration_hash: request.configuration_hash,
-      corpus_hash: request.corpus_hash,
-      abandon_in_flight: abandonInFlight,
-    });
-    const control = LearningControlSchema.parse({
-      schema_version: request.envelope.schema_version,
-      principal_id: request.envelope.actor_claim.principal_id,
-      status: action === "pause" ? "paused" : "active",
-      control_epoch: resultingEpoch,
-      reason_code: reasonCode,
-      actor_id: request.envelope.actor_claim.principal_id,
-      changed_at: changedAt,
-      frontier_hash: frontierHash,
-      runtime_identity_hash: request.runtime_identity_hash,
-      configuration_hash: request.configuration_hash,
-      corpus_hash: request.corpus_hash,
-    });
-    const receipt = LearningControlReceiptSchema.parse(
-      sealReceipt({
-        schema_version: request.envelope.schema_version,
-        receipt_id: stableIdentifier("learning-control-receipt", {
-          idempotency_key: request.envelope.idempotency_key,
-          request_hash: requestHash,
-        }),
-        created_at: changedAt,
-        state: "durable",
-        request_hash: requestHash,
-        kind: "learning_control",
-        principal_id: request.envelope.actor_claim.principal_id,
-        action,
-        previous_epoch: currentEpoch,
-        resulting_epoch: resultingEpoch,
-        previous_frontier_hash:
-          health.learning_frontier.frontier_hash,
-        frontier_hash: frontierHash,
-        runtime_identity_hash: request.runtime_identity_hash,
-        configuration_hash: request.configuration_hash,
-        corpus_hash: request.corpus_hash,
-        reason_code: reasonCode,
-      }),
-    );
     if (request.envelope.approval_id === null) {
       throw new ApprovalError("APPROVAL_REQUIRED");
     }
@@ -1968,33 +2029,175 @@ export class MemoryRuntime {
     });
     const approval = await this.#approvalRegistry.verify(binding);
     await this.#approvalRegistry.confirmUnchanged(approval);
-    const verifiedAt = this.#clock();
-    const stored = await this.#storage.writeLearningLedger({
-      kind: "control",
-      idempotency_key: request.envelope.idempotency_key,
-      idempotency_hash: requestHash,
-      request_hash: requestHash,
-      expected_control_epoch: currentEpoch,
-      expected_frontier_hash:
-        health.learning_frontier.frontier_hash,
-      control,
-      receipt,
-      approval_binding: binding,
-      approval: {
-        grant: approval.grant,
-        registry_hash: approval.registry_hash,
-        verified_at: verifiedAt,
-      },
-    });
-    return GovernedResponseSchema.parse({
-      status: "OK",
-      receipt_id: receipt.receipt_id,
-      data: {
-        receipt,
+
+    let snapshot = await this.#learningActionSnapshot();
+    const validateSnapshot = (
+      currentSnapshot: typeof snapshot,
+      permitReleaseFirst: boolean,
+    ) => {
+      const current = currentSnapshot.currentControl;
+      const currentEpoch = current?.control_epoch ?? 0;
+      const currentReleaseRevision =
+        currentSnapshot.health.learning_frontier.release_revision;
+      const expectedReleaseRevision =
+        request.expected_release_revision ?? 0;
+      const releaseFirst =
+        action === "pause" &&
+        permitReleaseFirst &&
+        request.expected_frontier_hash !==
+          currentSnapshot.health.learning_frontier.frontier_hash &&
+        expectedReleaseRevision + 1 === currentReleaseRevision;
+      if (
+        request.expected_control_epoch !== currentEpoch ||
+        (expectedReleaseRevision !== currentReleaseRevision &&
+          !releaseFirst) ||
+        (request.expected_frontier_hash !==
+          currentSnapshot.health.learning_frontier.frontier_hash &&
+          !releaseFirst) ||
+        request.runtime_identity_hash !==
+          currentSnapshot.runtimeIdentityHash ||
+        request.configuration_hash !==
+          currentSnapshot.configurationHash ||
+        request.corpus_hash !== currentSnapshot.corpusHash
+      ) {
+        throw new StorageError("CONFLICT");
+      }
+      if (
+        (action === "pause" && current?.status === "paused") ||
+        (action === "resume" && current?.status !== "paused")
+      ) {
+        throw new StorageError("CONFLICT");
+      }
+      const identityDrift =
+        current !== undefined &&
+        (current.runtime_identity_hash !==
+          currentSnapshot.runtimeIdentityHash ||
+          current.configuration_hash !==
+            currentSnapshot.configurationHash ||
+          current.corpus_hash !== currentSnapshot.corpusHash);
+      const learningStateDrift =
+        current !== undefined &&
+        current.frontier_hash !== currentSnapshot.learningStateHash;
+      if (
+        action === "resume" &&
+        (identityDrift || learningStateDrift) &&
+        !abandonInFlight
+      ) {
+        throw new StorageError("CONFLICT");
+      }
+      return {
+        currentEpoch,
+        drifted: identityDrift || learningStateDrift,
+        releaseFirst,
+      };
+    };
+
+    let validated = validateSnapshot(snapshot, true);
+    const persist = async (
+      currentSnapshot: typeof snapshot,
+      currentValidation: typeof validated,
+    ) => {
+      const reasonCode =
+        action === "pause"
+          ? currentValidation.releaseFirst
+            ? "RELEASE_COMPLETED_BEFORE_PAUSE"
+            : "USER_REQUESTED"
+          : currentValidation.drifted
+            ? "IN_FLIGHT_ABANDONED_AFTER_DRIFT"
+            : "EXACT_FRONTIER_RESUMED";
+      const changedAt = this.#clock();
+      const resultingEpoch = currentValidation.currentEpoch + 1;
+      const control = LearningControlSchema.parse({
+        schema_version: request.envelope.schema_version,
+        principal_id: request.envelope.actor_claim.principal_id,
+        status: action === "pause" ? "paused" : "active",
+        control_epoch: resultingEpoch,
+        reason_code: reasonCode,
+        actor_id: request.envelope.actor_claim.principal_id,
+        changed_at: changedAt,
+        frontier_hash: currentSnapshot.learningStateHash,
+        runtime_identity_hash: currentSnapshot.runtimeIdentityHash,
+        configuration_hash: currentSnapshot.configurationHash,
+        corpus_hash: currentSnapshot.corpusHash,
+      });
+      const receipt = LearningControlReceiptSchema.parse(
+        sealReceipt({
+          schema_version: request.envelope.schema_version,
+          receipt_id: stableIdentifier("learning-control-receipt", {
+            idempotency_key: request.envelope.idempotency_key,
+            request_hash: requestHash,
+          }),
+          created_at: changedAt,
+          state: "durable",
+          request_hash: requestHash,
+          kind: "learning_control",
+          principal_id: request.envelope.actor_claim.principal_id,
+          action,
+          previous_epoch: currentValidation.currentEpoch,
+          resulting_epoch: resultingEpoch,
+          previous_frontier_hash:
+            currentSnapshot.health.learning_frontier.frontier_hash,
+          frontier_hash: currentSnapshot.learningStateHash,
+          runtime_identity_hash: currentSnapshot.runtimeIdentityHash,
+          configuration_hash: currentSnapshot.configurationHash,
+          corpus_hash: currentSnapshot.corpusHash,
+          reason_code: reasonCode,
+        }),
+      );
+      await this.#approvalRegistry.confirmUnchanged(approval);
+      const stored = await this.#storage.writeLearningLedger({
+        kind: "control",
+        idempotency_key: request.envelope.idempotency_key,
+        idempotency_hash: requestHash,
+        request_hash: requestHash,
+        expected_control_epoch: currentValidation.currentEpoch,
+        expected_frontier_hash:
+          currentSnapshot.health.learning_frontier.frontier_hash,
         control,
-        replayed: stored.replayed,
-      },
-    });
+        receipt,
+        approval_binding: binding,
+        approval: {
+          grant: approval.grant,
+          registry_hash: approval.registry_hash,
+          verified_at: this.#clock(),
+        },
+      });
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: receipt.receipt_id,
+        data: {
+          receipt,
+          control,
+          replayed: stored.replayed,
+        },
+      });
+    };
+
+    try {
+      return await persist(snapshot, validated);
+    } catch (error) {
+      if (
+        !(error instanceof StorageError) ||
+        error.code !== "CONFLICT" ||
+        action !== "pause"
+      ) {
+        throw error;
+      }
+      const previousReleaseRevision =
+        snapshot.health.learning_frontier.release_revision;
+      snapshot = await this.#learningActionSnapshot();
+      if (
+        snapshot.health.learning_frontier.release_revision <=
+        previousReleaseRevision
+      ) {
+        throw error;
+      }
+      validated = validateSnapshot(snapshot, true);
+      return persist(snapshot, {
+        ...validated,
+        releaseFirst: true,
+      });
+    }
   }
 
   async #searchScopes(

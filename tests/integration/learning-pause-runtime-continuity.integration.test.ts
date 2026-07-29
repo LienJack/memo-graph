@@ -23,9 +23,6 @@ const WORKSPACE_SCOPE = {
   kind: "workspace",
   id: "workspace_local",
 } as const;
-const HASH_RUNTIME = `sha256:${"5".repeat(64)}` as const;
-const HASH_CONFIGURATION = `sha256:${"6".repeat(64)}` as const;
-const HASH_CORPUS = `sha256:${"7".repeat(64)}` as const;
 const cleanupPaths: string[] = [];
 
 function temporaryRoot(prefix: string): string {
@@ -122,6 +119,8 @@ describe("learning pause runtime continuity", () => {
         current_revision_id: string;
       };
 
+      const controlFrontier =
+        (await runtime.learningInspection()).action_frontier;
       const pauseRequest = {
         envelope: {
           ...readEnvelope("learning_pause", "continuity_pause"),
@@ -131,12 +130,15 @@ describe("learning pause runtime continuity", () => {
           approval_id: "approval_continuity_pause",
           dry_run: false,
         },
-        expected_control_epoch: 0,
+        expected_control_epoch:
+          controlFrontier.expected_control_epoch,
         expected_frontier_hash:
-          (await storage.health()).learning_frontier.frontier_hash,
-        runtime_identity_hash: HASH_RUNTIME,
-        configuration_hash: HASH_CONFIGURATION,
-        corpus_hash: HASH_CORPUS,
+          controlFrontier.expected_frontier_hash,
+        runtime_identity_hash:
+          controlFrontier.runtime_identity_hash,
+        configuration_hash:
+          controlFrontier.configuration_hash,
+        corpus_hash: controlFrontier.corpus_hash,
       } as const;
       approvals.approve(pauseRequest);
       expect(await runtime.learningPause(pauseRequest)).toMatchObject({

@@ -12,7 +12,13 @@ import {
   MemoryRuntime,
   RecallOrchestrator,
 } from "../../packages/memory-kernel/src/index.js";
-import { canonicalSha256 } from "../../packages/contracts/src/index.js";
+import {
+  MonitorReceiptSchema,
+  MonitorResultSchema,
+  canonicalSha256,
+  canonicalSha256Omitting,
+  sealReceipt,
+} from "../../packages/contracts/src/index.js";
 import {
   LearningReleaseError,
   LearningReleaseManager,
@@ -624,6 +630,143 @@ describe("governed learning release", () => {
       expect(ledger.candidate_states[0]?.state).toBe("canary");
       expect(prepared.authority.verifyPostCanaryCalls).toBe(0);
       expect(approvals.verifyCalls).toBe(0);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("permits an exactly authorized safety rollback while learning is paused", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("learning-rollback-while-paused"),
+    });
+    try {
+      const prepared = await preparePassedCanary({
+        storage,
+        suffix: "rollback-while-paused",
+      });
+      const release = releaseRequest({
+        suffix: "rollback-while-paused",
+      });
+      const approvals = new TestReleaseApprovalRegistry();
+      authorizeRelease({ request: release, prepared, approvals });
+      const manager = new LearningReleaseManager({
+        storage,
+        authorityRegistry: prepared.authority,
+        approvalRegistry: approvals,
+        clock: () => "2026-07-28T12:05:00.000Z",
+      });
+      const released = await manager.apply(release);
+      const monitorInput = {
+        schema_version: "1.0.0",
+        monitor_id: "monitor_rollback_while_paused",
+        release_id: released.release.release_id,
+        pointer_revision: released.pointer.pointer_revision,
+        canary_receipt_id: prepared.canary.receipt.receipt_id,
+        replayed_case_ids: [
+          "canary_rollback_paused_1",
+          "canary_rollback_paused_2",
+          "canary_rollback_paused_3",
+        ],
+        passed: false,
+        failure_codes: ["REGRESSION_DETECTED"],
+        rollback_required: true,
+        monitored_at: "2026-07-28T12:05:30.000Z",
+        monitor_hash: canonicalSha256("placeholder"),
+      };
+      const monitor = MonitorResultSchema.parse({
+        ...monitorInput,
+        monitor_hash: canonicalSha256Omitting(monitorInput, [
+          "monitor_hash",
+        ]),
+      });
+      const monitorReceipt = MonitorReceiptSchema.parse(
+        sealReceipt({
+          schema_version: "1.0.0",
+          receipt_id: "receipt_monitor_rollback_while_paused",
+          created_at: monitor.monitored_at,
+          state: "durable",
+          request_hash: canonicalSha256({
+            monitor_id: monitor.monitor_id,
+          }),
+          kind: "learning_monitor",
+          release_id: released.release.release_id,
+          pointer_revision: released.pointer.pointer_revision,
+          canary_receipt_id: prepared.canary.receipt.receipt_id,
+          monitor_contract_hash:
+            released.release.monitor_contract_hash,
+          replayed_case_ids: monitor.replayed_case_ids,
+          passed: false,
+          failure_codes: monitor.failure_codes,
+          rollback_required: true,
+        }),
+      );
+      const monitorCommand = {
+        kind: "monitor" as const,
+        idempotency_key:
+          "learning-monitor-rollback-while-paused-001",
+        principal_id: release.principal_id,
+        scopes: release.scopes,
+        monitor,
+        receipt: monitorReceipt,
+      };
+      await storage.writeLearningLedger({
+        ...monitorCommand,
+        request_hash: canonicalSha256Omitting(monitorCommand, [
+          "request_hash",
+        ]),
+      });
+
+      const liveFrontier =
+        (await storage.health()).learning_frontier.frontier_hash;
+      const pausedFrontier = canonicalSha256({
+        candidate_id: prepared.candidate.candidate_id,
+        release_id: released.release.release_id,
+        pointer_hash: released.pointer.pointer_hash,
+        monitor_hash: monitor.monitor_hash,
+      });
+      const pauseReceipt = learningControlReceipt("pause", {
+        receipt_id: "receipt_pause_before_safety_rollback",
+        previous_frontier_hash: liveFrontier,
+        frontier_hash: pausedFrontier,
+      });
+      const pauseAuthority = verifiedLearningApproval({
+        tool: "learning_pause",
+        requestHash: pauseReceipt.request_hash,
+      });
+      await storage.writeLearningLedger({
+        kind: "control",
+        idempotency_key: "learning-pause-before-safety-rollback-001",
+        request_hash: pauseReceipt.request_hash,
+        expected_control_epoch: 0,
+        expected_frontier_hash: liveFrontier,
+        control: learningControl("paused", {
+          frontier_hash: pausedFrontier,
+        }),
+        receipt: pauseReceipt,
+        approval_binding: pauseAuthority.binding,
+        approval: pauseAuthority.approval,
+      });
+
+      const rollback = rollbackRequest({
+        suffix: "while-paused",
+        released,
+        monitorReceiptId: monitorReceipt.receipt_id,
+      });
+      authorizeRollback({
+        request: rollback,
+        prepared,
+        released,
+        approvals,
+        controlEpoch: 1,
+      });
+      const rolledBack = await manager.apply(rollback);
+      expect(rolledBack).toMatchObject({
+        release: { action: "rollback" },
+        pointer: {
+          active_release_id: null,
+          pointer_revision: 2,
+        },
+      });
     } finally {
       await storage.close();
     }
