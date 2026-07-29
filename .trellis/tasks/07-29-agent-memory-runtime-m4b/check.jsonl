@@ -1,1 +1,10 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/index.md", "reason": "Run the backend quality checklist against the complete M4B diff and decision artifacts."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Review migration ordering, SQLite authority, leases, exact-scope and epoch frontiers, publication, purge, restore, and rollback safety."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify every disabled, missing, timed-out, stale, corrupt, locked, rebuilding, or incomplete vector state degrades and preserves vector-free fallback."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Verify model/process/queue/query/resource telemetry is stable, bounded, content-free, and does not reveal cross-scope membership."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Review focused/full tests, frozen install, real candidate, dependency audit, resources, hashes, artifact integrity, and full-diff evidence."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review one-way authority and optional contract propagation across storage, child process, kernel, compiler, MCP, health, and receipts."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Review adapter isolation and reuse of existing projection/frontier/process/lane/replay patterns."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m4b/research/research-handoff.md", "reason": "Check all 18 supported core claims, one-candidate rule, first-failure hazards, GO/NO-GO symmetry, and reproducibility obligations."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m4b/research/semantic-gap-subset.md", "reason": "Verify immutable cases, partition isolation, four-arm parity, strict-gain calculation, pollution, and M0 latency rules."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m4b/research/local-candidate-probe.md", "reason": "Verify exact model/index/dependency identity, offline snapshot, audit overrides, microprobe boundary, and unproven resource assumptions."}
