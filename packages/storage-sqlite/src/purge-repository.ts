@@ -279,6 +279,7 @@ export class PurgeRepository {
             id: memory.scope_id,
           },
           occurredAt,
+          vectorReason: "purge",
         },
       );
       const result = this.#sealDelete({

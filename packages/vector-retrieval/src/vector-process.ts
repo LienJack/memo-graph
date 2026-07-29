@@ -17,6 +17,8 @@ import {
 } from "./process-host.js";
 import {
   VectorChildRuntimeIdentitySchema,
+  VectorEmbedPassagesInputSchema,
+  VectorEmbedPassagesResultSchema,
   VECTOR_PROCESS_PROTOCOL_VERSION,
   parseBoundedVectorIpcRequest,
   type VectorIpcRequest,
@@ -204,6 +206,19 @@ async function handleRequest(
       case "initialize":
         success(request, null);
         return;
+      case "embed_passages": {
+        const payload = VectorEmbedPassagesInputSchema.parse(
+          request.payload,
+        );
+        const vectors = await embedder.embedPassages(
+          payload.passages,
+        );
+        success(
+          request,
+          VectorEmbedPassagesResultSchema.parse(vectors),
+        );
+        return;
+      }
       case "replace_scope":
         success(
           request,

@@ -1669,6 +1669,9 @@ export const FailVectorProjectionJobCommandSchema =
     retry_at: UtcTimestampSchema,
   });
 
+export const StaleVectorProjectionJobCommandSchema =
+  ApplyVectorProjectionJobCommandSchema;
+
 export const VectorProjectionJobResultSchema = z
   .object({
     job: VectorProjectionOutboxJobSchema,
@@ -1816,6 +1819,7 @@ export const WorkerOperationSchema = z.enum([
   "claim_vector_projection_jobs",
   "apply_vector_projection_job",
   "fail_vector_projection_job",
+  "stale_vector_projection_job",
   "mark_vector_restore_degraded",
   "run_vector_temporal_sweep",
   "vector_projection_status",
@@ -2022,6 +2026,9 @@ export type ApplyVectorProjectionJobCommand = z.input<
 >;
 export type FailVectorProjectionJobCommand = z.input<
   typeof FailVectorProjectionJobCommandSchema
+>;
+export type StaleVectorProjectionJobCommand = z.input<
+  typeof StaleVectorProjectionJobCommandSchema
 >;
 export type VectorProjectionJobResult = z.infer<
   typeof VectorProjectionJobResultSchema

@@ -27,6 +27,7 @@ import {
   RegisterVectorEmbeddingEpochResultSchema,
   RunVectorTemporalSweepInputSchema,
   RunVectorTemporalSweepResultSchema,
+  StaleVectorProjectionJobCommandSchema,
   VectorProjectionJobResultSchema,
   VectorProjectionOutboxJobSchema,
   VectorProjectionScopeInputSchema,
@@ -192,6 +193,7 @@ export class VectorProjectionRepository {
   configure(input: unknown): ConfigureVectorProjectionResult {
     const command =
       ConfigureVectorProjectionCommandSchema.parse(input);
+    const previousConfiguration = this.#configuration();
     if (
       command.epoch_id !== null &&
       this.#readEpoch(command.epoch_id) === undefined
@@ -270,6 +272,16 @@ export class VectorProjectionRepository {
             for (const row of scopes) {
               const scope = exactScope(row);
               const existing = this.#readScope(scope);
+              if (
+                previousConfiguration.desired_epoch_id === epochId &&
+                existing !== undefined &&
+                existing.desired_epoch_id === epochId &&
+                existing.state !== "degraded" &&
+                existing.state !== "disabled"
+              ) {
+                checkpoints.push(this.checkpoint(scope));
+                continue;
+              }
               const reason =
                 existing === undefined ? "enable" : "epoch_change";
               jobIds.push(
@@ -377,6 +389,28 @@ export class VectorProjectionRepository {
              WHERE job_id = ?
                AND status IN ('pending', 'failed')`,
           );
+          const markBuilding = this.#database.prepare(
+            `UPDATE vector_projection_scope_state
+             SET state = 'building',
+                 last_job_id = ?,
+                 failure_category = NULL,
+                 updated_at = ?
+             WHERE principal_id = (
+                     SELECT principal_id
+                     FROM vector_projection_outbox_jobs
+                     WHERE job_id = ?
+                   )
+               AND scope_kind = (
+                     SELECT scope_kind
+                     FROM vector_projection_outbox_jobs
+                     WHERE job_id = ?
+                   )
+               AND scope_id = (
+                     SELECT scope_id
+                     FROM vector_projection_outbox_jobs
+                     WHERE job_id = ?
+                   )`,
+          );
           for (const row of rows) {
             const token = stableIdentifier("vector-lease", {
               job_id: row.job_id,
@@ -389,6 +423,13 @@ export class VectorProjectionRepository {
               request.worker_id,
               token,
               request.lease_expires_at,
+              row.job_id,
+            );
+            markBuilding.run(
+              row.job_id,
+              request.claimed_at,
+              row.job_id,
+              row.job_id,
               row.job_id,
             );
           }
@@ -482,6 +523,69 @@ export class VectorProjectionRepository {
               principal_id: job.principal_id,
               scope: { kind: job.scope_kind, id: job.scope_id },
             }),
+            receipt,
+            replayed: false,
+          };
+        })
+        .immediate(),
+    );
+  }
+
+  stale(input: unknown): VectorProjectionJobResult {
+    const command =
+      StaleVectorProjectionJobCommandSchema.parse(input);
+    const receipt = command.receipt;
+    if (
+      receipt.outcome !== "stale" ||
+      receipt.logical_digest !== null
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    const replay = this.#replayedResult(command);
+    if (replay !== null) {
+      return replay;
+    }
+    const configuration = this.#configuration();
+    if (
+      configuration.mode === "disabled" ||
+      configuration.desired_epoch_id === null
+    ) {
+      throw new StorageError("CONFLICT");
+    }
+    const epochId = configuration.desired_epoch_id;
+    return VectorProjectionJobResultSchema.parse(
+      this.#database
+        .transaction(() => {
+          const current = this.#readJob(command.job_id);
+          if (current === undefined) {
+            throw new StorageError("CONFLICT");
+          }
+          const job = current.status === "stale"
+            ? current
+            : this.#requireLease(command);
+          this.#assertReceiptIdentity(job, receipt);
+          this.#openGuard("stale", receipt.created_at);
+          try {
+            this.#insertReceipt(receipt);
+            if (current.status !== "stale") {
+              this.#enqueueScope({
+                ...exactScope(job),
+                epochId,
+                occurredAt: receipt.created_at,
+                reason: "rebuild",
+                causeId: job.job_id,
+              });
+            }
+          } finally {
+            this.#closeGuard();
+          }
+          const updated = this.#readJob(job.job_id);
+          if (updated === undefined) {
+            throw new StorageError("CORRUPTION");
+          }
+          return {
+            job: this.#jobFromRow(updated),
+            checkpoint: this.checkpoint(exactScope(job)),
             receipt,
             replayed: false,
           };

@@ -20,6 +20,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   SqliteVecIndex,
   VectorProcessHost,
+  VectorScopeProjector,
   createLocalTransformersEmbedder,
   verifyLocalModelSnapshot,
 } from "../../packages/vector-retrieval/src/index.js";
@@ -27,6 +28,8 @@ import {
   buildVectorEmbeddingEpoch,
   buildVectorScopeSnapshot,
 } from "../../packages/contracts/src/index.js";
+import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { seedProjectionSources } from "../helpers/projection-examples.js";
 
 const roots: string[] = [];
 const MODEL_ROOT = process.env.MEMO_GRAPH_G4B_MODEL_ROOT;
@@ -237,10 +240,12 @@ describe("qualified vector dependencies", () => {
           status: "ready",
           embedding_epoch_id: epoch.epoch_id,
         });
-        const vector = Array.from(
-          { length: 384 },
-          () => 1 / Math.sqrt(384),
-        );
+        const [vector] = await runtime.embedPassages([
+          "A memory is erased only after its purge receipt is sealed.",
+        ]);
+        if (vector === undefined) {
+          throw new Error("real vector child returned no passage embedding");
+        }
         const snapshot = buildVectorScopeSnapshot({
           schema_version: "1.0.0",
           principal_id: "principal_local",
@@ -284,6 +289,77 @@ describe("qualified vector dependencies", () => {
         });
       } finally {
         await runtime.close();
+      }
+    },
+  );
+
+  it.runIf(MODEL_ROOT !== undefined)(
+    "projects and publishes a real exact-scope generation through the isolated child",
+    async () => {
+      const epoch = await candidateEpoch();
+      const dataRoot = await mkdtemp(
+        join(
+          await realpath(tmpdir()),
+          "memo-graph-vector-real-projector-",
+        ),
+      );
+      roots.push(dataRoot);
+      const storage = await SqliteStorageClient.open({ dataRoot });
+      try {
+        await seedProjectionSources(storage);
+        await storage.registerVectorEmbeddingEpoch({
+          epoch,
+          registered_at: "2026-07-29T06:00:00.000Z",
+        });
+        await storage.configureVectorProjection({
+          mode: "evaluating",
+          epoch_id: epoch.epoch_id,
+          configured_at: "2026-07-29T06:00:00.000Z",
+        });
+        const projector = new VectorScopeProjector({
+          storage,
+          dataRoot,
+          modelRoot: MODEL_ROOT ?? "",
+          epoch,
+          runtimeFactory: {
+            open: (input) =>
+              VectorProcessHost.open({
+                ...input,
+                childEntry: new URL(
+                  "../../packages/vector-retrieval/dist/vector-process.js",
+                  import.meta.url,
+                ),
+                startupTimeoutMs: 10_000,
+                writeTimeoutMs: 30_000,
+                requestTimeoutMs: 1_000,
+              }),
+          },
+        });
+        await expect(
+          projector.drain({
+            worker_id: "vector_real_projector",
+            claimed_at: "2026-07-29T06:00:01.000Z",
+            lease_expires_at: "2026-07-29T06:01:00.000Z",
+            completed_at: "2026-07-29T06:00:10.000Z",
+            retry_at: "2026-07-29T06:01:05.000Z",
+          }),
+        ).resolves.toMatchObject({
+          claimed: 1,
+          published: 1,
+          stale: 0,
+          failed: 0,
+        });
+        await expect(
+          storage.vectorProjectionCheckpoint({
+            principal_id: "user_local",
+            scope: { kind: "workspace", id: "workspace_local" },
+          }),
+        ).resolves.toMatchObject({
+          state: "published",
+          active_epoch_id: epoch.epoch_id,
+        });
+      } finally {
+        await storage.close();
       }
     },
   );

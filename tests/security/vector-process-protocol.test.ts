@@ -19,6 +19,7 @@ import {
   createVectorChildEnvironment,
   parseBoundedVectorIpcRequest,
   prepareVectorPaths,
+  vectorGenerationLayout,
 } from "../../packages/vector-retrieval/src/index.js";
 
 const roots: string[] = [];
@@ -189,6 +190,41 @@ describe("vector child protocol security", () => {
         scope: { kind: "workspace", id: "workspace_local" },
       }),
     ).rejects.toThrow(/symbolic link/u);
+  });
+
+  it("derives generation paths only from hashed scope and epoch identity", async () => {
+    const dataRoot = await tempRoot(
+      "memo-graph-vector-generation-data-",
+    );
+    const layout = await vectorGenerationLayout({
+      dataRoot,
+      principalId: "principal_local",
+      scope: { kind: "workspace", id: "workspace_local" },
+      epochId: `sha256:${"a".repeat(64)}`,
+      generationId: "generation_local_1",
+    });
+    expect(layout.activeRoot.startsWith(`${layout.vectorRoot}/`))
+      .toBe(true);
+    expect(layout.activeRoot).not.toContain("principal_local");
+    expect(layout.activeRoot).not.toContain("workspace_local");
+    expect(layout.activeRoot).not.toContain("generation_local_1");
+
+    const outside = await tempRoot(
+      "memo-graph-vector-generation-outside-",
+    );
+    const linked = join(dataRoot, "linked-generation-root");
+    await symlink(outside, linked);
+    await expect(
+      vectorGenerationLayout({
+        dataRoot: linked,
+        principalId: "principal_local",
+        scope: { kind: "workspace", id: "workspace_local" },
+        epochId: `sha256:${"a".repeat(64)}`,
+        generationId: "generation_local_1",
+      }),
+    ).rejects.toMatchObject({
+      category: "PROTOCOL_INVALID",
+    });
   });
 
   it("constructs a minimal environment without inherited secrets", async () => {

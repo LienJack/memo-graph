@@ -109,6 +109,7 @@ import {
   RestoreVerificationResultSchema,
   RunVectorTemporalSweepInputSchema,
   RunVectorTemporalSweepResultSchema,
+  StaleVectorProjectionJobCommandSchema,
   VerifyArtifactsResultSchema,
   VectorProjectionJobResultSchema,
   VectorProjectionScopeInputSchema,
@@ -195,6 +196,7 @@ import {
   type RestoreVerificationResult,
   type RunVectorTemporalSweepInput,
   type RunVectorTemporalSweepResult,
+  type StaleVectorProjectionJobCommand,
   type VerifyArtifactsResult,
   type VectorProjectionJobResult,
   type VectorProjectionScopeInput,
@@ -636,6 +638,19 @@ export class SqliteStorageClient {
     return this.#writerQueue.enqueue(() =>
       this.#request(
         "fail_vector_projection_job",
+        command,
+        VectorProjectionJobResultSchema,
+      ),
+    );
+  }
+
+  staleVectorProjectionJob(
+    input: StaleVectorProjectionJobCommand,
+  ): Promise<VectorProjectionJobResult> {
+    const command = StaleVectorProjectionJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "stale_vector_projection_job",
         command,
         VectorProjectionJobResultSchema,
       ),

@@ -36,6 +36,7 @@ import {
   VECTOR_OPERATION_RESULT_SCHEMAS,
   VECTOR_PROCESS_PROTOCOL_VERSION,
   VectorIpcRequestSchema,
+  VectorEmbedPassagesInputSchema,
   parseBoundedVectorIpcResponse,
   type VectorOperation,
 } from "./protocol.js";
@@ -397,6 +398,18 @@ export class VectorProcessHost {
       VECTOR_OPERATION_RESULT_SCHEMAS.replace_scope,
       this.#options.writeTimeoutMs,
     ) as VectorScopeSnapshot;
+  }
+
+  async embedPassages(input: readonly string[]): Promise<number[][]> {
+    const request = VectorEmbedPassagesInputSchema.parse({
+      passages: input,
+    });
+    return await this.#request(
+      "embed_passages",
+      request,
+      VECTOR_OPERATION_RESULT_SCHEMAS.embed_passages,
+      this.#options.writeTimeoutMs,
+    ) as number[][];
   }
 
   async deleteScope(): Promise<void> {

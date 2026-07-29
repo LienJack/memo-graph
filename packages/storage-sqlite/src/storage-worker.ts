@@ -48,6 +48,7 @@ import {
   RegisterVectorEmbeddingEpochCommandSchema,
   ResetGraphProjectionScopesInputSchema,
   RunVectorTemporalSweepInputSchema,
+  StaleVectorProjectionJobCommandSchema,
   VectorProjectionScopeInputSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
@@ -263,6 +264,13 @@ port.on("message", (message: unknown) => {
         case "fail_vector_projection_job":
           result = database.failVectorProjectionJob(
             FailVectorProjectionJobCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "stale_vector_projection_job":
+          result = database.staleVectorProjectionJob(
+            StaleVectorProjectionJobCommandSchema.parse(
               request.payload,
             ),
           );

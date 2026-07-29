@@ -12,6 +12,37 @@ import { z } from "zod";
 export const VECTOR_PROCESS_PROTOCOL_VERSION = "1.0.0" as const;
 export const DEFAULT_VECTOR_IPC_MAX_BYTES = 1_048_576;
 
+export const VectorEmbedPassagesInputSchema = z
+  .object({
+    passages: z
+      .array(z.string().trim().min(1).max(20_000))
+      .min(1)
+      .max(32),
+  })
+  .strict();
+
+export const VectorEmbedPassagesResultSchema = z
+  .array(z.array(z.number().finite()).length(384))
+  .min(1)
+  .max(32)
+  .superRefine((vectors, context) => {
+    for (const [index, vector] of vectors.entries()) {
+      const norm = Math.sqrt(
+        vector.reduce(
+          (sum, component) => sum + component ** 2,
+          0,
+        ),
+      );
+      if (Math.abs(norm - 1) > 0.001) {
+        context.addIssue({
+          code: "custom",
+          path: [index],
+          message: "passage embeddings must be L2 normalized",
+        });
+      }
+    }
+  });
+
 export const VectorChildRuntimeIdentitySchema = z
   .object({
     node_version: z.literal("v24.18.0"),
@@ -59,6 +90,11 @@ export const VectorIpcRequestSchema = z.discriminatedUnion(
       ...VectorIpcBaseShape,
       operation: z.literal("initialize"),
       payload: z.null(),
+    }).strict(),
+    z.object({
+      ...VectorIpcBaseShape,
+      operation: z.literal("embed_passages"),
+      payload: VectorEmbedPassagesInputSchema,
     }).strict(),
     z.object({
       ...VectorIpcBaseShape,
@@ -119,6 +155,7 @@ const VectorIpcResponseEnvelopeSchema = z
     operation: z.enum([
       "health",
       "initialize",
+      "embed_passages",
       "replace_scope",
       "delete_scope",
       "read_scope_snapshot",
@@ -159,6 +196,7 @@ export const VectorIpcResponseSchema = z.union([
 export const VECTOR_OPERATION_RESULT_SCHEMAS = {
   health: VectorProcessHealthSchema,
   initialize: z.null(),
+  embed_passages: VectorEmbedPassagesResultSchema,
   replace_scope: VectorScopeSnapshotSchema,
   delete_scope: z.null(),
   read_scope_snapshot: VectorScopeSnapshotSchema.nullable(),

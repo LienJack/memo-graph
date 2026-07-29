@@ -82,6 +82,7 @@ import {
   RegisterVectorEmbeddingEpochCommandSchema,
   ResetGraphProjectionScopesInputSchema,
   RunVectorTemporalSweepInputSchema,
+  StaleVectorProjectionJobCommandSchema,
   VectorProjectionScopeInputSchema,
   PurgeRunInputSchema,
   RecordRecallCommandSchema,
@@ -555,6 +556,12 @@ export class StorageDatabase {
   failVectorProjectionJob(input: unknown) {
     return this.#vector.fail(
       FailVectorProjectionJobCommandSchema.parse(input),
+    );
+  }
+
+  staleVectorProjectionJob(input: unknown) {
+    return this.#vector.stale(
+      StaleVectorProjectionJobCommandSchema.parse(input),
     );
   }
 

@@ -20,6 +20,7 @@ type ProjectionEffect = {
   principalId: string;
   scope: { kind: string; id: string };
   occurredAt: string;
+  vectorReason?: "canonical_change" | "purge" | "recovery" | "rebuild";
 };
 
 function stableJobId(
@@ -167,6 +168,9 @@ export function enqueueProjectionRefresh(
     principal_id: effect.principalId,
     scope: ScopeSchema.parse(effect.scope),
     occurred_at: effect.occurredAt,
+    ...(effect.vectorReason === undefined
+      ? {}
+      : { reason: effect.vectorReason }),
   });
   return jobId;
 }
@@ -269,6 +273,9 @@ export function suppressProjectionDescendants(
     principal_id: effect.principalId,
     scope: ScopeSchema.parse(effect.scope),
     occurred_at: effect.occurredAt,
+    ...(effect.vectorReason === undefined
+      ? {}
+      : { reason: effect.vectorReason }),
   });
   if (jobId.length > 160) {
     throw new StorageError("CORRUPTION");
