@@ -22,7 +22,9 @@
   "parent": "07-28-agent-memory-runtime",
   "relatedFiles": [
     "docs/brainstorms/2026-07-30-m6-operational-hardening-requirements.md",
-    ".trellis/tasks/07-30-agent-memory-runtime-m6/prd.md"
+    ".trellis/tasks/07-30-agent-memory-runtime-m6/prd.md",
+    ".trellis/tasks/07-30-agent-memory-runtime-m6/research/research-handoff.md",
+    ".trellis/tasks/07-30-agent-memory-runtime-m6/research/claim-map.md"
   ],
   "notes": "Run ce-brainstorm, research-to-article, ce-plan, then ce-work under Trellis. Continuous roadmap authorization permits headless progress, but assumptions remain explicit and implementation waits for research/design/plan validation.",
   "meta": {
@@ -38,6 +40,10 @@
     "product_contract": "docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md",
     "brainstorm": "docs/brainstorms/2026-07-30-m6-operational-hardening-requirements.md",
     "brainstorm_mode": "deep-feature-headless",
-    "brainstorm_status": "complete"
+    "brainstorm_status": "complete",
+    "research_topic": "/Users/lienli/Documents/work/深度调研/research/memo-graph-m6-operational-hardening",
+    "research_run": "RUN20260730-030946-research-m6-operational--94a335",
+    "research_commit": "be839ff9e174a65a9314e5dbff4d32d7828186f3",
+    "research_status": "complete"
   }
 }
