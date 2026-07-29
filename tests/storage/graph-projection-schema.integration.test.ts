@@ -542,6 +542,7 @@ describe("SQLite graph projection delivery", () => {
       join(dataRoot, "ledger", "memory.db"),
     );
     try {
+      const invalidHash = `sha256:${"a".repeat(63)}z`;
       database.exec(`
         INSERT INTO graph_projection_write_guard (
           singleton, operation, opened_at
@@ -592,6 +593,45 @@ describe("SQLite graph projection delivery", () => {
             AND scope_kind = 'workspace'
             AND scope_id = 'workspace_local';
         `)
+      ).toThrow();
+      expect(() =>
+        database.prepare(`
+          UPDATE graph_projection_scope_state
+          SET logical_digest = ?
+          WHERE principal_id = 'user_local'
+            AND scope_kind = 'workspace'
+            AND scope_id = 'workspace_local'
+        `).run(invalidHash)
+      ).toThrow();
+      expect(() =>
+        database.prepare(`
+          UPDATE graph_projection_outbox_jobs
+          SET expected_logical_digest = ?
+          WHERE principal_id = 'user_local'
+            AND scope_kind = 'workspace'
+            AND scope_id = 'workspace_local'
+        `).run(invalidHash)
+      ).toThrow();
+      const receiptJob = database.prepare(`
+        SELECT job_id
+        FROM graph_projection_outbox_jobs
+        ORDER BY job_id
+        LIMIT 1
+      `).get() as { job_id: string } | undefined;
+      if (receiptJob === undefined) {
+        throw new Error("graph constraint fixture requires an outbox job");
+      }
+      expect(() =>
+        database.prepare(`
+          INSERT INTO graph_projection_receipts (
+            receipt_id, job_id, backend, principal_id, scope_kind,
+            scope_id, status, logical_digest, receipt_json, completed_at
+          ) VALUES (
+            'graph_receipt_invalid_digest', ?, 'ladybugdb', 'user_local',
+            'workspace', 'workspace_local', 'applied', ?, '{}',
+            '2026-07-29T03:11:00.000Z'
+          )
+        `).run(receiptJob.job_id, invalidHash)
       ).toThrow();
       const columns = database
         .prepare("PRAGMA table_info(graph_projection_outbox_jobs)")

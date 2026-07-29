@@ -32,7 +32,8 @@ CREATE TABLE graph_projection_scope_state (
     logical_digest IS NULL
     OR (
       length(logical_digest) = 71
-      AND logical_digest GLOB 'sha256:[0-9a-f]*'
+      AND substr(logical_digest, 1, 7) = 'sha256:'
+      AND substr(logical_digest, 8) NOT GLOB '*[^0-9a-f]*'
     )
   ),
   backend_identity_json TEXT CHECK (
@@ -98,7 +99,9 @@ CREATE TABLE graph_projection_outbox_jobs (
     expected_logical_digest IS NULL
     OR (
       length(expected_logical_digest) = 71
-      AND expected_logical_digest GLOB 'sha256:[0-9a-f]*'
+      AND substr(expected_logical_digest, 1, 7) = 'sha256:'
+      AND substr(expected_logical_digest, 8)
+        NOT GLOB '*[^0-9a-f]*'
     )
   ),
   status TEXT NOT NULL
@@ -174,7 +177,14 @@ CREATE TABLE graph_projection_receipts (
   scope_id TEXT NOT NULL,
   status TEXT NOT NULL
     CHECK (status IN ('applied', 'failed', 'stale', 'skipped')),
-  logical_digest TEXT,
+  logical_digest TEXT CHECK (
+    logical_digest IS NULL
+    OR (
+      length(logical_digest) = 71
+      AND substr(logical_digest, 1, 7) = 'sha256:'
+      AND substr(logical_digest, 8) NOT GLOB '*[^0-9a-f]*'
+    )
+  ),
   receipt_json TEXT NOT NULL CHECK (json_valid(receipt_json)),
   completed_at TEXT NOT NULL
 ) STRICT;
