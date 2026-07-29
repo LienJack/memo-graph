@@ -76,6 +76,19 @@
     "plan_deepened_at": "2026-07-29",
     "gates": [
       "G5"
-    ]
+    ],
+    "g5_decision": "GO",
+    "g5_decision_date": "2026-07-30",
+    "tested_implementation": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+    "tested_tree": "34719539c098343b3d47771cb0588be905faf6c5",
+    "evidence_commit": "b9c0907745cedf3315d7ab3f42a39c9afb8790eb",
+    "evidence_manifest": "sha256:12fe4d89de233dbe43ae3e1c416ca58a1e07684ed9602085416e2e40db6c6fac",
+    "decision_path": "docs/evaluations/g5-decision.md",
+    "qualified_release": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+    "base_release": null,
+    "rollback_target": null,
+    "synthetic_only": true,
+    "production_readiness": false,
+    "m6_status": "pending"
   }
 }

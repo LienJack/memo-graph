@@ -58,33 +58,33 @@ existing units.
 
 ## 2. Non-negotiable invariants
 
-- [ ] SQLite remains the sole authority for learning state, release pointers,
+- [x] SQLite remains the sole authority for learning state, release pointers,
       canonical memory, approval consumption, idempotency, and receipts.
-- [ ] Graph stays G4A `NO-GO`; vector stays G4B `NO-GO`; all G5 arms are
+- [x] Graph stays G4A `NO-GO`; vector stays G4B `NO-GO`; all G5 arms are
       vector-free.
-- [ ] Proposal, evaluation, and canary do not change normal runtime behavior or
+- [x] Proposal, evaluation, and canary do not change normal runtime behavior or
       the active release pointer.
-- [ ] A learned retrieval policy only narrows the operator policy and cannot
+- [x] A learned retrieval policy only narrows the operator policy and cannot
       encode ACL, sensitivity, mandatory-exclusion, or safety rules.
-- [ ] Memory/procedure candidates reference canonical content; learning tables
+- [x] Memory/procedure candidates reference canonical content; learning tables
       never store a duplicate body.
-- [ ] Candidate, trace, result, release-version, monitor, and rollback history
+- [x] Candidate, trace, result, release-version, monitor, and rollback history
       is immutable and replayable.
-- [ ] Holdout/transfer expected output is invisible to proposal/calibration.
-- [ ] Every case has `no_candidate`, `current`, and `candidate` under identical
+- [x] Holdout/transfer expected output is invisible to proposal/calibration.
+- [x] Every case has `no_candidate`, `current`, and `candidate` under identical
       common identity.
-- [ ] Any critical regression, contamination, missing evidence, or identity
+- [x] Any critical regression, contamination, missing evidence, or identity
       drift blocks release.
-- [ ] Canary authorization is exact and pre-canary; release/rollback approval
+- [x] Canary authorization is exact and pre-canary; release/rollback approval
       is separate, post-canary, exact, fresh, externally controlled,
       single-use, and atomically consumed.
-- [ ] Pause blocks learning transitions only; core governed read/write
+- [x] Pause blocks learning transitions only; core governed read/write
       continues.
-- [ ] Rollback restores the named prior pointer without resurrecting invalid
+- [x] Rollback restores the named prior pointer without resurrecting invalid
       content.
-- [ ] Old frozen Context remains historical; new requests resolve the current
+- [x] Old frozen Context remains historical; new requests resolve the current
       release.
-- [ ] Synthetic G5 evidence is never described as production improvement or
+- [x] Synthetic G5 evidence is never described as production improvement or
       M6 readiness.
 
 ## 3. U1 — Freeze contracts, thresholds, and protected fixtures
@@ -112,64 +112,64 @@ existing units.
 
 ### Pre-development
 
-- [ ] Load `trellis-before-dev` for the active task.
-- [ ] Re-read PRD sections for trace, three arms, partitions, authority,
+- [x] Load `trellis-before-dev` for the active task.
+- [x] Re-read PRD sections for trace, three arms, partitions, authority,
       pause, rollback, and G5 evidence.
-- [ ] Search all consumers of `LearningTraceSchema`,
+- [x] Search all consumers of `LearningTraceSchema`,
       `CandidateChangeSchema`, `EvaluationArmSchema`,
       `EvaluationPartitionSchema`, `EvalResultSchema`, and
       `ReleasePointerSchema`.
-- [ ] Capture current G3R/G4A/G4B artifact hashes and prove they decode before
+- [x] Capture current G3R/G4A/G4B artifact hashes and prove they decode before
       adding optional learning fields.
-- [ ] Confirm fixture partitions and D5 thresholds are frozen before candidate
+- [x] Confirm fixture partitions and D5 thresholds are frozen before candidate
       behavior exists.
 
 ### Test-first checklist
 
-- [ ] Add one minimal valid fixture for every new persisted/cross-package
+- [x] Add one minimal valid fixture for every new persisted/cross-package
       artifact.
-- [ ] Reject trace without task spec, frozen Context identity, ordered
+- [x] Reject trace without task spec, frozen Context identity, ordered
       trajectory refs, outcome/feedback/error/gap, active release/config,
       runtime identity, costs/side effects, redaction metadata, or valid seal.
-- [ ] Reject raw sensitive payload in a reference-only trace step.
-- [ ] Reject duplicated scopes, steps, evidence, cases, arms, transitions, or
+- [x] Reject raw sensitive payload in a reference-only trace step.
+- [x] Reject duplicated scopes, steps, evidence, cases, arms, transitions, or
       release IDs.
-- [ ] Reject obsolete `transcript_baseline`, `fts_baseline`, and `approved`
+- [x] Reject obsolete `transcript_baseline`, `fts_baseline`, and `approved`
       vocabulary.
-- [ ] Accept only `no_candidate`, `current`, and `candidate`.
-- [ ] Accept only the legal candidate state vocabulary.
-- [ ] Require target/payload, base release, slot, expected improvement,
+- [x] Accept only `no_candidate`, `current`, and `candidate`.
+- [x] Accept only the legal candidate state vocabulary.
+- [x] Require target/payload, base release, slot, expected improvement,
       protected invariants, evaluation contract, and rollback identity.
-- [ ] Reject executable/unknown payload and unsupported release capability.
-- [ ] Require all three evaluation partitions, at least three cases per
+- [x] Reject executable/unknown payload and unsupported release capability.
+- [x] Require all three evaluation partitions, at least three cases per
       partition, and three independent canary cases.
-- [ ] Reject partition/path/hash/visibility mismatch and post-freeze mutation.
-- [ ] Reject canary case/oracle access before `approved_for_canary`.
-- [ ] Require common identity equality across arms.
-- [ ] Require critical failures and measurement dimensions to remain separate.
-- [ ] Require canary authorization to bind evaluation plus the sealed canary
+- [x] Reject partition/path/hash/visibility mismatch and post-freeze mutation.
+- [x] Reject canary case/oracle access before `approved_for_canary`.
+- [x] Require common identity equality across arms.
+- [x] Require critical failures and measurement dimensions to remain separate.
+- [x] Require canary authorization to bind evaluation plus the sealed canary
       manifest without a future receipt.
-- [ ] Require post-canary release/rollback approvals and release/monitor/
+- [x] Require post-canary release/rollback approvals and release/monitor/
       control/rollback envelopes to bind exact upstream receipts/hashes.
-- [ ] Prove old artifacts without optional learning metadata preserve hashes.
-- [ ] Prove D5 thresholds and accepted G3R/G4A/G4B/vector-free identity are
+- [x] Prove old artifacts without optional learning metadata preserve hashes.
+- [x] Prove D5 thresholds and accepted G3R/G4A/G4B/vector-free identity are
       present in the manifest.
 
 ### Implementation checklist
 
-- [ ] Replace provisional trace/candidate/evaluation/release schemas with
+- [x] Replace provisional trace/candidate/evaluation/release schemas with
       strict M5 artifacts.
-- [ ] Add ordered trace-step/redaction and evidence-reference schemas.
-- [ ] Add release capability, slot, target/payload, state-transition, common
+- [x] Add ordered trace-step/redaction and evidence-reference schemas.
+- [x] Add release capability, slot, target/payload, state-transition, common
       run identity, partition seal/visibility, evaluation receipt, canary
       authorization, post-canary approval, release version/pointer, monitor,
       control, rollback, and G5 schemas.
-- [ ] Extend effective configuration/receipts with optional active learning
+- [x] Extend effective configuration/receipts with optional active learning
       release identity while preserving absence compatibility.
-- [ ] Add exact learning MCP input contracts and approval-binding fields.
-- [ ] Export all public schemas/builders/types from one owner.
-- [ ] Freeze G5 evaluation/canary cases, thresholds, and manifest hashes.
-- [ ] Keep holdout/transfer expected values in protected files referenced by
+- [x] Add exact learning MCP input contracts and approval-binding fields.
+- [x] Export all public schemas/builders/types from one owner.
+- [x] Freeze G5 evaluation/canary cases, thresholds, and manifest hashes.
+- [x] Keep holdout/transfer expected values in protected files referenced by
       descriptors.
 
 ### Focused verification
@@ -189,11 +189,11 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Every invalid fixture fails for its declared boundary.
-- [ ] All cases/partitions/thresholds/baselines are frozen and hashed.
-- [ ] Existing decision artifact compatibility is exact.
-- [ ] `trellis-check` has no unresolved finding for U1.
-- [ ] Create only the U1 commit.
+- [x] Every invalid fixture fails for its declared boundary.
+- [x] All cases/partitions/thresholds/baselines are frozen and hashed.
+- [x] Existing decision artifact compatibility is exact.
+- [x] `trellis-check` has no unresolved finding for U1.
+- [x] Create only the U1 commit.
 
 **Rollback point:** revert U1; no migration, learning package, or runtime
 effect exists.
@@ -222,60 +222,60 @@ effect exists.
 
 ### Pre-development
 
-- [ ] Load `trellis-before-dev`.
-- [ ] Read backend database, error, logging, quality, cross-layer, and reuse
+- [x] Load `trellis-before-dev`.
+- [x] Read backend database, error, logging, quality, cross-layer, and reuse
       specs.
-- [ ] Characterize migration upgrade/reopen, writer-worker serialization,
+- [x] Characterize migration upgrade/reopen, writer-worker serialization,
       append-only triggers, idempotency replay, approval consumption, and
       transaction rollback.
-- [ ] Map every new table to its owning contract and public storage operation.
-- [ ] Confirm no migration 0014 exists and migration numbering is contiguous.
+- [x] Map every new table to its owning contract and public storage operation.
+- [x] Confirm no migration 0014 exists and migration numbering is contiguous.
 
 ### Test-first checklist
 
-- [ ] Upgrade a current M4B database without changing old rows/hashes/counts
+- [x] Upgrade a current M4B database without changing old rows/hashes/counts
       except additive health fields.
-- [ ] Append/re-read a complete trace and ordered evidence references.
-- [ ] Append/re-read immutable candidate and ordered trace links.
-- [ ] Append a legal transition sequence and derive current state.
-- [ ] Reject illegal/backward/duplicate/stale transition.
-- [ ] Persist partition seals, runs, arm results, contamination events, and
+- [x] Append/re-read a complete trace and ordered evidence references.
+- [x] Append/re-read immutable candidate and ordered trace links.
+- [x] Append a legal transition sequence and derive current state.
+- [x] Reject illegal/backward/duplicate/stale transition.
+- [x] Persist partition seals, runs, arm results, contamination events, and
       evaluation receipts.
-- [ ] Persist bounded canary, release version, active pointer, monitor,
+- [x] Persist bounded canary, release version, active pointer, monitor,
       control, and rollback records.
-- [ ] Enforce one active pointer per canonical slot and monotonic pointer
+- [x] Enforce one active pointer per canonical slot and monotonic pointer
       revision.
-- [ ] Enforce one control row/epoch per principal and expected-frontier CAS.
-- [ ] Replay same idempotency key/hash and conflict on changed hash.
-- [ ] Reject foreign principal/scope, wrong base/slot/target, reused approval,
+- [x] Enforce one control row/epoch per principal and expected-frontier CAS.
+- [x] Replay same idempotency key/hash and conflict on changed hash.
+- [x] Reject foreign principal/scope, wrong base/slot/target, reused approval,
       and mismatched receipt chain.
-- [ ] Inject failure before/after every pointer, control, transition, approval,
+- [x] Inject failure before/after every pointer, control, transition, approval,
       idempotency, canonical effect, outbox, and receipt write.
-- [ ] Reopen after each failure and assert entire old or entire new state.
-- [ ] Prove immutable rows cannot update/delete.
-- [ ] Prove worker protocol rejects unknown/malformed request/response.
-- [ ] Tombstone/purge a referenced memory and prove the learning target becomes
+- [x] Reopen after each failure and assert entire old or entire new state.
+- [x] Prove immutable rows cannot update/delete.
+- [x] Prove worker protocol rejects unknown/malformed request/response.
+- [x] Tombstone/purge a referenced memory and prove the learning target becomes
       unresolvable.
-- [ ] Scan SQLite/WAL/diagnostics for marker content not authorized for
+- [x] Scan SQLite/WAL/diagnostics for marker content not authorized for
       learning retention.
-- [ ] Carry learning release/control frontier through health and restore
+- [x] Carry learning release/control frontier through health and restore
       refusal checks.
 
 ### Implementation checklist
 
-- [ ] Add typed tables, checks, unique keys, foreign keys, indexes, and
+- [x] Add typed tables, checks, unique keys, foreign keys, indexes, and
       append-only/guard triggers.
-- [ ] Add immutable trace/candidate/transition/evaluation/canary/release/
+- [x] Add immutable trace/candidate/transition/evaluation/canary/release/
       monitor/rollback persistence.
-- [ ] Add guarded active pointer and learning control CAS.
-- [ ] Couple effects, idempotency, approval consumption, transition, and
+- [x] Add guarded active pointer and learning control CAS.
+- [x] Couple effects, idempotency, approval consumption, transition, and
       receipt in one immediate transaction.
-- [ ] Add strict protocol schemas and decoded worker/client operations.
-- [ ] Extend health/count/frontier output without leaking content.
-- [ ] Integrate target invalidation with revoke/tombstone/purge.
-- [ ] Extend restore validation to refuse a snapshot behind required learning
+- [x] Add strict protocol schemas and decoded worker/client operations.
+- [x] Extend health/count/frontier output without leaking content.
+- [x] Integrate target invalidation with revoke/tombstone/purge.
+- [x] Extend restore validation to refuse a snapshot behind required learning
       release/control frontiers.
-- [ ] Export only the public storage surface.
+- [x] Export only the public storage surface.
 
 ### Focused verification
 
@@ -296,11 +296,11 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Upgrade/reopen, worker decoding, CAS, append-only, idempotency, approval,
+- [x] Upgrade/reopen, worker decoding, CAS, append-only, idempotency, approval,
       crash, purge, and restore tests pass.
-- [ ] Learning storage contains no duplicated memory/procedure content.
-- [ ] `trellis-check` has no unresolved U2 finding.
-- [ ] Create only the U2 commit.
+- [x] Learning storage contains no duplicated memory/procedure content.
+- [x] `trellis-check` has no unresolved U2 finding.
+- [x] Create only the U2 commit.
 
 **Rollback point:** revert U2 and migration 0014 together; no learning runtime
 consumer exists.
@@ -331,48 +331,48 @@ consumer exists.
 
 ### Pre-development
 
-- [ ] Load `trellis-before-dev`.
-- [ ] Confirm package dependency direction: contracts + public storage port
+- [x] Load `trellis-before-dev`.
+- [x] Confirm package dependency direction: contracts + public storage port
       only; no driver, MCP SDK, graph/vector, or model dependency.
-- [ ] Search existing canonical seal, governance admission, evidence lookup,
+- [x] Search existing canonical seal, governance admission, evidence lookup,
       Context lookup, scope normalization, and stop-reason patterns.
-- [ ] Freeze deterministic qualification rules; do not add an LLM heuristic.
+- [x] Freeze deterministic qualification rules; do not add an LLM heuristic.
 
 ### Test-first checklist
 
-- [ ] Complete task evidence creates one valid sealed trace.
-- [ ] Same ordered input replays one trace; changed input under same key
+- [x] Complete task evidence creates one valid sealed trace.
+- [x] Same ordered input replays one trace; changed input under same key
       conflicts.
-- [ ] Reordered steps change the trace seal.
-- [ ] Positive, negative, and conflicting observations remain distinct.
-- [ ] Missing task/Context/config/outcome/failure/provenance emits stop and zero
+- [x] Reordered steps change the trace seal.
+- [x] Positive, negative, and conflicting observations remain distinct.
+- [x] Missing task/Context/config/outcome/failure/provenance emits stop and zero
       candidate.
-- [ ] Paused control epoch emits stop and zero candidate.
-- [ ] Foreign/purged/inaccessible evidence emits stop and zero candidate.
-- [ ] Sensitive raw content is referenced/redacted and marker-free in learning
+- [x] Paused control epoch emits stop and zero candidate.
+- [x] Foreign/purged/inaccessible evidence emits stop and zero candidate.
+- [x] Sensitive raw content is referenced/redacted and marker-free in learning
       rows/errors.
-- [ ] Smallest candidate ordering chooses memory, procedure, then narrowing
+- [x] Smallest candidate ordering chooses memory, procedure, then narrowing
       retrieval policy.
-- [ ] Prompt/Core/Scenario is evaluation-only.
-- [ ] Skill/code/model candidate is unsupported.
-- [ ] Candidate without exact base/slot/target/invariants/evaluation/rollback
+- [x] Prompt/Core/Scenario is evaluation-only.
+- [x] Skill/code/model candidate is unsupported.
+- [x] Candidate without exact base/slot/target/invariants/evaluation/rollback
       is rejected.
-- [ ] Proposal leaves active pointer, normal Context, and canonical memory
+- [x] Proposal leaves active pointer, normal Context, and canonical memory
       byte-identical.
 
 ### Implementation checklist
 
-- [ ] Implement trace completeness, evidence/Context resolution, redaction,
+- [x] Implement trace completeness, evidence/Context resolution, redaction,
       canonical sealing, persistence, and idempotent replay.
-- [ ] Preflight idempotent replay by normalized request identity before
+- [x] Preflight idempotent replay by normalized request identity before
       rereading mutable evidence, control, policy, or target state.
-- [ ] Implement typed stop reasons without raw content.
-- [ ] Implement deterministic candidate qualification and capability.
-- [ ] Bind trace set, base release, slot, target/payload, improvement,
+- [x] Implement typed stop reasons without raw content.
+- [x] Implement deterministic candidate qualification and capability.
+- [x] Bind trace set, base release, slot, target/payload, improvement,
       invariants, risk, authority, evaluation, and rollback.
-- [ ] Persist only inactive immutable candidates.
-- [ ] Export the minimal public Learning Lab surface.
-- [ ] Add the package to the runtime build before its first consumer.
+- [x] Persist only inactive immutable candidates.
+- [x] Export the minimal public Learning Lab surface.
+- [x] Add the package to the runtime build before its first consumer.
 
 ### Focused verification
 
@@ -390,11 +390,11 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Complete evidence creates one replayable inactive candidate.
-- [ ] Every incomplete/unsafe path records a stop with zero publication.
-- [ ] Package dependency boundary is clean.
-- [ ] `trellis-check` has no unresolved U3 finding.
-- [ ] Create only the U3 commit.
+- [x] Complete evidence creates one replayable inactive candidate.
+- [x] Every incomplete/unsafe path records a stop with zero publication.
+- [x] Package dependency boundary is clean.
+- [x] `trellis-check` has no unresolved U3 finding.
+- [x] Create only the U3 commit.
 
 **Rollback point:** remove the package and root build entry; U1/U2 remain
 unused contracts/storage.
@@ -418,42 +418,42 @@ unused contracts/storage.
 
 ### Pre-development
 
-- [ ] Load `trellis-before-dev`.
-- [ ] Characterize G3/G4A/G4B replay common-identity and separated-score
+- [x] Load `trellis-before-dev`.
+- [x] Characterize G3/G4A/G4B replay common-identity and separated-score
       helpers.
-- [ ] Map file/module boundaries so proposal/calibration code cannot import
+- [x] Map file/module boundaries so proposal/calibration code cannot import
       holdout/transfer expected bodies.
-- [ ] Confirm isolated arm storage/runtime reset strategy.
+- [x] Confirm isolated arm storage/runtime reset strategy.
 
 ### Test-first checklist
 
-- [ ] Run all three arms for every calibration/holdout/transfer case.
-- [ ] Assert every common-identity field is exact across arms.
-- [ ] Assert only candidate/release application differs.
-- [ ] Reject missing/duplicate arm and incomplete case.
-- [ ] Reject changed input, Context, reader, tool, budget, runtime, policy,
+- [x] Run all three arms for every calibration/holdout/transfer case.
+- [x] Assert every common-identity field is exact across arms.
+- [x] Assert only candidate/release application differs.
+- [x] Reject missing/duplicate arm and incomplete case.
+- [x] Reject changed input, Context, reader, tool, budget, runtime, policy,
       lock, scorer, seed, threshold, environment, or baseline decision.
-- [ ] Reject candidate/fixture mutation after freeze.
-- [ ] Detect holdout/transfer expected-output access by proposal/calibration.
-- [ ] Record contamination and invalidate the run.
-- [ ] Report task, error, negative transfer, Context/tokens, latency, side
+- [x] Reject candidate/fixture mutation after freeze.
+- [x] Detect holdout/transfer expected-output access by proposal/calibration.
+- [x] Record contamination and invalidate the run.
+- [x] Report task, error, negative transfer, Context/tokens, latency, side
       effects, scope/privacy/governance, and critical failures separately.
-- [ ] Reject any evaluation side effect on normal pointer/canonical memory.
-- [ ] Reject calibration-only gain with holdout/transfer harm.
-- [ ] Replay identical identity to identical logical results/hashes.
-- [ ] Give changed identity a new run and prevent approval reuse.
+- [x] Reject any evaluation side effect on normal pointer/canonical memory.
+- [x] Reject calibration-only gain with holdout/transfer harm.
+- [x] Replay identical identity to identical logical results/hashes.
+- [x] Give changed identity a new run and prevent approval reuse.
 
 ### Implementation checklist
 
-- [ ] Implement partition descriptor/visibility loader and sealed scorer
+- [x] Implement partition descriptor/visibility loader and sealed scorer
       boundary.
-- [ ] Freeze common identity before arm execution.
-- [ ] Execute arms from isolated equivalent state.
-- [ ] Collect strict per-case result contracts.
-- [ ] Evaluate D5 conjunctive thresholds without a compensating aggregate.
-- [ ] Persist per-case results, contamination, invalidation, and evaluation
+- [x] Freeze common identity before arm execution.
+- [x] Execute arms from isolated equivalent state.
+- [x] Collect strict per-case result contracts.
+- [x] Evaluate D5 conjunctive thresholds without a compensating aggregate.
+- [x] Persist per-case results, contamination, invalidation, and evaluation
       receipt.
-- [ ] Expose content-free logical result helpers for G5 scripts.
+- [x] Expose content-free logical result helpers for G5 scripts.
 
 ### Focused verification
 
@@ -471,11 +471,11 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Every case has three comparable arms or a typed invalidation.
-- [ ] Leakage/drift/side-effect protection is executable.
-- [ ] Harmful/overfit candidates cannot pass.
-- [ ] `trellis-check` has no unresolved U4 finding.
-- [ ] Create only the U4 commit.
+- [x] Every case has three comparable arms or a typed invalidation.
+- [x] Leakage/drift/side-effect protection is executable.
+- [x] Harmful/overfit candidates cannot pass.
+- [x] `trellis-check` has no unresolved U4 finding.
+- [x] Create only the U4 commit.
 
 **Rollback point:** remove evaluator/loader/helper files; trace/candidate-only
 operation remains.
@@ -509,57 +509,57 @@ operation remains.
 
 ### Pre-development
 
-- [ ] Load `trellis-before-dev`.
-- [ ] Characterize current grant parsing, manifest hashing, exact matching,
+- [x] Load `trellis-before-dev`.
+- [x] Characterize current grant parsing, manifest hashing, exact matching,
       time checks, confirm-unchanged, and consumption behavior.
-- [ ] Search every exhaustive tool/approval mapping before extending it.
-- [ ] Freeze three independent canary cases before candidate behavior, keep
+- [x] Search every exhaustive tool/approval mapping before extending it.
+- [x] Freeze three independent canary cases before candidate behavior, keep
       them inaccessible until approval, and freeze one exposure per case plus
       a ten-minute deadline and promote/abort rules.
-- [ ] Freeze distinct canary-authorization and post-canary release-approval
+- [x] Freeze distinct canary-authorization and post-canary release-approval
       identities so no grant binds a receipt that does not exist yet.
 
 ### Test-first checklist
 
-- [ ] Replay the one legal state path to release/rollback.
-- [ ] Reject every skip, backward move, stale expected transition, and
+- [x] Replay the one legal state path to release/rollback.
+- [x] Reject every skip, backward move, stale expected transition, and
       terminal-state transition.
-- [ ] Same transition idempotency/hash replays; changed hash conflicts.
-- [ ] Approve only complete valid evaluation with all D5 offline rules.
-- [ ] Reject evaluation-only/unsupported capability before canary.
-- [ ] Reject missing/expired/changed/wrong principal/tool/scope/candidate/
+- [x] Same transition idempotency/hash replays; changed hash conflicts.
+- [x] Approve only complete valid evaluation with all D5 offline rules.
+- [x] Reject evaluation-only/unsupported capability before canary.
+- [x] Reject missing/expired/changed/wrong principal/tool/scope/candidate/
       slot/base/evaluation/request/manifest canary authorization.
-- [ ] Reject any canary authorization that attempts to bind a precomputed
+- [x] Reject any canary authorization that attempts to bind a precomputed
       terminal canary receipt.
-- [ ] Reject missing/expired/changed/wrong principal/tool/scope/candidate/
+- [x] Reject missing/expired/changed/wrong principal/tool/scope/candidate/
       slot/base/evaluation/canary-receipt/pointer/request/manifest
       post-canary release or rollback approval.
-- [ ] Prove proposer/evaluator evidence cannot authorize release.
-- [ ] Prove canary authorization is consumed exactly once when canary starts.
-- [ ] Prove one post-canary approval is consumed once and the same release or
+- [x] Prove proposer/evaluator evidence cannot authorize release.
+- [x] Prove canary authorization is consumed exactly once when canary starts.
+- [x] Prove one post-canary approval is consumed once and the same release or
       rollback request replays afterward.
-- [ ] Preserve old non-learning approval grants/hashes.
-- [ ] Canary uses exact stable/current comparator and frozen cases.
-- [ ] Canary rejects early case/oracle visibility.
-- [ ] Canary passes only inside exposure/time/metric bounds.
-- [ ] Canary aborts/freezes on critical regression, drift, pause, timeout,
+- [x] Preserve old non-learning approval grants/hashes.
+- [x] Canary uses exact stable/current comparator and frozen cases.
+- [x] Canary rejects early case/oracle visibility.
+- [x] Canary passes only inside exposure/time/metric bounds.
+- [x] Canary aborts/freezes on critical regression, drift, pause, timeout,
       missing stable, or exposure overflow.
-- [ ] Canary never changes the normal active pointer.
+- [x] Canary never changes the normal active pointer.
 
 ### Implementation checklist
 
-- [ ] Implement one exhaustive state reducer and transition validator.
-- [ ] Persist state-changing transitions through storage CAS.
-- [ ] Extend approval contracts/registry binding only for learning tools, with
+- [x] Implement one exhaustive state reducer and transition validator.
+- [x] Persist state-changing transitions through storage CAS.
+- [x] Extend approval contracts/registry binding only for learning tools, with
       separate canary-authorization and post-canary approval schemas.
-- [ ] Confirm the canary manifest at canary start and atomically consume its
+- [x] Confirm the canary manifest at canary start and atomically consume its
       authorization.
-- [ ] Commit the canary state transition, authorization, terminal run,
+- [x] Commit the canary state transition, authorization, terminal run,
       receipt, and idempotency result in the same SQLite transaction.
-- [ ] Confirm the effect manifest at release/rollback boundary and prepare
+- [x] Confirm the effect manifest at release/rollback boundary and prepare
       exact post-canary approval consumption data.
-- [ ] Implement frozen bounded canary runner and durable terminal receipt.
-- [ ] Keep canary execution candidate-only.
+- [x] Implement frozen bounded canary runner and durable terminal receipt.
+- [x] Keep canary execution candidate-only.
 
 ### Focused verification
 
@@ -578,11 +578,11 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Legal state replay, illegal-transition rejection, exact authority, and
+- [x] Legal state replay, illegal-transition rejection, exact authority, and
       bounded canary pass.
-- [ ] Non-learning approval behavior is unchanged.
-- [ ] `trellis-check` has no unresolved U5 finding.
-- [ ] Create only the U5 commit.
+- [x] Non-learning approval behavior is unchanged.
+- [x] `trellis-check` has no unresolved U5 finding.
+- [x] Create only the U5 commit.
 
 **Rollback point:** remove lifecycle/canary behavior and learning grant fields;
 candidate remains evaluated but cannot publish.
@@ -1052,24 +1052,27 @@ revision.
 
 ### Decision checklist
 
-- [ ] Read `docs/evaluations/g5-verification-report.json`.
-- [ ] Identify the first false hard rule, if any.
-- [ ] Confirm tested implementation commit and evidence commit are immutable.
-- [ ] Confirm active/base release and exact rollback target.
-- [ ] Confirm graph/vector decisions are unchanged.
-- [ ] Confirm full quality/review evidence applies to the tested tree.
-- [ ] Record exactly one result:
-  - [ ] GO only if every hard rule is true.
-  - [ ] NO-GO on any false/missing rule.
-- [ ] On GO, activate only the exact tested release and preserve pause/
-      rollback.
-- [ ] On NO-GO, retain/restore base pointer and prove candidate-only/core
-      runtime continuity.
-- [ ] Record limitations and synthetic-evidence boundary.
-- [ ] Update ADR 0005.
-- [ ] Update parent G5 row with exact tested implementation and decision path.
-- [ ] Mark this plan decision-complete without rewriting historical scope.
-- [ ] Mark U1-U9 checklist results honestly.
+- [x] Read `docs/evaluations/g5-verification-report.json`.
+- [x] Identify the first false hard rule, if any.
+- [x] Confirm tested implementation commit and evidence commit are immutable.
+- [x] Confirm active/base release and exact rollback target.
+- [x] Confirm graph/vector decisions are unchanged.
+- [x] Confirm full quality/review evidence applies to the tested tree.
+- [x] Record exactly one result:
+  - [x] GO only if every hard rule is true.
+  - [x] NO-GO on any false/missing rule — evaluated but not selected because
+        no verifier-backed hard rule is false or missing.
+- [x] On GO, accept only the exact tested release and preserve pause/rollback;
+      its synthetic test activation was followed by the required exact
+      rollback drill, so no production pointer is claimed.
+- [x] On NO-GO, retain/restore base pointer and prove candidate-only/core
+      runtime continuity — not selected; the same fallback was nevertheless
+      proven by the forced monitor-breach rollback.
+- [x] Record limitations and synthetic-evidence boundary.
+- [x] Update ADR 0005.
+- [x] Update parent G5 row with exact tested implementation and decision path.
+- [x] Mark this plan decision-complete without rewriting historical scope.
+- [x] Mark U1-U9 checklist results honestly.
 
 ### Final verification
 
@@ -1086,11 +1089,28 @@ git diff --check
 
 ### Completion evidence
 
-- [ ] One verifier-backed G5 outcome exists.
-- [ ] Parent/ADR/plan/task metadata agree on tested/evidence commits, active
+- [x] One verifier-backed G5 outcome exists.
+- [x] Parent/ADR/plan/task metadata agree on tested/evidence commits, active
       release, fallback, and limitations.
-- [ ] M6 remains pending and starts from the recorded M5 baseline.
-- [ ] Create only the U9 decision commit.
+- [x] M6 remains pending and starts from the recorded M5 baseline.
+- [x] Create only the U9 decision commit.
+
+### Recorded U9 decision
+
+- Outcome: G5 `GO` for the exact local synthetic release path.
+- Tested implementation:
+  `91d810efe17632e64f5e9a3ddae81f8e9f0b9985`, tree
+  `34719539c098343b3d47771cb0588be905faf6c5`.
+- Immutable evidence commit:
+  `b9c0907745cedf3315d7ab3f42a39c9afb8790eb`.
+- Qualified release:
+  `release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68`.
+- Base release and exact rollback target: `null`; the synthetic drill ended
+  at restored pointer revision `2`.
+- Decision: `docs/evaluations/g5-decision.md`; ADR:
+  `docs/adr/0005-governed-learning-release.md`.
+- Graph and vector remain disabled under G4A/G4B `NO-GO`; automatic learning
+  publication remains disabled; M6/G6 remain pending.
 
 **Rollback point:** revert the U9 documentation/metadata commit; U8 evidence
 and tested implementation remain immutable.

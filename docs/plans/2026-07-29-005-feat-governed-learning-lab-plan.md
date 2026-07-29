@@ -1,7 +1,7 @@
 ---
 title: M5 Governed Learning Lab
 type: feat
-status: active
+status: decision-complete
 date: 2026-07-29
 deepened: 2026-07-29
 artifact_contract: ce-unified-plan/v1
@@ -17,6 +17,10 @@ gate: G5
 g3r_baseline: 6224f782c86712488d416d8101ef7c9fa477c0ae
 g4a_decision: NO-GO@36421f5cd75007a1421d3e0594e7881dd4b864b2
 g4b_decision: NO-GO@3eec7119b1e441d76523d0a57c328d4d811a4af3
+g5_decision: GO
+tested_implementation: 91d810efe17632e64f5e9a3ddae81f8e9f0b9985
+evidence_commit: b9c0907745cedf3315d7ab3f42a39c9afb8790eb
+decision_path: docs/evaluations/g5-decision.md
 ---
 
 # M5 Governed Learning Lab
@@ -36,6 +40,24 @@ The first full G5 path uses an exact-scope-set retrieval-policy candidate that
 can only narrow the operator policy. Memory and procedure candidates may
 reference canonical memory candidates/revisions, but they cannot create a
 second memory authority.
+
+## Recorded Outcome
+
+G5 is **GO** for the exact local synthetic release path recorded in
+`docs/evaluations/g5-decision.md`. The tested implementation is
+`91d810efe17632e64f5e9a3ddae81f8e9f0b9985`; the immutable evidence commit is
+`b9c0907745cedf3315d7ab3f42a39c9afb8790eb`.
+
+All frozen replay, negative-transfer, authority, canary, release, monitor,
+pause/resume, rollback, resource, review, and artifact-integrity hard rules
+passed. The qualified learned release is
+`release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68`; its exact prior/base release
+and rollback target are `null`.
+
+The synthetic monitor-breach drill intentionally ended after authorized
+rollback on the restored base pointer. Automatic publication remains
+disabled; graph/vector remain disabled under their independent `NO-GO`
+decisions; M6 production hardening and G6 remain pending.
 
 ---
 
