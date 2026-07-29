@@ -613,44 +613,44 @@ M4A-AC4/M4A-AC5/M4A-AC6/M4A-AC7.
 
 ### Test-first checklist
 
-- [ ] Correct an intermediate path revision and prove immediate suppression
+- [x] Correct an intermediate path revision and prove immediate suppression
       before graph delivery drains.
-- [ ] Demote, usage block, revoke, tombstone, and purge each intermediate
+- [x] Demote, usage block, revoke, tombstone, and purge each intermediate
       node/edge and prove next-read suppression.
-- [ ] Prove correction/revoke in scope A does not change scope B readiness or
+- [x] Prove correction/revoke in scope A does not change scope B readiness or
       result.
-- [ ] Prove concurrent graph response cannot outrun a canonical frontier
+- [x] Prove concurrent graph response cannot outrun a canonical frontier
       change.
-- [ ] Prove repeated invalidation and delivery are idempotent.
-- [ ] Prove a failed delete/replacement leaves scope pending and path excluded.
-- [ ] Scan live graph, WAL/checkpoint files, export/import, backup, IPC,
+- [x] Prove repeated invalidation and delivery are idempotent.
+- [x] Prove a failed delete/replacement leaves scope pending and path excluded.
+- [x] Scan live graph, WAL/checkpoint files, export/import, backup, IPC,
       stderr, logs, error receipts, benchmark reports, and test artifacts for
       purged plaintext.
-- [ ] Prove graph database missing at startup yields typed SQLite fallback.
-- [ ] Prove locked database yields typed fallback and bounded restart/retry.
-- [ ] Prove child crash during query and write yields typed fallback.
-- [ ] Prove malformed child response cannot enter Context.
-- [ ] Prove deliberate graph corruption quarantines the store and starts
+- [x] Prove graph database missing at startup yields typed SQLite fallback.
+- [x] Prove locked database yields typed fallback and bounded restart/retry.
+- [x] Prove child crash during query and write yields typed fallback.
+- [x] Prove malformed child response cannot enter Context.
+- [x] Prove deliberate graph corruption quarantines the store and starts
       rebuild without affecting SQLite.
-- [ ] Prove backup/restore marks graph unavailable until logical equality.
-- [ ] Prove graph backup with stale extra path cannot resurrect it.
-- [ ] Prove full graph deletion and rebuild preserve authoritative memory.
-- [ ] Prove no failure emits a memory-content diagnostic.
-- [ ] Prove repeated outage does not create unbounded child processes,
+- [x] Prove backup/restore marks graph unavailable until logical equality.
+- [x] Prove graph backup with stale extra path cannot resurrect it.
+- [x] Prove full graph deletion and rebuild preserve authoritative memory.
+- [x] Prove no failure emits a memory-content diagnostic.
+- [x] Prove repeated outage does not create unbounded child processes,
       timers, leases, queue work, or disk growth.
-- [ ] Prove the runbook commands/steps identify active path, frontier, digest,
+- [x] Prove the runbook commands/steps identify active path, frontier, digest,
       fallback, and publish evidence without exposing content.
 
 ### Implementation checklist
 
-- [ ] Complete stable lifecycle/failure category mapping.
-- [ ] Ensure canonical effects mark graph scope pending synchronously.
-- [ ] Ensure projector removes or replaces stale scope state.
-- [ ] Keep fallback active throughout backup/restore/rebuild.
-- [ ] Add residual scanning for every graph-derived artifact surface.
-- [ ] Bound retry, lease, process replacement, quarantine, and retained backup
+- [x] Complete stable lifecycle/failure category mapping.
+- [x] Ensure canonical effects mark graph scope pending synchronously.
+- [x] Ensure projector removes or replaces stale scope state.
+- [x] Keep fallback active throughout backup/restore/rebuild.
+- [x] Add residual scanning for every graph-derived artifact surface.
+- [x] Bound retry, lease, process replacement, quarantine, and retained backup
       state.
-- [ ] Write inspect/disable/quarantine/delete/rebuild/verify/publish runbook.
+- [x] Write inspect/disable/quarantine/delete/rebuild/verify/publish runbook.
 
 ### Focused verification
 
@@ -670,10 +670,24 @@ pnpm typecheck
 
 ### Completion evidence
 
-- [ ] Zero resurrection, cross-scope change, or prohibited residual.
-- [ ] All outage/corruption/restore paths retain SQLite operation.
-- [ ] Runbook matches tested behavior.
-- [ ] Create the U6 commit.
+- [x] Zero resurrection, cross-scope change, or prohibited residual.
+- [x] All outage/corruption/restore paths retain SQLite operation.
+- [x] Runbook matches tested behavior.
+- [x] Create the U6 commit.
+
+U6 evidence recorded on 2026-07-29:
+
+- The six-file focused suite passed 12/12 before the missing-database Oracle
+  was added; the final graph outage plus graph recall regression passed 15/15.
+- Governance passed 30/30; recovery passed 27/27.
+- Full verification passed 58 files, 307 tests, with 1 platform skip.
+- `pnpm lint`, `pnpm typecheck`, and `pnpm build` passed on Node 24.18.0.
+- The dependency lock remained
+  `sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066`.
+- U6 found and fixed two fail-closed gaps: exact-scope usage blocks now remove
+  L1 graph nodes, and a missing/empty graph database can no longer turn a
+  formerly ready checkpoint into a clean no-match because the graph snapshot
+  is compared with the canonical SQLite digest before traversal.
 
 **Rollback point:** disable graph lane/process and keep SQLite-only runtime.
 

@@ -449,6 +449,37 @@ export class GraphRecallRetriever {
         work: boundedWork,
       });
     }
+    let projectedSnapshot;
+    try {
+      projectedSnapshot = await store.readScopeSnapshot({
+        principal_id: request.principal_id,
+        scope: request.scope,
+      });
+    } catch (error) {
+      return unavailable({
+        request,
+        startedAt,
+        frontier: scopeFrontier,
+        reason:
+          error instanceof GraphStoreError
+            ? error.code
+            : "GRAPH_CHILD_EXITED",
+        work: boundedWork,
+      });
+    }
+    if (
+      projectedSnapshot === null ||
+      projectedSnapshot.logical_digest !== checkpoint.logical_digest ||
+      canonicalJson(projectedSnapshot) !== canonicalJson(beforeSnapshot)
+    ) {
+      return unavailable({
+        request,
+        startedAt,
+        frontier: scopeFrontier,
+        reason: "GRAPH_DIGEST_MISMATCH",
+        work: boundedWork,
+      });
+    }
     const query = GraphQuerySchema.parse({
       schema_version: "1.0.0",
       query_id: `graph-query:${canonicalSha256({

@@ -23,9 +23,10 @@
     "test:g3:accepted": "pnpm build:runtime && node scripts/run-g3-accepted-m2.mjs",
     "test:g3": "pnpm test:fixtures && pnpm build:runtime && vitest run tests/replay/layered-context-replay.test.ts tests/replay/context-pollution.test.ts tests/replay/projection-ablation.test.ts tests/integration/layered-runtime-regression.integration.test.ts tests/integration/layered-benchmark.integration.test.ts && pnpm test:g3:accepted",
     "test:g3r:h3": "pnpm build:runtime && vitest run tests/storage/projection-schema.integration.test.ts tests/storage/relation-repository.integration.test.ts tests/governance/correction.integration.test.ts tests/governance/derived-invalidation.integration.test.ts tests/integration/layered-recall.integration.test.ts tests/compiler/layered-context-compiler.test.ts tests/integration/frozen-layered-context-slice.integration.test.ts tests/replay/layered-context-replay.test.ts",
+    "test:governance": "pnpm build:runtime && vitest run tests/governance",
     "test:integration": "pnpm build:runtime && vitest run tests/integration",
     "test:mcp": "pnpm build:runtime && vitest run tests/mcp",
-    "test:recovery": "pnpm build:storage && vitest run tests/recovery",
+    "test:recovery": "pnpm build:runtime && vitest run tests/recovery",
     "test:storage": "pnpm build:storage && vitest run tests/storage",
     "typecheck": "pnpm build:runtime && tsc -p tsconfig.json --noEmit",
     "verify:g3r": "pnpm build:runtime && node scripts/verify-g3r-evidence.mjs"

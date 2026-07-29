@@ -870,6 +870,35 @@ export class GraphProjectionRepository {
              SELECT 1 FROM memory_tombstones AS t
              WHERE t.memory_id = o.memory_id
            )
+           AND COALESCE(
+             (
+               SELECT u.effect
+               FROM memory_usage_rules AS u
+               WHERE u.memory_id = o.memory_id
+                 AND u.revision_id = r.revision_id
+                 AND u.principal_id = o.principal_id
+                 AND (
+                   (
+                     u.context_scope_kind IS NULL
+                     AND u.context_scope_id IS NULL
+                   )
+                   OR
+                   (
+                     u.context_scope_kind = o.scope_kind
+                     AND u.context_scope_id = o.scope_id
+                   )
+                 )
+               ORDER BY
+                 CASE
+                   WHEN u.context_scope_kind IS NULL THEN 0
+                   ELSE 1
+                 END DESC,
+                 u.occurred_at DESC,
+                 u.usage_rule_id DESC
+               LIMIT 1
+             ),
+             'allow'
+           ) <> 'block'
          ORDER BY r.revision_id`,
       )
       .all(

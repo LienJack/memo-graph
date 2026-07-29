@@ -26,6 +26,7 @@ import { z } from "zod";
 
 import {
   GraphStoreError,
+  graphFailureDisposition,
   graphUnavailableResult,
   type GraphStore,
 } from "./graph-store.js";
@@ -124,22 +125,7 @@ function asGraphStoreError(
 }
 
 function failureOutcome(code: GraphFailureCode) {
-  switch (code) {
-    case "GRAPH_DEADLINE_EXCEEDED":
-      return "deadline_killed" as const;
-    case "GRAPH_CHILD_EXITED":
-      return "child_exited" as const;
-    case "GRAPH_PROTOCOL_INVALID":
-      return "protocol_error" as const;
-    case "GRAPH_CIRCUIT_OPEN":
-      return "circuit_open" as const;
-    case "GRAPH_OPTIONAL_DEPENDENCY_MISSING":
-      return "missing_dependency" as const;
-    case "GRAPH_DISABLED":
-      return "disabled" as const;
-    default:
-      return "store_error" as const;
-  }
+  return graphFailureDisposition(code).process_outcome;
 }
 
 function defaultChildEntry(): URL {
