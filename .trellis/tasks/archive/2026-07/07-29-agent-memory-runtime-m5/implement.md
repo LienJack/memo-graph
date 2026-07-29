@@ -1121,11 +1121,11 @@ After U9 is committed:
 
 ### Archive task
 
-- [ ] Re-run `task.py validate`.
-- [ ] Confirm no unchecked required implementation item remains.
-- [ ] Archive the M5 child with Trellis.
-- [ ] Confirm the parent child link resolves to the archive.
-- [ ] Create only the archive commit.
+- [x] Re-run `task.py validate`.
+- [x] Confirm no unchecked required implementation item remains.
+- [x] Archive the M5 child with Trellis.
+- [x] Confirm the parent child link resolves to the archive.
+- [x] Create only the archive commit.
 
 ### Journal task
 
