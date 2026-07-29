@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-07-29
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~281 | Active |
+| `journal-1.md` | ~335 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-07-29 | Complete M4B local vector adoption decision | `bd8e50e`, `92b632e`, `a429f04`, `a8714da`, `38e5196`, `114dfd0`, `6699e61`, `4873f03`, `eb8ba82`, `8a1afdc`, `b1f7b29`, `c185a41`, `b860ad3`, `6d0f1db`, `aa56340`, `3eec711`, `7d183f6`, `3213f74` | `codex/agent-memory-runtime-m4b` |
 | 7 | 2026-07-29 | Complete M4A graph evaluation and record G4A NO-GO | `7384f74`, `d948d47`, `03f163e`, `fc0f15e`, `14ae2f0`, `0628e5b`, `78ccadb`, `eb98973`, `462197f`, `7b95743`, `e973511`, `1b4c7c7`, `fbc4b0d`, `ba0e883`, `dd5e668`, `f81b117`, `7ac39f1`, `8ce3ff3`, `4ddfaa7`, `5144452`, `36421f5`, `6238c48`, `a74301e` | `codex/agent-memory-runtime-m4a` |
 | 6 | 2026-07-29 | Complete H3 bounded recall remediation and record G3R GO | `cd50bfd`, `fea84db`, `ff116bc`, `30fb402`, `a970b34`, `f969e07`, `2e44f98`, `2a08cc4`, `d3e7132`, `58b35d4`, `ae07a24`, `6224f78`, `c092b26`, `4c68b77`, `37f9a54` | `codex/agent-memory-runtime-h3` |
 | 5 | 2026-07-29 | M3 layered Context Compiler HOLD | `135f322`, `f6c10e4`, `c4472dd`, `da4bde7`, `7246c13`, `9767351`, `7314408`, `693218e`, `603f851`, `cc6b55f`, `5e4c754`, `ba20974` | `codex/agent-memory-runtime-m3` |

@@ -279,3 +279,57 @@ Completed the mandated brainstorm, research, plan, implementation, full-diff rev
 ### Next Steps
 
 - Start M4B as an independent Trellis brainstorm-research-plan-work workflow; G4A does not authorize M5 or M6.
+
+
+## Session 8: Complete M4B local vector adoption decision
+
+**Date**: 2026-07-29
+**Task**: Complete M4B local vector adoption decision
+**Branch**: `codex/agent-memory-runtime-m4b`
+
+### Summary
+
+Completed the Trellis M4B pipeline from frozen semantic gap through governed local vector implementation, adversarial recovery fixes, reproducible evaluation, and terminal G4B NO-GO. SQLite remains authoritative; vector stays disabled and the accepted FTS5, layered, and SQLite-relation runtime is the M5 baseline.
+
+### Main Changes
+
+- Implemented optional exact-scope vector projection, process isolation, canonical postvalidation, lifecycle propagation, rebuild, epoch migration, typed fallback, and default-off MCP composition.
+- Closed P1 deadline, generation-cycle, missing-index, and ambiguous-ack recovery defects with deterministic Oracles.
+- Bound candidate 3eec711, dependency lock, local model files, embedding epoch, reports, environment, review, runbook, ADR, and final NO-GO decision in a machine-verifiable evidence chain.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bd8e50e` | (see git log) |
+| `92b632e` | (see git log) |
+| `a429f04` | (see git log) |
+| `a8714da` | (see git log) |
+| `38e5196` | (see git log) |
+| `114dfd0` | (see git log) |
+| `6699e61` | (see git log) |
+| `4873f03` | (see git log) |
+| `eb8ba82` | (see git log) |
+| `8a1afdc` | (see git log) |
+| `b1f7b29` | (see git log) |
+| `c185a41` | (see git log) |
+| `b860ad3` | (see git log) |
+| `6d0f1db` | (see git log) |
+| `aa56340` | (see git log) |
+| `3eec711` | (see git log) |
+| `7d183f6` | (see git log) |
+| `3213f74` | (see git log) |
+
+### Testing
+
+- [OK] Final pnpm test: 77 files, 401 passed, 1 environment-gated skip with the qualified local model configured.
+- [OK] G4B artifact integrity: 3/3 passed; verifier reports NO-GO because utility_gate and resource_gate are false; lint, typecheck, build, high-severity audit, clean offline no-optional startup, Trellis validation, and diff checks passed.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Start M5 Learning Lab through ce-brainstorm -> research-to-article -> ce-plan -> ce-work under a new Trellis child.
+- Bind G4A graph NO-GO and G4B vector NO-GO retrieval configuration into every no-candidate/current/candidate learning arm and release receipt.
