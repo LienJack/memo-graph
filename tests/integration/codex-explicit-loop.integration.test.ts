@@ -165,9 +165,10 @@ describe("official MCP client stdio integration", () => {
     await firstSession.client.readResource({
       uri: "memory://runtime/usage",
     });
-    expect(await health(firstSession.client)).toEqual(
-      healthBeforeResources,
-    );
+    expect(await health(firstSession.client)).toMatchObject({
+      ledger_epoch: healthBeforeResources.ledger_epoch,
+      counts: healthBeforeResources.counts,
+    });
 
     const initial = governed(
       await firstSession.client.callTool({

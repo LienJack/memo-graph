@@ -104,31 +104,32 @@ describe("authoritative evidence ledger", () => {
     await storage.close();
   });
 
-  it("maps busy writer contention to a retryable storage error", async () => {
+  it("rejects a second same-root writer before SQLite contention", async () => {
     const dataRoot = temporaryRoot("busy");
     const lockOwner = await SqliteStorageClient.open({
       dataRoot,
       testOperations: true,
     });
+    await expect(
+      SqliteStorageClient.open({
+        dataRoot,
+        busyTimeoutMs: 30,
+        testOperations: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "ROOT_LEASE_HELD",
+      retryable: true,
+    });
+    await lockOwner.close();
+
     const storage = await SqliteStorageClient.open({
       dataRoot,
       busyTimeoutMs: 30,
       testOperations: true,
     });
-    const held = lockOwner.holdWriteLockForTest(180);
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    const pending = storage.commitEpisode(inlineEpisode({}));
-
-    await expect(pending).rejects.toMatchObject({
-      code: "STORAGE_UNAVAILABLE",
-      retryable: true,
-    });
-    await held;
-
     await expect(storage.commitEpisode(inlineEpisode({}))).resolves.toMatchObject({
       resulting_epoch: 1,
     });
-    await lockOwner.close();
     await storage.close();
   });
 

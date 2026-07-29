@@ -6,6 +6,7 @@ import { Worker } from "node:worker_threads";
 import {
   GraphScopeCheckpointSchema,
   MutationReceiptSchema,
+  RootLeaseSchema,
   VectorScopeCheckpointSchema,
   type GraphScopeCheckpoint,
   type VectorScopeCheckpoint,
@@ -16,6 +17,15 @@ import {
   inspectDataRoot,
   prepareDataRoot,
 } from "./data-root.js";
+import {
+  AdmissionController,
+  AdmissionObservationSchema,
+  AdmissionPolicySchema,
+  MaintenanceOperationSchema,
+  observeStorageCapacity,
+  type AdmissionObservation,
+  type AdmissionPolicy,
+} from "./admission-control.js";
 import {
   StorageError,
   deserializeStorageError,
@@ -207,7 +217,6 @@ import {
   type RelationTraversalResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
-  type StorageHealth,
   type RestoreVerificationResult,
   type RunVectorTemporalSweepInput,
   type RunVectorTemporalSweepResult,
@@ -218,7 +227,12 @@ import {
   type VectorProjectionStatus,
   type WorkerOperation,
 } from "./protocol.js";
-import { WriterQueue, type WriterQueueMetrics } from "./writer-queue.js";
+import { RootWriterLease } from "./root-lease.js";
+import {
+  WriterQueue,
+  WriterQueueMetricsSchema,
+  type WriterQueueMetrics,
+} from "./writer-queue.js";
 
 export type StorageDiagnostic = {
   operation: WorkerOperation;
@@ -237,11 +251,27 @@ export type SqliteStorageClientOptions = {
     exitAfterCommitBeforeResponseOnce?: boolean;
   };
   onDiagnostic?: (diagnostic: StorageDiagnostic) => void;
+  admission?: {
+    policy?: AdmissionPolicy;
+    observe?: () => AdmissionObservation;
+  };
 };
 
-export type StorageClientHealth = StorageHealth & {
-  writer_queue: WriterQueueMetrics;
-};
+export const StorageClientHealthSchema = StorageHealthSchema.extend({
+  writer_queue: WriterQueueMetricsSchema,
+  admission_policy: AdmissionPolicySchema.nullable(),
+  admission_observation: AdmissionObservationSchema.nullable(),
+  admission_read_only: z.boolean(),
+  pressure_reason: z.enum(["disk", "wal"]).nullable(),
+  root_lease: RootLeaseSchema.nullable(),
+  checkpoint_counters: CheckpointResultSchema.extend({
+    attempts: z.number().int().nonnegative(),
+  }).strict(),
+}).strict();
+
+export type StorageClientHealth = z.infer<
+  typeof StorageClientHealthSchema
+>;
 
 export type StorageInspectionClient = Pick<
   SqliteStorageClient,
@@ -265,14 +295,23 @@ export class SqliteStorageClient {
     busyTimeoutMs: number;
     testOperations: boolean;
     inspectionOnly: boolean;
+    databasePath: string;
     onDiagnostic: ((diagnostic: StorageDiagnostic) => void) | undefined;
   };
-  readonly #writerQueue = new WriterQueue();
+  readonly #writerQueue: WriterQueue;
+  readonly #admission: AdmissionController | undefined;
+  readonly #rootLease: RootWriterLease | undefined;
   readonly #pending = new Map<string, PendingRequest>();
   #worker: Worker | undefined;
   #closed = false;
   #closing = false;
   #faultOnNextWorker = false;
+  #checkpointCounters: CheckpointResult & { attempts: number } = {
+    busy: 0,
+    log: 0,
+    checkpointed: 0,
+    attempts: 0,
+  };
 
   private constructor(
     options: SqliteStorageClientOptions & { inspectionOnly?: boolean },
@@ -283,6 +322,7 @@ export class SqliteStorageClient {
       : prepareDataRoot(options.dataRoot);
     this.#options = {
       dataRoot: layout.root,
+      databasePath: layout.database,
       migrationsDir:
         options.migrationsDir ??
         fileURLToPath(new URL("../../../migrations", import.meta.url)),
@@ -291,6 +331,37 @@ export class SqliteStorageClient {
       inspectionOnly,
       onDiagnostic: options.onDiagnostic,
     };
+    this.#admission = inspectionOnly
+      ? undefined
+      : new AdmissionController({
+          ...(options.admission?.policy === undefined
+            ? {}
+            : { policy: options.admission.policy }),
+          observe:
+            options.admission?.observe ??
+            (() =>
+              ({
+                ...observeStorageCapacity({
+                  dataRoot: layout.root,
+                  databasePath: layout.database,
+                }),
+                checkpoint_healthy:
+                  this.#checkpointCounters.busy === 0,
+              })),
+        });
+    this.#rootLease = inspectionOnly
+      ? undefined
+      : RootWriterLease.acquire(layout.root);
+    this.#writerQueue = new WriterQueue({
+      admit: (stage, metrics, operation) => {
+        this.#rootLease?.heartbeat();
+        this.#admission?.assert(
+          stage,
+          metrics,
+          MaintenanceOperationSchema.parse(operation),
+        );
+      },
+    });
     this.#faultOnNextWorker =
       options.testFaults?.exitAfterCommitBeforeResponseOnce ?? false;
   }
@@ -325,11 +396,18 @@ export class SqliteStorageClient {
   }
 
   async health(): Promise<StorageClientHealth> {
+    this.#admission?.refresh();
     const result = await this.#request("health", null, StorageHealthSchema);
-    return {
+    return StorageClientHealthSchema.parse({
       ...result,
       writer_queue: this.#writerQueue.metrics(),
-    };
+      admission_policy: this.#admission?.policy ?? null,
+      admission_observation: this.#admission?.observation ?? null,
+      admission_read_only: this.#admission?.readOnly ?? false,
+      pressure_reason: this.#admission?.pressureReason ?? null,
+      root_lease: this.#rootLease?.snapshot ?? null,
+      checkpoint_counters: this.#checkpointCounters,
+    });
   }
 
   governanceStatus(): Promise<GovernanceStorageStatus> {
@@ -863,8 +941,9 @@ export class SqliteStorageClient {
 
   runPurge(input: PurgeRunInput): Promise<PurgeRunResult> {
     const request = PurgeRunInputSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request("run_purge", request, PurgeRunResultSchema),
+    return this.#writerQueue.enqueue(
+      () => this.#request("run_purge", request, PurgeRunResultSchema),
+      "purge_retry",
     );
   }
 
@@ -930,20 +1009,36 @@ export class SqliteStorageClient {
   }
 
   rebuildFts(): Promise<RebuildFtsResult> {
-    return this.#writerQueue.enqueue(() =>
-      this.#request("rebuild_fts", null, RebuildFtsResultSchema),
+    return this.#writerQueue.enqueue(
+      () => this.#request("rebuild_fts", null, RebuildFtsResultSchema),
+      "rebuild_fts",
     );
   }
 
   checkpoint(): Promise<CheckpointResult> {
-    return this.#writerQueue.enqueue(() =>
-      this.#request("checkpoint", null, CheckpointResultSchema),
+    return this.#writerQueue.enqueue(
+      async () => {
+        let result: CheckpointResult;
+        let attempts = 0;
+        do {
+          attempts += 1;
+          result = await this.#request(
+            "checkpoint",
+            null,
+            CheckpointResultSchema,
+          );
+        } while (result.busy > 0 && attempts < 3);
+        this.#checkpointCounters = { ...result, attempts };
+        return result;
+      },
+      "checkpoint",
     );
   }
 
   createBackup(): Promise<BackupResult> {
-    return this.#writerQueue.enqueue(() =>
-      this.#request("backup", null, BackupResultSchema),
+    return this.#writerQueue.enqueue(
+      () => this.#request("backup", null, BackupResultSchema),
+      "backup",
     );
   }
 
@@ -1032,24 +1127,28 @@ export class SqliteStorageClient {
       return;
     }
     this.#closing = true;
-    const worker = this.#worker;
-    if (worker !== undefined) {
-      try {
-        await this.#request("close", null, NullSchema);
-      } catch (error) {
-        if (
-          !(error instanceof StorageError) ||
-          error.code !== "WORKER_CRASHED"
-        ) {
-          throw error;
+    try {
+      const worker = this.#worker;
+      if (worker !== undefined) {
+        try {
+          await this.#request("close", null, NullSchema);
+        } catch (error) {
+          if (
+            !(error instanceof StorageError) ||
+            error.code !== "WORKER_CRASHED"
+          ) {
+            throw error;
+          }
+        } finally {
+          await worker.terminate();
         }
-      } finally {
-        await worker.terminate();
       }
+    } finally {
+      this.#worker = undefined;
+      this.#closed = true;
+      this.#closing = false;
+      this.#rootLease?.release();
     }
-    this.#worker = undefined;
-    this.#closed = true;
-    this.#closing = false;
   }
 
   async #request<T>(
@@ -1174,11 +1273,15 @@ export class SqliteStorageClient {
 
   async #abort(): Promise<void> {
     this.#closing = true;
-    if (this.#worker !== undefined) {
-      await this.#worker.terminate();
+    try {
+      if (this.#worker !== undefined) {
+        await this.#worker.terminate();
+      }
+    } finally {
+      this.#worker = undefined;
+      this.#closed = true;
+      this.#closing = false;
+      this.#rootLease?.release();
     }
-    this.#worker = undefined;
-    this.#closed = true;
-    this.#closing = false;
   }
 }

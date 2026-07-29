@@ -284,6 +284,7 @@ export class StorageDatabase {
   readonly #learning: LearningRepository;
   readonly #journalMode: string;
   readonly #inspectionOnly: boolean;
+  readonly #busyTimeoutMs: number;
 
   constructor(options: {
     layout: DataRootLayout;
@@ -294,6 +295,7 @@ export class StorageDatabase {
   }) {
     this.#layout = options.layout;
     this.#inspectionOnly = options.inspectionOnly ?? false;
+    this.#busyTimeoutMs = options.busyTimeoutMs;
     const persistedBytes = this.#inspectionOnly
       ? readFileSync(options.layout.database)
       : undefined;
@@ -834,9 +836,15 @@ export class StorageDatabase {
   }
 
   checkpoint(): CheckpointResult {
-    const rows = this.#database.pragma(
-      "wal_checkpoint(TRUNCATE)",
-    ) as CheckpointResult[];
+    this.#database.pragma("busy_timeout = 0");
+    let rows: CheckpointResult[];
+    try {
+      rows = this.#database.pragma(
+        "wal_checkpoint(TRUNCATE)",
+      ) as CheckpointResult[];
+    } finally {
+      this.#database.pragma(`busy_timeout = ${this.#busyTimeoutMs}`);
+    }
     const row = rows[0];
     if (row === undefined) {
       throw new StorageError("STORAGE_UNAVAILABLE");

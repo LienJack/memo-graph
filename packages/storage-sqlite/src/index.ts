@@ -1,9 +1,27 @@
 export {
+  AdmissionController,
+  AdmissionObservationSchema,
+  AdmissionPolicySchema,
+  DEFAULT_ADMISSION_POLICY,
+  MaintenanceOperationSchema,
+  maintenanceCompatible,
+  observeStorageCapacity,
+  type AdmissionObservation,
+  type AdmissionPolicy,
+  type AdmissionStage,
+  type MaintenanceOperation,
+} from "./admission-control.js";
+export {
   blockedOperationalStatus,
   operationalStatusFromStorageHealth,
 } from "./operational-health.js";
 export {
+  RootWriterLease,
+  recoverStaleRootLease,
+} from "./root-lease.js";
+export {
   SqliteStorageClient,
+  StorageClientHealthSchema,
   type SqliteStorageClientOptions,
   type StorageClientHealth,
   type StorageDiagnostic,
@@ -251,7 +269,11 @@ export {
   VectorProjectionRepository,
   enqueueVectorProjectionEffect,
 } from "./vector-projection-repository.js";
-export { WriterQueue, type WriterQueueMetrics } from "./writer-queue.js";
+export {
+  WriterQueue,
+  WriterQueueMetricsSchema,
+  type WriterQueueMetrics,
+} from "./writer-queue.js";
 export {
   runStorageBenchmark,
   storageBenchmarkCommand,

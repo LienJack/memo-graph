@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "environment": {
+    "runtime": "node-24.18.0",
+    "platform": "darwin-arm64",
+    "topology": "single-user-single-root-single-writer-stdio",
+    "workload": "g6-small-expected-v1"
+  },
+  "admission": {
+    "max_queue_depth": 64,
+    "max_queue_age_ms": 5000,
+    "min_available_bytes_enter": 268435456,
+    "min_available_bytes_recover": 402653184,
+    "max_wal_bytes_enter": 67108864,
+    "max_wal_bytes_recover": 16777216
+  },
+  "claim_boundary": "exact local evaluation thresholds; not a production SLO"
+}

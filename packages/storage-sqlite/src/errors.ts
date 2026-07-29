@@ -14,6 +14,11 @@ export const STORAGE_ERROR_CODES = [
   "FTS_UNAVAILABLE",
   "WORKER_CRASHED",
   "STORAGE_UNAVAILABLE",
+  "QUEUE_SATURATED",
+  "RESOURCE_PRESSURE",
+  "MAINTENANCE_BLOCKED",
+  "ROOT_LEASE_HELD",
+  "STALE_ROOT_LEASE",
 ] as const;
 
 export type StorageErrorCode = (typeof STORAGE_ERROR_CODES)[number];
@@ -45,6 +50,13 @@ const PUBLIC_MESSAGES: Record<StorageErrorCode, string> = {
   FTS_UNAVAILABLE: "the FTS projection is unavailable",
   WORKER_CRASHED: "the dedicated storage worker exited before responding",
   STORAGE_UNAVAILABLE: "the storage operation is temporarily unavailable",
+  QUEUE_SATURATED: "the bounded storage queue cannot admit more work",
+  RESOURCE_PRESSURE: "local capacity or WAL pressure requires read-only mode",
+  MAINTENANCE_BLOCKED:
+    "the requested operation conflicts with active maintenance",
+  ROOT_LEASE_HELD: "another live writer owns the local data root",
+  STALE_ROOT_LEASE:
+    "the root lease cannot be recovered without exact stale-owner proof",
 };
 
 export class StorageError extends Error {

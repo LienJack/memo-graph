@@ -285,6 +285,9 @@ function publicFailure(
     | "APPROVAL_INVALID"
     | "INCOMPLETE_PURGE"
     | "PROJECTION_UNAVAILABLE"
+    | "QUEUE_SATURATED"
+    | "RESOURCE_PRESSURE"
+    | "MAINTENANCE_BLOCKED"
     | "INTERNAL_FAILURE",
   message: string,
   retryable = false,
@@ -334,6 +337,13 @@ function storageFailure(error: StorageError): GovernedResponse {
       error.message,
       error.retryable,
     );
+  }
+  if (
+    error.code === "QUEUE_SATURATED" ||
+    error.code === "RESOURCE_PRESSURE" ||
+    error.code === "MAINTENANCE_BLOCKED"
+  ) {
+    return publicFailure(error.code, error.message, error.retryable);
   }
   return publicFailure("INTERNAL_FAILURE", error.message, error.retryable);
 }

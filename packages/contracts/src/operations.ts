@@ -28,6 +28,7 @@ export const OperationalComponentSchema = z.enum([
   "resource_capacity",
   "writer_queue",
   "checkpoint",
+  "maintenance",
   "purge",
   "fts",
   "layered_projection",
@@ -39,6 +40,7 @@ export const OperationalComponentSchema = z.enum([
 export const OperationalComponentStateSchema = z.enum([
   "ready",
   "disabled",
+  "active",
   "degraded",
   "rebuilding",
   "read_only",
@@ -116,8 +118,15 @@ export const OperationalMeasurementNameSchema = z.enum([
   "available_bytes",
   "queue_depth",
   "queue_capacity",
+  "queue_oldest_age_ms",
+  "queue_completed",
+  "queue_rejected_pre_enqueue",
+  "queue_rejected_transaction_start",
   "wal_bytes",
   "checkpoint_age_ms",
+  "checkpoint_busy",
+  "checkpoint_log",
+  "checkpointed",
   "item_count",
   "frontier",
 ]);
@@ -141,12 +150,16 @@ export const OperationalObservationSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    const healthy = value.state === "ready" || value.state === "disabled";
+    const healthy =
+      value.state === "ready" ||
+      value.state === "disabled" ||
+      value.state === "active";
     if (healthy && value.reason_code !== null) {
       context.addIssue({
         code: "custom",
         path: ["reason_code"],
-        message: "ready or intentionally disabled components have no reason",
+        message:
+          "ready, active, or intentionally disabled components have no reason",
       });
     }
     if (!healthy && value.reason_code === null) {
@@ -160,7 +173,8 @@ export const OperationalObservationSchema = z
       context.addIssue({
         code: "custom",
         path: ["action_code"],
-        message: "only ready or intentionally disabled components use NONE",
+        message:
+          "only ready, active, or intentionally disabled components use NONE",
       });
     }
     if (
@@ -203,7 +217,11 @@ export const OperationalObservationSchema = z
 export const OperationalReasonSchema = z
   .object({
     component: OperationalComponentSchema,
-    state: OperationalComponentStateSchema.exclude(["ready", "disabled"]),
+    state: OperationalComponentStateSchema.exclude([
+      "ready",
+      "disabled",
+      "active",
+    ]),
     reason_code: OperationalReasonCodeSchema,
     action_code: OperationalActionCodeSchema.exclude(["NONE"]),
   })
@@ -219,6 +237,7 @@ const READINESS_SEVERITY = {
 const COMPONENT_TO_READINESS = {
   ready: "ready",
   disabled: "ready",
+  active: "ready",
   degraded: "degraded",
   rebuilding: "degraded",
   read_only: "read_only",

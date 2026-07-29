@@ -63,6 +63,18 @@ export function operationalStatusFromStorageHealth(
     qualification?: ReleaseQualification;
   },
 ): OperationalStatus {
+  const capacity = health.admission_observation;
+  const queuePolicy = health.admission_policy;
+  const queuePressured =
+    queuePolicy !== null &&
+    (health.writer_queue.depth >= queuePolicy.max_queue_depth ||
+      health.writer_queue.oldest_age_ms >=
+        queuePolicy.max_queue_age_ms);
+  const activeMaintenance =
+    capacity?.active_maintenance ??
+    (health.writer_queue.active_operation === "canonical_write"
+      ? null
+      : health.writer_queue.active_operation);
   return reduceOperationalStatus({
     observed_at: options?.observedAt ?? new Date().toISOString(),
     qualification: options?.qualification ?? PENDING_QUALIFICATION,
@@ -95,10 +107,78 @@ export function operationalStatusFromStorageHealth(
         measurements: [],
       },
       {
+        component: "resource_capacity",
+        state: health.admission_read_only ? "read_only" : "ready",
+        reason_code:
+          health.pressure_reason === "disk"
+            ? "DISK_PRESSURE"
+            : health.pressure_reason === "wal"
+              ? "WAL_PRESSURE"
+              : null,
+        action_code:
+          health.pressure_reason === "disk"
+            ? "FREE_LOCAL_CAPACITY"
+            : health.pressure_reason === "wal"
+              ? "RUN_CHECKPOINT"
+              : "NONE",
+        measurements:
+          capacity === null
+            ? []
+            : [
+                {
+                  component: "resource_capacity",
+                  name: "available_bytes",
+                  value: capacity.available_bytes,
+                  unit: "bytes",
+                },
+                {
+                  component: "resource_capacity",
+                  name: "wal_bytes",
+                  value: capacity.wal_bytes,
+                  unit: "bytes",
+                },
+              ],
+      },
+      {
+        component: "checkpoint",
+        state:
+          health.checkpoint_counters.busy > 0 ? "degraded" : "ready",
+        reason_code:
+          health.checkpoint_counters.busy > 0
+            ? "CHECKPOINT_BLOCKED"
+            : null,
+        action_code:
+          health.checkpoint_counters.busy > 0
+            ? "RUN_CHECKPOINT"
+            : "NONE",
+        measurements: [
+          {
+            component: "checkpoint",
+            name: "checkpoint_busy",
+            value: health.checkpoint_counters.busy,
+            unit: "count",
+          },
+          {
+            component: "checkpoint",
+            name: "checkpoint_log",
+            value: health.checkpoint_counters.log,
+            unit: "count",
+          },
+          {
+            component: "checkpoint",
+            name: "checkpointed",
+            value: health.checkpoint_counters.checkpointed,
+            unit: "count",
+          },
+        ],
+      },
+      {
         component: "writer_queue",
-        state: "ready",
-        reason_code: null,
-        action_code: "NONE",
+        state: queuePressured ? "degraded" : "ready",
+        reason_code: queuePressured ? "QUEUE_PRESSURE" : null,
+        action_code: queuePressured
+          ? "WAIT_FOR_WRITER_CAPACITY"
+          : "NONE",
         measurements: [
           {
             component: "writer_queue",
@@ -106,7 +186,61 @@ export function operationalStatusFromStorageHealth(
             value: health.writer_queue.depth,
             unit: "count",
           },
+          {
+            component: "writer_queue",
+            name: "queue_capacity",
+            value: health.admission_policy?.max_queue_depth ?? 0,
+            unit: "count",
+          },
+          {
+            component: "writer_queue",
+            name: "queue_oldest_age_ms",
+            value: health.writer_queue.oldest_age_ms,
+            unit: "milliseconds",
+          },
+          {
+            component: "writer_queue",
+            name: "queue_completed",
+            value: health.writer_queue.completed,
+            unit: "count",
+          },
+          {
+            component: "writer_queue",
+            name: "queue_rejected_pre_enqueue",
+            value: health.writer_queue.rejected_pre_enqueue,
+            unit: "count",
+          },
+          {
+            component: "writer_queue",
+            name: "queue_rejected_transaction_start",
+            value: health.writer_queue.rejected_transaction_start,
+            unit: "count",
+          },
         ],
+      },
+      {
+        component: "maintenance",
+        state: activeMaintenance === null ? "ready" : "active",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [],
+      },
+      {
+        component: "data_root",
+        state: "ready",
+        reason_code: null,
+        action_code: "NONE",
+        measurements:
+          health.root_lease === null
+            ? []
+            : [
+                {
+                  component: "data_root",
+                  name: "frontier",
+                  value: health.root_lease.fence_token,
+                  unit: "epoch",
+                },
+              ],
       },
       projectionObservation("fts", health.projection_state),
       projectionObservation(

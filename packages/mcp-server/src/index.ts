@@ -40,6 +40,7 @@ import {
   blockedOperationalStatus,
   operationalStatusFromStorageHealth,
   SqliteStorageClient,
+  StorageClientHealthSchema,
 } from "@memo-graph/storage-sqlite";
 import {
   SemanticVectorRetriever,
@@ -475,7 +476,9 @@ export function createMemoryMcpServer(options: {
         {
           uri: uri.href,
           mimeType: "application/json",
-          text: canonicalJson(await options.storage.health()),
+          text: canonicalJson(
+            StorageClientHealthSchema.parse(await options.storage.health()),
+          ),
         },
       ],
     }),
