@@ -1,0 +1,31 @@
+{
+  "name": "@memo-graph/vector-retrieval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@memo-graph/contracts": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "4.2.0",
+    "better-sqlite3": "13.0.1",
+    "sqlite-vec": "0.1.9"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3"
+  }
+}
