@@ -9,6 +9,7 @@ import {
   EffectiveLaneConfigurationSchema,
   EvidenceRecordSchema,
   GovernedSearchItemSchema,
+  GraphPathEvidenceSchema,
   LaneTelemetrySchema,
   ProjectionRevisionSchema,
   RecallLaneSchema,
@@ -521,13 +522,28 @@ const LayeredProjectionCompilerCandidateSchema = z
       "scenario_procedure",
       "core",
       "relation_sqlite",
+      "relation_graph",
     ]),
     scope: z.lazy(() => ContextSliceItemSchema.shape.scope),
     rank: z.number().finite(),
     canonical_revalidated: z.boolean(),
     projection: ProjectionRevisionSchema,
+    graph_path: GraphPathEvidenceSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.lane === "relation_graph") !==
+      (value.graph_path !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["graph_path"],
+        message:
+          "relation_graph compiler candidates require graph path evidence",
+      });
+    }
+  });
 
 export const LayeredCompilerCandidateSchema = z.discriminatedUnion(
   "kind",
@@ -544,8 +560,22 @@ export const LayeredCompilerExclusionSchema = z
     lane: RecallLaneSchema,
     reason_code: z.string().trim().min(1).max(200),
     score: z.number().finite().nullable(),
+    graph_path: GraphPathEvidenceSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.lane === "relation_graph") !==
+      (value.graph_path !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["graph_path"],
+        message:
+          "relation_graph compiler exclusions require graph path evidence",
+      });
+    }
+  });
 
 export const CompileLayeredContextInputSchema = z
   .object({
@@ -626,6 +656,9 @@ function exclusionDecision(
     included: false,
     reason_codes: [exclusion.reason_code],
     score: exclusion.score,
+    ...(exclusion.graph_path === undefined
+      ? {}
+      : { graph_path: exclusion.graph_path }),
   };
 }
 
@@ -681,6 +714,9 @@ export function compileLayeredContext(
         ...(candidate.projection === null
           ? {}
           : { projection: candidate.projection }),
+        ...(candidate.graph_path === null
+          ? {}
+          : { graph_path: candidate.graph_path }),
       };
       return [
         candidate.revision_id,
@@ -736,6 +772,9 @@ export function compileLayeredContext(
       ...(candidate.projection === null
         ? {}
         : { projection: candidate.projection }),
+      ...(candidate.graph_path === null
+        ? {}
+        : { graph_path: candidate.graph_path }),
       conflict_group_id: candidate.conflict_group_id,
       item: decision.candidate.item,
     };

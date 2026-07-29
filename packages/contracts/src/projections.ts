@@ -892,6 +892,7 @@ export const LaneTelemetrySchema = z
       z.number().int().nonnegative(),
     ),
     reason_codes: z.array(z.string().trim().min(1).max(200)),
+    query_hashes: z.array(CanonicalHashSchema).optional(),
     bounded_work: z.array(BoundedWorkTelemetrySchema).min(1).optional(),
   })
   .strict()
@@ -926,6 +927,26 @@ export const LaneTelemetrySchema = z
         code: "custom",
         path: ["reason_codes"],
         message: "failed or degraded lanes require a stable reason code",
+      });
+    }
+    if (
+      value.lane !== "relation_graph" &&
+      value.query_hashes !== undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["query_hashes"],
+        message: "only relation_graph telemetry may seal graph query hashes",
+      });
+    }
+    if (
+      value.query_hashes !== undefined &&
+      new Set(value.query_hashes).size !== value.query_hashes.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["query_hashes"],
+        message: "graph query hashes must be unique",
       });
     }
     const boundedWork = value.bounded_work ?? [];

@@ -2,6 +2,7 @@ import {
   BASE_RECALL_LANES,
   DEFAULT_BOUNDED_RECALL_LIMITS,
   EffectiveLaneConfigurationSchema,
+  GraphPathEvidenceSchema,
   GovernedSearchItemSchema,
   LanePolicySchema,
   LaneRequestOverridesSchema,
@@ -79,8 +80,22 @@ const RevalidatedProjectionCandidateSchema = z
     rank: z.number().finite(),
     canonical_revalidated: z.literal(true),
     projection: ProjectionRevisionSchema,
+    graph_path: GraphPathEvidenceSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.lane === "relation_graph") !==
+      (value.graph_path !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["graph_path"],
+        message:
+          "relation_graph candidates require graph proof and other lanes cannot carry it",
+      });
+    }
+  });
 
 export const RevalidatedRecallCandidateSchema = z.discriminatedUnion(
   "kind",
@@ -97,8 +112,22 @@ export const LayeredRecallExclusionSchema = z
     lane: RecallLaneSchema,
     reason_code: z.string().trim().min(1).max(200),
     score: z.number().finite().nullable(),
+    graph_path: GraphPathEvidenceSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.lane === "relation_graph") !==
+      (value.graph_path !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["graph_path"],
+        message:
+          "relation_graph exclusions require graph path evidence",
+      });
+    }
+  });
 
 export const LayeredRecallResultSchema = z
   .object({
@@ -246,16 +275,16 @@ export class RecallOrchestrator {
       );
     }
 
+    const relationStarts = [...laneStates.values()].flatMap((state) =>
+      state.result?.candidates.flatMap((candidate) =>
+        candidate.kind === "memory"
+          ? [candidate.memory.revision_id]
+          : candidate.projection.source_revisions.map(
+              (source) => source.revision_id,
+            )
+      ) ?? []
+    );
     if (effective.enabled_lanes.includes("relation_sqlite")) {
-      const starts = [...laneStates.values()].flatMap((state) =>
-        state.result?.candidates.flatMap((candidate) =>
-          candidate.kind === "memory"
-            ? [candidate.memory.revision_id]
-            : candidate.projection.source_revisions.map(
-                (source) => source.revision_id,
-              )
-        ) ?? []
-      );
       laneStates.set(
         "relation_sqlite",
         await this.#retrieveSafely(
@@ -263,16 +292,23 @@ export class RecallOrchestrator {
             request,
             effective.limits,
             "relation_sqlite",
-            starts,
+            relationStarts,
           ),
         ),
       );
     }
     if (effective.enabled_lanes.includes("relation_graph")) {
-      laneStates.set("relation_graph", {
-        result: null,
-        failure_reason: "GRAPH_RUNTIME_NOT_IMPLEMENTED",
-      });
+      laneStates.set(
+        "relation_graph",
+        await this.#retrieveSafely(
+          this.#laneRequest(
+            request,
+            effective.limits,
+            "relation_graph",
+            relationStarts,
+          ),
+        ),
+      );
     }
 
     const rawMemoryCandidates = [...laneStates.values()].flatMap((state) =>
@@ -528,7 +564,8 @@ export class RecallOrchestrator {
           exclusion.reason_code.startsWith("PROJECTION_")
         ) ||
           reasonCodes.some((reason) =>
-            reason.startsWith("PROJECTION_SCOPE_")
+            reason.startsWith("PROJECTION_SCOPE_") ||
+            reason.startsWith("GRAPH_SCOPE_")
           ));
       const degraded = state?.result?.truncated === true ||
         reasonCodes.some((reason) =>
@@ -543,7 +580,7 @@ export class RecallOrchestrator {
             : eligibleCount > 0
               ? "eligible"
               : "empty",
-        duration_ms: 0,
+        duration_ms: state?.result?.duration_ms ?? 0,
         candidate_count: candidateCount,
         eligible_count: eligibleCount,
         selected_count: eligibleCount,
@@ -552,6 +589,9 @@ export class RecallOrchestrator {
         ...(state?.result?.bounded_work === undefined
           ? {}
           : { bounded_work: state.result.bounded_work }),
+        ...(state?.result?.query_hashes === undefined
+          ? {}
+          : { query_hashes: state.result.query_hashes }),
       });
     });
     const orderedCandidates = candidates
@@ -623,6 +663,18 @@ export class RecallOrchestrator {
       relation_max_starts:
         limits.relation_max_starts ??
         DEFAULT_BOUNDED_RECALL_LIMITS.relation_max_starts,
+      relation_max_paths:
+        limits.relation_max_paths ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.relation_max_paths,
+      graph_max_relation_allowlist:
+        limits.graph_max_relation_allowlist ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.graph_max_relation_allowlist,
+      graph_query_timeout_ms:
+        limits.graph_query_timeout_ms ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.graph_query_timeout_ms,
+      graph_max_response_bytes:
+        limits.graph_max_response_bytes ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.graph_max_response_bytes,
       start_revision_ids: startRevisionIds,
     };
   }
@@ -698,6 +750,9 @@ export class RecallOrchestrator {
         lane: raw.lane,
         reason_code: reasonCode,
         score: raw.rank,
+        ...(raw.graph_path === undefined
+          ? {}
+          : { graph_path: raw.graph_path }),
       });
     if (options.lineageBatchLimited) {
       return exclusion("SOURCE_LINEAGE_BATCH_LIMIT");
@@ -760,6 +815,9 @@ export class RecallOrchestrator {
       rank: raw.rank,
       canonical_revalidated: true,
       projection,
+      ...(raw.graph_path === undefined
+        ? {}
+        : { graph_path: raw.graph_path }),
     });
   }
 }

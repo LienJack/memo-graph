@@ -12,6 +12,7 @@ import {
   type ContextScoreComponents,
   type ContextSliceItem,
   type EffectiveLaneConfiguration,
+  type GraphPathEvidence,
   type LaneTelemetry,
   type ProjectionLineageRef,
   type RecallRequest,
@@ -28,6 +29,7 @@ export type LayeredDecision = {
   score_components?: ContextScoreComponents;
   token_estimate?: number;
   projection?: ProjectionLineageRef;
+  graph_path?: GraphPathEvidence;
   conflict_group_id?: string | null;
   item?: ContextSliceItem;
 };
@@ -134,6 +136,9 @@ export function buildLayeredArtifacts(options: {
     ...(decision.projection === undefined
       ? {}
       : { projection: decision.projection }),
+    ...(decision.graph_path === undefined
+      ? {}
+      : { graph_path: decision.graph_path }),
     ...(decision.conflict_group_id === undefined
       ? {}
       : { conflict_group_id: decision.conflict_group_id }),

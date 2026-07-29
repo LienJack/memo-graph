@@ -1,5 +1,7 @@
 import {
   GovernedResponseSchema,
+  GraphBackendIdentitySchema,
+  GraphQueryModeSchema,
   LanePolicySchema,
   MemoryContextCompileInputSchema,
   MemoryCorrectInputSchema,
@@ -14,10 +16,16 @@ import {
   MemoryRevokeInputSchema,
   MemorySearchInputSchema,
   MemoryUsageSetInputSchema,
+  RelationTypeSchema,
   ScopeSchema,
   canonicalJson,
 } from "@memo-graph/contracts";
 import {
+  GraphProcessHost,
+  GraphRecallRetriever,
+} from "@memo-graph/graph-projection";
+import {
+  LayeredLaneRetrievers,
   MemoryRuntime,
 } from "@memo-graph/memory-kernel";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
@@ -27,6 +35,42 @@ import { z } from "zod";
 import { LocalManifestApprovalRegistry } from "./mutations.js";
 
 export const MEMORY_MCP_SERVER_VERSION = "0.1.0";
+
+const DisabledGraphServerConfigSchema = z
+  .object({
+    enabled: z.literal(false),
+  })
+  .strict();
+
+const EnabledGraphServerConfigSchema = z
+  .object({
+    enabled: z.literal(true),
+    expected_identity: GraphBackendIdentitySchema,
+    generation_id: z.string().trim().min(1).max(160).optional(),
+    mode: GraphQueryModeSchema.default("typed_path"),
+    relation_pattern: z.array(RelationTypeSchema).min(1).max(4),
+    direction: z.literal("outbound").default("outbound"),
+    startup_timeout_ms: z
+      .number()
+      .int()
+      .min(1)
+      .max(60_000)
+      .default(2_000),
+    request_timeout_ms: z
+      .number()
+      .int()
+      .min(1)
+      .max(60_000)
+      .default(75),
+  })
+  .strict();
+
+export const GraphServerConfigSchema = z
+  .discriminatedUnion("enabled", [
+    DisabledGraphServerConfigSchema,
+    EnabledGraphServerConfigSchema,
+  ])
+  .default({ enabled: false });
 
 export const MemoryServerConfigSchema = z
   .object({
@@ -62,6 +106,7 @@ export const MemoryServerConfigSchema = z
         max_concurrent_lanes: 2,
       },
     }),
+    graph: GraphServerConfigSchema,
   })
   .strict();
 
@@ -475,15 +520,51 @@ export async function openMemoryRuntime(configInput: unknown): Promise<{
   config: z.output<typeof MemoryServerConfigSchema>;
   storage: SqliteStorageClient;
   runtime: MemoryRuntime;
+  close(): Promise<void>;
 }> {
   const config = MemoryServerConfigSchema.parse(configInput);
   const storage = await SqliteStorageClient.open({
     dataRoot: config.data_root,
   });
-  return {
-    config,
-    storage,
-    runtime: new MemoryRuntime({
+  let graphRetriever: GraphRecallRetriever | undefined;
+  try {
+    if (
+      config.graph.enabled &&
+      config.lane_policy.allowed_lanes.includes("relation_graph")
+    ) {
+      const graphConfig = config.graph;
+      graphRetriever = new GraphRecallRetriever({
+        storage,
+        storeFactory: () =>
+          GraphProcessHost.open({
+            dataRoot: config.data_root,
+            expectedIdentity: graphConfig.expected_identity,
+            ...(graphConfig.generation_id === undefined
+              ? {}
+              : { generationId: graphConfig.generation_id }),
+            startupTimeoutMs: graphConfig.startup_timeout_ms,
+            requestTimeoutMs: graphConfig.request_timeout_ms,
+            ...(config.lane_policy.limits.graph_max_response_bytes ===
+              undefined
+              ? {}
+              : {
+                  maxIpcBytes:
+                    config.lane_policy.limits.graph_max_response_bytes,
+                }),
+          }),
+        policy: {
+          mode: graphConfig.mode,
+          relation_pattern: graphConfig.relation_pattern,
+          direction: graphConfig.direction,
+        },
+      });
+    }
+    const laneRetriever = new LayeredLaneRetrievers(storage, {
+      ...(graphRetriever === undefined
+        ? {}
+        : { graphRetriever }),
+    });
+    const runtime = new MemoryRuntime({
       storage,
       ...(config.approval_manifest_path === undefined
         ? {}
@@ -502,6 +583,29 @@ export async function openMemoryRuntime(configInput: unknown): Promise<{
         default_token_budget: config.default_token_budget,
         lane_policy: config.lane_policy,
       },
-    }),
-  };
+      laneRetriever,
+    });
+    let closed = false;
+    return {
+      config,
+      storage,
+      runtime,
+      close: async () => {
+        if (closed) {
+          return;
+        }
+        closed = true;
+        if (graphRetriever !== undefined) {
+          await graphRetriever.close().catch(() => undefined);
+        }
+        await storage.close();
+      },
+    };
+  } catch (error) {
+    if (graphRetriever !== undefined) {
+      await graphRetriever.close().catch(() => undefined);
+    }
+    await storage.close().catch(() => undefined);
+    throw error;
+  }
 }

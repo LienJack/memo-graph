@@ -500,59 +500,59 @@ M4A-AC4/M4A-AC5/M4A-AC6/M4A-AC7.
 
 ### Test-first checklist
 
-- [ ] Prove default runtime and MCP policy excludes `relation_graph`.
-- [ ] Prove request cannot enable graph when operator policy denies it.
-- [ ] Prove explicit permitted graph lane starts the optional retriever only
+- [x] Prove default runtime and MCP policy excludes `relation_graph`.
+- [x] Prove request cannot enable graph when operator policy denies it.
+- [x] Prove explicit permitted graph lane starts the optional retriever only
       when dependency/process/checkpoint are healthy.
-- [ ] Build starts only from SQLite-approved exact-scope revisions.
-- [ ] Build a canonical SQLite bounded structural slice with allowed relation
+- [x] Build starts only from SQLite-approved exact-scope revisions.
+- [x] Build a canonical SQLite bounded structural slice with allowed relation
       revision IDs and exact start/fanout/work counts.
-- [ ] Prove the graph query cannot traverse outside the SQLite allowlist.
-- [ ] Reject graph query before dispatch when scope checkpoint is pending,
+- [x] Prove the graph query cannot traverse outside the SQLite allowlist.
+- [x] Reject graph query before dispatch when scope checkpoint is pending,
       stale, rebuilding, unavailable, wrong backend, or wrong frontier.
-- [ ] Return exact typed explanatory path and shortest valid path fixtures.
-- [ ] Enforce relation pattern, direction, `as_of`, depth, path/result, and
+- [x] Return exact typed explanatory path and shortest valid path fixtures.
+- [x] Enforce relation pattern, direction, `as_of`, depth, path/result, and
       parent deadline.
-- [ ] Prove raw query text cannot be supplied through MCP, kernel, retriever,
+- [x] Prove raw query text cannot be supplied through MCP, kernel, retriever,
       IPC, or GraphStore contracts.
-- [ ] Prove start truncation and graph path/result truncation have separate
+- [x] Prove start truncation and graph path/result truncation have separate
       counts/reasons.
-- [ ] Prove timeout, result+1, process exit, or unknown backend work is
+- [x] Prove timeout, result+1, process exit, or unknown backend work is
       incomplete/degraded.
-- [ ] Prove truncated empty graph result cannot be `NO_MATCH`.
-- [ ] Revalidate every node and edge identity in one or bounded exact SQLite
+- [x] Prove truncated empty graph result cannot be `NO_MATCH`.
+- [x] Revalidate every node and edge identity in one or bounded exact SQLite
       snapshot.
-- [ ] Reject whole path if any node/edge is missing, stale, wrong scope,
+- [x] Reject whole path if any node/edge is missing, stale, wrong scope,
       outside validity, blocked, revoked, tombstoned, purged, or invalidated.
-- [ ] Reject whole path if evidence/lower-layer lineage or graph frontier
+- [x] Reject whole path if evidence/lower-layer lineage or graph frontier
       differs.
-- [ ] Prove graph score/path length cannot override a canonical exclusion.
-- [ ] Prove correction between graph response and postvalidation excludes the
+- [x] Prove graph score/path length cannot override a canonical exclusion.
+- [x] Prove correction between graph response and postvalidation excludes the
       path.
-- [ ] Prove unrelated valid path remains eligible.
-- [ ] Seal ordered proof IDs, query hash, frontier, completeness, counts,
+- [x] Prove unrelated valid path remains eligible.
+- [x] Seal ordered proof IDs, query hash, frontier, completeness, counts,
       elapsed time, and reasons into Context/receipt.
-- [ ] Prove receipt bytes do not include graph database content or diagnostic
+- [x] Prove receipt bytes do not include graph database content or diagnostic
       payload.
-- [ ] Prove graph failure retains `relation_sqlite` and `recent_l1`.
-- [ ] Prove graph-disabled candidate produces accepted G3R semantic outputs.
-- [ ] Prove graph package absent still starts MCP and serves SQLite tools.
+- [x] Prove graph failure retains `relation_sqlite` and `recent_l1`.
+- [x] Prove graph-disabled candidate produces accepted G3R semantic outputs.
+- [x] Prove graph package absent still starts MCP and serves SQLite tools.
 
 ### Implementation checklist
 
-- [ ] Extend lane retrieval composition without creating package cycles.
-- [ ] Select canonical starts and current exact scope checkpoint.
-- [ ] Reuse SQLite bounded relation traversal to produce the structural
+- [x] Extend lane retrieval composition without creating package cycles.
+- [x] Select canonical starts and current exact scope checkpoint.
+- [x] Reuse SQLite bounded relation traversal to produce the structural
       allowlist and authoritative fanout/work telemetry.
-- [ ] Dispatch only bounded, decoded graph query requests.
-- [ ] Convert graph paths to raw ID/hash evidence, not final content.
-- [ ] Batch exact canonical node/edge/source validation.
-- [ ] Attribute every exclusion/degradation to graph telemetry.
-- [ ] Keep clean no-match conditional on complete graph and active fallback
+- [x] Dispatch only bounded, decoded graph query requests.
+- [x] Convert graph paths to raw ID/hash evidence, not final content.
+- [x] Batch exact canonical node/edge/source validation.
+- [x] Attribute every exclusion/degradation to graph telemetry.
+- [x] Keep clean no-match conditional on complete graph and active fallback
       work.
-- [ ] Extend compiler hard filters and receipt sealing for graph proof paths.
-- [ ] Add explicit optional graph configuration with default disabled.
-- [ ] Keep SQLite-only startup and shutdown independent of graph child.
+- [x] Extend compiler hard filters and receipt sealing for graph proof paths.
+- [x] Add explicit optional graph configuration with default disabled.
+- [x] Keep SQLite-only startup and shutdown independent of graph child.
 
 ### Focused verification
 
@@ -569,10 +569,24 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Every graph result has live canonical node/edge/evidence proof.
-- [ ] All incomplete/failure modes degrade and fall back honestly.
-- [ ] Default-off and graph-absent compatibility pass.
-- [ ] Create the U5 commit.
+- [x] Every graph result has live canonical node/edge/evidence proof.
+- [x] All incomplete/failure modes degrade and fall back honestly.
+- [x] Default-off and graph-absent compatibility pass.
+- [x] Create the U5 commit.
+
+**Recorded evidence:**
+
+- Focused U5 verification: 4 files, 38 tests passed.
+- Full verification: 53 files, 295 tests passed, 1 skipped.
+- `pnpm lint`, `pnpm typecheck`, `pnpm build`, and the accepted G3R replay
+  passed on Node 24.18.0.
+- `pnpm install --frozen-lockfile --no-optional`, runtime build, and direct
+  stdio MCP smoke passed with 13 tools, ledger epoch 0, and graph disabled.
+- The U5 candidate lock hash is
+  `sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066`.
+- Graph startup is lazy after policy intersection and a ready exact-scope
+  checkpoint; an unavailable optional dependency is cached for the runtime
+  lifetime to prevent process-start storms.
 
 **Rollback point:** disable `relation_graph`; keep additive state and graph file
 for inspection while serving SQLite.

@@ -27,14 +27,14 @@ function configPath(argv: string[]): string {
 }
 
 export async function runMemoryMcpCli(argv = process.argv.slice(2)): Promise<void> {
-  let storage: Awaited<ReturnType<typeof openMemoryRuntime>>["storage"] | null =
+  let openedRuntime: Awaited<ReturnType<typeof openMemoryRuntime>> | null =
     null;
   try {
     const parsedConfig = JSON.parse(
       readFileSync(configPath(argv), "utf8"),
     ) as unknown;
     const opened = await openMemoryRuntime(parsedConfig);
-    storage = opened.storage;
+    openedRuntime = opened;
     const handle = serveStdio(
       () =>
         createMemoryMcpServer({
@@ -53,15 +53,15 @@ export async function runMemoryMcpCli(argv = process.argv.slice(2)): Promise<voi
       closing = true;
       writeDiagnostic("shutdown", code);
       await handle.close();
-      await opened.storage.close();
+      await opened.close();
     };
     process.once("SIGINT", () => void shutdown("SIGINT"));
     process.once("SIGTERM", () => void shutdown("SIGTERM"));
     process.stdin.once("end", () => void shutdown("STDIN_END"));
     writeDiagnostic("ready", "MCP_STDIO_READY");
   } catch (error) {
-    if (storage !== null) {
-      await storage.close().catch(() => undefined);
+    if (openedRuntime !== null) {
+      await openedRuntime.close().catch(() => undefined);
     }
     writeDiagnostic(
       "startup_failed",

@@ -2,6 +2,7 @@ import {
   canonicalJson,
   scopeKey,
   type ContextFrontier,
+  type GraphPathEvidence,
   type ProjectionLineageRef,
   type ProjectionPayload,
   type ProjectionRevision,
@@ -36,6 +37,7 @@ export type LayeredProjectionCandidate = {
   rank: number;
   canonical_revalidated: boolean;
   projection: ProjectionRevision;
+  graph_path?: GraphPathEvidence;
 };
 
 export type LayeredCompilerCandidate =
@@ -57,6 +59,7 @@ export type PreparedLayeredCandidate = {
   evidence_ids: string[];
   rank: number;
   projection: ProjectionLineageRef | null;
+  graph_path: GraphPathEvidence | null;
   projection_payload: ProjectionPayload | null;
   conflict_group_id: string | null;
   decision_reason_codes: string[];
@@ -69,6 +72,7 @@ export type LayeredCandidateExclusion = {
   lane: RecallLane;
   reason_code: string;
   score: number | null;
+  graph_path?: GraphPathEvidence;
 };
 
 const LANE_BY_ABSTRACTION = {
@@ -161,6 +165,10 @@ function exclusion(
     lane: candidate.lane,
     reason_code: reasonCode,
     score: candidate.rank,
+    ...(candidate.kind === "projection" &&
+        candidate.graph_path !== undefined
+      ? { graph_path: candidate.graph_path }
+      : {}),
   };
 }
 
@@ -234,6 +242,7 @@ export function hardFilterLayeredCandidates(options: {
         evidence_ids: [...memory.evidence_ids],
         rank: candidate.rank,
         projection: null,
+        graph_path: null,
         projection_payload: null,
         conflict_group_id: null,
         decision_reason_codes: [
@@ -299,6 +308,7 @@ export function hardFilterLayeredCandidates(options: {
       evidence_ids: [...projection.evidence_ids],
       rank: candidate.rank,
       projection: projectionLineage(projection),
+      graph_path: candidate.graph_path ?? null,
       projection_payload: projection.payload,
       conflict_group_id: null,
       decision_reason_codes: [

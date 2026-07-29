@@ -85,6 +85,7 @@ export {
 } from "./projection-policy.js";
 export {
   LayeredLaneRetrievers,
+  type GraphLaneRetriever,
   type LaneRetrievalResult,
   type LaneRetrieverRequest,
   type RawLaneCandidate,
@@ -417,6 +418,9 @@ function aggregateRecallTelemetry(options: {
         ]),
       );
       const boundedWork = aggregateBoundedWork(rows);
+      const queryHashes = [
+        ...new Set(rows.flatMap((row) => row.query_hashes ?? [])),
+      ].sort();
       return {
         lane,
         status: projectionFallback
@@ -453,6 +457,9 @@ function aggregateRecallTelemetry(options: {
         ...(boundedWork === undefined
           ? {}
           : { bounded_work: boundedWork }),
+        ...(queryHashes.length === 0
+          ? {}
+          : { query_hashes: queryHashes }),
       };
     }),
   );
@@ -871,6 +878,9 @@ export class MemoryRuntime {
                   lane: candidate.lane,
                   reason_code: "SCOPE_FRONTIER_EPOCH_MISMATCH",
                   score: candidate.rank,
+                  ...(candidate.graph_path === undefined
+                    ? {}
+                    : { graph_path: candidate.graph_path }),
                 }]
               : []
           );

@@ -1,6 +1,7 @@
 import {
   canonicalJson,
   type BoundedWorkTelemetry,
+  type GraphPathEvidence,
   type ProjectionRevision,
   type RecallLane,
   type Scope,
@@ -25,6 +26,10 @@ export type LaneRetrieverRequest = {
   relation_max_depth: number;
   relation_max_fanout: number;
   relation_max_starts: number;
+  relation_max_paths: number;
+  graph_max_relation_allowlist: number;
+  graph_query_timeout_ms: number;
+  graph_max_response_bytes: number;
   start_revision_ids: string[];
 };
 
@@ -40,6 +45,7 @@ export type RawProjectionLaneCandidate = {
   lane: Exclude<RecallLane, "recent_l1">;
   projection: ProjectionRevision;
   rank: number;
+  graph_path?: GraphPathEvidence;
 };
 
 export type RawLaneCandidate =
@@ -52,6 +58,7 @@ export type RawLaneExclusion = {
   lane: RecallLane;
   reason_code: string;
   score: number | null;
+  graph_path?: GraphPathEvidence;
 };
 
 export type LaneRetrievalResult = {
@@ -61,10 +68,18 @@ export type LaneRetrievalResult = {
   truncated: boolean;
   reason_codes: string[];
   bounded_work?: BoundedWorkTelemetry[];
+  duration_ms?: number;
+  query_hashes?: string[];
 };
 
 export interface RecallLaneRetriever {
   retrieve(request: LaneRetrieverRequest): Promise<LaneRetrievalResult>;
+}
+
+export interface GraphLaneRetriever {
+  retrieve(
+    request: LaneRetrieverRequest & { lane: "relation_graph" },
+  ): Promise<LaneRetrievalResult>;
 }
 
 function queryTerms(query: string): string[] {
@@ -109,9 +124,16 @@ function scalarFrontier(
 
 export class LayeredLaneRetrievers implements RecallLaneRetriever {
   readonly #storage: SqliteStorageClient;
+  readonly #graphRetriever: GraphLaneRetriever | null;
 
-  constructor(storage: SqliteStorageClient) {
+  constructor(
+    storage: SqliteStorageClient,
+    options: {
+      graphRetriever?: GraphLaneRetriever;
+    } = {},
+  ) {
     this.#storage = storage;
+    this.#graphRetriever = options.graphRetriever ?? null;
   }
 
   async retrieve(
@@ -124,7 +146,13 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
       return this.#relations(request);
     }
     if (request.lane === "relation_graph") {
-      throw new Error("graph lane runtime is not implemented");
+      if (this.#graphRetriever === null) {
+        throw new Error("graph lane runtime is not configured");
+      }
+      return this.#graphRetriever.retrieve({
+        ...request,
+        lane: "relation_graph",
+      });
     }
     return this.#projections(request);
   }

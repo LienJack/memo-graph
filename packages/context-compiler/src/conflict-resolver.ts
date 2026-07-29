@@ -19,6 +19,9 @@ function exclude(
     lane: candidate.lane,
     reason_code: reasonCode,
     score: candidate.rank,
+    ...(candidate.graph_path === null
+      ? {}
+      : { graph_path: candidate.graph_path }),
   };
 }
 

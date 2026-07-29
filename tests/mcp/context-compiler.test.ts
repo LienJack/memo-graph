@@ -1,3 +1,12 @@
+import {
+  existsSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,6 +21,7 @@ import {
 } from "../../packages/context-compiler/src/index.js";
 import {
   MemoryServerConfigSchema,
+  openMemoryRuntime,
 } from "../../packages/mcp-server/src/index.js";
 
 import { inlineEpisode } from "../helpers/storage-examples.js";
@@ -264,6 +274,9 @@ describe("MCP Context lane configuration", () => {
     expect(
       MemoryServerConfigSchema.parse(base).lane_policy.allowed_lanes,
     ).toEqual(["recent_l1"]);
+    expect(MemoryServerConfigSchema.parse(base).graph).toEqual({
+      enabled: false,
+    });
     expect(
       MemoryServerConfigSchema.parse({
         ...base,
@@ -286,5 +299,98 @@ describe("MCP Context lane configuration", () => {
         max_concurrent_lanes: 2,
       },
     });
+  });
+
+  it("requires explicit operator graph configuration and rejects raw graph queries", () => {
+    const base = {
+      data_root: "/tmp/memo-graph-context-graph-config",
+      principal_id: "user_local",
+      allowed_scopes: [{ kind: "workspace", id: "workspace_local" }],
+      allowed_authorities: ["user_stated"],
+      lane_policy: {
+        allowed_lanes: ["recent_l1", "relation_graph"],
+        limits: {
+          max_candidates_per_lane: 12,
+          relation_max_depth: 2,
+          relation_max_fanout: 3,
+          max_concurrent_lanes: 2,
+        },
+      },
+      graph: {
+        enabled: true,
+        expected_identity: {
+          schema_version: "1.0.0",
+          backend: "ladybugdb",
+          package_name: "@ladybugdb/core",
+          package_version: "0.18.3",
+          storage_version: "42",
+          platform: process.platform,
+          architecture: process.arch,
+          native_binary_hash: `sha256:${"1".repeat(64)}`,
+          dependency_lock_hash: `sha256:${"2".repeat(64)}`,
+        },
+        mode: "typed_path",
+        relation_pattern: ["supports"],
+        direction: "outbound",
+      },
+    } as const;
+    expect(MemoryServerConfigSchema.safeParse(base).success).toBe(true);
+    expect(
+      MemoryServerConfigSchema.safeParse({
+        ...base,
+        graph: {
+          ...base.graph,
+          raw_query: "MATCH (n) RETURN n",
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("does not create or start graph storage merely by opening an explicitly configured MCP runtime", async () => {
+    const dataRoot = realpathSync(
+      mkdtempSync(
+        join(realpathSync(tmpdir()), "memo-graph-mcp-lazy-graph-"),
+      ),
+    );
+    const opened = await openMemoryRuntime({
+      data_root: dataRoot,
+      principal_id: "user_local",
+      allowed_scopes: [{ kind: "workspace", id: "workspace_local" }],
+      allowed_authorities: ["user_stated"],
+      lane_policy: {
+        allowed_lanes: ["recent_l1", "relation_graph"],
+        limits: {
+          max_candidates_per_lane: 12,
+          relation_max_depth: 2,
+          relation_max_fanout: 3,
+          max_concurrent_lanes: 2,
+        },
+      },
+      graph: {
+        enabled: true,
+        expected_identity: {
+          schema_version: "1.0.0",
+          backend: "ladybugdb",
+          package_name: "@ladybugdb/core",
+          package_version: "0.18.3",
+          storage_version: "42",
+          platform: process.platform,
+          architecture: process.arch,
+          native_binary_hash: `sha256:${"1".repeat(64)}`,
+          dependency_lock_hash: `sha256:${"2".repeat(64)}`,
+        },
+        mode: "typed_path",
+        relation_pattern: ["supports"],
+        direction: "outbound",
+      },
+    });
+    try {
+      expect(
+        existsSync(join(dataRoot, "derived", "graph", "ladybug.lbdb")),
+      ).toBe(false);
+    } finally {
+      await opened.close();
+      rmSync(dataRoot, { recursive: true, force: true });
+    }
   });
 });

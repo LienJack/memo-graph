@@ -102,6 +102,9 @@ importers:
       '@memo-graph/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@memo-graph/graph-projection':
+        specifier: workspace:*
+        version: link:../graph-projection
       '@memo-graph/memory-kernel':
         specifier: workspace:*
         version: link:../memory-kernel

@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",
+    "@memo-graph/graph-projection": "workspace:*",
     "@memo-graph/memory-kernel": "workspace:*",
     "@memo-graph/storage-sqlite": "workspace:*",
     "@modelcontextprotocol/server": "2.0.0",
