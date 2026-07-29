@@ -807,14 +807,15 @@ export class GraphProjectionRepository {
           this.#database
             .prepare(
               `UPDATE graph_projection_outbox_jobs
-               SET status = 'failed',
+               SET status = 'stale',
                    claimed_by = NULL,
                    lease_token = NULL,
                    lease_expires_at = NULL,
+                   completed_at = ?,
                    last_failure = 'GRAPH_SCOPE_STALE'
-               WHERE status = 'processing'`,
+               WHERE status IN ('pending', 'processing', 'failed')`,
             )
-            .run();
+            .run(request.restored_at);
         } finally {
           this.#closeGuard();
         }

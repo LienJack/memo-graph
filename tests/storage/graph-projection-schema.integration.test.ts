@@ -672,6 +672,17 @@ describe("SQLite graph projection delivery", () => {
         edges: snapshot.snapshot.edges.length,
       }),
     });
+    await storage.resetGraphProjectionScopes({
+      scopes: [{
+        principal_id: "user_local",
+        scope: MAIN_SCOPE,
+      }],
+      mode: "pending",
+      reset_at: "2026-07-29T04:10:00.000Z",
+    });
+    await expect(storage.graphProjectionStatus()).resolves.toMatchObject({
+      outbox_pending: 1,
+    });
     const backup = await storage.createBackup();
     await storage.close();
 
@@ -697,6 +708,17 @@ describe("SQLite graph projection delivery", () => {
         backend_identity: null,
         last_failure: "GRAPH_SCOPE_STALE",
       });
+      await expect(restored.graphProjectionStatus()).resolves.toMatchObject({
+        outbox_pending: 0,
+      });
+      await expect(
+        restored.claimGraphProjectionJobs({
+          worker_id: "graph_restore_stale_job_probe",
+          claimed_at: "2026-07-29T04:20:00.000Z",
+          lease_expires_at: "2026-07-29T04:25:00.000Z",
+          limit: 10,
+        }),
+      ).resolves.toEqual({ jobs: [] });
     } finally {
       await restored.close();
     }
