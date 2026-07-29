@@ -505,6 +505,32 @@ describe("SQLite graph projection delivery", () => {
       ).resolves.toMatchObject({
         checkpoints: [{ status: "rebuilding" }],
       });
+      const rebuildSnapshot = await storage.graphScopeSnapshot({
+        principal_id: "user_local",
+        scope: MAIN_SCOPE,
+      });
+      await expect(
+        storage.applyGraphProjectionJob({
+          job_id: retried.job_id,
+          worker_id: "graph_retry_worker",
+          lease_token: retried.lease_token,
+          receipt: appliedReceipt(retried, {
+            nodes: rebuildSnapshot.snapshot.nodes.length,
+            edges: rebuildSnapshot.snapshot.edges.length,
+          }, "2026-07-29T03:07:30.000Z"),
+        }),
+      ).rejects.toMatchObject({
+        code: "STALE_PROJECTION_FRONTIER",
+      });
+      await expect(
+        storage.graphProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: MAIN_SCOPE,
+        }),
+      ).resolves.toMatchObject({
+        status: "rebuilding",
+        backend_identity: null,
+      });
       await expect(storage.graphProjectionStatus()).resolves.toMatchObject({
         receipts: 1,
       });

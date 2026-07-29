@@ -451,6 +451,10 @@ export class GraphProjectionRepository {
           if (
             currentScope?.frontier_json === null ||
             currentScope === undefined ||
+            (
+              currentScope.status === "rebuilding" &&
+              job.operation !== "full_rebuild"
+            ) ||
             currentScope.logical_digest !==
               job.expected_logical_digest ||
             !sameJson(
@@ -637,7 +641,8 @@ export class GraphProjectionRepository {
                    AND scope_kind = ?
                    AND scope_id = ?
                    AND frontier_json IS ?
-                   AND logical_digest IS ?`,
+                   AND logical_digest IS ?
+                   AND status <> 'rebuilding'`,
               )
               .run(
                 receipt.completed_at,
@@ -720,7 +725,13 @@ export class GraphProjectionRepository {
                      AND scope_kind = ?
                      AND scope_id = ?
                      AND job_id <> ?
-                     AND status IN ('pending', 'failed')`,
+                     AND (
+                       status IN ('pending', 'failed')
+                       OR (
+                         status = 'processing'
+                         AND operation = 'full_rebuild'
+                       )
+                     )`,
                 )
                 .run(
                   request.reset_at,
