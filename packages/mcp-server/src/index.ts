@@ -21,10 +21,12 @@ import {
   MemoryRevokeInputSchema,
   MemorySearchInputSchema,
   MemoryUsageSetInputSchema,
+  OperationalStatusSchema,
   RelationTypeSchema,
   ScopeSchema,
   VectorEmbeddingEpochSchema,
   canonicalJson,
+  type OperationalStatus,
 } from "@memo-graph/contracts";
 import {
   GraphProcessHost,
@@ -34,7 +36,11 @@ import {
   LayeredLaneRetrievers,
   MemoryRuntime,
 } from "@memo-graph/memory-kernel";
-import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import {
+  blockedOperationalStatus,
+  operationalStatusFromStorageHealth,
+  SqliteStorageClient,
+} from "@memo-graph/storage-sqlite";
 import {
   SemanticVectorRetriever,
 } from "@memo-graph/vector-retrieval";
@@ -44,6 +50,59 @@ import { z } from "zod";
 import { LocalManifestApprovalRegistry } from "./mutations.js";
 
 export const MEMORY_MCP_SERVER_VERSION = "0.1.0";
+
+type OperationalStatusProvider = () =>
+  | OperationalStatus
+  | Promise<OperationalStatus>;
+
+function registerOperationalHealthResource(
+  server: McpServer,
+  status: OperationalStatusProvider,
+): void {
+  server.registerResource(
+    "runtime-health",
+    "memory://runtime/health",
+    {
+      title: "Memory runtime health",
+      description:
+        "Content-free readiness and release qualification. Reading this resource does not add it to model context.",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: canonicalJson(OperationalStatusSchema.parse(await status())),
+        },
+      ],
+    }),
+  );
+}
+
+export function createOperationalHealthMcpServer(options: {
+  status: OperationalStatusProvider;
+}): McpServer {
+  const server = new McpServer(
+    {
+      name: "memo-graph-memory-preflight",
+      version: MEMORY_MCP_SERVER_VERSION,
+    },
+    {
+      capabilities: {
+        tools: { listChanged: false },
+        resources: { listChanged: false, subscribe: false },
+      },
+      instructions:
+        "The canonical runtime is blocked. Only content-free health is available; no memory tools are registered.",
+    },
+  );
+  registerOperationalHealthResource(server, options.status);
+  return server;
+}
+
+export const createBlockedMemoryMcpServer =
+  createOperationalHealthMcpServer;
 
 const DisabledGraphServerConfigSchema = z
   .object({
@@ -332,6 +391,7 @@ export const MEMORY_TOOL_METADATA = [
 
 export const MEMORY_RESOURCE_URIS = [
   "memory://runtime/health",
+  "memory://runtime/storage-health",
   "memory://runtime/contracts",
   "memory://runtime/usage",
   "memory://runtime/learning",
@@ -379,6 +439,7 @@ export type MemoryMcpRuntime = Pick<
 export function createMemoryMcpServer(options: {
   runtime: MemoryMcpRuntime;
   storage: SqliteStorageClient;
+  operationalStatus?: OperationalStatusProvider;
 }): McpServer {
   const server = new McpServer(
     {
@@ -393,6 +454,31 @@ export function createMemoryMcpServer(options: {
       instructions:
         "Memory is returned only by explicit tool calls. Resources are inspection endpoints and are not automatically added to model context.",
     },
+  );
+  registerOperationalHealthResource(
+    server,
+    options.operationalStatus ??
+      (async () =>
+        operationalStatusFromStorageHealth(await options.storage.health())),
+  );
+  server.registerResource(
+    "runtime-storage-health",
+    "memory://runtime/storage-health",
+    {
+      title: "Memory storage health",
+      description:
+        "Read-only content-free storage frontiers and counts for local diagnostics.",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: canonicalJson(await options.storage.health()),
+        },
+      ],
+    }),
   );
 
   server.registerTool(
@@ -622,25 +708,6 @@ export function createMemoryMcpServer(options: {
   );
 
   server.registerResource(
-    "runtime-health",
-    "memory://runtime/health",
-    {
-      title: "Memory runtime health",
-      description:
-        "Read-only storage, schema, projection, and count metadata. Reading this resource does not add it to model context.",
-      mimeType: "application/json",
-    },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.href,
-          mimeType: "application/json",
-          text: canonicalJson(await options.storage.health()),
-        },
-      ],
-    }),
-  );
-  server.registerResource(
     "runtime-contracts",
     "memory://runtime/contracts",
     {
@@ -820,5 +887,37 @@ export async function openMemoryRuntime(configInput: unknown): Promise<{
     }
     await storage.close().catch(() => undefined);
     throw error;
+  }
+}
+
+export type MemoryRuntimePreflightResult =
+  | {
+      state: "opened";
+      opened: Awaited<ReturnType<typeof openMemoryRuntime>>;
+    }
+  | {
+      state: "blocked";
+      status: OperationalStatus;
+    };
+
+export async function preflightMemoryRuntime(
+  configInput: unknown,
+  options?: { observedAt?: string },
+): Promise<MemoryRuntimePreflightResult> {
+  try {
+    return {
+      state: "opened",
+      opened: await openMemoryRuntime(configInput),
+    };
+  } catch (error) {
+    return {
+      state: "blocked",
+      status: blockedOperationalStatus(error, {
+        ...(options?.observedAt === undefined
+          ? {}
+          : { observedAt: options.observedAt }),
+        invalidConfig: error instanceof z.ZodError,
+      }),
+    };
   }
 }

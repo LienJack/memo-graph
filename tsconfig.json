@@ -5,6 +5,7 @@
     "noEmit": true
   },
   "include": [
+    "apps/*/src/**/*.ts",
     "packages/*/src/**/*.ts",
     "tests/**/*.ts",
     "vitest.config.ts",

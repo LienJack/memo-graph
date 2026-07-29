@@ -44,7 +44,10 @@ import { GovernanceRepository } from "./governance-repository.js";
 import { GovernedMemoryReader } from "./governed-memory-reader.js";
 import { GraphProjectionRepository } from "./graph-projection-repository.js";
 import { LearningRepository } from "./learning-repository.js";
-import { applyMigrations } from "./migrations.js";
+import {
+  applyMigrations,
+  verifyAppliedMigrations,
+} from "./migrations.js";
 import { ProjectionRepository } from "./projection-repository.js";
 import { PurgeRepository } from "./purge-repository.js";
 import { RelationRepository } from "./relation-repository.js";
@@ -280,35 +283,63 @@ export class StorageDatabase {
   readonly #relations: RelationRepository;
   readonly #learning: LearningRepository;
   readonly #journalMode: string;
+  readonly #inspectionOnly: boolean;
 
   constructor(options: {
     layout: DataRootLayout;
     migrationsDir: string;
     busyTimeoutMs: number;
     testOperations?: boolean;
+    inspectionOnly?: boolean;
   }) {
     this.#layout = options.layout;
-    this.#database = new Database(options.layout.database);
-    chmodSync(options.layout.database, 0o600);
+    this.#inspectionOnly = options.inspectionOnly ?? false;
+    const persistedBytes = this.#inspectionOnly
+      ? readFileSync(options.layout.database)
+      : undefined;
+    const persistedWal =
+      persistedBytes?.[18] === 2 && persistedBytes[19] === 2;
+    const inspectionBytes =
+      persistedBytes === undefined ? undefined : Buffer.from(persistedBytes);
+    if (inspectionBytes !== undefined && persistedWal) {
+      inspectionBytes[18] = 1;
+      inspectionBytes[19] = 1;
+    }
+    this.#database = this.#inspectionOnly
+      ? new Database(inspectionBytes)
+      : new Database(options.layout.database);
+    if (!this.#inspectionOnly) {
+      chmodSync(options.layout.database, 0o600);
+    }
     this.#database.pragma(`busy_timeout = ${options.busyTimeoutMs}`);
     this.#database.pragma("foreign_keys = ON");
-    this.#database.pragma("synchronous = FULL");
-    this.#database.pragma("secure_delete = ON");
-    this.#database.pragma("temp_store = MEMORY");
     this.#database.pragma("trusted_schema = OFF");
-    this.#database.pragma("recursive_triggers = ON");
-    this.#database.pragma("journal_size_limit = 67108864");
-    this.#database.pragma("wal_autocheckpoint = 1000");
-    this.#journalMode = String(
-      this.#database.pragma("journal_mode = WAL", { simple: true }),
-    ).toLowerCase();
+    if (this.#inspectionOnly) {
+      this.#database.pragma("secure_delete = ON");
+      this.#database.pragma("query_only = ON");
+      this.#journalMode = persistedWal ? "wal" : "delete";
+    } else {
+      this.#database.pragma("synchronous = FULL");
+      this.#database.pragma("secure_delete = ON");
+      this.#database.pragma("temp_store = MEMORY");
+      this.#database.pragma("recursive_triggers = ON");
+      this.#database.pragma("journal_size_limit = 67108864");
+      this.#database.pragma("wal_autocheckpoint = 1000");
+      this.#journalMode = String(
+        this.#database.pragma("journal_mode = WAL", { simple: true }),
+      ).toLowerCase();
+    }
     if (this.#journalMode !== "wal") {
       this.#database.close();
       throw new StorageError("STORAGE_UNAVAILABLE");
     }
-    this.#migrations = applyMigrations(this.#database, options.migrationsDir);
+    this.#migrations = this.#inspectionOnly
+      ? verifyAppliedMigrations(this.#database, options.migrationsDir)
+      : applyMigrations(this.#database, options.migrationsDir);
     this.#blobStore = new BlobStore(options.layout.blobs);
-    this.#fts = new FtsIndex(this.#database);
+    this.#fts = new FtsIndex(this.#database, {
+      inspectionOnly: this.#inspectionOnly,
+    });
     this.#governance = new GovernanceRepository(this.#database);
     this.#governedMemory = new GovernedMemoryReader(this.#database);
     this.#control = new ControlRepository(this.#database);
@@ -1791,7 +1822,9 @@ export class StorageDatabase {
 
   close(): void {
     if (this.#database.open) {
-      this.checkpoint();
+      if (!this.#inspectionOnly) {
+        this.checkpoint();
+      }
       this.#database.close();
     }
   }

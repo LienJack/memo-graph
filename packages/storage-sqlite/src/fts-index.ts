@@ -64,9 +64,12 @@ function compileQuery(input: string): string {
 export class FtsIndex {
   readonly #database: Database.Database;
 
-  constructor(database: Database.Database) {
+  constructor(
+    database: Database.Database,
+    options?: { inspectionOnly?: boolean },
+  ) {
     this.#database = database;
-    this.#verifyTable();
+    this.#verifyTable(options?.inspectionOnly ?? false);
   }
 
   state(): ProjectionRow {
@@ -523,7 +526,7 @@ export class FtsIndex {
     }
   }
 
-  #verifyTable(): void {
+  #verifyTable(inspectionOnly: boolean): void {
     const table = this.#database
       .prepare(
         `SELECT name FROM sqlite_master
@@ -531,6 +534,9 @@ export class FtsIndex {
       )
       .get();
     if (table === undefined) {
+      if (inspectionOnly) {
+        throw new StorageError("FTS_UNAVAILABLE");
+      }
       this.#database
         .prepare(
           `UPDATE projection_state

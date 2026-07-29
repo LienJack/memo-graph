@@ -12,7 +12,10 @@ import {
 } from "@memo-graph/contracts";
 import { z } from "zod";
 
-import { prepareDataRoot } from "./data-root.js";
+import {
+  inspectDataRoot,
+  prepareDataRoot,
+} from "./data-root.js";
 import {
   StorageError,
   deserializeStorageError,
@@ -240,6 +243,11 @@ export type StorageClientHealth = StorageHealth & {
   writer_queue: WriterQueueMetrics;
 };
 
+export type StorageInspectionClient = Pick<
+  SqliteStorageClient,
+  "close" | "health"
+>;
+
 type PendingRequest = {
   operation: WorkerOperation;
   schema: z.ZodType;
@@ -256,6 +264,7 @@ export class SqliteStorageClient {
     migrationsDir: string;
     busyTimeoutMs: number;
     testOperations: boolean;
+    inspectionOnly: boolean;
     onDiagnostic: ((diagnostic: StorageDiagnostic) => void) | undefined;
   };
   readonly #writerQueue = new WriterQueue();
@@ -265,8 +274,13 @@ export class SqliteStorageClient {
   #closing = false;
   #faultOnNextWorker = false;
 
-  private constructor(options: SqliteStorageClientOptions) {
-    const layout = prepareDataRoot(options.dataRoot);
+  private constructor(
+    options: SqliteStorageClientOptions & { inspectionOnly?: boolean },
+  ) {
+    const inspectionOnly = options.inspectionOnly ?? false;
+    const layout = inspectionOnly
+      ? inspectDataRoot(options.dataRoot)
+      : prepareDataRoot(options.dataRoot);
     this.#options = {
       dataRoot: layout.root,
       migrationsDir:
@@ -274,6 +288,7 @@ export class SqliteStorageClient {
         fileURLToPath(new URL("../../../migrations", import.meta.url)),
       busyTimeoutMs: options.busyTimeoutMs ?? 5_000,
       testOperations: options.testOperations ?? false,
+      inspectionOnly,
       onDiagnostic: options.onDiagnostic,
     };
     this.#faultOnNextWorker =
@@ -284,6 +299,22 @@ export class SqliteStorageClient {
     options: SqliteStorageClientOptions,
   ): Promise<SqliteStorageClient> {
     const client = new SqliteStorageClient(options);
+    try {
+      await client.health();
+      return client;
+    } catch (error) {
+      await client.#abort();
+      throw error;
+    }
+  }
+
+  static async inspect(
+    options: Omit<SqliteStorageClientOptions, "testFaults" | "testOperations">,
+  ): Promise<StorageInspectionClient> {
+    const client = new SqliteStorageClient({
+      ...options,
+      inspectionOnly: true,
+    });
     try {
       await client.health();
       return client;
@@ -1061,6 +1092,7 @@ export class SqliteStorageClient {
         migrationsDir: this.#options.migrationsDir,
         busyTimeoutMs: this.#options.busyTimeoutMs,
         testOperations: this.#options.testOperations,
+        inspectionOnly: this.#options.inspectionOnly,
         exitAfterCommitBeforeResponse: fault,
       },
     });

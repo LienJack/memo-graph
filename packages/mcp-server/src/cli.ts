@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
+import { blockedOperationalStatus } from "@memo-graph/storage-sqlite";
 
 import {
+  createBlockedMemoryMcpServer,
   createMemoryMcpServer,
   openMemoryRuntime,
 } from "./index.js";
@@ -29,10 +31,12 @@ function configPath(argv: string[]): string {
 export async function runMemoryMcpCli(argv = process.argv.slice(2)): Promise<void> {
   let openedRuntime: Awaited<ReturnType<typeof openMemoryRuntime>> | null =
     null;
+  let configParsed = false;
   try {
     const parsedConfig = JSON.parse(
       readFileSync(configPath(argv), "utf8"),
     ) as unknown;
+    configParsed = true;
     const opened = await openMemoryRuntime(parsedConfig);
     openedRuntime = opened;
     const handle = serveStdio(
@@ -63,11 +67,30 @@ export async function runMemoryMcpCli(argv = process.argv.slice(2)): Promise<voi
     if (openedRuntime !== null) {
       await openedRuntime.close().catch(() => undefined);
     }
-    writeDiagnostic(
-      "startup_failed",
-      error instanceof z.ZodError ? "INVALID_CONFIG" : "STARTUP_FAILURE",
+    const invalidConfig = !configParsed || error instanceof z.ZodError;
+    const status = blockedOperationalStatus(error, { invalidConfig });
+    const handle = serveStdio(
+      () => createBlockedMemoryMcpServer({ status: () => status }),
+      {
+        onerror: () => writeDiagnostic("transport_error", "MCP_TRANSPORT"),
+      },
     );
-    process.exitCode = 1;
+    let closing = false;
+    const shutdown = async (code: string): Promise<void> => {
+      if (closing) {
+        return;
+      }
+      closing = true;
+      writeDiagnostic("shutdown", code);
+      await handle.close();
+    };
+    process.once("SIGINT", () => void shutdown("SIGINT"));
+    process.once("SIGTERM", () => void shutdown("SIGTERM"));
+    process.stdin.once("end", () => void shutdown("STDIN_END"));
+    writeDiagnostic(
+      "blocked",
+      invalidConfig ? "INVALID_CONFIG" : status.primary_reason ?? "STARTUP_FAILURE",
+    );
   }
 }
 

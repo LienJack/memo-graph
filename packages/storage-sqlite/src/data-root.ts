@@ -123,3 +123,61 @@ export function prepareDataRoot(input: string): DataRootLayout {
     filesystem_type: filesystem.type,
   };
 }
+
+export function inspectDataRoot(input: string): DataRootLayout {
+  if (
+    input.trim() !== input ||
+    !isAbsolute(input) ||
+    /^[A-Za-z][A-Za-z0-9+.-]*:\/\//u.test(input) ||
+    input.startsWith("\\\\")
+  ) {
+    fail();
+  }
+  const root = resolve(input);
+  if (
+    root === parse(root).root ||
+    !existsSync(root) ||
+    UNTRUSTED_VOLUME_PATTERNS.some((pattern) => pattern.test(root)) ||
+    lstatSync(root).isSymbolicLink() ||
+    !statSync(root).isDirectory() ||
+    realpathSync(root) !== root
+  ) {
+    fail();
+  }
+  const ledger = resolve(root, "ledger");
+  const blobs = resolve(root, "blobs");
+  const backups = resolve(root, "backups");
+  const database = resolve(ledger, "memory.db");
+  const wal = `${database}-wal`;
+  for (const directory of [ledger, blobs, backups]) {
+    if (
+      !existsSync(directory) ||
+      lstatSync(directory).isSymbolicLink() ||
+      !statSync(directory).isDirectory()
+    ) {
+      fail();
+    }
+  }
+  if (
+    !existsSync(database) ||
+    lstatSync(database).isSymbolicLink() ||
+    !statSync(database).isFile()
+  ) {
+    fail();
+  }
+  if (existsSync(wal) && statSync(wal).size > 0) {
+    throw new StorageError("STORAGE_UNAVAILABLE", { retryable: true });
+  }
+  const filesystem = statfsSync(root);
+  if (NETWORK_FILESYSTEM_TYPES.has(filesystem.type)) {
+    fail();
+  }
+  return {
+    root,
+    ledger,
+    database,
+    blobs,
+    backups,
+    filesystem_type: filesystem.type,
+  };
+}

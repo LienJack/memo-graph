@@ -85,6 +85,21 @@ export function serializeStorageError(error: unknown): SerializedStorageError {
     };
   }
 
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    (error.code === "SQLITE_CORRUPT" || error.code === "SQLITE_NOTADB")
+  ) {
+    const storageError = new StorageError("CORRUPTION");
+    return {
+      code: storageError.code,
+      message: storageError.message,
+      retryable: storageError.retryable,
+    };
+  }
+
   const storageError = new StorageError("STORAGE_UNAVAILABLE", {
     retryable: false,
   });

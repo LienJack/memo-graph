@@ -109,7 +109,7 @@ function governed(result: Awaited<ReturnType<Client["callTool"]>>) {
 
 async function health(client: Client) {
   const result = await client.readResource({
-    uri: "memory://runtime/health",
+    uri: "memory://runtime/storage-health",
   });
   const first = result.contents[0];
   if (first === undefined || !("text" in first)) {

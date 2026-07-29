@@ -2,7 +2,10 @@ import { parentPort, workerData } from "node:worker_threads";
 
 import { z } from "zod";
 
-import { prepareDataRoot } from "./data-root.js";
+import {
+  inspectDataRoot,
+  prepareDataRoot,
+} from "./data-root.js";
 import { StorageDatabase } from "./database.js";
 import {
   StorageError,
@@ -67,6 +70,7 @@ const WorkerOptionsSchema = z
     busyTimeoutMs: z.number().int().min(1).max(120_000),
     testOperations: z.boolean(),
     exitAfterCommitBeforeResponse: z.boolean(),
+    inspectionOnly: z.boolean(),
   })
   .strict();
 
@@ -78,10 +82,13 @@ let exitAfterCommitBeforeResponse =
 
 try {
   database = new StorageDatabase({
-    layout: prepareDataRoot(options.dataRoot),
+    layout: options.inspectionOnly
+      ? inspectDataRoot(options.dataRoot)
+      : prepareDataRoot(options.dataRoot),
     migrationsDir: options.migrationsDir,
     busyTimeoutMs: options.busyTimeoutMs,
     testOperations: options.testOperations,
+    inspectionOnly: options.inspectionOnly,
   });
 } catch (error) {
   initializationError = error;
@@ -100,6 +107,13 @@ port.on("message", (message: unknown) => {
     try {
       const request = WorkerRequestSchema.parse(message);
       requestId = request.requestId;
+      if (
+        options.inspectionOnly &&
+        request.operation !== "health" &&
+        request.operation !== "close"
+      ) {
+        throw new StorageError("INVALID_INPUT");
+      }
       if (initializationError !== undefined) {
         throw initializationError;
       }

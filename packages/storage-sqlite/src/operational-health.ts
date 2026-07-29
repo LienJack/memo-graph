@@ -1,0 +1,233 @@
+import {
+  ReleaseQualificationSchema,
+  reduceOperationalStatus,
+  type OperationalObservation,
+  type OperationalStatus,
+  type ReleaseQualification,
+} from "@memo-graph/contracts";
+
+import { StorageError, type StorageErrorCode } from "./errors.js";
+import type { StorageClientHealth } from "./client.js";
+
+const PENDING_QUALIFICATION: ReleaseQualification =
+  ReleaseQualificationSchema.parse({
+    status: "pending",
+    tested_envelope_digest: null,
+  });
+
+function projectionObservation(
+  component: "fts" | "layered_projection",
+  state: StorageClientHealth["projection_state"],
+): OperationalObservation {
+  const reason =
+    component === "fts"
+      ? ("FTS_UNAVAILABLE" as const)
+      : ("LAYERED_PROJECTION_UNAVAILABLE" as const);
+  const action =
+    component === "fts"
+      ? ("REBUILD_FTS" as const)
+      : ("REBUILD_LAYERED_PROJECTION" as const);
+  switch (state) {
+    case "ready":
+      return {
+        component,
+        state: "ready",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [],
+      };
+    case "pending":
+    case "rebuilding":
+      return {
+        component,
+        state: "rebuilding",
+        reason_code: reason,
+        action_code: action,
+        measurements: [],
+      };
+    case "unavailable":
+      return {
+        component,
+        state: "degraded",
+        reason_code: reason,
+        action_code: action,
+        measurements: [],
+      };
+  }
+}
+
+export function operationalStatusFromStorageHealth(
+  health: StorageClientHealth,
+  options?: {
+    observedAt?: string;
+    qualification?: ReleaseQualification;
+  },
+): OperationalStatus {
+  return reduceOperationalStatus({
+    observed_at: options?.observedAt ?? new Date().toISOString(),
+    qualification: options?.qualification ?? PENDING_QUALIFICATION,
+    observations: [
+      {
+        component: "canonical_store",
+        state: "ready",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [
+          {
+            component: "canonical_store",
+            name: "frontier",
+            value: health.ledger_epoch,
+            unit: "epoch",
+          },
+          {
+            component: "canonical_store",
+            name: "item_count",
+            value: health.counts.evidence_events,
+            unit: "count",
+          },
+        ],
+      },
+      {
+        component: "migrations",
+        state: "ready",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [],
+      },
+      {
+        component: "writer_queue",
+        state: "ready",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [
+          {
+            component: "writer_queue",
+            name: "queue_depth",
+            value: health.writer_queue.depth,
+            unit: "count",
+          },
+        ],
+      },
+      projectionObservation("fts", health.projection_state),
+      projectionObservation(
+        "layered_projection",
+        health.layered_projection_state,
+      ),
+      {
+        component: "graph_projection",
+        state: "disabled",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [],
+      },
+      {
+        component: "vector_projection",
+        state: "disabled",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [],
+      },
+      {
+        component: "learning",
+        state: "ready",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [
+          {
+            component: "learning",
+            name: "frontier",
+            value: Math.max(
+              health.learning_frontier.control_epoch,
+              health.learning_frontier.release_revision,
+            ),
+            unit: "epoch",
+          },
+        ],
+      },
+    ],
+  });
+}
+
+const BLOCKED_ERROR_MAPPING: Partial<
+  Record<
+    StorageErrorCode,
+    {
+      component: OperationalObservation["component"];
+      reason_code: NonNullable<OperationalObservation["reason_code"]>;
+      action_code: OperationalObservation["action_code"];
+    }
+  >
+> = {
+  INVALID_DATA_ROOT: {
+    component: "data_root",
+    reason_code: "DATA_ROOT_UNSAFE",
+    action_code: "SELECT_SAFE_DATA_ROOT",
+  },
+  CORRUPTION: {
+    component: "canonical_store",
+    reason_code: "CANONICAL_CORRUPTION",
+    action_code: "RESTORE_VERIFIED_BACKUP",
+  },
+  MIGRATION_DRIFT: {
+    component: "migrations",
+    reason_code: "MIGRATION_DRIFT",
+    action_code: "RESTORE_VERIFIED_BACKUP",
+  },
+  ENCRYPTION_REQUIRED: {
+    component: "encryption",
+    reason_code: "KEY_UNAVAILABLE",
+    action_code: "PROVIDE_TRUSTED_KEY",
+  },
+};
+
+export function blockedOperationalStatus(
+  error: unknown,
+  options?: {
+    observedAt?: string;
+    qualification?: ReleaseQualification;
+    invalidConfig?: boolean;
+  },
+): OperationalStatus {
+  const mapping =
+    options?.invalidConfig === true
+      ? {
+          component: "configuration" as const,
+          reason_code: "CONFIG_INVALID" as const,
+          action_code: "FIX_CONFIGURATION" as const,
+        }
+      : error instanceof StorageError
+        ? BLOCKED_ERROR_MAPPING[error.code]
+        : undefined;
+  const resolved = mapping ?? {
+    component: "canonical_store" as const,
+    reason_code: "INTERNAL_FAILURE" as const,
+    action_code: "RESTART_RUNTIME" as const,
+  };
+  return reduceOperationalStatus({
+    observed_at: options?.observedAt ?? new Date().toISOString(),
+    qualification: options?.qualification ?? PENDING_QUALIFICATION,
+    observations: [
+      {
+        component: resolved.component,
+        state: "blocked",
+        reason_code: resolved.reason_code,
+        action_code: resolved.action_code,
+        measurements: [],
+      },
+      {
+        component: "graph_projection",
+        state: "disabled",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [],
+      },
+      {
+        component: "vector_projection",
+        state: "disabled",
+        reason_code: null,
+        action_code: "NONE",
+        measurements: [],
+      },
+    ],
+  });
+}

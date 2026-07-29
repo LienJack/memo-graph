@@ -126,3 +126,39 @@ export function applyMigrations(
     )
     .all() as MigrationEvidence[];
 }
+
+export function verifyAppliedMigrations(
+  database: Database.Database,
+  migrationsDir: string,
+): MigrationEvidence[] {
+  const available = discoverMigrations(migrationsDir);
+  const ledger = database
+    .prepare(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name = 'schema_migrations'`,
+    )
+    .get();
+  if (ledger === undefined) {
+    throw new StorageError("MIGRATION_DRIFT");
+  }
+  const applied = database
+    .prepare(
+      "SELECT version, name, hash, applied_at FROM schema_migrations ORDER BY version",
+    )
+    .all() as MigrationEvidence[];
+  if (
+    applied.length !== available.length ||
+    applied.some((recorded, index) => {
+      const candidate = available[index];
+      return (
+        candidate === undefined ||
+        recorded.version !== candidate.version ||
+        recorded.name !== candidate.name ||
+        recorded.hash !== candidate.hash
+      );
+    })
+  ) {
+    throw new StorageError("MIGRATION_DRIFT");
+  }
+  return applied;
+}

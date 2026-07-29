@@ -1,8 +1,13 @@
 export {
+  blockedOperationalStatus,
+  operationalStatusFromStorageHealth,
+} from "./operational-health.js";
+export {
   SqliteStorageClient,
   type SqliteStorageClientOptions,
   type StorageClientHealth,
   type StorageDiagnostic,
+  type StorageInspectionClient,
 } from "./client.js";
 export {
   STORAGE_ERROR_CODES,
