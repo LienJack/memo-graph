@@ -65,9 +65,15 @@ for (const report of Object.values(manifest.evidence_reports)) {
   verifyJson(report.path, report.raw_hash, report.canonical_hash);
 }
 assertEqual(
-  sha256(read("pnpm-lock.yaml")),
+  sha256(
+    execFileSync(
+      "git",
+      ["show", `${manifest.tested_implementation.commit}:pnpm-lock.yaml`],
+      { cwd: repositoryRoot },
+    ),
+  ),
   manifest.tested_implementation.dependency_lock_hash,
-  "dependency lock",
+  "tested implementation dependency lock",
 );
 assertEqual(
   sha256(read(manifest.historical_candidate.review_evidence)),
