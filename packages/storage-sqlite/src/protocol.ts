@@ -36,6 +36,11 @@ import {
   SensitivitySchema,
   TransformRefSchema,
   UtcTimestampSchema,
+  VectorEmbeddingEpochSchema,
+  VectorFailureCategorySchema,
+  VectorProjectionJobSchema,
+  VectorProjectionReceiptSchema,
+  VectorScopeCheckpointSchema,
   canonicalSha256,
   scopeKey,
 } from "@memo-graph/contracts";
@@ -1550,6 +1555,171 @@ export const GraphProjectionSnapshotListResultSchema = z
   })
   .strict();
 
+export const RegisterVectorEmbeddingEpochCommandSchema = z
+  .object({
+    epoch: VectorEmbeddingEpochSchema,
+    registered_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const RegisterVectorEmbeddingEpochResultSchema = z
+  .object({
+    epoch: VectorEmbeddingEpochSchema,
+    replayed: z.boolean(),
+  })
+  .strict();
+
+export const VectorRuntimeModeSchema = z.enum([
+  "disabled",
+  "evaluating",
+  "enabled",
+]);
+
+export const ConfigureVectorProjectionCommandSchema = z
+  .object({
+    mode: VectorRuntimeModeSchema,
+    epoch_id: CanonicalHashSchema.nullable(),
+    configured_at: UtcTimestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.mode === "disabled") !== (value.epoch_id === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["epoch_id"],
+        message:
+          "disabled vector mode must omit an epoch and active modes require one",
+      });
+    }
+  });
+
+export const ConfigureVectorProjectionResultSchema = z
+  .object({
+    mode: VectorRuntimeModeSchema,
+    epoch_id: CanonicalHashSchema.nullable(),
+    checkpoints: z.array(VectorScopeCheckpointSchema),
+    job_ids: z.array(IdentifierSchema),
+  })
+  .strict();
+
+export const VectorProjectionScopeInputSchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+  })
+  .strict();
+
+export const VectorProjectionOutboxJobSchema =
+  VectorProjectionJobSchema.safeExtend({
+    status: z.enum([
+      "pending",
+      "processing",
+      "applied",
+      "failed",
+      "stale",
+      "purged",
+      "disabled",
+    ]),
+    available_at: UtcTimestampSchema,
+    created_at: UtcTimestampSchema,
+    completed_at: UtcTimestampSchema.nullable(),
+    failure_category: VectorFailureCategorySchema.nullable(),
+  });
+
+export const ClaimVectorProjectionJobsInputSchema = z
+  .object({
+    worker_id: IdentifierSchema,
+    claimed_at: UtcTimestampSchema,
+    lease_expires_at: UtcTimestampSchema,
+    limit: z.number().int().min(1).max(100),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const duration =
+      Date.parse(value.lease_expires_at) -
+      Date.parse(value.claimed_at);
+    if (duration <= 0 || duration > 15 * 60_000) {
+      context.addIssue({
+        code: "custom",
+        path: ["lease_expires_at"],
+        message: "vector lease duration is invalid",
+      });
+    }
+  });
+
+export const ClaimVectorProjectionJobsResultSchema = z
+  .object({
+    jobs: z.array(VectorProjectionOutboxJobSchema),
+  })
+  .strict();
+
+export const ApplyVectorProjectionJobCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    worker_id: IdentifierSchema,
+    lease_token: IdentifierSchema,
+    receipt: VectorProjectionReceiptSchema,
+  })
+  .strict();
+
+export const FailVectorProjectionJobCommandSchema =
+  ApplyVectorProjectionJobCommandSchema.safeExtend({
+    retry_at: UtcTimestampSchema,
+  });
+
+export const VectorProjectionJobResultSchema = z
+  .object({
+    job: VectorProjectionOutboxJobSchema,
+    checkpoint: VectorScopeCheckpointSchema,
+    receipt: VectorProjectionReceiptSchema.nullable(),
+    replayed: z.boolean(),
+  })
+  .strict();
+
+export const VectorProjectionStatusSchema = z
+  .object({
+    mode: VectorRuntimeModeSchema,
+    epoch_id: CanonicalHashSchema.nullable(),
+    registered_epochs: z.number().int().nonnegative(),
+    scope_states: z.number().int().nonnegative(),
+    published_scopes: z.number().int().nonnegative(),
+    pending_scopes: z.number().int().nonnegative(),
+    degraded_scopes: z.number().int().nonnegative(),
+    outbox_pending: z.number().int().nonnegative(),
+    receipts: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const MarkVectorRestoreDegradedInputSchema = z
+  .object({
+    restored_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const MarkVectorRestoreDegradedResultSchema = z
+  .object({
+    updated_scopes: z.number().int().nonnegative(),
+    job_ids: z.array(IdentifierSchema),
+  })
+  .strict();
+
+export const RunVectorTemporalSweepInputSchema = z
+  .object({
+    as_of: UtcTimestampSchema,
+    limit: z.number().int().min(1).max(10_000),
+  })
+  .strict();
+
+export const RunVectorTemporalSweepResultSchema = z
+  .object({
+    checkpoints: z.array(VectorScopeCheckpointSchema),
+    job_ids: z.array(IdentifierSchema),
+    truncated: z.boolean(),
+  })
+  .strict();
+
 export const InvalidateProjectionDescendantsCommandSchema = z
   .object({
     source_revision_ids: z.array(IdentifierSchema).min(1).max(1_000),
@@ -1640,6 +1810,15 @@ export const WorkerOperationSchema = z.enum([
   "reset_graph_projection_scopes",
   "mark_graph_restore_unavailable",
   "graph_projection_status",
+  "register_vector_embedding_epoch",
+  "configure_vector_projection",
+  "get_vector_projection_checkpoint",
+  "claim_vector_projection_jobs",
+  "apply_vector_projection_job",
+  "fail_vector_projection_job",
+  "mark_vector_restore_degraded",
+  "run_vector_temporal_sweep",
+  "vector_projection_status",
   "test_block",
   "test_hold_write_lock",
   "close",
@@ -1813,6 +1992,54 @@ export type GraphProjectionSnapshotListInput = z.input<
 >;
 export type GraphProjectionSnapshotListResult = z.infer<
   typeof GraphProjectionSnapshotListResultSchema
+>;
+export type RegisterVectorEmbeddingEpochCommand = z.input<
+  typeof RegisterVectorEmbeddingEpochCommandSchema
+>;
+export type RegisterVectorEmbeddingEpochResult = z.infer<
+  typeof RegisterVectorEmbeddingEpochResultSchema
+>;
+export type ConfigureVectorProjectionCommand = z.input<
+  typeof ConfigureVectorProjectionCommandSchema
+>;
+export type ConfigureVectorProjectionResult = z.infer<
+  typeof ConfigureVectorProjectionResultSchema
+>;
+export type VectorProjectionScopeInput = z.input<
+  typeof VectorProjectionScopeInputSchema
+>;
+export type VectorProjectionOutboxJob = z.infer<
+  typeof VectorProjectionOutboxJobSchema
+>;
+export type ClaimVectorProjectionJobsInput = z.input<
+  typeof ClaimVectorProjectionJobsInputSchema
+>;
+export type ClaimVectorProjectionJobsResult = z.infer<
+  typeof ClaimVectorProjectionJobsResultSchema
+>;
+export type ApplyVectorProjectionJobCommand = z.input<
+  typeof ApplyVectorProjectionJobCommandSchema
+>;
+export type FailVectorProjectionJobCommand = z.input<
+  typeof FailVectorProjectionJobCommandSchema
+>;
+export type VectorProjectionJobResult = z.infer<
+  typeof VectorProjectionJobResultSchema
+>;
+export type VectorProjectionStatus = z.infer<
+  typeof VectorProjectionStatusSchema
+>;
+export type MarkVectorRestoreDegradedInput = z.input<
+  typeof MarkVectorRestoreDegradedInputSchema
+>;
+export type MarkVectorRestoreDegradedResult = z.infer<
+  typeof MarkVectorRestoreDegradedResultSchema
+>;
+export type RunVectorTemporalSweepInput = z.input<
+  typeof RunVectorTemporalSweepInputSchema
+>;
+export type RunVectorTemporalSweepResult = z.infer<
+  typeof RunVectorTemporalSweepResultSchema
 >;
 export type InvalidateProjectionDescendantsCommand = z.input<
   typeof InvalidateProjectionDescendantsCommandSchema

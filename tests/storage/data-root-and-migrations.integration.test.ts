@@ -50,10 +50,10 @@ describe("data-root and migration contract", () => {
     const health = await storage.health();
     await storage.close();
 
-    expect(health.schema_version).toBe("0012");
+    expect(health.schema_version).toBe("0013");
     expect(health.journal_mode).toBe("wal");
     expect(health.foreign_keys).toBe(true);
-    expect(health.migrations).toHaveLength(12);
+    expect(health.migrations).toHaveLength(13);
     expect(health.migrations.every((migration) =>
       /^sha256:[a-f0-9]{64}$/.test(migration.hash),
     )).toBe(true);
@@ -63,7 +63,7 @@ describe("data-root and migration contract", () => {
     );
   });
 
-  it("adds scope and graph delivery state without rewriting populated rows", async () => {
+  it("adds scope, graph, and vector delivery state without rewriting populated rows", async () => {
     const dataRoot = temporaryRoot("scope-frontier-upgrade");
     const migrationRoot = temporaryRoot("scope-frontier-migrations");
     for (let version = 1; version <= 10; version += 1) {
@@ -201,9 +201,45 @@ describe("data-root and migration contract", () => {
     });
     await graphUpgraded.close();
 
-    const afterGraphMigration = new DatabaseSync(databasePath);
+    cpSync(
+      join(
+        process.cwd(),
+        "migrations",
+        "0013-vector-projection-delivery.sql",
+      ),
+      join(migrationRoot, "0013-vector-projection-delivery.sql"),
+    );
+    const vectorUpgraded = await SqliteStorageClient.open({
+      dataRoot,
+      migrationsDir: migrationRoot,
+    });
+    const vectorHealth = await vectorUpgraded.health();
+    expect(vectorHealth.schema_version).toBe("0013");
+    expect(vectorHealth.counts.evidence_events).toBe(
+      oldHealth.counts.evidence_events,
+    );
+    expect(await vectorUpgraded.vectorProjectionStatus()).toEqual({
+      mode: "disabled",
+      epoch_id: null,
+      registered_epochs: 0,
+      scope_states: 0,
+      published_scopes: 0,
+      pending_scopes: 0,
+      degraded_scopes: 0,
+      outbox_pending: 0,
+      receipts: 0,
+    });
     expect(
-      afterGraphMigration
+      await vectorUpgraded.projectionScopeFrontier({
+        principal_id: "user_local",
+        scope: { kind: "workspace", id: "workspace_local" },
+      }),
+    ).toEqual(storedFrontierBefore);
+    await vectorUpgraded.close();
+
+    const afterVectorMigration = new DatabaseSync(databasePath);
+    expect(
+      afterVectorMigration
         .prepare(
           `SELECT * FROM evidence_events
            WHERE evidence_id = 'evidence_before_scope_frontier_migration'`,
@@ -211,7 +247,7 @@ describe("data-root and migration contract", () => {
         .get(),
     ).toEqual(canonicalRowBefore);
     expect(
-      afterGraphMigration
+      afterVectorMigration
         .prepare(
           `SELECT * FROM layered_projection_scope_state
            WHERE principal_id = 'user_local'
@@ -220,7 +256,7 @@ describe("data-root and migration contract", () => {
         )
         .get(),
     ).toEqual(projectionRowBefore);
-    afterGraphMigration.close();
+    afterVectorMigration.close();
   });
 
   it.each([

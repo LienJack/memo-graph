@@ -120,8 +120,12 @@ export async function restoreBackupToEmptyDataRoot(
         ? {}
         : { migrationsDir: options.migrationsDir }),
     });
+    const restoredAt = new Date().toISOString();
     await client.markGraphRestoreUnavailable({
-      restored_at: new Date().toISOString(),
+      restored_at: restoredAt,
+    });
+    await client.markVectorRestoreDegraded({
+      restored_at: restoredAt,
     });
     const health = await client.health();
     const verification = await client.verifyRestoreCandidate();

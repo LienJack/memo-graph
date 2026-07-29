@@ -6,7 +6,9 @@ import { Worker } from "node:worker_threads";
 import {
   GraphScopeCheckpointSchema,
   MutationReceiptSchema,
+  VectorScopeCheckpointSchema,
   type GraphScopeCheckpoint,
+  type VectorScopeCheckpoint,
 } from "@memo-graph/contracts";
 import { z } from "zod";
 
@@ -18,6 +20,7 @@ import {
 import {
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
+  ApplyVectorProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
   BackupResultSchema,
   BlockWorkerResultSchema,
@@ -26,6 +29,8 @@ import {
   ClaimProjectionJobsResultSchema,
   ClaimGraphProjectionJobsInputSchema,
   ClaimGraphProjectionJobsResultSchema,
+  ClaimVectorProjectionJobsInputSchema,
+  ClaimVectorProjectionJobsResultSchema,
   CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
@@ -45,6 +50,7 @@ import {
   GovernanceReplayResultSchema,
   FailProjectionJobCommandSchema,
   FailGraphProjectionJobCommandSchema,
+  FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   InvalidateProjectionDescendantsResultSchema,
   MemoryRevisionCommandSchema,
@@ -74,6 +80,8 @@ import {
   GraphProjectionSnapshotListResultSchema,
   GraphProjectionJobResultSchema,
   GraphProjectionStatusSchema,
+  ConfigureVectorProjectionCommandSchema,
+  ConfigureVectorProjectionResultSchema,
   ProjectionSourceBatchQuerySchema,
   ProjectionSourceBatchResultSchema,
   ProjectionSourceListInputSchema,
@@ -81,11 +89,15 @@ import {
   ProjectionRebuildReceiptSchema,
   MarkGraphRestoreUnavailableInputSchema,
   MarkGraphRestoreUnavailableResultSchema,
+  MarkVectorRestoreDegradedInputSchema,
+  MarkVectorRestoreDegradedResultSchema,
   ResetGraphProjectionScopesInputSchema,
   ResetGraphProjectionScopesResultSchema,
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RecordProjectionRebuildResultSchema,
+  RegisterVectorEmbeddingEpochCommandSchema,
+  RegisterVectorEmbeddingEpochResultSchema,
   RelationTraversalInputSchema,
   RelationTraversalResultSchema,
   RebuildFtsResultSchema,
@@ -95,10 +107,16 @@ import {
   SearchEvidenceResultSchema,
   StorageHealthSchema,
   RestoreVerificationResultSchema,
+  RunVectorTemporalSweepInputSchema,
+  RunVectorTemporalSweepResultSchema,
   VerifyArtifactsResultSchema,
+  VectorProjectionJobResultSchema,
+  VectorProjectionScopeInputSchema,
+  VectorProjectionStatusSchema,
   WorkerResponseSchema,
   type BackupResult,
   type ApplyProjectionBatchCommand,
+  type ApplyVectorProjectionJobCommand,
   type AdmitMemoryCommand,
   type BlockWorkerResult,
   type CheckpointResult,
@@ -106,6 +124,8 @@ import {
   type ClaimProjectionJobsResult,
   type ClaimGraphProjectionJobsInput,
   type ClaimGraphProjectionJobsResult,
+  type ClaimVectorProjectionJobsInput,
+  type ClaimVectorProjectionJobsResult,
   type CompleteProjectionJobCommand,
   type ContentReferenceCounts,
   type DrainFtsResult,
@@ -121,6 +141,7 @@ import {
   type GovernanceReplayInput,
   type FailProjectionJobCommand,
   type FailGraphProjectionJobCommand,
+  type FailVectorProjectionJobCommand,
   type InvalidateProjectionDescendantsCommand,
   type InvalidateProjectionDescendantsResult,
   type MemoryRevisionCommand,
@@ -138,6 +159,8 @@ import {
   type ApplyGraphProjectionJobCommand,
   type GraphProjectionJobResult,
   type GraphProjectionStatus,
+  type ConfigureVectorProjectionCommand,
+  type ConfigureVectorProjectionResult,
   type GraphScopeInput,
   type GraphScopeSnapshotResult,
   type GraphProjectionSnapshotListInput,
@@ -156,17 +179,26 @@ import {
   type ProjectionRebuildReceipt,
   type MarkGraphRestoreUnavailableInput,
   type MarkGraphRestoreUnavailableResult,
+  type MarkVectorRestoreDegradedInput,
+  type MarkVectorRestoreDegradedResult,
   type ResetGraphProjectionScopesInput,
   type ResetGraphProjectionScopesResult,
   type RecordRecallResult,
   type RecordProjectionRebuildResult,
+  type RegisterVectorEmbeddingEpochCommand,
+  type RegisterVectorEmbeddingEpochResult,
   type RelationTraversalInput,
   type RelationTraversalResult,
   type RebuildFtsResult,
   type SearchEvidenceResult,
   type StorageHealth,
   type RestoreVerificationResult,
+  type RunVectorTemporalSweepInput,
+  type RunVectorTemporalSweepResult,
   type VerifyArtifactsResult,
+  type VectorProjectionJobResult,
+  type VectorProjectionScopeInput,
+  type VectorProjectionStatus,
   type WorkerOperation,
 } from "./protocol.js";
 import { WriterQueue, type WriterQueueMetrics } from "./writer-queue.js";
@@ -531,6 +563,116 @@ export class SqliteStorageClient {
       "graph_projection_status",
       null,
       GraphProjectionStatusSchema,
+    );
+  }
+
+  registerVectorEmbeddingEpoch(
+    input: RegisterVectorEmbeddingEpochCommand,
+  ): Promise<RegisterVectorEmbeddingEpochResult> {
+    const command = RegisterVectorEmbeddingEpochCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "register_vector_embedding_epoch",
+        command,
+        RegisterVectorEmbeddingEpochResultSchema,
+      ),
+    );
+  }
+
+  configureVectorProjection(
+    input: ConfigureVectorProjectionCommand,
+  ): Promise<ConfigureVectorProjectionResult> {
+    const command = ConfigureVectorProjectionCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "configure_vector_projection",
+        command,
+        ConfigureVectorProjectionResultSchema,
+      ),
+    );
+  }
+
+  vectorProjectionCheckpoint(
+    input: VectorProjectionScopeInput,
+  ): Promise<VectorScopeCheckpoint> {
+    const request = VectorProjectionScopeInputSchema.parse(input);
+    return this.#request(
+      "get_vector_projection_checkpoint",
+      request,
+      VectorScopeCheckpointSchema,
+    );
+  }
+
+  claimVectorProjectionJobs(
+    input: ClaimVectorProjectionJobsInput,
+  ): Promise<ClaimVectorProjectionJobsResult> {
+    const request = ClaimVectorProjectionJobsInputSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "claim_vector_projection_jobs",
+        request,
+        ClaimVectorProjectionJobsResultSchema,
+      ),
+    );
+  }
+
+  applyVectorProjectionJob(
+    input: ApplyVectorProjectionJobCommand,
+  ): Promise<VectorProjectionJobResult> {
+    const command = ApplyVectorProjectionJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "apply_vector_projection_job",
+        command,
+        VectorProjectionJobResultSchema,
+      ),
+    );
+  }
+
+  failVectorProjectionJob(
+    input: FailVectorProjectionJobCommand,
+  ): Promise<VectorProjectionJobResult> {
+    const command = FailVectorProjectionJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "fail_vector_projection_job",
+        command,
+        VectorProjectionJobResultSchema,
+      ),
+    );
+  }
+
+  markVectorRestoreDegraded(
+    input: MarkVectorRestoreDegradedInput,
+  ): Promise<MarkVectorRestoreDegradedResult> {
+    const request = MarkVectorRestoreDegradedInputSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "mark_vector_restore_degraded",
+        request,
+        MarkVectorRestoreDegradedResultSchema,
+      ),
+    );
+  }
+
+  runVectorTemporalSweep(
+    input: RunVectorTemporalSweepInput,
+  ): Promise<RunVectorTemporalSweepResult> {
+    const request = RunVectorTemporalSweepInputSchema.parse(input);
+    return this.#writerQueue.enqueue(() =>
+      this.#request(
+        "run_vector_temporal_sweep",
+        request,
+        RunVectorTemporalSweepResultSchema,
+      ),
+    );
+  }
+
+  vectorProjectionStatus(): Promise<VectorProjectionStatus> {
+    return this.#request(
+      "vector_projection_status",
+      null,
+      VectorProjectionStatusSchema,
     );
   }
 

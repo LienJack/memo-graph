@@ -42,12 +42,16 @@ import { applyMigrations } from "./migrations.js";
 import { ProjectionRepository } from "./projection-repository.js";
 import { PurgeRepository } from "./purge-repository.js";
 import { RelationRepository } from "./relation-repository.js";
+import { VectorProjectionRepository } from "./vector-projection-repository.js";
 import {
+  ApplyVectorProjectionJobCommandSchema,
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
   ClaimProjectionJobsInputSchema,
   ClaimGraphProjectionJobsInputSchema,
+  ClaimVectorProjectionJobsInputSchema,
+  ConfigureVectorProjectionCommandSchema,
   CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   EnqueueProjectionJobCommandSchema,
@@ -63,6 +67,7 @@ import {
   MemoryRevisionCommandSchema,
   FailProjectionJobCommandSchema,
   FailGraphProjectionJobCommandSchema,
+  FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   ProjectionPageQuerySchema,
   ProjectionQuerySchema,
@@ -73,7 +78,11 @@ import {
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   MarkGraphRestoreUnavailableInputSchema,
+  MarkVectorRestoreDegradedInputSchema,
+  RegisterVectorEmbeddingEpochCommandSchema,
   ResetGraphProjectionScopesInputSchema,
+  RunVectorTemporalSweepInputSchema,
+  VectorProjectionScopeInputSchema,
   PurgeRunInputSchema,
   RecordRecallCommandSchema,
   RelationTraversalInputSchema,
@@ -253,6 +262,7 @@ export class StorageDatabase {
   readonly #control: ControlRepository;
   readonly #purge: PurgeRepository;
   readonly #graph: GraphProjectionRepository;
+  readonly #vector: VectorProjectionRepository;
   readonly #projections: ProjectionRepository;
   readonly #relations: RelationRepository;
   readonly #journalMode: string;
@@ -289,6 +299,7 @@ export class StorageDatabase {
     this.#control = new ControlRepository(this.#database);
     this.#purge = new PurgeRepository(this.#database, this.#blobStore);
     this.#graph = new GraphProjectionRepository(this.#database);
+    this.#vector = new VectorProjectionRepository(this.#database);
     this.#projections = new ProjectionRepository(
       this.#database,
       this.#graph,
@@ -509,6 +520,58 @@ export class StorageDatabase {
 
   graphProjectionStatus(): GraphProjectionStatus {
     return this.#graph.status();
+  }
+
+  registerVectorEmbeddingEpoch(input: unknown) {
+    return this.#vector.registerEpoch(
+      RegisterVectorEmbeddingEpochCommandSchema.parse(input),
+    );
+  }
+
+  configureVectorProjection(input: unknown) {
+    return this.#vector.configure(
+      ConfigureVectorProjectionCommandSchema.parse(input),
+    );
+  }
+
+  vectorProjectionCheckpoint(input: unknown) {
+    return this.#vector.checkpoint(
+      VectorProjectionScopeInputSchema.parse(input),
+    );
+  }
+
+  claimVectorProjectionJobs(input: unknown) {
+    return this.#vector.claim(
+      ClaimVectorProjectionJobsInputSchema.parse(input),
+    );
+  }
+
+  applyVectorProjectionJob(input: unknown) {
+    return this.#vector.apply(
+      ApplyVectorProjectionJobCommandSchema.parse(input),
+    );
+  }
+
+  failVectorProjectionJob(input: unknown) {
+    return this.#vector.fail(
+      FailVectorProjectionJobCommandSchema.parse(input),
+    );
+  }
+
+  markVectorRestoreDegraded(input: unknown) {
+    return this.#vector.markRestoreDegraded(
+      MarkVectorRestoreDegradedInputSchema.parse(input),
+    );
+  }
+
+  runVectorTemporalSweep(input: unknown) {
+    return this.#vector.temporalSweep(
+      RunVectorTemporalSweepInputSchema.parse(input),
+    );
+  }
+
+  vectorProjectionStatus() {
+    return this.#vector.status();
   }
 
   admitMemory(input: unknown): GovernanceMutationResult {

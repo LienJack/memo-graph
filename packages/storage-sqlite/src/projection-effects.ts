@@ -9,6 +9,9 @@ import { StorageError } from "./errors.js";
 import {
   enqueueGraphProjectionEffect,
 } from "./graph-projection-repository.js";
+import {
+  enqueueVectorProjectionEffect,
+} from "./vector-projection-repository.js";
 
 type ProjectionEffect = {
   causeId: string;
@@ -158,6 +161,13 @@ export function enqueueProjectionRefresh(
     scope: ScopeSchema.parse(effect.scope),
     occurred_at: effect.occurredAt,
   });
+  enqueueVectorProjectionEffect(database, {
+    cause_id: effect.causeId,
+    revision_id: effect.revisionId,
+    principal_id: effect.principalId,
+    scope: ScopeSchema.parse(effect.scope),
+    occurred_at: effect.occurredAt,
+  });
   return jobId;
 }
 
@@ -247,6 +257,13 @@ export function suppressProjectionDescendants(
 
   const jobId = enqueue(database, "invalidate", effect);
   enqueueGraphProjectionEffect(database, {
+    cause_id: effect.causeId,
+    revision_id: effect.revisionId,
+    principal_id: effect.principalId,
+    scope: ScopeSchema.parse(effect.scope),
+    occurred_at: effect.occurredAt,
+  });
+  enqueueVectorProjectionEffect(database, {
     cause_id: effect.causeId,
     revision_id: effect.revisionId,
     principal_id: effect.principalId,

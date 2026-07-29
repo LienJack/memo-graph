@@ -11,9 +11,12 @@ import {
 import {
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
+  ApplyVectorProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
   ClaimProjectionJobsInputSchema,
   ClaimGraphProjectionJobsInputSchema,
+  ClaimVectorProjectionJobsInputSchema,
+  ConfigureVectorProjectionCommandSchema,
   CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
@@ -24,6 +27,7 @@ import {
   GovernedMemorySearchQuerySchema,
   FailProjectionJobCommandSchema,
   FailGraphProjectionJobCommandSchema,
+  FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryControlCommandSchema,
@@ -40,7 +44,11 @@ import {
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   MarkGraphRestoreUnavailableInputSchema,
+  MarkVectorRestoreDegradedInputSchema,
+  RegisterVectorEmbeddingEpochCommandSchema,
   ResetGraphProjectionScopesInputSchema,
+  RunVectorTemporalSweepInputSchema,
+  VectorProjectionScopeInputSchema,
   RecordRecallCommandSchema,
   ReceiptLookupInputSchema,
   RelationTraversalInputSchema,
@@ -218,6 +226,61 @@ port.on("message", (message: unknown) => {
           break;
         case "graph_projection_status":
           result = database.graphProjectionStatus();
+          break;
+        case "register_vector_embedding_epoch":
+          result = database.registerVectorEmbeddingEpoch(
+            RegisterVectorEmbeddingEpochCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "configure_vector_projection":
+          result = database.configureVectorProjection(
+            ConfigureVectorProjectionCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "get_vector_projection_checkpoint":
+          result = database.vectorProjectionCheckpoint(
+            VectorProjectionScopeInputSchema.parse(request.payload),
+          );
+          break;
+        case "claim_vector_projection_jobs":
+          result = database.claimVectorProjectionJobs(
+            ClaimVectorProjectionJobsInputSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "apply_vector_projection_job":
+          result = database.applyVectorProjectionJob(
+            ApplyVectorProjectionJobCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "fail_vector_projection_job":
+          result = database.failVectorProjectionJob(
+            FailVectorProjectionJobCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "mark_vector_restore_degraded":
+          result = database.markVectorRestoreDegraded(
+            MarkVectorRestoreDegradedInputSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "run_vector_temporal_sweep":
+          result = database.runVectorTemporalSweep(
+            RunVectorTemporalSweepInputSchema.parse(request.payload),
+          );
+          break;
+        case "vector_projection_status":
+          result = database.vectorProjectionStatus();
           break;
         case "admit_memory":
           result = database.admitMemory(
