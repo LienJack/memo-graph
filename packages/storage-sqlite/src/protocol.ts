@@ -96,6 +96,7 @@ export const VerifiedApprovalCommandSchema = z
 
 const LearningWriteBaseShape = {
   idempotency_key: z.string().trim().min(8).max(200),
+  idempotency_hash: CanonicalHashSchema.optional(),
   request_hash: CanonicalHashSchema,
 };
 
@@ -307,6 +308,16 @@ export const LearningLedgerWriteResultSchema = z
     receipt: ReceiptSchema.nullable(),
   })
   .strict();
+
+export const LearningLedgerReplayInputSchema = z
+  .object({
+    idempotency_key: z.string().trim().min(8).max(200),
+    idempotency_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const LearningLedgerReplayResultSchema =
+  LearningLedgerWriteResultSchema.nullable();
 
 export const LearningLedgerReadInputSchema = z
   .object({
@@ -2135,6 +2146,7 @@ export const WorkerOperationSchema = z.enum([
   "run_vector_temporal_sweep",
   "vector_projection_status",
   "write_learning_ledger",
+  "replay_learning_ledger",
   "read_learning_ledger",
   "test_block",
   "test_hold_write_lock",
@@ -2183,6 +2195,12 @@ export type LearningLedgerReadInput = z.input<
 >;
 export type LearningLedgerReadResult = z.output<
   typeof LearningLedgerReadResultSchema
+>;
+export type LearningLedgerReplayInput = z.input<
+  typeof LearningLedgerReplayInputSchema
+>;
+export type LearningLedgerReplayResult = z.output<
+  typeof LearningLedgerReplayResultSchema
 >;
 export type LearningLedgerWriteCommand = z.input<
   typeof LearningLedgerWriteCommandSchema

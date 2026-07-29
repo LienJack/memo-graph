@@ -30,6 +30,7 @@ import {
   FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   LearningLedgerReadInputSchema,
+  LearningLedgerReplayInputSchema,
   LearningLedgerWriteCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryControlCommandSchema,
@@ -296,6 +297,11 @@ port.on("message", (message: unknown) => {
         case "write_learning_ledger":
           result = database.writeLearningLedger(
             LearningLedgerWriteCommandSchema.parse(request.payload),
+          );
+          break;
+        case "replay_learning_ledger":
+          result = database.replayLearningLedger(
+            LearningLedgerReplayInputSchema.parse(request.payload),
           );
           break;
         case "read_learning_ledger":

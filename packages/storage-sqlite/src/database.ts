@@ -94,6 +94,7 @@ import {
   RecordRecallCommandSchema,
   RelationTraversalInputSchema,
   LearningLedgerReadInputSchema,
+  LearningLedgerReplayInputSchema,
   LearningLedgerWriteCommandSchema,
   ReceiptLookupInputSchema,
   SearchEvidenceQuerySchema,
@@ -136,6 +137,7 @@ import {
   type ResetGraphProjectionScopesResult,
   type RelationTraversalResult,
   type LearningLedgerReadResult,
+  type LearningLedgerReplayResult,
   type LearningLedgerWriteResult,
   type RestoreVerificationResult,
   type StorageHealth,
@@ -402,6 +404,12 @@ export class StorageDatabase {
   writeLearningLedger(input: unknown): LearningLedgerWriteResult {
     return this.#learning.write(
       LearningLedgerWriteCommandSchema.parse(input),
+    );
+  }
+
+  replayLearningLedger(input: unknown): LearningLedgerReplayResult {
+    return this.#learning.replay(
+      LearningLedgerReplayInputSchema.parse(input),
     );
   }
 

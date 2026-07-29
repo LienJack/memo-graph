@@ -316,6 +316,12 @@ consumer exists.
 - `packages/learning-lab/src/trace-recorder.ts`
 - `packages/learning-lab/src/candidate-builder.ts`
 - `packages/learning-lab/src/index.ts`
+- `packages/storage-sqlite/src/protocol.ts`
+- `packages/storage-sqlite/src/learning-repository.ts`
+- `packages/storage-sqlite/src/database.ts`
+- `packages/storage-sqlite/src/storage-worker.ts`
+- `packages/storage-sqlite/src/client.ts`
+- `packages/storage-sqlite/src/index.ts`
 - `package.json`
 - `tests/learning/trace-and-candidate.test.ts`
 - `tests/security/learning-trace-redaction.test.ts`
@@ -356,6 +362,8 @@ consumer exists.
 
 - [ ] Implement trace completeness, evidence/Context resolution, redaction,
       canonical sealing, persistence, and idempotent replay.
+- [ ] Preflight idempotent replay by normalized request identity before
+      rereading mutable evidence, control, policy, or target state.
 - [ ] Implement typed stop reasons without raw content.
 - [ ] Implement deterministic candidate qualification and capability.
 - [ ] Bind trace set, base release, slot, target/payload, improvement,

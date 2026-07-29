@@ -27,11 +27,14 @@ import { StorageError } from "./errors.js";
 import {
   LearningLedgerReadInputSchema,
   LearningLedgerReadResultSchema,
+  LearningLedgerReplayInputSchema,
+  LearningLedgerReplayResultSchema,
   LearningLedgerWriteCommandSchema,
   LearningLedgerWriteResultSchema,
   LearningContaminationEventSchema,
   LearningStorageFrontierSchema,
   type LearningLedgerReadResult,
+  type LearningLedgerReplayResult,
   type LearningLedgerWriteResult,
   type ParsedLearningLedgerWriteCommand,
 } from "./protocol.js";
@@ -270,23 +273,24 @@ export class LearningRepository {
     ) {
       throw new StorageError("INVALID_INPUT");
     }
-    const hash =
+    const commandHash =
       command.kind === "control" ||
       command.kind === "release" ||
       command.kind === "rollback"
         ? command.request_hash
         : requestHash(command);
+    const idempotencyHash = command.idempotency_hash ?? commandHash;
     if (
       command.kind !== "control" &&
       command.kind !== "release" &&
       command.kind !== "rollback" &&
-      command.request_hash !== hash
+      command.request_hash !== commandHash
     ) {
       throw new StorageError("INVALID_INPUT");
     }
     const existing = this.#readIdempotency(command.idempotency_key);
     if (existing !== undefined) {
-      return this.#replay(existing, hash);
+      return this.#replay(existing, idempotencyHash);
     }
 
     try {
@@ -294,7 +298,7 @@ export class LearningRepository {
         .transaction(() => {
           const repeated = this.#readIdempotency(command.idempotency_key);
           if (repeated !== undefined) {
-            return this.#replay(repeated, hash);
+            return this.#replay(repeated, idempotencyHash);
           }
           this.#openGuard(command.kind);
           this.#fail(command, "after_guard");
@@ -387,7 +391,7 @@ export class LearningRepository {
             )
             .run(
               command.idempotency_key,
-              hash,
+              idempotencyHash,
               canonicalJson(result),
               receipt?.receipt_id ?? null,
               new Date().toISOString(),
@@ -412,6 +416,16 @@ export class LearningRepository {
       }
       throw error;
     }
+  }
+
+  replay(input: unknown): LearningLedgerReplayResult {
+    const request = LearningLedgerReplayInputSchema.parse(input);
+    const existing = this.#readIdempotency(request.idempotency_key);
+    return LearningLedgerReplayResultSchema.parse(
+      existing === undefined
+        ? null
+        : this.#replay(existing, request.idempotency_hash),
+    );
   }
 
   read(input: unknown): LearningLedgerReadResult {

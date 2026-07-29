@@ -55,6 +55,8 @@ import {
   InvalidateProjectionDescendantsResultSchema,
   LearningLedgerReadInputSchema,
   LearningLedgerReadResultSchema,
+  LearningLedgerReplayInputSchema,
+  LearningLedgerReplayResultSchema,
   LearningLedgerWriteCommandSchema,
   LearningLedgerWriteResultSchema,
   MemoryRevisionCommandSchema,
@@ -151,6 +153,8 @@ import {
   type InvalidateProjectionDescendantsResult,
   type LearningLedgerReadInput,
   type LearningLedgerReadResult,
+  type LearningLedgerReplayInput,
+  type LearningLedgerReplayResult,
   type LearningLedgerWriteCommand,
   type LearningLedgerWriteResult,
   type MemoryRevisionCommand,
@@ -709,6 +713,17 @@ export class SqliteStorageClient {
         command,
         LearningLedgerWriteResultSchema,
       ),
+    );
+  }
+
+  replayLearningLedger(
+    input: LearningLedgerReplayInput,
+  ): Promise<LearningLedgerReplayResult> {
+    const request = LearningLedgerReplayInputSchema.parse(input);
+    return this.#request(
+      "replay_learning_ledger",
+      request,
+      LearningLedgerReplayResultSchema,
     );
   }
 
