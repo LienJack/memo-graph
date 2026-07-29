@@ -315,6 +315,47 @@ describe("graph child process recovery", () => {
     });
   });
 
+  it("does not replace a healthy generation when a prior exit arrives late", async () => {
+    const graph = await host({
+      testHooks: {
+        exitRestartDelayMs: 100,
+      },
+    });
+    let replacementPid: number | null = null;
+    try {
+      await expect(
+        graph.queryPaths(query("query_timeout_late_exit")),
+      ).resolves.toMatchObject({
+        status: "unavailable",
+        reason_codes: ["GRAPH_DEADLINE_EXCEEDED"],
+      });
+      await expect(
+        graph.queryPaths(query("query_after_prior_exit")),
+      ).resolves.toMatchObject({
+        status: "complete",
+      });
+      replacementPid = graph.processId();
+      expect(replacementPid).not.toBeNull();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(graph.processId()).toBe(replacementPid);
+      expect(graph.processHealth()).toMatchObject({
+        status: "ready",
+        restart_count: 1,
+      });
+    } finally {
+      if (
+        replacementPid !== null &&
+        graph.processId() !== replacementPid
+      ) {
+        try {
+          process.kill(replacementPid, "SIGKILL");
+        } catch {
+          // The leaked-process guard is best-effort on a failing regression.
+        }
+      }
+    }
+  });
+
   it("discards duplicate responses and keeps the next request isolated", async () => {
     const graph = await host();
     await expect(

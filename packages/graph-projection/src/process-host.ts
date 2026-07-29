@@ -58,6 +58,7 @@ const TestHooksSchema = z
     adversarialNativeQuery: z.boolean().optional(),
     adversarialNativeWrite: z.boolean().optional(),
     startupDelayMs: z.number().int().min(0).max(60_000).optional(),
+    exitRestartDelayMs: z.number().int().min(0).max(60_000).optional(),
   })
   .strict();
 
@@ -95,6 +96,7 @@ export type GraphProcessHostOptions = {
     adversarialNativeQuery?: boolean;
     adversarialNativeWrite?: boolean;
     startupDelayMs?: number;
+    exitRestartDelayMs?: number;
   };
 };
 
@@ -603,7 +605,8 @@ export class GraphProcessHost implements GraphStore {
       this.#handleMessage(generation, message);
     });
     child.once("error", (error) => {
-      this.#startupWaiter?.reject(
+      this.#rejectStartup(
+        generation,
         new GraphStoreError("GRAPH_PROCESS_START_FAILED", {
           cause: error,
           retryable: true,
@@ -810,7 +813,8 @@ export class GraphProcessHost implements GraphStore {
         this.#options.maxIpcBytes,
       );
     } catch (error) {
-      this.#startupWaiter?.reject(
+      this.#rejectStartup(
+        generation,
         new GraphStoreError("GRAPH_PROTOCOL_INVALID", {
           cause: error,
         }),
@@ -825,16 +829,12 @@ export class GraphProcessHost implements GraphStore {
       return;
     }
     if (message.kind === "startup_error") {
-      const startup = this.#startupWaiter;
-      if (startup?.generation === generation) {
-        clearTimeout(startup.timer);
-        this.#startupWaiter = null;
-        startup.reject(
-          new GraphStoreError(message.error.code, {
-            retryable: message.error.retryable,
-          }),
-        );
-      }
+      this.#rejectStartup(
+        generation,
+        new GraphStoreError(message.error.code, {
+          retryable: message.error.retryable,
+        }),
+      );
       this.#quarantine(generation, message.error.code);
       return;
     }
@@ -933,15 +933,12 @@ export class GraphProcessHost implements GraphStore {
   }
 
   #handleExit(generation: number): void {
-    if (this.#startupWaiter?.generation === generation) {
-      clearTimeout(this.#startupWaiter.timer);
-      this.#startupWaiter.reject(
-        new GraphStoreError("GRAPH_CHILD_EXITED", {
-          retryable: true,
-        }),
-      );
-      this.#startupWaiter = null;
-    }
+    this.#rejectStartup(
+      generation,
+      new GraphStoreError("GRAPH_CHILD_EXITED", {
+        retryable: true,
+      }),
+    );
     this.#rejectGeneration(
       generation,
       new GraphStoreError("GRAPH_CHILD_EXITED", {
@@ -962,16 +959,49 @@ export class GraphProcessHost implements GraphStore {
       outcome: "exit",
       error_code: this.#lastFailure ?? "GRAPH_CHILD_EXITED",
     });
-    if (
-      this.#activated &&
-      !this.#closed &&
-      !this.#closing &&
-      this.#circuitOpenUntil <= Date.now()
-    ) {
+    const restart = () => {
+      if (
+        generation !== this.#generation ||
+        !this.#activated ||
+        this.#closed ||
+        this.#closing ||
+        this.#circuitOpenUntil > Date.now()
+      ) {
+        return;
+      }
       queueMicrotask(() => {
+        if (
+          generation !== this.#generation ||
+          !this.#activated ||
+          this.#closed ||
+          this.#closing
+        ) {
+          return;
+        }
         void this.#startChild(true).catch(() => undefined);
       });
+    };
+    const delayMs =
+      this.#options.testHooks?.exitRestartDelayMs ?? 0;
+    if (delayMs === 0) {
+      restart();
+      return;
     }
+    const timer = setTimeout(restart, delayMs);
+    timer.unref();
+  }
+
+  #rejectStartup(
+    generation: number,
+    error: GraphStoreError,
+  ): void {
+    const startup = this.#startupWaiter;
+    if (startup === null || startup.generation !== generation) {
+      return;
+    }
+    clearTimeout(startup.timer);
+    this.#startupWaiter = null;
+    startup.reject(error);
   }
 
   #quarantine(
