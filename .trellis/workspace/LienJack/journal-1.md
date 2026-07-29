@@ -220,3 +220,62 @@ Completed the Trellis H3 workflow, fixed bounded recall and scope-frontier corre
 ### Next Steps
 
 - Start M4A, M4B, or M5 only as a separate Trellis workflow; projection lanes remain disabled by default.
+
+
+## Session 7: Complete M4A graph evaluation and record G4A NO-GO
+
+**Date**: 2026-07-29
+**Task**: Complete M4A graph evaluation and record G4A NO-GO
+**Branch**: `codex/agent-memory-runtime-m4a`
+
+### Summary
+
+Completed the mandated brainstorm, research, plan, implementation, full-diff review, frozen G4A evaluation, and Trellis closure. G4A is NO-GO because structural value failed first and the resource gate also failed; SQLite adjacency remains the accepted fallback and graph stays default-off.
+
+### Main Changes
+
+- Qualified and pinned LadybugDB 0.18.3 behind an optional, killable child process while preserving SQLite authority.
+- Implemented exact-scope graph delivery, deterministic rebuild, governed postvalidated recall, purge/recovery Oracles, and hash-bound evaluation evidence.
+- Resolved nine P1 review/evidence defects before freezing candidate 36421f5; no unresolved P0/P1 remains.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7384f74` | (see git log) |
+| `d948d47` | (see git log) |
+| `03f163e` | (see git log) |
+| `fc0f15e` | (see git log) |
+| `14ae2f0` | (see git log) |
+| `0628e5b` | (see git log) |
+| `78ccadb` | (see git log) |
+| `eb98973` | (see git log) |
+| `462197f` | (see git log) |
+| `7b95743` | (see git log) |
+| `e973511` | (see git log) |
+| `1b4c7c7` | (see git log) |
+| `fbc4b0d` | (see git log) |
+| `ba0e883` | (see git log) |
+| `dd5e668` | (see git log) |
+| `f81b117` | (see git log) |
+| `7ac39f1` | (see git log) |
+| `8ce3ff3` | (see git log) |
+| `4ddfaa7` | (see git log) |
+| `5144452` | (see git log) |
+| `36421f5` | (see git log) |
+| `6238c48` | (see git log) |
+| `a74301e` | (see git log) |
+
+### Testing
+
+- [OK] pnpm test: 60 files, 318 passed, 1 skipped; graph: 11 files, 37 passed; G3R: 8 files, 70 passed, 1 skipped.
+- [OK] Build, lint, typecheck, frozen and no-optional installs, SQLite-only MCP smoke, migrations, audit, Trellis validation, and both evidence verifiers passed.
+- [OK] G4A verifier confirmed NO-GO: 0 strict gains, one transfer regression, missing Expected native rebuild, and idle RSS above 128 MiB.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Start M4B as an independent Trellis brainstorm-research-plan-work workflow; G4A does not authorize M5 or M6.
