@@ -666,7 +666,7 @@ export const LaneLimitsSchema = z
       .number()
       .int()
       .min(1)
-      .max(60_000)
+      .max(75)
       .optional(),
     graph_max_response_bytes: z
       .number()

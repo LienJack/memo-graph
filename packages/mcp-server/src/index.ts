@@ -46,7 +46,10 @@ const EnabledGraphServerConfigSchema = z
   .object({
     enabled: z.literal(true),
     expected_identity: GraphBackendIdentitySchema,
-    generation_id: z.string().trim().min(1).max(160).optional(),
+    generation_id: z
+      .string()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/u)
+      .optional(),
     mode: GraphQueryModeSchema.default("typed_path"),
     relation_pattern: z.array(RelationTypeSchema).min(1).max(4),
     direction: z.literal("outbound").default("outbound"),
@@ -60,7 +63,7 @@ const EnabledGraphServerConfigSchema = z
       .number()
       .int()
       .min(1)
-      .max(60_000)
+      .max(75)
       .default(75),
   })
   .strict();

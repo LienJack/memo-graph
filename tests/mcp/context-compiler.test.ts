@@ -344,6 +344,24 @@ describe("MCP Context lane configuration", () => {
         },
       }).success,
     ).toBe(false);
+    expect(
+      MemoryServerConfigSchema.safeParse({
+        ...base,
+        graph: {
+          ...base.graph,
+          request_timeout_ms: 76,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      MemoryServerConfigSchema.safeParse({
+        ...base,
+        graph: {
+          ...base.graph,
+          generation_id: "../outside",
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("does not create or start graph storage merely by opening an explicitly configured MCP runtime", async () => {

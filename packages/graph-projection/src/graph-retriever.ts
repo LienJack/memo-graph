@@ -50,7 +50,7 @@ const GraphLaneRetrieverRequestSchema = z
       .int()
       .min(1)
       .max(100_000),
-    graph_query_timeout_ms: z.number().int().min(1).max(60_000),
+    graph_query_timeout_ms: z.number().int().min(1).max(75),
     graph_max_response_bytes: z
       .number()
       .int()

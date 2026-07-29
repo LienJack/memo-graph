@@ -337,6 +337,15 @@ describe("lane and frontier contracts", () => {
       graph_query_timeout_ms: 50,
       graph_max_response_bytes: 524_288,
     });
+    expect(() =>
+      computeEffectiveLaneConfiguration({
+        allowed_lanes: ["relation_graph"],
+        limits: {
+          ...LANE_POLICY.limits,
+          graph_query_timeout_ms: 76,
+        },
+      })
+    ).toThrow();
     expect(
       computeEffectiveLaneConfiguration(
         LANE_POLICY,
