@@ -130,7 +130,9 @@ describe("frozen G4B four-arm semantic replay", () => {
           const runtime = new InMemoryVectorRuntimeFactory();
           return {
             projection: runtime.runtimeFactory(),
-            query: runtime.queryRuntimeFactory(),
+            query: runtime.queryRuntimeFactory({
+              snapshotSource: "memory",
+            }),
           };
         },
       });

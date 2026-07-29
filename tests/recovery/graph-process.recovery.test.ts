@@ -329,6 +329,7 @@ describe("graph child process recovery", () => {
         status: "unavailable",
         reason_codes: ["GRAPH_DEADLINE_EXCEEDED"],
       });
+      expect(await graph.waitUntilHealthy(2_000)).toBe(true);
       await expect(
         graph.queryPaths(query("query_after_prior_exit")),
       ).resolves.toMatchObject({

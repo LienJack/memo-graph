@@ -71,17 +71,31 @@ export class InMemoryVectorRuntimeFactory {
     };
   }
 
-  queryRuntimeFactory(): SemanticVectorRuntimeFactory {
+  queryRuntimeFactory(options: {
+    snapshotSource?: "disk" | "memory";
+  } = {}): SemanticVectorRuntimeFactory {
     return {
       open: async (input) => {
-        const snapshot = VectorScopeSnapshotSchema.parse(
-          JSON.parse(
-            await readFile(
-              join(input.dataRoot, "vector.snapshot.json"),
-              "utf8",
-            ),
-          ),
-        );
+        const snapshot =
+          options.snapshotSource === "memory"
+            ? VectorScopeSnapshotSchema.parse(
+                [...this.snapshots.values()].find(
+                  (candidate) =>
+                    candidate.principal_id === input.principalId &&
+                    canonicalJson(candidate.scope) ===
+                      canonicalJson(input.scope) &&
+                    candidate.embedding_epoch_id ===
+                      input.expectedEpoch.epoch_id,
+                ),
+              )
+            : VectorScopeSnapshotSchema.parse(
+                JSON.parse(
+                  await readFile(
+                    join(input.dataRoot, "vector.snapshot.json"),
+                    "utf8",
+                  ),
+                ),
+              );
         let closed = false;
         return {
           query: async (queryInput) => {
