@@ -11,6 +11,9 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  buildVectorEmbeddingEpoch,
+} from "../../packages/contracts/src/index.js";
+import {
   VectorFullRebuilder,
   VectorRuntimeError,
   VectorScopeProjector,
@@ -29,6 +32,7 @@ import {
   VECTOR_NOW,
   VECTOR_SCOPE,
   qualifiedVectorEpoch,
+  vectorHash,
 } from "../helpers/vector-examples.js";
 
 const roots: string[] = [];
@@ -223,6 +227,141 @@ describe("vector projection rebuild and stale publication", () => {
         degraded_scopes: 0,
         outbox_pending: 0,
       });
+    } finally {
+      await current.storage.close();
+    }
+  });
+
+  it("keeps one complete old epoch after interrupted migration and atomically replaces it on resume", async () => {
+    const current = await fixture();
+    try {
+      const initial = await new VectorFullRebuilder({
+        storage: current.storage,
+        dataRoot: current.root,
+        modelRoot: join(current.root, "models"),
+        epoch: current.epoch,
+        runtimeFactory: current.runtime.runtimeFactory(),
+      }).rebuild({
+        worker_id: "vector_epoch_initial",
+        started_at: VECTOR_NOW,
+        activate: true,
+      });
+      expect(initial).toMatchObject({
+        status: "complete",
+        activated: true,
+      });
+      const oldCheckpoint =
+        await current.storage.vectorProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: VECTOR_SCOPE,
+        });
+      const oldLayout = await vectorGenerationLayout({
+        dataRoot: current.root,
+        principalId: "user_local",
+        scope: VECTOR_SCOPE,
+        epochId: current.epoch.epoch_id,
+        generationId: oldCheckpoint.active_generation_id ?? "",
+      });
+      const epochInput = {
+        schema_version: current.epoch.schema_version,
+        runtime: current.epoch.runtime,
+        sqlite_binding: current.epoch.sqlite_binding,
+        model: current.epoch.model,
+        index: current.epoch.index,
+        projection_schema_version:
+          current.epoch.projection_schema_version,
+        dependency_lock_hash:
+          current.epoch.dependency_lock_hash,
+      };
+      const nextEpoch = buildVectorEmbeddingEpoch({
+        ...epochInput,
+        dependency_lock_hash: vectorHash("f"),
+      });
+      const workingFactory = current.runtime.runtimeFactory();
+      const interrupted = await new VectorFullRebuilder({
+        storage: current.storage,
+        dataRoot: current.root,
+        modelRoot: join(current.root, "models"),
+        epoch: nextEpoch,
+        runtimeFactory: {
+          open: async (input) => {
+            const runtime = await workingFactory.open(input);
+            return {
+              ...runtime,
+              replaceScope: async () => {
+                throw new VectorRuntimeError("PROCESS_EXIT", {
+                  retryable: true,
+                });
+              },
+            };
+          },
+        },
+      }).rebuild({
+        worker_id: "vector_epoch_interrupted",
+        started_at: "2026-07-29T08:00:00.000Z",
+        activate: true,
+        max_rounds: 1,
+      });
+      expect(interrupted).toMatchObject({
+        status: "degraded",
+        activated: false,
+        failed_jobs: 1,
+      });
+      const degraded =
+        await current.storage.vectorProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: VECTOR_SCOPE,
+        });
+      expect(degraded).toMatchObject({
+        desired_epoch_id: nextEpoch.epoch_id,
+        active_epoch_id: current.epoch.epoch_id,
+        active_generation_id: oldCheckpoint.active_generation_id,
+        state: "degraded",
+        failure_category: "PROCESS_EXIT",
+      });
+      await expect(access(oldLayout.activeRoot)).resolves.toBeUndefined();
+      const failedLayout = await vectorGenerationLayout({
+        dataRoot: current.root,
+        principalId: "user_local",
+        scope: VECTOR_SCOPE,
+        epochId: nextEpoch.epoch_id,
+        generationId: degraded.desired_generation_id,
+      });
+      await expect(access(failedLayout.activeRoot)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+
+      const resumed = await new VectorFullRebuilder({
+        storage: current.storage,
+        dataRoot: current.root,
+        modelRoot: join(current.root, "models"),
+        epoch: nextEpoch,
+        runtimeFactory: workingFactory,
+      }).rebuild({
+        worker_id: "vector_epoch_resumed",
+        started_at: "2026-07-29T08:10:00.000Z",
+        activate: true,
+      });
+      expect(resumed, JSON.stringify(resumed)).toMatchObject({
+        status: "complete",
+        activated: true,
+        failed_jobs: 0,
+      });
+      await expect(
+        current.storage.vectorProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: VECTOR_SCOPE,
+        }),
+      ).resolves.toMatchObject({
+        desired_epoch_id: nextEpoch.epoch_id,
+        active_epoch_id: nextEpoch.epoch_id,
+        state: "published",
+        failure_category: null,
+      });
+      await expect(access(oldLayout.generationRoot))
+        .rejects.toMatchObject({ code: "ENOENT" });
+      await expect(access(failedLayout.activeRoot))
+        .resolves.toBeUndefined();
     } finally {
       await current.storage.close();
     }

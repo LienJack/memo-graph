@@ -1,5 +1,6 @@
 import {
   access,
+  mkdir,
   mkdtemp,
   readFile,
   realpath,
@@ -16,9 +17,12 @@ import {
   ScopeSchema,
 } from "../../packages/contracts/src/index.js";
 import {
+  LayeredLaneRetrievers,
   MemoryRuntime,
+  RecallOrchestrator,
 } from "../../packages/memory-kernel/src/index.js";
 import {
+  SemanticVectorRetriever,
   VectorScopeProjector,
   vectorGenerationLayout,
 } from "../../packages/vector-retrieval/src/index.js";
@@ -30,7 +34,10 @@ import {
   PURGE_NOW,
   deleteRequest,
 } from "../helpers/purge-examples.js";
-import { seedProjectionSources } from "../helpers/projection-examples.js";
+import {
+  seedLayeredProjectionSources,
+  seedProjectionSources,
+} from "../helpers/projection-examples.js";
 import {
   memoryCandidate,
   memoryProposal,
@@ -41,6 +48,12 @@ import {
   qualifiedVectorEpoch,
   VECTOR_SCOPE,
 } from "../helpers/vector-examples.js";
+import {
+  VECTOR_CONTROL_NOW,
+  VECTOR_RECALL_AS_OF,
+  openGovernedVectorHarness,
+  vectorLanePolicy,
+} from "../helpers/governed-vector-harness.js";
 
 const roots: string[] = [];
 
@@ -53,6 +66,97 @@ afterEach(async () => {
 });
 
 describe("vector purge and source boundary", () => {
+  for (const control of [
+    "usage_block",
+    "demote",
+    "revoke",
+  ] as const) {
+    it(`${control} suppresses semantic recall before vector convergence`, async () => {
+      const root = await mkdtemp(
+        join(
+          await realpath(tmpdir()),
+          `memo-graph-vector-${control}-`,
+        ),
+      );
+      roots.push(root);
+      const harness = await openGovernedVectorHarness({
+        dataRoot: root,
+      });
+      try {
+        const source = harness.sources[0];
+        const tool:
+          | "memory_usage_set"
+          | "memory_demote"
+          | "memory_revoke" =
+          control === "usage_block"
+            ? "memory_usage_set"
+            : control === "demote"
+              ? "memory_demote"
+              : "memory_revoke";
+        const request = {
+          envelope: {
+            schema_version: "1.0.0",
+            request_id: `request_vector_u6_${control}`,
+            tool,
+            safety_class: "important_mutation" as const,
+            actor_claim: {
+              principal_id: "user_local",
+              authority: "user_stated" as const,
+            },
+            scopes: [VECTOR_SCOPE],
+            purpose: "Suppress one governed semantic vector source",
+            reason: "Exercise immediate canonical vector suppression",
+            requested_at: VECTOR_CONTROL_NOW,
+            idempotency_key: `vector-u6-${control}-0001`,
+            expected_revision_id: source.revision_id,
+            approval_id: `approval_vector_u6_${control}`,
+            dry_run: false,
+          },
+          memory_id: source.memory_id,
+          ...(control === "usage_block"
+            ? {
+                effect: "block" as const,
+                context_scope: VECTOR_SCOPE,
+              }
+            : {}),
+        };
+        harness.approvals.approve(request);
+        const response =
+          control === "usage_block"
+            ? await harness.memoryRuntime.memoryUsageSet(request)
+            : control === "demote"
+              ? await harness.memoryRuntime.memoryDemote(request)
+              : await harness.memoryRuntime.memoryRevoke(request);
+        expect(response.status, JSON.stringify(response)).toBe("OK");
+
+        const recalled = await harness.recall();
+        expect(recalled.status).toBe("DEGRADED");
+        expect(recalled.candidates).toEqual([]);
+        expect(JSON.stringify(recalled)).not.toContain(
+          source.revision_id,
+        );
+        expect(
+          recalled.telemetry.find(
+            (item) => item.lane === "semantic_vector",
+          ),
+        ).toMatchObject({
+          status: "degraded",
+          reason_codes: ["VECTOR_SCOPE_PENDING"],
+        });
+        await expect(
+          harness.storage.vectorProjectionCheckpoint({
+            principal_id: "user_local",
+            scope: VECTOR_SCOPE,
+          }),
+        ).resolves.toMatchObject({
+          state: "pending",
+        });
+      } finally {
+        await harness.storage.close();
+      }
+    });
+  }
+
   it("lists only governed non-sensitive exact-scope sources for rebuild", async () => {
     const root = await mkdtemp(
       join(await realpath(tmpdir()), "memo-graph-vector-purge-"),
@@ -134,6 +238,10 @@ describe("vector purge and source boundary", () => {
     await writeFile(modelSentinel, "operator model material", "utf8");
     try {
       const sources = await seedProjectionSources(client);
+      await seedLayeredProjectionSources(client, {
+        prefix: "vector_purge_other",
+        scopeId: "workspace_other",
+      });
       const epoch = qualifiedVectorEpoch();
       await client.registerVectorEmbeddingEpoch({
         epoch,
@@ -159,6 +267,21 @@ describe("vector purge and source boundary", () => {
         completed_at: "2026-07-29T06:00:05.000Z",
         retry_at: "2026-07-29T06:01:05.000Z",
       });
+      const vectorRetriever = new SemanticVectorRetriever({
+        storage: client,
+        dataRoot: root,
+        modelRoot: join(root, "models"),
+        epoch,
+        runtimeFactory: runtimeFactory.queryRuntimeFactory(),
+        allowEvaluating: true,
+      });
+      const laneRetriever = new LayeredLaneRetrievers(client, {
+        vectorRetriever,
+      });
+      const recall = new RecallOrchestrator({
+        storage: client,
+        retriever: laneRetriever,
+      });
       const before = await client.vectorProjectionCheckpoint({
         principal_id: "user_local",
         scope: VECTOR_SCOPE,
@@ -170,6 +293,39 @@ describe("vector purge and source boundary", () => {
         epochId: epoch.epoch_id,
         generationId: before.desired_generation_id,
       });
+      const unrelatedScope = {
+        kind: "workspace",
+        id: "workspace_other",
+      } as const;
+      const unrelatedBefore =
+        await client.vectorProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: unrelatedScope,
+        });
+      const unrelatedLayout = await vectorGenerationLayout({
+        dataRoot: root,
+        principalId: "user_local",
+        scope: unrelatedScope,
+        epochId: epoch.epoch_id,
+        generationId: unrelatedBefore.desired_generation_id,
+      });
+      await mkdir(
+        join(oldLayout.generationRoot, "quarantine-abandoned"),
+        { recursive: true },
+      );
+      for (const relative of [
+        "index.sqlite-wal",
+        "index.sqlite-shm",
+        "temp.partial",
+        "backup.snapshot",
+        join("quarantine-abandoned", "vector.tmp"),
+      ]) {
+        await writeFile(
+          join(oldLayout.generationRoot, relative),
+          `${sources[0].revision_id}:obsolete-vector-bytes`,
+          "utf8",
+        );
+      }
 
       const approvals = new TestApprovalRegistry();
       const kernel = new MemoryRuntime({
@@ -201,6 +357,26 @@ describe("vector purge and source boundary", () => {
       if (deleted.status !== "OK") {
         throw new Error("vector purge fixture deletion failed");
       }
+      const immediate = await recall.recall({
+        principal_id: "user_local",
+        scope: VECTOR_SCOPE,
+        query: "canonical memory authority",
+        as_of: VECTOR_RECALL_AS_OF,
+        include_sensitive: false,
+        lane_policy: vectorLanePolicy(["semantic_vector"]),
+      });
+      expect(immediate.status).toBe("DEGRADED");
+      expect(immediate.candidates).toEqual([]);
+      expect(JSON.stringify(immediate)).not.toContain(
+        source.revision_id,
+      );
+      expect(
+        immediate.telemetry.find(
+          (item) => item.lane === "semantic_vector",
+        ),
+      ).toMatchObject({
+        reason_codes: ["VECTOR_SCOPE_PENDING"],
+      });
       const purgeJobId = (
         deleted.data as { purge_job_id: string }
       ).purge_job_id;
@@ -237,7 +413,9 @@ describe("vector purge and source boundary", () => {
         epochId: epoch.epoch_id,
         generationId: after.desired_generation_id,
       });
-      await expect(access(oldLayout.activeRoot)).rejects.toMatchObject({
+      await expect(
+        access(oldLayout.generationRoot),
+      ).rejects.toMatchObject({
         code: "ENOENT",
       });
       const replacement = await readFile(
@@ -248,6 +426,14 @@ describe("vector purge and source boundary", () => {
       expect(replacement).not.toContain(
         "SQLite is the canonical memory authority.",
       );
+      await expect(access(unrelatedLayout.activeRoot)).resolves
+        .toBeUndefined();
+      await expect(
+        client.vectorProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: unrelatedScope,
+        }),
+      ).resolves.toEqual(unrelatedBefore);
       await expect(access(modelSentinel)).resolves.toBeUndefined();
     } finally {
       await client.close();

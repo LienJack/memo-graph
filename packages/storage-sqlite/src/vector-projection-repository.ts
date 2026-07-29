@@ -907,6 +907,7 @@ export class VectorProjectionRepository {
          WHERE principal_id = ?
            AND scope_kind = ?
            AND scope_id = ?
+           AND job_id <> ?
            AND status IN ('pending', 'processing', 'failed')`,
       )
       .run(
@@ -914,6 +915,7 @@ export class VectorProjectionRepository {
         input.principal_id,
         input.scope.kind,
         input.scope.id,
+        jobId,
       );
     this.#database
       .prepare(

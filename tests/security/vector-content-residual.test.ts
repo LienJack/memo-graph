@@ -25,6 +25,10 @@ import {
   VECTOR_SCOPE,
   qualifiedVectorEpoch,
 } from "../helpers/vector-examples.js";
+import {
+  VECTOR_RECALL_AS_OF,
+  openGovernedVectorHarness,
+} from "../helpers/governed-vector-harness.js";
 
 const roots: string[] = [];
 
@@ -115,5 +119,73 @@ describe("vector physical content boundary", () => {
     } finally {
       await storage.close();
     }
+  });
+
+  it("persists only a query hash and never the raw semantic query text", async () => {
+    const root = await mkdtemp(
+      join(
+        await realpath(tmpdir()),
+        "memo-graph-vector-query-residual-",
+      ),
+    );
+    roots.push(root);
+    const harness = await openGovernedVectorHarness({
+      dataRoot: root,
+    });
+    const uniqueQuery =
+      "UNIQUE_VECTOR_QUERY_MUST_NOT_PERSIST_5f8a91";
+    try {
+      const compiled = await harness.memoryRuntime.memoryContextCompile({
+        envelope: {
+          schema_version: "1.0.0",
+          request_id: "request_vector_query_residual",
+          tool: "memory_context_compile",
+          safety_class: "read_only",
+          actor_claim: {
+            principal_id: "user_local",
+            authority: "user_stated",
+          },
+          scopes: [VECTOR_SCOPE],
+          purpose: "Prove semantic query text remains ephemeral",
+          reason: "Persist content-free vector telemetry only",
+          requested_at: VECTOR_RECALL_AS_OF,
+        },
+        recall: {
+          schema_version: "1.0.0",
+          request_id: "request_vector_query_residual",
+          goal: "Restore governed context without query retention",
+          query: uniqueQuery,
+          scopes: [VECTOR_SCOPE],
+          as_of: VECTOR_RECALL_AS_OF,
+          token_budget: 1_800,
+          include_sensitive: false,
+          lane_overrides: {
+            requested_lanes: ["semantic_vector"],
+            limits: {
+              max_candidates_per_lane: 20,
+              vector_top_k: 20,
+              vector_query_timeout_ms: 50,
+              vector_max_response_bytes: 65_536,
+              max_concurrent_lanes: 1,
+            },
+          },
+        },
+      });
+      expect(["OK", "DEGRADED"]).toContain(compiled.status);
+      expect(JSON.stringify(compiled)).not.toContain(uniqueQuery);
+    } finally {
+      await harness.storage.close();
+    }
+
+    const rendered = (
+      await Promise.all(
+        (await regularFiles(
+          join(root, "derived", "vector"),
+        )).map((file) =>
+          readFile(file, "utf8")
+        ),
+      )
+    ).join("\n");
+    expect(rendered).not.toContain(uniqueQuery);
   });
 });

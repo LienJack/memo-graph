@@ -202,6 +202,23 @@ function failureReason(category: VectorFailureCategory): string {
   return `VECTOR_${category}`;
 }
 
+function opaqueRejectedHit(
+  generationId: string,
+  rank: number,
+): {
+  memory_id: string;
+  revision_id: string;
+} {
+  const suffix = canonicalSha256({
+    generation_id: generationId,
+    rank,
+  }).slice("sha256:".length, 40);
+  return {
+    memory_id: `vector-rejected-memory:${suffix}`,
+    revision_id: `vector-rejected-revision:${suffix}`,
+  };
+}
+
 export class SemanticVectorRetriever {
   readonly #storage: SemanticVectorStorage;
   readonly #dataRoot: string;
@@ -209,6 +226,12 @@ export class SemanticVectorRetriever {
   readonly #epoch: VectorEmbeddingEpoch;
   readonly #runtimeFactory: SemanticVectorRuntimeFactory;
   readonly #allowEvaluating: boolean;
+  readonly #failureCooldownMs: number;
+  readonly #clock: () => number;
+  readonly #runtimeFailures = new Map<string, {
+    reason_code: string;
+    retry_after: number;
+  }>();
 
   constructor(input: {
     storage: SemanticVectorStorage;
@@ -217,6 +240,8 @@ export class SemanticVectorRetriever {
     epoch: VectorEmbeddingEpoch;
     runtimeFactory?: SemanticVectorRuntimeFactory;
     allowEvaluating?: boolean;
+    failureCooldownMs?: number;
+    clock?: () => number;
   }) {
     this.#storage = input.storage;
     this.#dataRoot = input.dataRoot;
@@ -225,6 +250,9 @@ export class SemanticVectorRetriever {
     this.#runtimeFactory =
       input.runtimeFactory ?? defaultRuntimeFactory;
     this.#allowEvaluating = input.allowEvaluating ?? false;
+    this.#failureCooldownMs = z.number().int().min(0).max(60_000)
+      .parse(input.failureCooldownMs ?? 1_000);
+    this.#clock = input.clock ?? Date.now;
   }
 
   async retrieve(
@@ -301,6 +329,25 @@ export class SemanticVectorRetriever {
       epochId: checkpoint.active_epoch_id,
       generationId: checkpoint.active_generation_id,
     });
+    const failureKey = canonicalSha256({
+      principal_id: request.principal_id,
+      scope: request.scope,
+      embedding_epoch_id: checkpoint.active_epoch_id,
+      generation_id: checkpoint.active_generation_id,
+    });
+    const now = this.#clock();
+    this.#pruneRuntimeFailures(now);
+    const rememberedFailure = this.#runtimeFailures.get(failureKey);
+    if (
+      rememberedFailure !== undefined &&
+      rememberedFailure.retry_after > now
+    ) {
+      return unavailable(
+        request,
+        startedAt,
+        rememberedFailure.reason_code,
+      );
+    }
     let runtime: SemanticVectorRuntime | null = null;
     let result: VectorQueryResult;
     const queryRequestId =
@@ -342,10 +389,12 @@ export class SemanticVectorRetriever {
       const category = error instanceof VectorRuntimeError
         ? error.category
         : "PROCESS_EXIT";
+      const reasonCode = failureReason(category);
+      this.#rememberRuntimeFailure(failureKey, reasonCode);
       return unavailable(
         request,
         startedAt,
-        failureReason(category),
+        reasonCode,
       );
     } finally {
       await runtime?.close().catch(() => undefined);
@@ -355,6 +404,10 @@ export class SemanticVectorRetriever {
       "utf8",
     );
     if (responseBytes > request.vector_max_response_bytes) {
+      this.#rememberRuntimeFailure(
+        failureKey,
+        "VECTOR_RESOURCE_LIMIT",
+      );
       return unavailable(
         request,
         startedAt,
@@ -362,12 +415,14 @@ export class SemanticVectorRetriever {
       );
     }
     if (result.status === "degraded") {
+      const reasonCode = failureReason(
+        result.failure_category ?? "PROCESS_EXIT",
+      );
+      this.#rememberRuntimeFailure(failureKey, reasonCode);
       return unavailable(
         request,
         startedAt,
-        failureReason(
-          result.failure_category ?? "PROCESS_EXIT",
-        ),
+        reasonCode,
       );
     }
     if (
@@ -377,12 +432,17 @@ export class SemanticVectorRetriever {
       result.source_frontier_hash !==
         checkpoint.frontier.source_frontier_hash
     ) {
+      this.#rememberRuntimeFailure(
+        failureKey,
+        "VECTOR_RESPONSE_IDENTITY_MISMATCH",
+      );
       return unavailable(
         request,
         startedAt,
         "VECTOR_RESPONSE_IDENTITY_MISMATCH",
       );
     }
+    this.#runtimeFailures.delete(failureKey);
     if (result.hits.length === 0) {
       return {
         candidates: [],
@@ -449,21 +509,28 @@ export class SemanticVectorRetriever {
         exact.status === "ineligible" ||
         exact.source.principal_id !== request.principal_id ||
         scopeKey(exact.source.scope) !== scopeKey(request.scope) ||
-        exact.source.content_hash !== hit.source_content_hash ||
         exact.source.sensitivity === "sensitive" ||
         exact.source.sensitivity === "secret"
       ) {
+        const opaque = opaqueRejectedHit(
+          result.generation_id,
+          hit.rank,
+        );
         exclusions.push({
-          memory_id:
-            exact?.status === "eligible"
-              ? exact.source.memory_id
-              : hit.revision_id,
-          revision_id: hit.revision_id,
+          ...opaque,
           lane: "semantic_vector",
-          reason_code:
-            exact?.status === "ineligible"
-              ? exact.reason_code
-              : "VECTOR_CANONICAL_MISMATCH",
+          reason_code: "VECTOR_HIT_INELIGIBLE",
+          score: hit.distance,
+          vector: vectorEvidence,
+        });
+        continue;
+      }
+      if (exact.source.content_hash !== hit.source_content_hash) {
+        exclusions.push({
+          memory_id: exact.source.memory_id,
+          revision_id: exact.source.revision_id,
+          lane: "semantic_vector",
+          reason_code: "VECTOR_CANONICAL_MISMATCH",
           score: hit.distance,
           vector: vectorEvidence,
         });
@@ -498,23 +565,6 @@ export class SemanticVectorRetriever {
         rank: hit.distance + hit.rank / 1_000,
         vector: vectorEvidence,
       });
-    }
-    const frontierMatches =
-      batch.ledger_epoch === checkpoint.frontier.ledger_epoch &&
-      batch.tombstone_epoch ===
-        checkpoint.frontier.tombstone_epoch;
-    if (!frontierMatches) {
-      exclusions.push(
-        ...candidates.map((candidate) => ({
-          memory_id: candidate.memory.memory_id,
-          revision_id: candidate.memory.revision_id,
-          lane: "semantic_vector" as const,
-          reason_code: "VECTOR_FRONTIER_STALE",
-          score: candidate.vector.distance,
-          vector: candidate.vector,
-        })),
-      );
-      candidates.length = 0;
     }
     const allStale = candidates.length === 0 &&
       result.hits.length > 0;
@@ -567,5 +617,23 @@ export class SemanticVectorRetriever {
         }),
       ],
     };
+  }
+
+  #rememberRuntimeFailure(
+    failureKey: string,
+    reasonCode: string,
+  ): void {
+    this.#runtimeFailures.set(failureKey, {
+      reason_code: reasonCode,
+      retry_after: this.#clock() + this.#failureCooldownMs,
+    });
+  }
+
+  #pruneRuntimeFailures(now: number): void {
+    for (const [key, failure] of this.#runtimeFailures) {
+      if (failure.retry_after <= now) {
+        this.#runtimeFailures.delete(key);
+      }
+    }
   }
 }

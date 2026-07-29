@@ -148,6 +148,7 @@ export type VectorGenerationLayout = {
   scopeKey: string;
   epochKey: string;
   generationKey: string;
+  generationRoot: string;
   quarantineRoot: string;
   activeRoot: string;
 };
@@ -250,6 +251,7 @@ export async function vectorGenerationLayout(input: {
     scopeKey,
     epochKey,
     generationKey,
+    generationRoot,
     quarantineRoot: join(generationRoot, "quarantine"),
     activeRoot: join(generationRoot, "active"),
   };
@@ -458,10 +460,9 @@ export class VectorScopeProjector {
     });
     await removeGenerationPath(
       layout.vectorRoot,
-      layout.quarantineRoot,
+      layout.generationRoot,
     );
-    await removeGenerationPath(layout.vectorRoot, layout.activeRoot);
-    await mkdir(layout.quarantineRoot, { recursive: false });
+    await mkdir(layout.quarantineRoot, { recursive: true });
     let runtime: VectorProjectionRuntime | null = null;
     let publishedPath = false;
     try {
@@ -606,7 +607,7 @@ export class VectorScopeProjector {
         });
         await removeGenerationPath(
           prior.vectorRoot,
-          prior.activeRoot,
+          prior.generationRoot,
         );
       }
       return {
