@@ -322,13 +322,25 @@ export class SemanticVectorRetriever {
         `VECTOR_SCOPE_${checkpoint.state.toUpperCase()}`,
       );
     }
-    const activeRoot = await activeVectorGenerationRoot({
-      dataRoot: this.#dataRoot,
-      principalId: request.principal_id,
-      scope: request.scope,
-      epochId: checkpoint.active_epoch_id,
-      generationId: checkpoint.active_generation_id,
-    });
+    let activeRoot: string;
+    try {
+      activeRoot = await activeVectorGenerationRoot({
+        dataRoot: this.#dataRoot,
+        principalId: request.principal_id,
+        scope: request.scope,
+        epochId: checkpoint.active_epoch_id,
+        generationId: checkpoint.active_generation_id,
+      });
+    } catch (error) {
+      const category = error instanceof VectorRuntimeError
+        ? error.category
+        : "INDEX_MISSING";
+      return unavailable(
+        request,
+        startedAt,
+        failureReason(category),
+      );
+    }
     const failureKey = canonicalSha256({
       principal_id: request.principal_id,
       scope: request.scope,

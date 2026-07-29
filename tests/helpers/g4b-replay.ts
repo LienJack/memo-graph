@@ -98,7 +98,7 @@ export const G4B_VECTOR_EPOCH = buildVectorEmbeddingEpoch({
   },
   projection_schema_version: "1.0.0",
   dependency_lock_hash:
-    "sha256:b5627c92ae7be795bc8eff148d952d68435470ff6409552dba7ef778184ed958",
+    "sha256:87f5c3f5dde4b8f29758d83866e2afb7d4fd2ae5748e30d3aeed96738faaf585",
 });
 
 export type G4BCalibrationConfiguration = {

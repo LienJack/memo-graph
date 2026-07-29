@@ -264,7 +264,26 @@ export async function activeVectorGenerationRoot(input: {
   epochId: string;
   generationId: string;
 }): Promise<string> {
-  return (await vectorGenerationLayout(input)).activeRoot;
+  const layout = await vectorGenerationLayout(input);
+  try {
+    const active = await lstat(layout.activeRoot);
+    if (active.isSymbolicLink() || !active.isDirectory()) {
+      throw new VectorRuntimeError("PROTOCOL_INVALID");
+    }
+    const canonical = await realpath(layout.activeRoot);
+    assertContained(layout.vectorRoot, canonical);
+    return canonical;
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      throw new VectorRuntimeError("INDEX_MISSING");
+    }
+    throw error;
+  }
 }
 
 async function removeGenerationPath(

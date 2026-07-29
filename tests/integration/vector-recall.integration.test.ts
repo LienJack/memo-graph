@@ -1,4 +1,9 @@
-import { mkdtemp, realpath, rm } from "node:fs/promises";
+import {
+  access,
+  mkdtemp,
+  realpath,
+  rm,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +19,7 @@ import {
 import {
   SemanticVectorRetriever,
   VectorScopeProjector,
+  vectorGenerationLayout,
   type SemanticVectorRuntimeFactory,
 } from "../../packages/vector-retrieval/src/index.js";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
@@ -114,6 +120,7 @@ async function projectedHarness(options: {
     }),
   });
   return {
+    root,
     storage,
     sources,
     epoch,
@@ -307,6 +314,56 @@ describe("governed semantic vector recall", () => {
       ).toMatchObject({
         status: "degraded",
         reason_codes: ["VECTOR_DISABLED"],
+      });
+    } finally {
+      await harness.storage.close();
+    }
+  });
+
+  it("degrades without recreating a missing published active generation", async () => {
+    const harness = await projectedHarness();
+    try {
+      const checkpoint =
+        await harness.storage.vectorProjectionCheckpoint({
+          principal_id: "user_local",
+          scope: VECTOR_SCOPE,
+        });
+      if (
+        checkpoint.active_epoch_id === null ||
+        checkpoint.active_generation_id === null
+      ) {
+        throw new Error("vector checkpoint was not published");
+      }
+      const layout = await vectorGenerationLayout({
+        dataRoot: harness.root,
+        principalId: "user_local",
+        scope: VECTOR_SCOPE,
+        epochId: checkpoint.active_epoch_id,
+        generationId: checkpoint.active_generation_id,
+      });
+      await rm(layout.activeRoot, {
+        recursive: true,
+        force: true,
+      });
+
+      const result = await recall(
+        harness.orchestrator,
+        ["semantic_vector"],
+      );
+
+      expect(result.status).toBe("DEGRADED");
+      expect(result.candidates).toEqual([]);
+      expect(result.degraded_lanes).toEqual(["semantic_vector"]);
+      expect(
+        result.telemetry.find(
+          (item) => item.lane === "semantic_vector",
+        ),
+      ).toMatchObject({
+        status: "degraded",
+        reason_codes: ["VECTOR_INDEX_MISSING"],
+      });
+      await expect(access(layout.activeRoot)).rejects.toMatchObject({
+        code: "ENOENT",
       });
     } finally {
       await harness.storage.close();
