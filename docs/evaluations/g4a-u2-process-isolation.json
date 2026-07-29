@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G4A-U2-PROCESS-ISOLATION",
+  "recorded_at": "2026-07-29T01:45:38Z",
+  "decision": "PASS",
+  "hard_stop_permits_u3": true,
+  "runtime": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "backend_identity": {
+    "backend": "ladybugdb",
+    "package_name": "@ladybugdb/core",
+    "package_version": "0.18.3",
+    "storage_version": "42",
+    "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+    "dependency_lock_hash": "sha256:68a2f309b5a410769c6c8c11c79f04e9dc82c397df47e2bb38822dbfd768abc1"
+  },
+  "native_timeout_gate": {
+    "samples": 100,
+    "parent_deadline_ms": 75,
+    "fallback_p95_ms": 77.56529099999898,
+    "fallback_p95_limit_ms": 100,
+    "maximum_replacement_ms": 138.0001250000023,
+    "replacement_limit_ms": 2000,
+    "result": "PASS"
+  },
+  "recovery": {
+    "query_kill_typed_fallback": true,
+    "uncommitted_write_kill_preserved_prior_digest": true,
+    "restart_rate_limit_and_circuit_breaker": true,
+    "sqlite_remained_responsive": true,
+    "parent_shutdown_left_no_orphan": true
+  },
+  "optional_dependency_absence": {
+    "install_command": "CI=true pnpm install --frozen-lockfile --no-optional",
+    "native_package_absent": true,
+    "runtime_build_passed": true,
+    "sqlite_only_mcp_test_passed": true,
+    "top_level_import_passed": true
+  },
+  "verification": {
+    "protocol_and_recovery_tests": {
+      "files": 2,
+      "tests": 16,
+      "status": "passed"
+    },
+    "native_contract_tests": {
+      "files": 1,
+      "tests": 10,
+      "status": "passed"
+    },
+    "g3r_isolated_baseline": {
+      "checkout": "14ae2f0",
+      "tested_implementation": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+      "status": "passed"
+    }
+  }
+}

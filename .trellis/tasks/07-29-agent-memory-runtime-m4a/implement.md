@@ -204,65 +204,65 @@ M4A-AC1/M4A-AC6/M4A-AC7.
 
 ### Test-first checklist
 
-- [ ] Prove the package top level imports with optional LadybugDB absent.
-- [ ] Prove `pnpm install --frozen-lockfile --no-optional`, build, and MCP
+- [x] Prove the package top level imports with optional LadybugDB absent.
+- [x] Prove `pnpm install --frozen-lockfile --no-optional`, build, and MCP
       SQLite-only startup succeed without the LadybugDB native dependency.
-- [ ] Reject startup when package version, storage version, platform,
+- [x] Reject startup when package version, storage version, platform,
       architecture, or native binary identity differs from configuration.
-- [ ] Prove a valid child reports exact backend/native identity.
-- [ ] Reject oversized, malformed, unknown-version, unknown-operation,
+- [x] Prove a valid child reports exact backend/native identity.
+- [x] Reject oversized, malformed, unknown-version, unknown-operation,
       duplicate-ID, or late IPC messages.
-- [ ] Reject graph paths outside the canonical data root and symlink
+- [x] Reject graph paths outside the canonical data root and symlink
       substitution.
-- [ ] Prove child environment excludes unrelated parent secrets and paths.
-- [ ] Prove documentation and health evidence describe the child as
+- [x] Prove child environment excludes unrelated parent secrets and paths.
+- [x] Prove documentation and health evidence describe the child as
       crash/availability containment, not an OS sandbox or malicious-native
       defense.
-- [ ] Prove only closed typed query operations reach the adapter; raw Cypher
+- [x] Prove only closed typed query operations reach the adapter; raw Cypher
       is rejected before IPC.
-- [ ] Prove one read/write child owns one database path.
-- [ ] Prove concurrent writes are serialized and concurrent query bounds are
+- [x] Prove one read/write child owns one database path.
+- [x] Prove concurrent writes are serialized and concurrent query bounds are
       enforced.
-- [ ] Prove schema creation, scope replacement, scope delete, bounded path,
+- [x] Prove schema creation, scope replacement, scope delete, bounded path,
       logical snapshot, close, and reopen.
-- [ ] Prove explicit transaction rollback leaves no partial node/edge state.
-- [ ] Start an adversarial native query and prove the parent returns typed
+- [x] Prove explicit transaction rollback leaves no partial node/edge state.
+- [x] Start an adversarial native query and prove the parent returns typed
       fallback by the 75 ms deadline.
-- [ ] Measure at least 100 timeout/fallback samples and require p95 <=100 ms.
-- [ ] Kill the child during a query and prove the parent remains responsive.
-- [ ] Kill the child during an uncommitted write and prove reopen has only the
+- [x] Measure at least 100 timeout/fallback samples and require p95 <=100 ms.
+- [x] Kill the child during a query and prove the parent remains responsive.
+- [x] Kill the child during an uncommitted write and prove reopen has only the
       prior committed logical digest.
-- [ ] Prove duplicate, late, or post-timeout response cannot satisfy another
+- [x] Prove duplicate, late, or post-timeout response cannot satisfy another
       request.
-- [ ] Prove replacement starts outside the timed-out request critical path.
-- [ ] Prove a replacement child becomes healthy within 2 seconds.
-- [ ] Repeatedly fail the child and prove restart rate limiting/circuit breaker
+- [x] Prove replacement starts outside the timed-out request critical path.
+- [x] Prove a replacement child becomes healthy within 2 seconds.
+- [x] Repeatedly fail the child and prove restart rate limiting/circuit breaker
       prevents fork, CPU, timer, and process storms.
-- [ ] Prove parent shutdown leaves no orphan child.
-- [ ] Prove process stderr/logs contain no graph payload or memory content.
-- [ ] Prove a graph crash cannot close or corrupt SQLite storage.
+- [x] Prove parent shutdown leaves no orphan child.
+- [x] Prove process stderr/logs contain no graph payload or memory content.
+- [x] Prove a graph crash cannot close or corrupt SQLite storage.
 
 ### Implementation checklist
 
-- [ ] Pin `@ladybugdb/core@0.18.3` and approved native build metadata.
-- [ ] Declare it as the graph package's optional dependency and add the graph
+- [x] Pin `@ladybugdb/core@0.18.3` and approved native build metadata.
+- [x] Declare it as the graph package's optional dependency and add the graph
       package to the root workspace build order after storage and before MCP.
-- [ ] Keep the memory kernel dependent only on a backend-neutral retriever
+- [x] Keep the memory kernel dependent only on a backend-neutral retriever
       port; compose the optional graph package at the MCP boundary without a
       package cycle.
-- [ ] Add the workspace package without making graph a default lane.
-- [ ] Dynamically import LadybugDB only inside the child.
-- [ ] Implement runtime-decoded bounded IPC.
-- [ ] Derive and confine graph paths; construct a minimal child environment.
-- [ ] Implement parent request identity, deadline, response matching, and
+- [x] Add the workspace package without making graph a default lane.
+- [x] Dynamically import LadybugDB only inside the child.
+- [x] Implement runtime-decoded bounded IPC.
+- [x] Derive and confine graph paths; construct a minimal child environment.
+- [x] Implement parent request identity, deadline, response matching, and
       quarantine state.
-- [ ] Implement OS process termination and non-blocking replacement.
-- [ ] Implement restart rate limit and bounded circuit-breaker cooldown.
-- [ ] Use async graph APIs for user/structural queries; ban sync query path.
-- [ ] Keep explicit transactions for scope writes and lifecycle operations.
-- [ ] Close native results, connections, database, IPC, and timers.
-- [ ] Compute logical digest through the shared contract builder.
-- [ ] Emit content-free stable failure categories.
+- [x] Implement OS process termination and non-blocking replacement.
+- [x] Implement restart rate limit and bounded circuit-breaker cooldown.
+- [x] Use async graph APIs for user/structural queries; ban sync query path.
+- [x] Keep explicit transactions for scope writes and lifecycle operations.
+- [x] Close native results, connections, database, IPC, and timers.
+- [x] Compute logical digest through the shared contract builder.
+- [x] Emit content-free stable failure categories.
 
 ### Focused verification
 
@@ -278,11 +278,11 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Native identity and dependency hashes are recorded.
-- [ ] Timeout fallback p95 and process replacement threshold pass.
-- [ ] Kill-during-query/write recovery passes without SQLite impact.
-- [ ] Decide whether the hard-stop gate permits U3.
-- [ ] Create the U2 commit.
+- [x] Native identity and dependency hashes are recorded.
+- [x] Timeout fallback p95 and process replacement threshold pass.
+- [x] Kill-during-query/write recovery passes without SQLite impact.
+- [x] Decide whether the hard-stop gate permits U3.
+- [x] Create the U2 commit.
 
 **Rollback point:** remove/disable the optional graph package; SQLite runtime
 is unchanged.

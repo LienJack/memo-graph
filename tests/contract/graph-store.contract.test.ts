@@ -1,3 +1,14 @@
+import { createHash } from "node:crypto";
+import {
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+} from "node:fs/promises";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,6 +22,9 @@ import {
   buildGraphPathEvidence,
   buildGraphScopeSnapshot,
 } from "../../packages/contracts/src/index.js";
+import {
+  GraphProcessHost,
+} from "../../packages/graph-projection/src/index.js";
 import {
   HASH_A,
   HASH_B,
@@ -48,6 +62,28 @@ const FRONTIER = {
   source_frontier_hash: HASH_A,
   projection_frontier_hash: HASH_B,
 } as const;
+
+async function installedBackendIdentity() {
+  const require = createRequire(import.meta.url);
+  const entry = require.resolve("@ladybugdb/core");
+  const binary = await readFile(join(dirname(entry), "lbugjs.node"));
+  const lockfile = await readFile(
+    new URL("../../pnpm-lock.yaml", import.meta.url),
+  );
+  return GraphBackendIdentitySchema.parse({
+    schema_version: "1.0.0",
+    backend: "ladybugdb",
+    package_name: "@ladybugdb/core",
+    package_version: "0.18.3",
+    storage_version: "42",
+    platform: process.platform,
+    architecture: process.arch,
+    native_binary_hash:
+      `sha256:${createHash("sha256").update(binary).digest("hex")}`,
+    dependency_lock_hash:
+      `sha256:${createHash("sha256").update(lockfile).digest("hex")}`,
+  });
+}
 
 const VALIDITY = {
   valid_from: NOW,
@@ -668,4 +704,133 @@ describe("graph identity, health, checkpoint, and delivery evidence", () => {
       }).success,
     ).toBe(true);
   });
+});
+
+const nativeIt =
+  process.platform === "darwin" && process.arch === "arm64"
+    ? it
+    : it.skip;
+
+describe("process-isolated LadybugDB GraphStore", () => {
+  nativeIt(
+    "creates, replaces, queries, closes, reopens, and deletes one exact scope",
+    async () => {
+      const root = await mkdtemp(
+        join(await realpath(tmpdir()), "memo-graph-native-contract-"),
+      );
+      const childEntry = new URL(
+        "../../packages/graph-projection/dist/ladybug-process.js",
+        import.meta.url,
+      );
+      const expectedIdentity = await installedBackendIdentity();
+      const canonical = buildGraphScopeSnapshot(snapshot());
+      const query = GraphQuerySchema.parse({
+        schema_version: "1.0.0",
+        query_id: "graph_native_contract_query",
+        backend: "ladybugdb",
+        principal_id: canonical.principal_id,
+        scope: canonical.scope,
+        as_of: NOW,
+        frontier: canonical.frontier,
+        mode: "typed_path",
+        start_revision_ids: [NODE_A.revision_id],
+        allowed_relation_revision_ids: [EDGE.relation_revision_id],
+        relation_pattern: ["supports"],
+        max_depth: 1,
+        max_fanout: 10,
+        max_paths: 4,
+        max_results: 4,
+        max_relation_allowlist: 100,
+        parent_deadline_ms: 1_000,
+      });
+      let graph: GraphProcessHost | null = null;
+      try {
+        graph = await GraphProcessHost.open({
+          dataRoot: root,
+          childEntry,
+          expectedIdentity,
+          requestTimeoutMs: 1_000,
+          writeTimeoutMs: 5_000,
+        });
+        await expect(graph.health()).resolves.toMatchObject({
+          status: "ready",
+          backend_identity: expectedIdentity,
+        });
+        let contender: GraphProcessHost | null = null;
+        try {
+          contender = await GraphProcessHost.open({
+            dataRoot: root,
+            childEntry,
+            expectedIdentity,
+            startupTimeoutMs: 1_000,
+          });
+        } catch {
+          // The active read/write native owner must exclude this process.
+        } finally {
+          await contender?.close();
+        }
+        expect(contender).toBeNull();
+        await expect(
+          Promise.all([
+            graph.replaceScope(canonical),
+            graph.replaceScope(canonical),
+          ]),
+        ).resolves.toEqual([canonical, canonical]);
+        await expect(
+          graph.readScopeSnapshot({
+            principal_id: canonical.principal_id,
+            scope: canonical.scope,
+          }),
+        ).resolves.toEqual(canonical);
+        const queryResult = await graph.queryPaths(query);
+        expect(
+          queryResult,
+          JSON.stringify(queryResult),
+        ).toMatchObject({
+          status: "complete",
+          complete: true,
+          paths: [
+            {
+              node_revision_ids: [
+                NODE_A.revision_id,
+                NODE_B.revision_id,
+              ],
+              relation_revision_ids: [EDGE.relation_revision_id],
+              relation_types: ["supports"],
+              depth: 1,
+            },
+          ],
+        });
+
+        await graph.close();
+        graph = await GraphProcessHost.open({
+          dataRoot: root,
+          childEntry,
+          expectedIdentity,
+          requestTimeoutMs: 1_000,
+          writeTimeoutMs: 5_000,
+        });
+        await expect(
+          graph.readScopeSnapshot({
+            principal_id: canonical.principal_id,
+            scope: canonical.scope,
+          }),
+        ).resolves.toEqual(canonical);
+        await graph.deleteScope({
+          principal_id: canonical.principal_id,
+          scope: canonical.scope,
+        });
+        await expect(
+          graph.readScopeSnapshot({
+            principal_id: canonical.principal_id,
+            scope: canonical.scope,
+          }),
+        ).resolves.toBeNull();
+      } finally {
+        await graph?.close();
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+    30_000,
+  );
 });
