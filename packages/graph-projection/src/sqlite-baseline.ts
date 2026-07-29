@@ -64,16 +64,19 @@ export function queryGraphSnapshotReference(options: {
 
   const nativePathLimit = Math.min(
     query.max_paths + 1,
-    query.max_results + 1,
+    query.mode === "shortest_path"
+      ? query.max_paths + 1
+      : query.max_results + 1,
     query.max_fanout * query.start_revision_ids.length + 1,
   );
+  const terminalDepth = query.relation_pattern.length;
   const paths: GraphPathEvidence[] = [];
   const walk = (state: TraversalState): void => {
     if (paths.length >= nativePathLimit) {
       return;
     }
     const depth = state.relation_revision_ids.length;
-    if (depth > 0) {
+    if (depth === terminalDepth) {
       paths.push(buildGraphPathEvidence({
         node_revision_ids: state.node_revision_ids,
         relation_revision_ids: state.relation_revision_ids,
@@ -83,7 +86,7 @@ export function queryGraphSnapshotReference(options: {
     }
     if (
       depth >= query.max_depth ||
-      depth >= query.relation_pattern.length
+      depth >= terminalDepth
     ) {
       return;
     }
@@ -138,12 +141,20 @@ export function queryGraphSnapshotReference(options: {
   );
   if (query.mode === "shortest_path" && ordered[0] !== undefined) {
     const shortest = ordered[0].depth;
-    ordered = ordered.filter((path) => path.depth === shortest);
+    ordered = ordered
+      .filter((path) => path.depth === shortest)
+      .sort((left, right) =>
+        right.path_hash.localeCompare(left.path_hash)
+      );
   }
   const observedCount = ordered.length;
   const retainedLimit = Math.min(query.max_paths, query.max_results);
+  const tieBroken =
+    query.mode === "shortest_path" &&
+    observedCount > retainedLimit;
   const truncated =
-    paths.length >= nativePathLimit || observedCount > retainedLimit;
+    paths.length >= nativePathLimit ||
+    (!tieBroken && observedCount > retainedLimit);
   ordered = ordered.slice(0, retainedLimit);
   const elapsedMs = Math.max(0, options.elapsedMs ?? 0);
   return GraphQueryResultSchema.parse({
@@ -155,7 +166,11 @@ export function queryGraphSnapshotReference(options: {
     paths: ordered,
     elapsed_ms: elapsedMs,
     complete: !truncated,
-    reason_codes: truncated ? ["GRAPH_RESULT_LIMIT"] : [],
+    reason_codes: truncated
+      ? ["GRAPH_RESULT_LIMIT"]
+      : tieBroken
+        ? ["TIE_BREAK_PATH_HASH"]
+        : [],
     process_outcome: "completed",
     bounded_work: [
       {
@@ -168,7 +183,11 @@ export function queryGraphSnapshotReference(options: {
           Math.max(observedCount, paths.length) - ordered.length,
         ),
         complete: !truncated,
-        ...(truncated ? { reason_code: "GRAPH_RESULT_LIMIT" } : {}),
+        ...(truncated
+          ? { reason_code: "GRAPH_RESULT_LIMIT" }
+          : tieBroken
+            ? { reason_code: "TIE_BREAK_PATH_HASH" }
+            : {}),
       },
       {
         boundary: "graph_wall_clock",

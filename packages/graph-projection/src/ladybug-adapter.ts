@@ -505,12 +505,15 @@ export class LadybugGraphAdapter {
       const key = graphScopeKey(query);
       const nativePathLimit = Math.min(
         query.max_paths + 1,
-        query.max_results + 1,
+        query.mode === "shortest_path"
+          ? query.max_paths + 1
+          : query.max_results + 1,
         query.max_fanout * query.start_revision_ids.length + 1,
       );
+      const terminalDepth = query.relation_pattern.length;
       const rows = await this.#rows(`
         MATCH path =
-          (start:GraphRevision)-[:GraphLink*1..${query.max_depth}]->
+          (start:GraphRevision)-[:GraphLink*${terminalDepth}..${terminalDepth}]->
           (target:GraphRevision)
         WHERE start.scope_key = ${quoted(key)}
           AND target.scope_key = ${quoted(key)}
@@ -537,6 +540,7 @@ export class LadybugGraphAdapter {
           (relation) => relation.relation_type,
         );
         if (
+          row.depth !== terminalDepth ||
           row.depth > query.max_depth ||
           row.nodes.some((node) => node.scope_key !== key) ||
           row.relations.some((relation) => relation.scope_key !== key) ||
@@ -566,16 +570,23 @@ export class LadybugGraphAdapter {
       );
       if (query.mode === "shortest_path" && paths[0] !== undefined) {
         const shortestDepth = paths[0].depth;
-        paths = paths.filter((path) => path.depth === shortestDepth);
+        paths = paths
+          .filter((path) => path.depth === shortestDepth)
+          .sort((left, right) =>
+            right.path_hash.localeCompare(left.path_hash)
+          );
       }
       const observedCount = paths.length;
       const retainedLimit = Math.min(
         query.max_paths,
         query.max_results,
       );
+      const tieBroken =
+        query.mode === "shortest_path" &&
+        observedCount > retainedLimit;
       const truncated = rows.length >= nativePathLimit ||
         rows.length > query.max_paths ||
-        observedCount > retainedLimit;
+        (!tieBroken && observedCount > retainedLimit);
       paths = paths.slice(0, retainedLimit);
       const elapsedMs = performance.now() - startedAt;
       return GraphQueryResultSchema.parse({
@@ -587,7 +598,11 @@ export class LadybugGraphAdapter {
         paths,
         elapsed_ms: elapsedMs,
         complete: !truncated,
-        reason_codes: truncated ? ["GRAPH_RESULT_LIMIT"] : [],
+        reason_codes: truncated
+          ? ["GRAPH_RESULT_LIMIT"]
+          : tieBroken
+            ? ["TIE_BREAK_PATH_HASH"]
+            : [],
         process_outcome: "completed",
         bounded_work: [
           {
@@ -600,7 +615,9 @@ export class LadybugGraphAdapter {
             complete: !truncated,
             ...(truncated
               ? { reason_code: "GRAPH_RESULT_LIMIT" }
-              : {}),
+              : tieBroken
+                ? { reason_code: "TIE_BREAK_PATH_HASH" }
+                : {}),
           },
           {
             boundary: "graph_wall_clock",

@@ -1,3 +1,4 @@
+export * from "./benchmark.js";
 export * from "./graph-store.js";
 export * from "./graph-retriever.js";
 export * from "./logical-digest.js";

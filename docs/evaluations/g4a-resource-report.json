@@ -1,0 +1,129 @@
+{
+  "schema_version": "1.0.0",
+  "recorded_at": "2026-07-29T04:05:17.215Z",
+  "gate": "G4A_RESOURCE",
+  "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+  "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+  "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+  "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517",
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "os": "Darwin 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3",
+    "ladybug": {
+      "schema_version": "1.0.0",
+      "backend": "ladybugdb",
+      "package_name": "@ladybugdb/core",
+      "package_version": "0.18.3",
+      "storage_version": "42",
+      "platform": "darwin",
+      "architecture": "arm64",
+      "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+      "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066"
+    },
+    "storage_schema": "0012",
+    "graph_schema": "GraphRevision/GraphLink/GraphScope@1.0.0",
+    "compiler": "g4a-terminal-pattern-v1",
+    "transform": "g4a-frozen-topology-materializer@1.0.0",
+    "protocol": "G4A@1.0.0",
+    "corpus": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+    "runner_source_hash": "sha256:3e71d6ad34eacc9d4bbb8ea6f9e3cd1ef1663a08a08fd07abbcf88ff8fc28e47",
+    "materializer_source_hash": "sha256:b5a3ac2e8f75b7b819e163ee7656c39212dfdb42883937c3b139cbad52d684b5",
+    "process_host_source_hash": "sha256:e2a047b758df683d9eda869182c6cf66c2c3195604afb66ad30d723cd93c10b2",
+    "native_adapter_source_hash": "sha256:d4ebf0e3fa88cb5e18a3d71f5a77011227c1f01321c69ebf50f34f25ceeb3d60",
+    "sample_identity": "sha256:70a568ac01ec3bf589f4891f9f5afadc1961e2604eb909f27dfe65f0d596a6aa"
+  },
+  "thresholds": {
+    "strict_case_gains": 3,
+    "minimum_holdout_gains": 1,
+    "minimum_transfer_gains": 1,
+    "critical_regression_tolerance": 0,
+    "host_graph_deadline_ms": 75,
+    "fallback_p95_ms": 100,
+    "governed_recall_p50_ms": 50,
+    "governed_recall_p95_ms": 200,
+    "replacement_ready_ms": 2000,
+    "expected_rebuild_ms": 60000,
+    "graph_database_wal_bytes": 536870912,
+    "install_delta_bytes": 67108864,
+    "idle_rss_delta_bytes": 134217728,
+    "peak_rss_delta_bytes": 536870912,
+    "warmup_samples": 20,
+    "measured_samples": 100
+  },
+  "metrics": {
+    "samples": {
+      "warmups": 20,
+      "measured": 100,
+      "query_sample_hash": "sha256:c4adff5370f023b6cc7a948e40b027b0289f4836693e6bb2238f9be316741033",
+      "fallback_sample_hash": "sha256:490bee77dac2e0eff279a543b57984784b36b4b2c697f41f5b6442d3884b5562"
+    },
+    "latency_ms": {
+      "graph_assisted_p50": 3.770208000000025,
+      "graph_assisted_p95": 6.499125000000049,
+      "fallback_p95": 76.95008400000006,
+      "process_startup": 173.31404099999997,
+      "replacement_max": 261.95820900000035,
+      "small_six_scope_rebuild": 212.96487499999785,
+      "expected_full_rebuild": null
+    },
+    "physical_bytes": {
+      "graph_database_wal": 1884160,
+      "logical_export": 36668,
+      "logical_expected_profile_export": 18001,
+      "graph_backup": 1920828,
+      "install_delta": 19849707,
+      "retained_quarantine": 0
+    },
+    "rss_bytes": {
+      "parent_before": 123469824,
+      "parent_after": 385990656,
+      "child_idle": 160579584,
+      "child_peak_observed": 257130496,
+      "idle_delta": 160579584,
+      "peak_delta": 257130496
+    },
+    "process": {
+      "queue_debt": 0,
+      "active_requests": 1,
+      "restart_count": 0
+    },
+    "small_profile": {
+      "scope_count": 6,
+      "logical_digest": "sha256:f913c44db594471b903c9780e360afe25ee1c2685244648a498c554918923bf2",
+      "native_physical_materialized": true
+    },
+    "expected_profile": {
+      "active_l1_memories": 25000,
+      "l2_l3_projections": 6000,
+      "relations": 50000,
+      "scope_count": 100,
+      "logical_materialized": true,
+      "logical_digest": "sha256:d8a7968487ad9eaaa4477ced4ecbcdcb35d3e4bf47811bd36067c05fce6575c5",
+      "logical_materialization_ms": 2132.3877079999984,
+      "native_physical_materialized": false,
+      "native_full_rebuild_measured": false,
+      "missing_reason": "EXPECTED_NATIVE_PROFILE_NOT_RUN_AFTER_STRUCTURAL_GATE_FAILED"
+    }
+  },
+  "threshold_results": {
+    "warmups": true,
+    "measured_samples": true,
+    "graph_p50": true,
+    "graph_p95": true,
+    "fallback_p95": true,
+    "replacement": true,
+    "expected_rebuild": false,
+    "graph_database_wal": true,
+    "install_delta": true,
+    "idle_rss": false,
+    "peak_rss": true,
+    "queue_debt": true,
+    "expected_native_profile": false
+  },
+  "resource_gate": false,
+  "report_hash": "sha256:ecba3c53c91eb5d43ab90fa377773b299969c014c99180662e1e3944e8c1a550"
+}

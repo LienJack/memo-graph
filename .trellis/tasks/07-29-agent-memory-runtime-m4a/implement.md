@@ -712,51 +712,51 @@ M4A-AC3/M4A-AC5/M4A-AC8.
 
 ### Test-first checklist
 
-- [ ] Reject baseline arm unless its commit equals accepted G3R.
-- [ ] Reject B/C unless they share one candidate commit and lockfile.
-- [ ] Reject package/native/corpus/partition/policy/request/frontier/budget/
+- [x] Reject baseline arm unless its commit equals accepted G3R.
+- [x] Reject B/C unless they share one candidate commit and lockfile.
+- [x] Reject package/native/corpus/partition/policy/request/frontier/budget/
       threshold identity drift.
-- [ ] Prove calibration runner cannot open holdout/transfer payloads.
-- [ ] Prove all arms receive identical canonical SQLite input and limits.
-- [ ] Prove Arms B and C receive identical typed/shortest-path task semantics
+- [x] Prove calibration runner cannot open holdout/transfer payloads.
+- [x] Prove all arms receive identical canonical SQLite input and limits.
+- [x] Prove Arms B and C receive identical typed/shortest-path task semantics
       and governed slices; reject any comparison that withholds the reference
       algorithm from B.
-- [ ] Prove Arm B's runtime output outside the evaluation-only reference is
+- [x] Prove Arm B's runtime output outside the evaluation-only reference is
       semantically equal to accepted G3R.
-- [ ] Score exact revision set, ordered proof path, evidence, completeness, and
+- [x] Score exact revision set, ordered proof path, evidence, completeness, and
       abstention for each case.
-- [ ] Reject top-k/candidate count as task gain.
-- [ ] Reject ordering-only or latency-only differences as strict structural
+- [x] Reject top-k/candidate count as task gain.
+- [x] Reject ordering-only or latency-only differences as strict structural
       gain.
-- [ ] Require three strict gains including one holdout and one transfer.
-- [ ] Reject any case or partition regression.
-- [ ] Reject any governance, privacy, correction, purge, rebuild, recovery, or
+- [x] Require three strict gains including one holdout and one transfer.
+- [x] Reject any case or partition regression.
+- [x] Reject any governance, privacy, correction, purge, rebuild, recovery, or
       budget violation.
-- [ ] Reject missing Expected physical dataset or measurement.
-- [ ] Require at least 20 warm-ups and 100 measured query samples.
-- [ ] Measure graph-assisted p50/p95 and fallback p95.
-- [ ] Measure process startup/replacement and Expected full rebuild.
-- [ ] Measure graph database, WAL, export/backup, install delta, idle RSS, peak
+- [x] Reject missing Expected physical dataset or measurement.
+- [x] Require at least 20 warm-ups and 100 measured query samples.
+- [x] Measure graph-assisted p50/p95 and fallback p95.
+- [x] Measure process startup/replacement and Expected full rebuild.
+- [x] Measure graph database, WAL, export/backup, install delta, idle RSS, peak
       RSS, queue debt, and retained quarantine bytes.
-- [ ] Record Node, pnpm, OS, architecture, SQLite, LadybugDB, storage, native
+- [x] Record Node, pnpm, OS, architecture, SQLite, LadybugDB, storage, native
       binary, compiler, transform, schema, sample, and warm-up identity.
-- [ ] Prove missing/failed/mixed report cannot be interpreted as GO.
-- [ ] Prove repeated evaluation produces the same logical scores and hashes.
+- [x] Prove missing/failed/mixed report cannot be interpreted as GO.
+- [x] Prove repeated evaluation produces the same logical scores and hashes.
 
 ### Implementation checklist
 
-- [ ] Implement exact accepted-baseline isolation.
-- [ ] Implement versioned A/B/C evaluation protocol.
-- [ ] Run Arm B through the evaluation-only graph-free structural reference
+- [x] Implement exact accepted-baseline isolation.
+- [x] Implement versioned A/B/C evaluation protocol.
+- [x] Run Arm B through the evaluation-only graph-free structural reference
       and Arm C through LadybugDB over the identical governed slice.
-- [ ] Implement calibration/holdout/transfer access guard.
-- [ ] Implement structural scorer and strict-gain comparison.
-- [ ] Implement physical Expected profile materialization.
-- [ ] Implement latency, fallback, startup, rebuild, disk, install, RSS, and
+- [x] Implement calibration/holdout/transfer access guard.
+- [x] Implement structural scorer and strict-gain comparison.
+- [x] Implement physical Expected profile materialization.
+- [x] Implement latency, fallback, startup, rebuild, disk, install, RSS, and
       process-resource measurements.
-- [ ] Emit machine-readable reports plus human scorecard.
-- [ ] Implement independent evidence hash verifier.
-- [ ] Add root focused graph test/benchmark/verify scripts.
+- [x] Emit machine-readable reports plus human scorecard.
+- [x] Implement independent evidence hash verifier.
+- [x] Add root focused graph test/benchmark/verify scripts.
 
 ### Focused verification
 
@@ -772,11 +772,18 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] A/B/C identity and frozen-input checks pass.
-- [ ] Structural material-gain result is explicit.
-- [ ] Every hard safety/resource gate is explicit.
-- [ ] Reports distinguish measured Darwin arm64 evidence from declarations.
-- [ ] Create the U7 commit.
+- [x] A/B/C identity and frozen-input checks pass.
+- [x] Structural material-gain result is explicit.
+- [x] Every hard safety/resource gate is explicit.
+- [x] Reports distinguish measured Darwin arm64 evidence from declarations.
+- [x] Create the U7 commit.
+
+**Recorded U7 result (2026-07-29):** NO-GO. Structural strict gains were
+0 with one transfer regression. The Expected logical profile was fully
+materialized, but Expected native physical population and full rebuild were
+not run after the structural gate failed; the verifier therefore forces the
+resource gate to fail instead of extrapolating from Small evidence. Idle child
+RSS also exceeded the frozen threshold.
 
 **Rollback point:** evidence can conclude NO-GO without changing SQLite runtime.
 
