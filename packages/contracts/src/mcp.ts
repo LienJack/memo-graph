@@ -27,6 +27,7 @@ import {
   ProjectionLineageRefSchema,
   RecallLaneSchema,
 } from "./projections.js";
+import { VectorSelectionEvidenceSchema } from "./vector.js";
 
 export const ToolSafetyClassSchema = z.enum([
   "read_only",
@@ -440,6 +441,7 @@ export const ContextSliceItemSchema = z
     lane: RecallLaneSchema.optional(),
     projection: ProjectionLineageRefSchema.optional(),
     graph_path: GraphPathEvidenceSchema.optional(),
+    vector: VectorSelectionEvidenceSchema.optional(),
     score_components: ContextScoreComponentsSchema.optional(),
     conflict_group_id: IdentifierSchema.nullable().optional(),
     decision_reason_codes: z
@@ -449,6 +451,27 @@ export const ContextSliceItemSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (
+      (value.lane === "semantic_vector") !==
+      (value.vector !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["vector"],
+        message:
+          "semantic_vector Context items require vector selection evidence and other lanes cannot carry it",
+      });
+    }
+    if (
+      value.vector !== undefined &&
+      value.abstraction !== "l1_memory"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["vector"],
+        message: "only L1 Context items may carry vector selection evidence",
+      });
+    }
     const projectionLaneByAbstraction = {
       l2_topic: "topic",
       l2_scenario: "scenario_procedure",
@@ -496,7 +519,10 @@ export const ContextSliceItemSchema = z
       return;
     }
 
-    if (value.projection !== undefined || value.graph_path !== undefined) {
+    if (
+      value.projection !== undefined ||
+      value.graph_path !== undefined
+    ) {
       context.addIssue({
         code: "custom",
         path: ["projection"],

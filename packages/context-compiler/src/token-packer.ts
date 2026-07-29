@@ -39,6 +39,7 @@ const LANE_ORDER: RecallLane[] = [
   "core",
   "relation_sqlite",
   "relation_graph",
+  "semantic_vector",
 ];
 
 function scoreOrder<T>(

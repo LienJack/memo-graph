@@ -632,7 +632,20 @@ export const BASE_RECALL_LANES = [
 export const RecallLaneSchema = z.enum([
   ...BASE_RECALL_LANES,
   "relation_graph",
+  "semantic_vector",
 ]);
+
+export function applicableRecallLanes(
+  requestedLanes: readonly z.infer<typeof RecallLaneSchema>[],
+): z.infer<typeof RecallLaneSchema>[] {
+  const requested = new Set(requestedLanes);
+  return RecallLaneSchema.options.filter(
+    (lane) =>
+      BASE_RECALL_LANES.includes(
+        lane as (typeof BASE_RECALL_LANES)[number],
+      ) || requested.has(lane),
+  );
+}
 
 export const LaneLimitsSchema = z
   .object({
@@ -669,6 +682,19 @@ export const LaneLimitsSchema = z
       .max(75)
       .optional(),
     graph_max_response_bytes: z
+      .number()
+      .int()
+      .min(1_024)
+      .max(16 * 1_024 * 1_024)
+      .optional(),
+    vector_top_k: z.number().int().min(1).max(100).optional(),
+    vector_query_timeout_ms: z
+      .number()
+      .int()
+      .min(1)
+      .max(75)
+      .optional(),
+    vector_max_response_bytes: z
       .number()
       .int()
       .min(1_024)
@@ -758,6 +784,9 @@ const OPTIONAL_LIMIT_KEYS = [
   "graph_max_relation_allowlist",
   "graph_query_timeout_ms",
   "graph_max_response_bytes",
+  "vector_top_k",
+  "vector_query_timeout_ms",
+  "vector_max_response_bytes",
 ] as const;
 
 export const DEFAULT_BOUNDED_RECALL_LIMITS = {
@@ -768,6 +797,9 @@ export const DEFAULT_BOUNDED_RECALL_LIMITS = {
   graph_max_relation_allowlist: 10_000,
   graph_query_timeout_ms: 75,
   graph_max_response_bytes: 1_048_576,
+  vector_top_k: 50,
+  vector_query_timeout_ms: 75,
+  vector_max_response_bytes: 1_048_576,
 } as const;
 
 export function computeEffectiveLaneConfiguration(
@@ -849,6 +881,13 @@ export const BoundedWorkBoundarySchema = z.enum([
   "graph_wall_clock",
   "graph_response_bytes",
   "graph_process_restarts",
+  "vector_embedding_inputs",
+  "vector_embedding_tokens",
+  "vector_embedding_batches",
+  "vector_candidates",
+  "vector_postvalidation",
+  "vector_response_bytes",
+  "vector_process_restarts",
 ]);
 
 export const BoundedWorkTelemetrySchema = z

@@ -3,13 +3,12 @@ import {
 } from "node:perf_hooks";
 
 import {
-  BASE_RECALL_LANES,
   CanonicalHashSchema,
   G3CaseResultSchema,
   GovernedSearchItemSchema,
   LaneTelemetrySchema,
   ProjectionRevisionSchema,
-  RecallLaneSchema,
+  applicableRecallLanes,
   canonicalJson,
   canonicalSha256,
   canonicalSha256Omitting,
@@ -409,11 +408,9 @@ function telemetry(
   projections: ProjectionRevision[],
   failureLane?: RecallLane,
 ) {
-  const telemetryLanes = effective.requested_lanes.includes(
-    "relation_graph",
-  )
-    ? RecallLaneSchema.options
-    : BASE_RECALL_LANES;
+  const telemetryLanes = applicableRecallLanes(
+    effective.requested_lanes,
+  );
   return telemetryLanes.map((lane) => {
     const requested = effective.requested_lanes.includes(lane);
     const enabled = effective.enabled_lanes.includes(lane);

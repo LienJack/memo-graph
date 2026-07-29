@@ -3,7 +3,7 @@
   "name": "agent-memory-runtime-m4b",
   "title": "Agent Memory Runtime M4B vector adoption decision",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "M4B only: declare and evaluate a semantic-gap subset, decide whether an optional vector candidate lane adds material governed retrieval value over accepted FTS5/layered/SQLite baselines, and preserve privacy, invalidation, rebuild, fallback, latency, disk, and local execution boundaries; exclude learning and M6",
   "package": null,

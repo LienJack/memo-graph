@@ -154,6 +154,9 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
         lane: "relation_graph",
       });
     }
+    if (request.lane === "semantic_vector") {
+      throw new Error("vector lane runtime is not configured");
+    }
     return this.#projections(request);
   }
 
@@ -197,7 +200,8 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
     if (
       request.lane === "recent_l1" ||
       request.lane === "relation_sqlite" ||
-      request.lane === "relation_graph"
+      request.lane === "relation_graph" ||
+      request.lane === "semantic_vector"
     ) {
       throw new Error("projection retriever received an invalid lane");
     }

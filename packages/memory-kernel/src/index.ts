@@ -10,7 +10,6 @@ import {
   type ContextExclusion,
 } from "@memo-graph/context-compiler";
 import {
-  BASE_RECALL_LANES,
   GovernedResponseSchema,
   LanePolicySchema,
   LaneTelemetrySchema,
@@ -29,7 +28,7 @@ import {
   MemorySearchInputSchema,
   MemoryProposeInputSchema,
   MemoryUsageSetInputSchema,
-  RecallLaneSchema,
+  applicableRecallLanes,
   RecallRequestSchema,
   RetrievalReceiptSchema,
   authorizeRequestClaims,
@@ -360,13 +359,11 @@ function aggregateRecallTelemetry(options: {
     "disabled_by_policy",
     "disabled_by_request",
   ] as const;
-  const telemetryLanes = options.recalls.some((recall) =>
-    recall.effective_configuration.requested_lanes.includes(
-      "relation_graph",
-    )
-  )
-    ? RecallLaneSchema.options
-    : BASE_RECALL_LANES;
+  const telemetryLanes = applicableRecallLanes(
+    options.recalls.flatMap(
+      (recall) => recall.effective_configuration.requested_lanes,
+    ),
+  );
   return LaneTelemetrySchema.array().parse(
     telemetryLanes.map((lane) => {
       const rows = options.recalls.map((recall) => {

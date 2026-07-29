@@ -17,6 +17,7 @@ import {
   ProjectionLineageRefSchema,
   RecallLaneSchema,
 } from "./projections.js";
+import { VectorSelectionEvidenceSchema } from "./vector.js";
 
 export const ReceiptStateSchema = z.enum([
   "durable",
@@ -49,10 +50,22 @@ export const RetrievalReceiptItemSchema = z
     token_estimate: z.number().int().nonnegative().optional(),
     projection: ProjectionLineageRefSchema.optional(),
     graph_path: GraphPathEvidenceSchema.optional(),
+    vector: VectorSelectionEvidenceSchema.optional(),
     conflict_group_id: IdentifierSchema.nullable().optional(),
   })
   .strict()
   .superRefine((value, context) => {
+    if (
+      (value.lane === "semantic_vector") !==
+      (value.vector !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["vector"],
+        message:
+          "semantic_vector receipt items require vector selection evidence and other lanes cannot carry it",
+      });
+    }
     if (
       value.projection !== undefined &&
       (!RecallLaneSchema.safeParse(value.lane).success ||

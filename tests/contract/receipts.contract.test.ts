@@ -297,6 +297,40 @@ describe("receipt contracts", () => {
     ).toBe(false);
   });
 
+  it("requires vector evidence only on semantic_vector receipt items", () => {
+    const item = {
+      memory_id: "memory_vector_1",
+      revision_id: "revision_vector_1",
+      decision: "included",
+      reason_codes: ["SEMANTIC_VECTOR_REVALIDATED"],
+      lane: "semantic_vector",
+      score: 0.875,
+      token_estimate: 16,
+      vector: {
+        schema_version: "1.0.0",
+        embedding_epoch_id: HASH_A,
+        generation_id: "generation_1",
+        source_frontier_hash: HASH_B,
+        distance: 0.125,
+        rank: 1,
+        canonical_revalidated: true,
+      },
+    } as const;
+    expect(RetrievalReceiptItemSchema.safeParse(item).success).toBe(true);
+    expect(
+      RetrievalReceiptItemSchema.safeParse({
+        ...item,
+        vector: undefined,
+      }).success,
+    ).toBe(false);
+    expect(
+      RetrievalReceiptItemSchema.safeParse({
+        ...item,
+        lane: "recent_l1",
+      }).success,
+    ).toBe(false);
+  });
+
   it("cannot complete a purge while residual content remains", () => {
     expect(
       PurgeReceiptSchema.safeParse(

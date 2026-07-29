@@ -1,5 +1,4 @@
 import {
-  BASE_RECALL_LANES,
   DEFAULT_BOUNDED_RECALL_LIMITS,
   EffectiveLaneConfigurationSchema,
   GraphPathEvidenceSchema,
@@ -10,6 +9,7 @@ import {
   ProjectionRevisionSchema,
   RecallLaneSchema,
   ScopeSchema,
+  applicableRecallLanes,
   canonicalJson,
   computeEffectiveLaneConfiguration,
   scopeKey,
@@ -143,10 +143,9 @@ export const LayeredRecallResultSchema = z
   .strict()
   .superRefine((value, context) => {
     const lanes = value.telemetry.map((item) => item.lane);
-    const expectedLanes = value.effective_configuration.requested_lanes
-      .includes("relation_graph")
-      ? RecallLaneSchema.options
-      : BASE_RECALL_LANES;
+    const expectedLanes = applicableRecallLanes(
+      value.effective_configuration.requested_lanes,
+    );
     if (
       lanes.length !== expectedLanes.length ||
       new Set(lanes).size !== lanes.length ||
@@ -499,11 +498,9 @@ export class RecallOrchestrator {
           ) ?? false);
       })
       .sort();
-    const telemetryLanes = effective.requested_lanes.includes(
-      "relation_graph",
-    )
-      ? RecallLaneSchema.options
-      : BASE_RECALL_LANES;
+    const telemetryLanes = applicableRecallLanes(
+      effective.requested_lanes,
+    );
     const telemetry = telemetryLanes.map((lane) => {
       const requested = effective.requested_lanes.includes(lane);
       const enabled = effective.enabled_lanes.includes(lane);

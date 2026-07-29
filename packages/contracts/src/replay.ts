@@ -764,6 +764,239 @@ export const G4ACaseResultSchema = z
   })
   .strict();
 
+export const G4BArmSchema = z.enum([
+  "fts_recency",
+  "layered",
+  "vector",
+  "hybrid",
+]);
+
+export const G4BCaseRoleSchema = z.enum([
+  "positive_gap",
+  "negative_control",
+]);
+
+export const G4BCaseFamilySchema = z.enum([
+  "english_paraphrase",
+  "cross_language",
+  "scope_negative_control",
+  "operational_paraphrase",
+  "cross_language_correction",
+  "lifecycle_negative_control",
+  "offline_semantic_operation",
+  "conceptual_paraphrase",
+  "temporal_negative_control",
+]);
+
+export const G4BCandidateRevisionSchema = z
+  .object({
+    revision_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    lifecycle: z.enum([
+      "active",
+      "superseded",
+      "revoked",
+      "candidate",
+    ]),
+    valid_from: UtcTimestampSchema,
+    valid_to: UtcTimestampSchema.nullable(),
+    content: z.string().min(1).max(256_000),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.valid_to !== null &&
+      Date.parse(value.valid_to) < Date.parse(value.valid_from)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["valid_to"],
+        message: "G4B candidate validity cannot end before it begins",
+      });
+    }
+  });
+
+export const G4BFrozenCaseSchema = z
+  .object({
+    case_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    case_role: G4BCaseRoleSchema,
+    family: G4BCaseFamilySchema,
+    query: z.string().trim().min(1).max(4_000),
+    expected_revision_ids: z.array(IdentifierSchema),
+    candidate_revisions: z.array(G4BCandidateRevisionSchema).min(1).max(100),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const candidateIds = value.candidate_revisions.map(
+      (candidate) => candidate.revision_id,
+    );
+    if (new Set(candidateIds).size !== candidateIds.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["candidate_revisions"],
+        message: "G4B case candidate revision identities must be unique",
+      });
+    }
+    if (
+      new Set(value.expected_revision_ids).size !==
+      value.expected_revision_ids.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_revision_ids"],
+        message: "G4B expected revision identities must be unique",
+      });
+    }
+    if (
+      value.expected_revision_ids.some(
+        (revisionId) => !candidateIds.includes(revisionId),
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_revision_ids"],
+        message: "G4B expected revisions must resolve in the frozen candidates",
+      });
+    }
+    if (
+      value.case_role === "positive_gap" &&
+      value.expected_revision_ids.length === 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_revision_ids"],
+        message: "positive G4B gap cases require an expected revision",
+      });
+    }
+  });
+
+export const G4BThresholdsSchema = z
+  .object({
+    positive_cases: z.literal(6),
+    minimum_positive_cases_solved: z.literal(5),
+    minimum_strict_case_gains: z.literal(4),
+    minimum_holdout_gains: z.literal(1),
+    minimum_transfer_gains: z.literal(1),
+    critical_regression_tolerance: z.literal(0),
+    context_pollution_delta_tolerance: z.literal(0),
+    governed_recall_p50_ms: z.literal(50),
+    governed_recall_p95_ms: z.literal(200),
+    context_compile_p50_ms: z.literal(100),
+    context_compile_p95_ms: z.literal(400),
+    fallback_p95_ms: z.literal(100),
+    warmup_samples: z.literal(20),
+    measured_samples: z.literal(100),
+  })
+  .strict();
+
+export const G4BFrozenSubsetSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    frozen_at: UtcTimestampSchema,
+    accepted_g3r_commit: z.string().regex(/^[a-f0-9]{40}$/),
+    accepted_g3r_lock_hash: CanonicalHashSchema,
+    candidate_selection: z.null(),
+    arms: z.array(G4BArmSchema).length(4),
+    scope: z
+      .object({
+        principal_id: IdentifierSchema,
+        kind: ScopeSchema.shape.kind,
+        id: IdentifierSchema,
+      })
+      .strict(),
+    as_of: UtcTimestampSchema,
+    token_budgets: z.tuple([z.literal(1_800), z.literal(4_096)]),
+    thresholds: G4BThresholdsSchema,
+    expected_profile: z
+      .object({
+        evidence_events: z.literal(250_000),
+        active_l1_memories: z.literal(25_000),
+        l2_l3_projections: z.literal(6_000),
+        relations: z.literal(50_000),
+      })
+      .strict(),
+    strict_gain_rule: NonEmptyReasonSchema,
+    adoption_rule: NonEmptyReasonSchema,
+    cases: z.array(G4BFrozenCaseSchema).length(9),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.arms.some(
+        (arm, index) => arm !== G4BArmSchema.options[index],
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["arms"],
+        message: "G4B subset must declare the exact ordered four arms",
+      });
+    }
+    const caseIds = value.cases.map((entry) => entry.case_id);
+    if (new Set(caseIds).size !== caseIds.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["cases"],
+        message: "G4B case identities must be unique",
+      });
+    }
+    const families = value.cases.map((entry) => entry.family);
+    if (
+      new Set(families).size !== G4BCaseFamilySchema.options.length ||
+      G4BCaseFamilySchema.options.some(
+        (family) => !families.includes(family),
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["cases"],
+        message: "G4B subset must contain every frozen family once",
+      });
+    }
+    if (
+      value.cases.filter((entry) => entry.case_role === "positive_gap")
+        .length !== value.thresholds.positive_cases
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["cases"],
+        message: "G4B positive case count must match the frozen threshold",
+      });
+    }
+    for (const partition of EvaluationPartitionSchema.options) {
+      if (
+        value.cases.filter((entry) => entry.partition === partition).length !==
+        3
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["cases"],
+          message: `G4B subset requires exactly three ${partition} cases`,
+        });
+      }
+    }
+  });
+
+export const G4BEvaluationPhaseSchema = z.enum([
+  "calibration_tuning",
+  "gate_evaluation",
+]);
+
+export function assertG4BPartitionAccess(
+  phaseInput: unknown,
+  partitionInput: unknown,
+): void {
+  const phase = G4BEvaluationPhaseSchema.parse(phaseInput);
+  const partition = EvaluationPartitionSchema.parse(partitionInput);
+  if (phase === "calibration_tuning" && partition !== "calibration") {
+    throw new Error(
+      `G4B partition ${partition} is unavailable during calibration tuning`,
+    );
+  }
+}
+
 export type G3Arm = z.infer<typeof G3ArmSchema>;
 export type G3OverlayCase = z.infer<typeof G3OverlayCaseSchema>;
 export type G3OverlayDescriptor = z.infer<
@@ -794,6 +1027,13 @@ export type G4AProtocolIdentity = z.infer<
   typeof G4AProtocolIdentitySchema
 >;
 export type G4AThresholds = z.infer<typeof G4AThresholdsSchema>;
+export type G4BArm = z.infer<typeof G4BArmSchema>;
+export type G4BCandidateRevision = z.infer<
+  typeof G4BCandidateRevisionSchema
+>;
+export type G4BFrozenCase = z.infer<typeof G4BFrozenCaseSchema>;
+export type G4BFrozenSubset = z.infer<typeof G4BFrozenSubsetSchema>;
+export type G4BThresholds = z.infer<typeof G4BThresholdsSchema>;
 export type ReplayCaseBody = z.infer<typeof ReplayCaseBodySchema>;
 export type ReplayCaseDescriptor = z.infer<typeof ReplayCaseDescriptorSchema>;
 export type ReplayManifest = z.infer<typeof ReplayManifestSchema>;

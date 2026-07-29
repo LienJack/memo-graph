@@ -296,6 +296,56 @@ describe("MCP boundary contracts", () => {
     ).toBe(false);
   });
 
+  it("requires vector evidence only on semantic L1 Context items", () => {
+    const item = {
+      memory_id: "memory_vector_1",
+      revision_id: "revision_vector_1",
+      abstraction: "l1_memory",
+      lifecycle: "active",
+      authority: "user_stated",
+      sensitivity: "internal",
+      scope: USER_SCOPE,
+      content: {
+        storage: "inline",
+        text: "Semantic vector candidate",
+        media_type: "text/plain",
+      },
+      evidence_ids: ["evidence_1"],
+      selection_reason: "Selected after canonical vector postvalidation.",
+      uncertainty: null,
+      token_estimate: 16,
+      lane: "semantic_vector",
+      vector: {
+        schema_version: "1.0.0",
+        embedding_epoch_id: HASH_A,
+        generation_id: "generation_1",
+        source_frontier_hash: HASH_B,
+        distance: 0.125,
+        rank: 1,
+        canonical_revalidated: true,
+      },
+    } as const;
+    expect(ContextSliceItemSchema.safeParse(item).success).toBe(true);
+    expect(
+      ContextSliceItemSchema.safeParse({
+        ...item,
+        vector: undefined,
+      }).success,
+    ).toBe(false);
+    expect(
+      ContextSliceItemSchema.safeParse({
+        ...item,
+        lane: "recent_l1",
+      }).success,
+    ).toBe(false);
+    expect(
+      ContextSliceItemSchema.safeParse({
+        ...item,
+        abstraction: "l2_topic",
+      }).success,
+    ).toBe(false);
+  });
+
   it.each(["NO_MATCH", "POLICY_EXCLUDED", "DEGRADED", "FAILED"] as const)(
     "does not collapse %s into an OK empty result",
     (status) => {

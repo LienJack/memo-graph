@@ -397,6 +397,61 @@ describe("lane and frontier contracts", () => {
     );
   });
 
+  it("adds semantic_vector as an explicit opt-in lane with bounded vector work", () => {
+    expect(RecallLaneSchema.parse("semantic_vector")).toBe(
+      "semantic_vector",
+    );
+    expect(BASE_RECALL_LANES).not.toContain("semantic_vector");
+    const effective = computeEffectiveLaneConfiguration(
+      {
+        allowed_lanes: ["recent_l1", "semantic_vector"],
+        limits: {
+          ...LANE_POLICY.limits,
+          vector_top_k: 50,
+          vector_query_timeout_ms: 75,
+          vector_max_response_bytes: 1_048_576,
+        },
+      },
+      {
+        requested_lanes: ["semantic_vector"],
+        limits: {
+          vector_top_k: 10,
+          vector_query_timeout_ms: 50,
+          vector_max_response_bytes: 524_288,
+        },
+      },
+    );
+    expect(effective.enabled_lanes).toEqual(["semantic_vector"]);
+    expect(effective.limits).toMatchObject({
+      vector_top_k: 10,
+      vector_query_timeout_ms: 50,
+      vector_max_response_bytes: 524_288,
+    });
+    expect(BoundedWorkBoundarySchema.options).toEqual(
+      expect.arrayContaining([
+        "vector_embedding_inputs",
+        "vector_embedding_tokens",
+        "vector_embedding_batches",
+        "vector_candidates",
+        "vector_postvalidation",
+        "vector_response_bytes",
+        "vector_process_restarts",
+      ]),
+    );
+    expect(
+      LaneTelemetrySchema.safeParse({
+        lane: "semantic_vector",
+        status: "disabled_by_policy",
+        duration_ms: 0,
+        candidate_count: 0,
+        eligible_count: 0,
+        selected_count: 0,
+        exclusion_counts: {},
+        reason_codes: ["LANE_DENIED_BY_POLICY:semantic_vector"],
+      }).success,
+    ).toBe(true);
+  });
+
   it("intersects request overrides with operator-owned lane policy", () => {
     const effective = computeEffectiveLaneConfiguration(LANE_POLICY, {
       requested_lanes: ["topic", "core"],

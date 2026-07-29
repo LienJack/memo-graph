@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 
 import {
-  BASE_RECALL_LANES,
   ContextConflictSetSchema,
   ContextFrontierSchema,
   ContextSliceItemSchema,
@@ -15,6 +14,7 @@ import {
   RecallLaneSchema,
   RecallRequestSchema,
   RetrievalReceiptSchema,
+  applicableRecallLanes,
   canonicalJson,
   canonicalSha256,
   canonicalSha256Omitting,
@@ -611,19 +611,11 @@ export const CompileLayeredContextInputSchema = z
       }
     }
     const telemetryLanes = value.telemetry.map((item) => item.lane);
-    const graphRequested =
-      value.request.lane_overrides?.requested_lanes.includes(
-        "relation_graph",
-      ) === true ||
-      value.effective_configuration.requested_lanes.includes(
-        "relation_graph",
-      ) ||
-      value.effective_configuration.enabled_lanes.includes(
-        "relation_graph",
-      );
-    const expectedTelemetryLanes = graphRequested
-      ? RecallLaneSchema.options
-      : BASE_RECALL_LANES;
+    const expectedTelemetryLanes = applicableRecallLanes([
+      ...value.effective_configuration.requested_lanes,
+      ...value.effective_configuration.enabled_lanes,
+      ...(value.request.lane_overrides?.requested_lanes ?? []),
+    ]);
     if (
       telemetryLanes.length !== expectedTelemetryLanes.length ||
       new Set(telemetryLanes).size !== telemetryLanes.length ||
