@@ -170,6 +170,36 @@ async function host(
   return opened;
 }
 
+async function waitForProcessStatus(
+  graph: GraphProcessHost,
+  status: "starting",
+  timeoutMs = 2_000,
+): Promise<void> {
+  const deadline = performance.now() + timeoutMs;
+  while (
+    graph.processHealth().status !== status &&
+    performance.now() <= deadline
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  expect(graph.processHealth().status).toBe(status);
+}
+
+async function waitForQueueDepth(
+  graph: GraphProcessHost,
+  expectedDepth: number,
+  timeoutMs = 2_000,
+): Promise<void> {
+  const deadline = performance.now() + timeoutMs;
+  while (
+    graph.processHealth().queue_depth !== expectedDepth &&
+    performance.now() <= deadline
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  expect(graph.processHealth().queue_depth).toBe(expectedDepth);
+}
+
 describe("graph child process recovery", () => {
   it("rejects every mismatched backend identity field before ready", async () => {
     const mismatches = [
@@ -231,6 +261,59 @@ describe("graph child process recovery", () => {
     expect(await graph.waitUntilHealthy(2_000)).toBe(true);
     expect(performance.now() - replacementStarted).toBeLessThanOrEqual(2_000);
   }, 60_000);
+
+  it("includes replacement readiness in the parent query deadline", async () => {
+    const graph = await host({
+      requestTimeoutMs: 75,
+      testHooks: {
+        startupDelayMs: 250,
+      },
+    });
+    const childPid = graph.processId();
+    if (childPid === null) {
+      throw new Error("graph child must be running before restart test");
+    }
+    process.kill(childPid, "SIGKILL");
+    await waitForProcessStatus(graph, "starting");
+
+    const started = performance.now();
+    const result = await graph.queryPaths(
+      query("query_during_replacement_startup"),
+    );
+    const elapsed = performance.now() - started;
+
+    expect(result).toMatchObject({
+      status: "unavailable",
+      complete: false,
+      process_outcome: "deadline_killed",
+      reason_codes: ["GRAPH_DEADLINE_EXCEEDED"],
+    });
+    expect(elapsed).toBeLessThanOrEqual(100);
+    await expect(graph.waitUntilHealthy(2_000)).resolves.toBe(true);
+  });
+
+  it("rejects requests beyond the parent pending-request bound", async () => {
+    const graph = await host({
+      maxConcurrentRequests: 1,
+    });
+    const first = graph.queryPaths(query("query_timeout_admission"));
+    await waitForQueueDepth(graph, 1);
+
+    const overflow = await graph.queryPaths(
+      query("query_overflow_admission"),
+    );
+    expect(overflow).toMatchObject({
+      status: "unavailable",
+      complete: false,
+      process_outcome: "store_error",
+      reason_codes: ["GRAPH_REQUEST_LIMIT_EXCEEDED"],
+    });
+    expect(graph.processHealth().queue_depth).toBe(1);
+    await expect(first).resolves.toMatchObject({
+      status: "unavailable",
+      reason_codes: ["GRAPH_DEADLINE_EXCEEDED"],
+    });
+  });
 
   it("discards duplicate responses and keeps the next request isolated", async () => {
     const graph = await host();

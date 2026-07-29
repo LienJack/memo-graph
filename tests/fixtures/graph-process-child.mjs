@@ -47,13 +47,23 @@ function canonicalHash(value) {
   return `sha256:${createHash("sha256").update(canonical(value)).digest("hex")}`;
 }
 
-send({
-  protocol_version: "1.0.0",
-  kind: "ready",
-  identity:
-    config.test_identity_override ?? config.expected_identity,
-  database_path_hash: config.database_path_hash,
-});
+const announceReady = () =>
+  send({
+    protocol_version: "1.0.0",
+    kind: "ready",
+    identity:
+      config.test_identity_override ?? config.expected_identity,
+    database_path_hash: config.database_path_hash,
+  });
+if (
+  config.process_generation > 1 &&
+  Number.isInteger(config.test_startup_delay_ms) &&
+  config.test_startup_delay_ms > 0
+) {
+  setTimeout(announceReady, config.test_startup_delay_ms);
+} else {
+  announceReady();
+}
 
 process.on("message", (request) => {
   if (request?.kind !== "request") {

@@ -57,6 +57,7 @@ const TestHooksSchema = z
     identityOverride: GraphBackendIdentitySchema.optional(),
     adversarialNativeQuery: z.boolean().optional(),
     adversarialNativeWrite: z.boolean().optional(),
+    startupDelayMs: z.number().int().min(0).max(60_000).optional(),
   })
   .strict();
 
@@ -82,6 +83,7 @@ export type GraphProcessHostOptions = {
   writeTimeoutMs?: number;
   startupTimeoutMs?: number;
   maxIpcBytes?: number;
+  maxConcurrentRequests?: number;
   restartPolicy?: {
     maxRestarts: number;
     windowMs: number;
@@ -92,6 +94,7 @@ export type GraphProcessHostOptions = {
     identityOverride?: GraphBackendIdentity;
     adversarialNativeQuery?: boolean;
     adversarialNativeWrite?: boolean;
+    startupDelayMs?: number;
   };
 };
 
@@ -157,6 +160,32 @@ async function waitForExit(
   });
 }
 
+async function waitWithinDeadline<T>(
+  work: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new GraphStoreError("GRAPH_DEADLINE_EXCEEDED", {
+              retryable: true,
+            }),
+          );
+        }, timeoutMs);
+        timer.unref();
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export class GraphProcessHost implements GraphStore {
   readonly #options: {
     expectedIdentity: GraphBackendIdentity;
@@ -165,6 +194,7 @@ export class GraphProcessHost implements GraphStore {
     writeTimeoutMs: number;
     startupTimeoutMs: number;
     maxIpcBytes: number;
+    maxConcurrentRequests: number;
     restartPolicy: z.infer<typeof RestartPolicySchema>;
     onDiagnostic:
       | ((diagnostic: GraphProcessDiagnostic) => void)
@@ -175,6 +205,7 @@ export class GraphProcessHost implements GraphStore {
   readonly #environment: NodeJS.ProcessEnv;
   readonly #pending = new Map<string, PendingRequest>();
   readonly #restartTimes: number[] = [];
+  #inFlightRequests = 0;
   #child: ChildProcess | null = null;
   #generation = 0;
   #restartCount = 0;
@@ -214,6 +245,10 @@ export class GraphProcessHost implements GraphStore {
       maxIpcBytes:
         z.number().int().min(1_024).max(16 * 1_024 * 1_024).parse(
           options.input.maxIpcBytes ?? DEFAULT_GRAPH_IPC_MAX_BYTES,
+        ),
+      maxConcurrentRequests:
+        z.number().int().min(1).max(10_000).parse(
+          options.input.maxConcurrentRequests ?? 64,
         ),
       restartPolicy: RestartPolicySchema.parse(
         options.input.restartPolicy ?? {
@@ -289,7 +324,7 @@ export class GraphProcessHost implements GraphStore {
         this.#ready ? this.#options.expectedIdentity : null,
       process_generation: this.#generation,
       restart_count: this.#restartCount,
-      queue_depth: this.#pending.size,
+      queue_depth: this.#inFlightRequests,
       active_requests: this.#pending.size,
       database_path_hash: this.#layout.databasePathHash,
       circuit_open_until:
@@ -512,6 +547,12 @@ export class GraphProcessHost implements GraphStore {
             test_identity_override:
               this.#options.testHooks.identityOverride,
           }),
+      ...(this.#options.testHooks?.startupDelayMs === undefined
+        ? {}
+        : {
+            test_startup_delay_ms:
+              this.#options.testHooks.startupDelayMs,
+          }),
       ...(
           this.#options.testHooks?.adversarialNativeQuery !== true &&
             this.#options.testHooks?.adversarialNativeWrite !== true
@@ -623,41 +664,77 @@ export class GraphProcessHost implements GraphStore {
     timeoutMs: number,
     allowClosing = false,
   ): Promise<unknown> {
-    if (!allowClosing) {
-      await this.#ensureReady();
-    }
-    const child = this.#child;
-    if (
-      child === null ||
-      !this.#ready ||
-      !child.connected ||
-      (this.#closing && !allowClosing)
-    ) {
-      throw new GraphStoreError("GRAPH_CHILD_EXITED", {
-        retryable: true,
-      });
-    }
-    const request = GraphIpcRequestSchema.parse({
-      protocol_version: GRAPH_PROCESS_PROTOCOL_VERSION,
-      kind: "request",
-      request_id: randomUUID(),
-      operation,
-      payload,
-    });
-    const generation = this.#generation;
     const startedAt = performance.now();
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        const pending = this.#pending.get(request.request_id);
-        if (pending === undefined || pending.generation !== generation) {
-          return;
+    if (
+      !allowClosing &&
+      this.#inFlightRequests >= this.#options.maxConcurrentRequests
+    ) {
+      const error = new GraphStoreError(
+        "GRAPH_REQUEST_LIMIT_EXCEEDED",
+        { retryable: true },
+      );
+      this.#diagnostic({
+        operation,
+        generation: this.#generation,
+        duration_ms: performance.now() - startedAt,
+        outcome: "error",
+        error_code: error.code,
+      });
+      throw error;
+    }
+    if (!allowClosing) {
+      this.#inFlightRequests += 1;
+    }
+    try {
+      if (!allowClosing) {
+        try {
+          await waitWithinDeadline(
+            this.#ensureReady(),
+            timeoutMs,
+          );
+        } catch (error) {
+          const failure = asGraphStoreError(
+            error,
+            "GRAPH_PROCESS_START_FAILED",
+          );
+          this.#diagnostic({
+            operation,
+            generation: this.#generation,
+            duration_ms: performance.now() - startedAt,
+            outcome:
+              failure.code === "GRAPH_DEADLINE_EXCEEDED"
+                ? "timeout"
+                : "error",
+            error_code: failure.code,
+          });
+          throw failure;
         }
-        this.#pending.delete(request.request_id);
+      }
+      const child = this.#child;
+      if (
+        child === null ||
+        !this.#ready ||
+        !child.connected ||
+        (this.#closing && !allowClosing)
+      ) {
+        throw new GraphStoreError("GRAPH_CHILD_EXITED", {
+          retryable: true,
+        });
+      }
+      const request = GraphIpcRequestSchema.parse({
+        protocol_version: GRAPH_PROCESS_PROTOCOL_VERSION,
+        kind: "request",
+        request_id: randomUUID(),
+        operation,
+        payload,
+      });
+      const generation = this.#generation;
+      const remainingMs = timeoutMs - (performance.now() - startedAt);
+      if (remainingMs <= 0) {
         const error = new GraphStoreError(
           "GRAPH_DEADLINE_EXCEEDED",
           { retryable: true },
         );
-        reject(error);
         this.#diagnostic({
           operation,
           generation,
@@ -665,37 +742,63 @@ export class GraphProcessHost implements GraphStore {
           outcome: "timeout",
           error_code: error.code,
         });
-        this.#quarantine(generation, error.code);
-      }, timeoutMs);
-      timer.unref();
-      this.#pending.set(request.request_id, {
-        generation,
-        operation,
-        schema,
-        startedAt,
-        timer,
-        resolve,
-        reject,
+        throw error;
+      }
+      return await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          const pending = this.#pending.get(request.request_id);
+          if (pending === undefined || pending.generation !== generation) {
+            return;
+          }
+          this.#pending.delete(request.request_id);
+          const error = new GraphStoreError(
+            "GRAPH_DEADLINE_EXCEEDED",
+            { retryable: true },
+          );
+          reject(error);
+          this.#diagnostic({
+            operation,
+            generation,
+            duration_ms: performance.now() - startedAt,
+            outcome: "timeout",
+            error_code: error.code,
+          });
+          this.#quarantine(generation, error.code);
+        }, remainingMs);
+        timer.unref();
+        this.#pending.set(request.request_id, {
+          generation,
+          operation,
+          schema,
+          startedAt,
+          timer,
+          resolve,
+          reject,
+        });
+        child.send(request, (error) => {
+          if (error === null) {
+            return;
+          }
+          const pending = this.#pending.get(request.request_id);
+          if (pending === undefined) {
+            return;
+          }
+          clearTimeout(pending.timer);
+          this.#pending.delete(request.request_id);
+          reject(
+            new GraphStoreError("GRAPH_CHILD_EXITED", {
+              cause: error,
+              retryable: true,
+            }),
+          );
+          this.#quarantine(generation, "GRAPH_CHILD_EXITED");
+        });
       });
-      child.send(request, (error) => {
-        if (error === null) {
-          return;
-        }
-        const pending = this.#pending.get(request.request_id);
-        if (pending === undefined) {
-          return;
-        }
-        clearTimeout(pending.timer);
-        this.#pending.delete(request.request_id);
-        reject(
-          new GraphStoreError("GRAPH_CHILD_EXITED", {
-            cause: error,
-            retryable: true,
-          }),
-        );
-        this.#quarantine(generation, "GRAPH_CHILD_EXITED");
-      });
-    });
+    } finally {
+      if (!allowClosing) {
+        this.#inFlightRequests -= 1;
+      }
+    }
   }
 
   #handleMessage(generation: number, input: unknown): void {
