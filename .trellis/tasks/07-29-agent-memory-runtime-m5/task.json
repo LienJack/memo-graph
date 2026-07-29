@@ -1,0 +1,43 @@
+{
+  "id": "agent-memory-runtime-m5",
+  "name": "agent-memory-runtime-m5",
+  "title": "Agent Memory Runtime M5 Learning Lab",
+  "description": "Governed candidate-only learning with replayable traces, protected three-arm evaluation, explicit authority, canary, pause/resume, and exact rollback.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "M5 only: candidate-only learning traces, minimal reversible candidates, three-arm evaluation, holdout/transfer protection, quarantine, canary, explicit release authority, pause/resume, exact rollback, G5 decision; exclude model training and M6 production hardening",
+  "package": null,
+  "priority": "P2",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-29",
+  "completedAt": null,
+  "branch": "codex/agent-memory-runtime-m5",
+  "base_branch": "codex/agent-memory-runtime-m4b",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [
+    "docs/brainstorms/2026-07-29-m5-learning-lab-requirements.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/prd.md"
+  ],
+  "notes": "Run ce-brainstorm, research-to-article, ce-plan, then ce-work under Trellis. Keep implementation inactive until research, design, plan, and context validation are complete.",
+  "meta": {
+    "product_contract": "docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md",
+    "implementation_authorized": true,
+    "implementation_authorized_at": "2026-07-29",
+    "workflow": [
+      "ce-brainstorm",
+      "research-to-article",
+      "ce-plan",
+      "ce-work"
+    ],
+    "planning_validation": "pending",
+    "gates": [
+      "G5"
+    ]
+  }
+}
