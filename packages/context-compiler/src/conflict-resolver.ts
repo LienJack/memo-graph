@@ -22,6 +22,9 @@ function exclude(
     ...(candidate.graph_path === null
       ? {}
       : { graph_path: candidate.graph_path }),
+    ...(candidate.vector === null
+      ? {}
+      : { vector: candidate.vector }),
   };
 }
 
@@ -57,8 +60,11 @@ export function resolveConflictsAndDedupe(options: {
   const exclusions: LayeredCandidateExclusion[] = [];
   const identitySeen = new Set<string>();
   const identityUnique = annotated
-    .sort((left, right) =>
-      left.revision_id.localeCompare(right.revision_id)
+    .sort(
+      (left, right) =>
+        left.revision_id.localeCompare(right.revision_id) ||
+        Number(left.lane === "semantic_vector") -
+          Number(right.lane === "semantic_vector"),
     )
     .filter((candidate) => {
       if (identitySeen.has(candidate.revision_id)) {

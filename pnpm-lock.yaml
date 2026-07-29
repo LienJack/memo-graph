@@ -115,6 +115,9 @@ importers:
       '@memo-graph/storage-sqlite':
         specifier: workspace:*
         version: link:../storage-sqlite
+      '@memo-graph/vector-retrieval':
+        specifier: workspace:*
+        version: link:../vector-retrieval
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0

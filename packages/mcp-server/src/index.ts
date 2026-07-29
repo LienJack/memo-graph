@@ -18,6 +18,7 @@ import {
   MemoryUsageSetInputSchema,
   RelationTypeSchema,
   ScopeSchema,
+  VectorEmbeddingEpochSchema,
   canonicalJson,
 } from "@memo-graph/contracts";
 import {
@@ -29,6 +30,9 @@ import {
   MemoryRuntime,
 } from "@memo-graph/memory-kernel";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import {
+  SemanticVectorRetriever,
+} from "@memo-graph/vector-retrieval";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
@@ -75,6 +79,28 @@ export const GraphServerConfigSchema = z
   ])
   .default({ enabled: false });
 
+const DisabledVectorServerConfigSchema = z
+  .object({
+    enabled: z.literal(false),
+  })
+  .strict();
+
+const EnabledVectorServerConfigSchema = z
+  .object({
+    enabled: z.literal(true),
+    model_root: z.string().trim().min(1),
+    expected_epoch: VectorEmbeddingEpochSchema,
+    allow_evaluating: z.boolean().default(false),
+  })
+  .strict();
+
+export const VectorServerConfigSchema = z
+  .discriminatedUnion("enabled", [
+    DisabledVectorServerConfigSchema,
+    EnabledVectorServerConfigSchema,
+  ])
+  .default({ enabled: false });
+
 export const MemoryServerConfigSchema = z
   .object({
     data_root: z.string().trim().min(1),
@@ -110,6 +136,7 @@ export const MemoryServerConfigSchema = z
       },
     }),
     graph: GraphServerConfigSchema,
+    vector: VectorServerConfigSchema,
   })
   .strict();
 
@@ -562,10 +589,24 @@ export async function openMemoryRuntime(configInput: unknown): Promise<{
         },
       });
     }
+    const vectorRetriever =
+      config.vector.enabled &&
+      config.lane_policy.allowed_lanes.includes("semantic_vector")
+        ? new SemanticVectorRetriever({
+            storage,
+            dataRoot: config.data_root,
+            modelRoot: config.vector.model_root,
+            epoch: config.vector.expected_epoch,
+            allowEvaluating: config.vector.allow_evaluating,
+          })
+        : undefined;
     const laneRetriever = new LayeredLaneRetrievers(storage, {
       ...(graphRetriever === undefined
         ? {}
         : { graphRetriever }),
+      ...(vectorRetriever === undefined
+        ? {}
+        : { vectorRetriever }),
     });
     const runtime = new MemoryRuntime({
       storage,

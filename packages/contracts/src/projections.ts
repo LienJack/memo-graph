@@ -970,12 +970,14 @@ export const LaneTelemetrySchema = z
     }
     if (
       value.lane !== "relation_graph" &&
+      value.lane !== "semantic_vector" &&
       value.query_hashes !== undefined
     ) {
       context.addIssue({
         code: "custom",
         path: ["query_hashes"],
-        message: "only relation_graph telemetry may seal graph query hashes",
+        message:
+          "only external graph and vector lanes may seal query hashes",
       });
     }
     if (

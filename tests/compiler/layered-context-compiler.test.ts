@@ -59,6 +59,15 @@ const CONTEXT_FRONTIER = {
     PROJECTION_FRONTIER.projection_frontier_hash,
   transform_versions: [TRANSFORM],
 } as const;
+const VECTOR_EVIDENCE = {
+  schema_version: "1.0.0",
+  embedding_epoch_id: `sha256:${"d".repeat(64)}`,
+  generation_id: "vector_generation_1",
+  source_frontier_hash: SOURCE_FRONTIER_HASH,
+  distance: 0.125,
+  rank: 1,
+  canonical_revalidated: true,
+} as const;
 
 function memory(
   suffix: "a" | "b" | "c",
@@ -264,6 +273,45 @@ function telemetry() {
       reason_codes: [],
     })
   );
+}
+
+function semanticTelemetry() {
+  return [
+    "recent_l1",
+    "topic",
+    "scenario_procedure",
+    "core",
+    "relation_sqlite",
+    "semantic_vector",
+  ].map((lane) =>
+    LaneTelemetrySchema.parse({
+      lane,
+      status:
+        lane === "semantic_vector"
+          ? "eligible"
+          : "disabled_by_policy",
+      duration_ms: 0,
+      candidate_count: lane === "semantic_vector" ? 1 : 0,
+      eligible_count: lane === "semantic_vector" ? 1 : 0,
+      selected_count: lane === "semantic_vector" ? 1 : 0,
+      exclusion_counts: {},
+      reason_codes: [],
+    })
+  );
+}
+
+function vectorConfiguration(
+  lanes: Array<"recent_l1" | "semantic_vector">,
+) {
+  return computeEffectiveLaneConfiguration({
+    allowed_lanes: lanes,
+    limits: {
+      max_candidates_per_lane: 20,
+      relation_max_depth: 2,
+      relation_max_fanout: 5,
+      max_concurrent_lanes: 2,
+    },
+  });
 }
 
 function layeredInput(tokenBudget = 32_000) {
@@ -657,6 +705,117 @@ describe("layered Context Compiler", () => {
       result.context_slice?.context_slice_id,
     );
     expect(receiptHashIsValid(result.receipt)).toBe(true);
+  });
+
+  it("seals vector selection evidence into semantic Context and receipt items", () => {
+    const input = layeredInput();
+    const result = compileLayeredContext({
+      ...input,
+      request: {
+        ...input.request,
+        request_id: "layered_compile_semantic_vector",
+      },
+      candidates: [
+        {
+          kind: "memory",
+          abstraction: "l1_memory",
+          lane: "semantic_vector",
+          scope: SCOPE,
+          rank: 1,
+          canonical_revalidated: true,
+          memory: MEMORY_A,
+          vector: VECTOR_EVIDENCE,
+        },
+      ],
+      effective_configuration:
+        vectorConfiguration(["semantic_vector"]),
+      telemetry: semanticTelemetry(),
+    });
+
+    expect(result.status).toBe("OK");
+    expect(result.context_slice?.items).toEqual([
+      expect.objectContaining({
+        revision_id: MEMORY_A.revision_id,
+        lane: "semantic_vector",
+        vector: VECTOR_EVIDENCE,
+      }),
+    ]);
+    expect(result.receipt.items).toEqual([
+      expect.objectContaining({
+        revision_id: MEMORY_A.revision_id,
+        decision: "included",
+        lane: "semantic_vector",
+        vector: VECTOR_EVIDENCE,
+      }),
+    ]);
+    expect(receiptHashIsValid(result.receipt)).toBe(true);
+  });
+
+  it("dedupes a semantic hit against the base lane without double token charge", () => {
+    const input = layeredInput();
+    const result = compileLayeredContext({
+      ...input,
+      request: {
+        ...input.request,
+        request_id: "layered_compile_vector_base_dedupe",
+      },
+      candidates: [
+        {
+          kind: "memory",
+          abstraction: "l1_memory",
+          lane: "semantic_vector",
+          scope: SCOPE,
+          rank: 0,
+          canonical_revalidated: true,
+          memory: MEMORY_A,
+          vector: VECTOR_EVIDENCE,
+        },
+        {
+          kind: "memory",
+          abstraction: "l1_memory",
+          lane: "recent_l1",
+          scope: SCOPE,
+          rank: 1,
+          canonical_revalidated: true,
+          memory: MEMORY_A,
+        },
+      ],
+      effective_configuration:
+        vectorConfiguration(["recent_l1", "semantic_vector"]),
+      telemetry: semanticTelemetry().map((item) =>
+        item.lane === "recent_l1"
+          ? {
+              ...item,
+              status: "eligible" as const,
+              candidate_count: 1,
+              eligible_count: 1,
+              selected_count: 1,
+            }
+          : item
+      ),
+    });
+
+    expect(result.context_slice?.items).toHaveLength(1);
+    expect(result.context_slice?.items[0]).toMatchObject({
+      revision_id: MEMORY_A.revision_id,
+      lane: "recent_l1",
+    });
+    expect(result.context_slice?.items[0]?.vector).toBeUndefined();
+    expect(
+      result.receipt.items.filter((item) => item.decision === "included"),
+    ).toHaveLength(1);
+    expect(
+      result.receipt.items.find(
+        (item) => item.lane === "semantic_vector",
+      ),
+    ).toMatchObject({
+      decision: "excluded",
+      reason_codes: ["DUPLICATE_CANDIDATE"],
+      vector: VECTOR_EVIDENCE,
+    });
+    expect(result.context_slice?.token_used).toBe(
+      result.context_slice?.items[0]?.token_estimate,
+    );
   });
 
   it("rejects disabled-lane injection before scoring", () => {

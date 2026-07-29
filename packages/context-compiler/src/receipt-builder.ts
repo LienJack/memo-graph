@@ -17,6 +17,7 @@ import {
   type ProjectionLineageRef,
   type RecallRequest,
   type RetrievalReceipt,
+  type VectorSelectionEvidence,
 } from "@memo-graph/contracts";
 
 export type LayeredDecision = {
@@ -30,6 +31,7 @@ export type LayeredDecision = {
   token_estimate?: number;
   projection?: ProjectionLineageRef;
   graph_path?: GraphPathEvidence;
+  vector?: VectorSelectionEvidence;
   conflict_group_id?: string | null;
   item?: ContextSliceItem;
 };
@@ -139,6 +141,9 @@ export function buildLayeredArtifacts(options: {
     ...(decision.graph_path === undefined
       ? {}
       : { graph_path: decision.graph_path }),
+    ...(decision.vector === undefined
+      ? {}
+      : { vector: decision.vector }),
     ...(decision.conflict_group_id === undefined
       ? {}
       : { conflict_group_id: decision.conflict_group_id }),

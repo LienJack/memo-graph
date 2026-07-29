@@ -5,5 +5,6 @@ export * from "./path-security.js";
 export * from "./process-host.js";
 export * from "./projector.js";
 export * from "./rebuilder.js";
+export * from "./retriever.js";
 export * from "./protocol.js";
 export * from "./vector-index.js";

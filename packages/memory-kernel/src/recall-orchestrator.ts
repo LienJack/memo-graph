@@ -9,6 +9,7 @@ import {
   ProjectionRevisionSchema,
   RecallLaneSchema,
   ScopeSchema,
+  VectorSelectionEvidenceSchema,
   applicableRecallLanes,
   canonicalJson,
   computeEffectiveLaneConfiguration,
@@ -52,13 +53,27 @@ const RevalidatedMemoryCandidateSchema = z
   .object({
     kind: z.literal("memory"),
     abstraction: z.literal("l1_memory"),
-    lane: z.literal("recent_l1"),
+    lane: z.enum(["recent_l1", "semantic_vector"]),
     scope: ScopeSchema,
     rank: z.number().finite(),
     canonical_revalidated: z.literal(true),
     memory: GovernedSearchItemSchema,
+    vector: VectorSelectionEvidenceSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.lane === "semantic_vector") !==
+      (value.vector !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["vector"],
+        message:
+          "semantic_vector memory candidates require vector selection evidence",
+      });
+    }
+  });
 
 const RevalidatedProjectionCandidateSchema = z
   .object({
@@ -113,6 +128,7 @@ export const LayeredRecallExclusionSchema = z
     reason_code: z.string().trim().min(1).max(200),
     score: z.number().finite().nullable(),
     graph_path: GraphPathEvidenceSchema.optional(),
+    vector: VectorSelectionEvidenceSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -125,6 +141,17 @@ export const LayeredRecallExclusionSchema = z
         path: ["graph_path"],
         message:
           "relation_graph exclusions require graph path evidence",
+      });
+    }
+    if (
+      (value.lane === "semantic_vector") !==
+      (value.vector !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["vector"],
+        message:
+          "semantic_vector exclusions require vector selection evidence",
       });
     }
   });
@@ -323,7 +350,10 @@ export class RecallOrchestrator {
           principal_id: request.principal_id,
           scope: request.scope,
           as_of: request.as_of,
-          include_sensitive: request.include_sensitive,
+          include_sensitive:
+            candidate.lane === "semantic_vector"
+              ? false
+              : request.include_sensitive,
           context_scope: request.scope,
         })
       ),
@@ -429,7 +459,10 @@ export class RecallOrchestrator {
       health.layered_projection_state === "unavailable"
     ) {
       for (const lane of effective.enabled_lanes) {
-        if (lane === "recent_l1") {
+        if (
+          lane === "recent_l1" ||
+          lane === "semantic_vector"
+        ) {
           continue;
         }
         laneStates.set(lane, {
@@ -672,6 +705,15 @@ export class RecallOrchestrator {
       graph_max_response_bytes:
         limits.graph_max_response_bytes ??
         DEFAULT_BOUNDED_RECALL_LIMITS.graph_max_response_bytes,
+      vector_top_k:
+        limits.vector_top_k ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.vector_top_k,
+      vector_query_timeout_ms:
+        limits.vector_query_timeout_ms ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.vector_query_timeout_ms,
+      vector_max_response_bytes:
+        limits.vector_max_response_bytes ??
+        DEFAULT_BOUNDED_RECALL_LIMITS.vector_max_response_bytes,
       start_revision_ids: startRevisionIds,
     };
   }
@@ -726,6 +768,9 @@ export class RecallOrchestrator {
           lane: raw.lane,
           reason_code: "CANONICAL_SOURCE_CHANGED",
           score: raw.rank,
+          ...(raw.vector === undefined
+            ? {}
+            : { vector: raw.vector }),
         });
       }
       return RevalidatedRecallCandidateSchema.parse({
@@ -736,6 +781,9 @@ export class RecallOrchestrator {
         rank: raw.rank,
         canonical_revalidated: true,
         memory: canonical,
+        ...(raw.vector === undefined
+          ? {}
+          : { vector: raw.vector }),
       });
     }
 

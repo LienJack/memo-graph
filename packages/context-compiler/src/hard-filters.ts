@@ -9,6 +9,7 @@ import {
   type RecallLane,
   type Scope,
   type GovernedSearchItemSchema,
+  type VectorSelectionEvidence,
 } from "@memo-graph/contracts";
 
 type GovernedSearchItem = ReturnType<
@@ -18,11 +19,12 @@ type GovernedSearchItem = ReturnType<
 export type LayeredMemoryCandidate = {
   kind: "memory";
   abstraction: "l1_memory";
-  lane: "recent_l1";
+  lane: "recent_l1" | "semantic_vector";
   scope: Scope;
   rank: number;
   canonical_revalidated: boolean;
   memory: GovernedSearchItem;
+  vector?: VectorSelectionEvidence;
 };
 
 export type LayeredProjectionCandidate = {
@@ -32,7 +34,7 @@ export type LayeredProjectionCandidate = {
     | "l2_scenario"
     | "l2_relation"
     | "l3_core";
-  lane: Exclude<RecallLane, "recent_l1">;
+  lane: Exclude<RecallLane, "recent_l1" | "semantic_vector">;
   scope: Scope;
   rank: number;
   canonical_revalidated: boolean;
@@ -60,6 +62,7 @@ export type PreparedLayeredCandidate = {
   rank: number;
   projection: ProjectionLineageRef | null;
   graph_path: GraphPathEvidence | null;
+  vector: VectorSelectionEvidence | null;
   projection_payload: ProjectionPayload | null;
   conflict_group_id: string | null;
   decision_reason_codes: string[];
@@ -73,6 +76,7 @@ export type LayeredCandidateExclusion = {
   reason_code: string;
   score: number | null;
   graph_path?: GraphPathEvidence;
+  vector?: VectorSelectionEvidence;
 };
 
 const LANE_BY_ABSTRACTION = {
@@ -169,6 +173,10 @@ function exclusion(
         candidate.graph_path !== undefined
       ? { graph_path: candidate.graph_path }
       : {}),
+    ...(candidate.kind === "memory" &&
+        candidate.vector !== undefined
+      ? { vector: candidate.vector }
+      : {}),
   };
 }
 
@@ -232,7 +240,7 @@ export function hardFilterLayeredCandidates(options: {
         memory_id: memory.memory_id,
         revision_id: memory.revision_id,
         abstraction: "l1_memory",
-        lane: "recent_l1",
+        lane: candidate.lane,
         scope: memory.scope,
         lifecycle: "active",
         authority: memory.authority,
@@ -243,6 +251,7 @@ export function hardFilterLayeredCandidates(options: {
         rank: candidate.rank,
         projection: null,
         graph_path: null,
+        vector: candidate.vector ?? null,
         projection_payload: null,
         conflict_group_id: null,
         decision_reason_codes: [
@@ -309,6 +318,7 @@ export function hardFilterLayeredCandidates(options: {
       rank: candidate.rank,
       projection: projectionLineage(projection),
       graph_path: candidate.graph_path ?? null,
+      vector: null,
       projection_payload: projection.payload,
       conflict_group_id: null,
       decision_reason_codes: [

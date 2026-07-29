@@ -5,6 +5,7 @@ import {
   type ProjectionRevision,
   type RecallLane,
   type Scope,
+  type VectorSelectionEvidence,
 } from "@memo-graph/contracts";
 import type {
   GovernedMemorySearchResult,
@@ -30,19 +31,23 @@ export type LaneRetrieverRequest = {
   graph_max_relation_allowlist: number;
   graph_query_timeout_ms: number;
   graph_max_response_bytes: number;
+  vector_top_k: number;
+  vector_query_timeout_ms: number;
+  vector_max_response_bytes: number;
   start_revision_ids: string[];
 };
 
 export type RawMemoryLaneCandidate = {
   kind: "memory";
-  lane: "recent_l1";
+  lane: "recent_l1" | "semantic_vector";
   memory: GovernedMemorySearchResult["items"][number]["item"];
   rank: number;
+  vector?: VectorSelectionEvidence;
 };
 
 export type RawProjectionLaneCandidate = {
   kind: "projection";
-  lane: Exclude<RecallLane, "recent_l1">;
+  lane: Exclude<RecallLane, "recent_l1" | "semantic_vector">;
   projection: ProjectionRevision;
   rank: number;
   graph_path?: GraphPathEvidence;
@@ -59,6 +64,7 @@ export type RawLaneExclusion = {
   reason_code: string;
   score: number | null;
   graph_path?: GraphPathEvidence;
+  vector?: VectorSelectionEvidence;
 };
 
 export type LaneRetrievalResult = {
@@ -76,9 +82,40 @@ export interface RecallLaneRetriever {
   retrieve(request: LaneRetrieverRequest): Promise<LaneRetrievalResult>;
 }
 
+export type GraphLaneRetrieverRequest = Omit<
+  LaneRetrieverRequest,
+  | "lane"
+  | "vector_top_k"
+  | "vector_query_timeout_ms"
+  | "vector_max_response_bytes"
+> & {
+  lane: "relation_graph";
+};
+
 export interface GraphLaneRetriever {
   retrieve(
-    request: LaneRetrieverRequest & { lane: "relation_graph" },
+    request: GraphLaneRetrieverRequest,
+  ): Promise<LaneRetrievalResult>;
+}
+
+export type VectorLaneRetrieverRequest = Pick<
+  LaneRetrieverRequest,
+  | "principal_id"
+  | "scope"
+  | "query"
+  | "as_of"
+  | "include_sensitive"
+  | "limit"
+  | "vector_top_k"
+  | "vector_query_timeout_ms"
+  | "vector_max_response_bytes"
+> & {
+  lane: "semantic_vector";
+};
+
+export interface VectorLaneRetriever {
+  retrieve(
+    request: VectorLaneRetrieverRequest,
   ): Promise<LaneRetrievalResult>;
 }
 
@@ -125,15 +162,18 @@ function scalarFrontier(
 export class LayeredLaneRetrievers implements RecallLaneRetriever {
   readonly #storage: SqliteStorageClient;
   readonly #graphRetriever: GraphLaneRetriever | null;
+  readonly #vectorRetriever: VectorLaneRetriever | null;
 
   constructor(
     storage: SqliteStorageClient,
     options: {
       graphRetriever?: GraphLaneRetriever;
+      vectorRetriever?: VectorLaneRetriever;
     } = {},
   ) {
     this.#storage = storage;
     this.#graphRetriever = options.graphRetriever ?? null;
+    this.#vectorRetriever = options.vectorRetriever ?? null;
   }
 
   async retrieve(
@@ -150,12 +190,41 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
         throw new Error("graph lane runtime is not configured");
       }
       return this.#graphRetriever.retrieve({
-        ...request,
         lane: "relation_graph",
+        principal_id: request.principal_id,
+        scope: request.scope,
+        query: request.query,
+        as_of: request.as_of,
+        include_sensitive: request.include_sensitive,
+        limit: request.limit,
+        projection_scan_limit: request.projection_scan_limit,
+        relation_max_depth: request.relation_max_depth,
+        relation_max_fanout: request.relation_max_fanout,
+        relation_max_starts: request.relation_max_starts,
+        relation_max_paths: request.relation_max_paths,
+        graph_max_relation_allowlist:
+          request.graph_max_relation_allowlist,
+        graph_query_timeout_ms: request.graph_query_timeout_ms,
+        graph_max_response_bytes: request.graph_max_response_bytes,
+        start_revision_ids: request.start_revision_ids,
       });
     }
     if (request.lane === "semantic_vector") {
-      throw new Error("vector lane runtime is not configured");
+      if (this.#vectorRetriever === null) {
+        throw new Error("vector lane runtime is not configured");
+      }
+      return this.#vectorRetriever.retrieve({
+        lane: "semantic_vector",
+        principal_id: request.principal_id,
+        scope: request.scope,
+        query: request.query,
+        as_of: request.as_of,
+        include_sensitive: request.include_sensitive,
+        limit: request.limit,
+        vector_top_k: request.vector_top_k,
+        vector_query_timeout_ms: request.vector_query_timeout_ms,
+        vector_max_response_bytes: request.vector_max_response_bytes,
+      });
     }
     return this.#projections(request);
   }

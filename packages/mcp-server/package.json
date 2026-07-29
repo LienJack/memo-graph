@@ -23,6 +23,7 @@
     "@memo-graph/graph-projection": "workspace:*",
     "@memo-graph/memory-kernel": "workspace:*",
     "@memo-graph/storage-sqlite": "workspace:*",
+    "@memo-graph/vector-retrieval": "workspace:*",
     "@modelcontextprotocol/server": "2.0.0",
     "zod": "4.4.3"
   },

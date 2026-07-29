@@ -1,17 +1,21 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
   VectorScopeSnapshotSchema,
+  VectorQuerySchema,
+  VectorQueryResultSchema,
   canonicalJson,
   canonicalSha256,
+  type VectorQuery,
   type VectorScopeSnapshot,
 } from "../../packages/contracts/src/index.js";
 import type {
   VectorProjectionRuntimeFactory,
+  SemanticVectorRuntimeFactory,
 } from "../../packages/vector-retrieval/src/index.js";
 
-function deterministicVector(text: string): number[] {
+export function deterministicVector(text: string): number[] {
   const hash = canonicalSha256({ text }).slice("sha256:".length);
   const values = Array.from({ length: 384 }, (_unused, index) => {
     const nibble = Number.parseInt(hash[index % hash.length] ?? "0", 16);
@@ -25,6 +29,7 @@ function deterministicVector(text: string): number[] {
 
 export class InMemoryVectorRuntimeFactory {
   readonly snapshots = new Map<string, VectorScopeSnapshot>();
+  readonly queries: VectorQuery[] = [];
   onReplace:
     | ((snapshot: VectorScopeSnapshot) => Promise<void>)
     | undefined;
@@ -58,6 +63,76 @@ export class InMemoryVectorRuntimeFactory {
             return snapshot;
           },
           readScopeSnapshot: async () => snapshot,
+          close: async () => {
+            closed = true;
+          },
+        };
+      },
+    };
+  }
+
+  queryRuntimeFactory(): SemanticVectorRuntimeFactory {
+    return {
+      open: async (input) => {
+        const snapshot = VectorScopeSnapshotSchema.parse(
+          JSON.parse(
+            await readFile(
+              join(input.dataRoot, "vector.snapshot.json"),
+              "utf8",
+            ),
+          ),
+        );
+        let closed = false;
+        return {
+          query: async (queryInput) => {
+            if (closed) {
+              throw new Error("vector runtime is closed");
+            }
+            const query = VectorQuerySchema.parse(queryInput);
+            this.queries.push(query);
+            const queryVector = deterministicVector(query.query);
+            const hits = snapshot.records
+              .map((record) => ({
+                revision_id: record.revision_id,
+                source_content_hash: record.source_content_hash,
+                distance: Math.max(
+                  0,
+                  Math.min(
+                    2,
+                    1 - record.vector.reduce(
+                      (sum, component, index) =>
+                        sum +
+                        component * (queryVector[index] ?? 0),
+                      0,
+                    ),
+                  ),
+                ),
+              }))
+              .sort(
+                (left, right) =>
+                  left.distance - right.distance ||
+                  left.revision_id.localeCompare(right.revision_id),
+              )
+              .slice(0, query.top_k)
+              .map((hit, index) => ({
+                ...hit,
+                rank: index + 1,
+              }));
+            return VectorQueryResultSchema.parse({
+              schema_version: "1.0.0",
+              request_id: query.request_id,
+              status: hits.length === 0
+                ? "no_match" as const
+                : "complete" as const,
+              embedding_epoch_id: snapshot.embedding_epoch_id,
+              generation_id: snapshot.generation_id,
+              source_frontier_hash:
+                snapshot.frontier.source_frontier_hash,
+              hits,
+              complete: true,
+              reason_codes: [],
+            });
+          },
           close: async () => {
             closed = true;
           },

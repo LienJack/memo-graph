@@ -26,6 +26,7 @@ import {
 
 import { inlineEpisode } from "../helpers/storage-examples.js";
 import { NOW } from "../helpers/examples.js";
+import { qualifiedVectorEpoch } from "../helpers/vector-examples.js";
 
 function compilerInput(options: {
   tokenBudget: number;
@@ -277,6 +278,9 @@ describe("MCP Context lane configuration", () => {
     expect(MemoryServerConfigSchema.parse(base).graph).toEqual({
       enabled: false,
     });
+    expect(MemoryServerConfigSchema.parse(base).vector).toEqual({
+      enabled: false,
+    });
     expect(
       MemoryServerConfigSchema.parse({
         ...base,
@@ -405,6 +409,65 @@ describe("MCP Context lane configuration", () => {
     try {
       expect(
         existsSync(join(dataRoot, "derived", "graph", "ladybug.lbdb")),
+      ).toBe(false);
+    } finally {
+      await opened.close();
+      rmSync(dataRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("requires explicit vector configuration and opens it without starting optional dependencies", async () => {
+    const dataRoot = realpathSync(
+      mkdtempSync(
+        join(realpathSync(tmpdir()), "memo-graph-mcp-lazy-vector-"),
+      ),
+    );
+    const epoch = qualifiedVectorEpoch();
+    const config = {
+      data_root: dataRoot,
+      principal_id: "user_local",
+      allowed_scopes: [{ kind: "workspace", id: "workspace_local" }],
+      allowed_authorities: ["user_stated"],
+      lane_policy: {
+        allowed_lanes: ["recent_l1", "semantic_vector"],
+        limits: {
+          max_candidates_per_lane: 12,
+          relation_max_depth: 2,
+          relation_max_fanout: 3,
+          max_concurrent_lanes: 2,
+          vector_top_k: 8,
+          vector_query_timeout_ms: 50,
+          vector_max_response_bytes: 65_536,
+        },
+      },
+      vector: {
+        enabled: true,
+        model_root: join(dataRoot, "models"),
+        expected_epoch: epoch,
+      },
+    } as const;
+    expect(MemoryServerConfigSchema.safeParse(config).success).toBe(true);
+    expect(
+      MemoryServerConfigSchema.safeParse({
+        ...config,
+        vector: {
+          ...config.vector,
+          model_root: "",
+        },
+      }).success,
+    ).toBe(false);
+
+    const opened = await openMemoryRuntime(config);
+    try {
+      expect(opened.config.vector).toMatchObject({
+        enabled: true,
+        allow_evaluating: false,
+        expected_epoch: {
+          epoch_id: epoch.epoch_id,
+        },
+      });
+      expect(
+        existsSync(join(dataRoot, "derived", "vector")),
       ).toBe(false);
     } finally {
       await opened.close();

@@ -85,6 +85,7 @@ export {
 export {
   LayeredLaneRetrievers,
   type GraphLaneRetriever,
+  type VectorLaneRetriever,
   type LaneRetrievalResult,
   type LaneRetrieverRequest,
   type RawLaneCandidate,

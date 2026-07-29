@@ -14,6 +14,7 @@ import {
   RecallLaneSchema,
   RecallRequestSchema,
   RetrievalReceiptSchema,
+  VectorSelectionEvidenceSchema,
   applicableRecallLanes,
   canonicalJson,
   canonicalSha256,
@@ -500,13 +501,27 @@ const LayeredMemoryCompilerCandidateSchema = z
   .object({
     kind: z.literal("memory"),
     abstraction: z.literal("l1_memory"),
-    lane: z.literal("recent_l1"),
+    lane: z.enum(["recent_l1", "semantic_vector"]),
     scope: z.lazy(() => ContextSliceItemSchema.shape.scope),
     rank: z.number().finite(),
     canonical_revalidated: z.boolean(),
     memory: GovernedSearchItemSchema,
+    vector: VectorSelectionEvidenceSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.lane === "semantic_vector") !==
+      (value.vector !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["vector"],
+        message:
+          "semantic_vector compiler candidates require vector selection evidence",
+      });
+    }
+  });
 
 const LayeredProjectionCompilerCandidateSchema = z
   .object({
@@ -561,6 +576,7 @@ export const LayeredCompilerExclusionSchema = z
     reason_code: z.string().trim().min(1).max(200),
     score: z.number().finite().nullable(),
     graph_path: GraphPathEvidenceSchema.optional(),
+    vector: VectorSelectionEvidenceSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -573,6 +589,17 @@ export const LayeredCompilerExclusionSchema = z
         path: ["graph_path"],
         message:
           "relation_graph compiler exclusions require graph path evidence",
+      });
+    }
+    if (
+      (value.lane === "semantic_vector") !==
+      (value.vector !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["vector"],
+        message:
+          "semantic_vector compiler exclusions require vector selection evidence",
       });
     }
   });
@@ -651,6 +678,9 @@ function exclusionDecision(
     ...(exclusion.graph_path === undefined
       ? {}
       : { graph_path: exclusion.graph_path }),
+    ...(exclusion.vector === undefined
+      ? {}
+      : { vector: exclusion.vector }),
   };
 }
 
@@ -709,6 +739,9 @@ export function compileLayeredContext(
         ...(candidate.graph_path === null
           ? {}
           : { graph_path: candidate.graph_path }),
+        ...(candidate.vector === null
+          ? {}
+          : { vector: candidate.vector }),
       };
       return [
         candidate.revision_id,
@@ -767,6 +800,9 @@ export function compileLayeredContext(
       ...(candidate.graph_path === null
         ? {}
         : { graph_path: candidate.graph_path }),
+      ...(candidate.vector === null
+        ? {}
+        : { vector: candidate.vector }),
       conflict_group_id: candidate.conflict_group_id,
       item: decision.candidate.item,
     };
