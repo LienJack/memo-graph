@@ -644,6 +644,43 @@ Use this contract when moving a release-capable learning candidate from
 - Inject failure after guard, transition, authorization, run, receipt, and
   idempotency writes and verify the entire canary transaction rolls back.
 
+## Scenario: Governed Learning Control Frontier CAS
+
+### 1. Scope / Trigger
+
+Use this contract when pausing or resuming the learning runtime and when a
+release or rollback races a control transition.
+
+### 2. Contracts
+
+- The request's `expected_frontier_hash` names the aggregate learning
+  frontier over every current control row and release pointer.
+- A control row's `frontier_hash` names the content-free candidate,
+  evaluation, canary, release, runtime, configuration, and corpus snapshot
+  captured by that control transition.
+- These hashes are different identities. Validate the aggregate hash against
+  a freshly recomputed aggregate frontier, then compare-and-swap the control
+  row using its stored row hash plus the expected control epoch.
+- One immediate transaction writes the new control row, control receipt,
+  approval consumption, idempotency result, and ledger epoch.
+- Pause and resume each advance exactly one control epoch. Resume requires the
+  exact paused runtime/configuration/corpus identity unless the request
+  explicitly abandons drifted in-flight work.
+- Ordinary governed memory reads and writes do not consult learning pause.
+
+### 3. Tests Required
+
+- Persist pause, close/reopen storage, and resume from the exact aggregate
+  frontier.
+- Reject a stale aggregate frontier, stale epoch, changed idempotent request,
+  or unchanged target status.
+- Prove runtime/configuration/corpus drift conflicts unless explicit
+  abandonment is approved.
+- Race pause with release and prove one serialization order wins without a
+  partial pointer/control effect.
+- Keep search, get, Context compilation, episode commit, and an approved
+  memory control available while learning is paused.
+
 ## Naming
 
 Use plural snake_case tables, snake_case columns, explicit foreign keys, and

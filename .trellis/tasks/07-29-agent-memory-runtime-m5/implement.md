@@ -207,6 +207,7 @@ effect exists.
 
 - `migrations/0014-learning-lab.sql`
 - `packages/storage-sqlite/src/learning-repository.ts`
+- `.trellis/spec/backend/database-guidelines.md`
 - `packages/storage-sqlite/src/protocol.ts`
 - `packages/storage-sqlite/src/database.ts`
 - `packages/storage-sqlite/src/storage-worker.ts`
@@ -708,55 +709,62 @@ revert U6; evaluated candidate history remains inactive.
 
 - `packages/contracts/src/tool-inputs.ts`
 - `packages/contracts/src/mcp.ts`
+- `packages/contracts/src/learning.ts`
+- `packages/learning-lab/src/learning-stop.ts`
+- `packages/learning-lab/src/release-manager.ts`
+- `packages/learning-lab/src/index.ts`
+- `packages/memory-kernel/package.json`
 - `packages/mcp-server/src/index.ts`
 - `packages/memory-kernel/src/index.ts`
 - `packages/storage-sqlite/src/client.ts`
 - `packages/storage-sqlite/src/protocol.ts`
+- `packages/storage-sqlite/src/learning-repository.ts`
+- `tests/helpers/g5-release.ts`
 - `tests/mcp/learning-controls.integration.test.ts`
 - `tests/integration/learning-pause-runtime-continuity.integration.test.ts`
 - `tests/recovery/learning-pause-resume.recovery.test.ts`
 
 ### Pre-development
 
-- [ ] Load `trellis-before-dev`.
-- [ ] Search every MemoryToolName, safety-class, metadata, annotation,
+- [x] Load `trellis-before-dev`.
+- [x] Search every MemoryToolName, safety-class, metadata, annotation,
       registration, approval, and runtime exhaustive mapping.
-- [ ] Characterize ordinary search/get/Context/mutation while no learning
+- [x] Characterize ordinary search/get/Context/mutation while no learning
       control handler exists.
-- [ ] Freeze control epoch/frontier identity and in-flight policy.
+- [x] Freeze control epoch/frontier identity and in-flight policy.
 
 ### Test-first checklist
 
-- [ ] `memory_feedback` stores governed evidence/trace input and has no release
+- [x] `memory_feedback` stores governed evidence/trace input and has no release
       effect.
-- [ ] Pause with exact trusted request advances one control epoch and receipt.
-- [ ] Pause replay is idempotent; changed request conflicts.
-- [ ] While paused, search/get/Context compile succeeds.
-- [ ] While paused, one authorized ordinary memory mutation succeeds.
-- [ ] While paused, new candidate/evaluation/canary/release transition stops.
-- [ ] Running evaluation may write terminal receipt but cannot approve/publish.
-- [ ] Running canary freezes/aborts and cannot publish.
-- [ ] Pause/release concurrency follows the SQLite control-epoch ordering and
+- [x] Pause with exact trusted request advances one control epoch and receipt.
+- [x] Pause replay is idempotent; changed request conflicts.
+- [x] While paused, search/get/Context compile succeeds.
+- [x] While paused, one authorized ordinary memory mutation succeeds.
+- [x] While paused, new candidate/evaluation/canary/release transition stops.
+- [x] Running evaluation may write terminal receipt but cannot approve/publish.
+- [x] Running canary freezes/aborts and cannot publish.
+- [x] Pause/release concurrency follows the SQLite control-epoch ordering and
       emits the specified release-before-pause reason when applicable.
-- [ ] Resume succeeds only with exact expected epoch/frontier and unchanged
+- [x] Resume succeeds only with exact expected epoch/frontier and unchanged
       runtime/config/corpus identity.
-- [ ] Drift forces reevaluation or explicit abandonment.
-- [ ] Release/rollback rejects wrong actor/scope/safety/expected pointer/
+- [x] Drift forces reevaluation or explicit abandonment.
+- [x] Release/rollback rejects wrong actor/scope/safety/expected pointer/
       approval/evaluation/canary.
-- [ ] Every tool has one exact safety class and correct annotations.
-- [ ] Learning inspection resource contains content-free status/IDs/hashes.
-- [ ] Restart preserves pause/control, active pointer, and frozen work.
-- [ ] Error/resource/log output omits raw learning/evidence/Context content.
+- [x] Every tool has one exact safety class and correct annotations.
+- [x] Learning inspection resource contains content-free status/IDs/hashes.
+- [x] Restart preserves pause/control, active pointer, and frozen work.
+- [x] Error/resource/log output omits raw learning/evidence/Context content.
 
 ### Implementation checklist
 
-- [ ] Complete input schemas and runtime handlers for the five M5 tools.
-- [ ] Register exhaustive metadata and MCP tools.
-- [ ] Implement content-free inspection resource.
-- [ ] Implement pause/resume CAS, idempotency, approval, receipt, and frontier
+- [x] Complete input schemas and runtime handlers for the five M5 tools.
+- [x] Register exhaustive metadata and MCP tools.
+- [x] Implement content-free inspection resource.
+- [x] Implement pause/resume CAS, idempotency, approval, receipt, and frontier
       revalidation.
-- [ ] Keep core memory paths independent of learning pause.
-- [ ] Map known failures to stable governed response codes.
+- [x] Keep core memory paths independent of learning pause.
+- [x] Map known failures to stable governed response codes.
 
 ### Focused verification
 
@@ -777,11 +785,11 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] All reserved M5 tool names have implementation/metadata parity.
-- [ ] Pause/resume is durable without core runtime degradation.
-- [ ] Every effect-bearing call returns durable evidence.
-- [ ] `trellis-check` has no unresolved U7 finding.
-- [ ] Create only the U7 commit.
+- [x] All reserved M5 tool names have implementation/metadata parity.
+- [x] Pause/resume is durable without core runtime degradation.
+- [x] Every effect-bearing call returns durable evidence.
+- [x] `trellis-check` has no unresolved U7 finding.
+- [x] Create only the U7 commit.
 
 **Rollback point:** unregister M5 handlers and keep learning publication
 disabled; base MCP/runtime continues.

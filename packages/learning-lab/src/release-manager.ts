@@ -102,6 +102,19 @@ export type LearningReleaseResult = z.output<
 >;
 type CanonicalHash = z.output<typeof CanonicalHashSchema>;
 
+export type LearningReleaseExecutionOptions = {
+  requestHash?: `sha256:${string}`;
+  expected?: {
+    release_slot_hash: CanonicalHash;
+    evaluation_receipt_id: string;
+    canary_receipt_id: string;
+    pointer_revision: number;
+    control_epoch: number;
+    effect_manifest_hash: CanonicalHash;
+    current_release_id?: string;
+  };
+};
+
 type VerifiedPostCanaryAuthority = {
   approval: PostCanaryApproval;
   registry_hash: `sha256:${string}`;
@@ -239,13 +252,18 @@ export class LearningReleaseManager {
     this.#clock = options.clock ?? (() => new Date().toISOString());
   }
 
-  async apply(input: unknown): Promise<LearningReleaseResult> {
+  async apply(
+    input: unknown,
+    execution: LearningReleaseExecutionOptions = {},
+  ): Promise<LearningReleaseResult> {
     const parsed = LearningReleaseInputSchema.parse(input);
     const request = LearningReleaseInputSchema.parse({
       ...parsed,
       scopes: canonicalScopes(parsed.scopes),
     });
-    const requestHash = canonicalSha256(request);
+    const requestHash = CanonicalHashSchema.parse(
+      execution.requestHash ?? canonicalSha256(request),
+    );
     const replay = await this.#storage.replayLearningLedger({
       idempotency_key: request.idempotency_key,
       idempotency_hash: requestHash,
@@ -259,7 +277,7 @@ export class LearningReleaseManager {
           "RELEASE_REPLAY_INCOMPLETE",
         );
       }
-      return this.#replayResult(request);
+      return this.#replayResult(request, requestHash);
     }
 
     const candidateLedger = await this.#storage.readLearningLedger({
@@ -374,6 +392,36 @@ export class LearningReleaseManager {
     ) {
       throw new LearningReleaseError("RELEASE_INELIGIBLE");
     }
+    if (
+      execution.expected !== undefined &&
+      (execution.expected.release_slot_hash !==
+          candidate.release_slot.slot_hash ||
+        execution.expected.evaluation_receipt_id !==
+          evaluationReceipt.receipt_id ||
+        execution.expected.canary_receipt_id !==
+          canaryReceipt.receipt_id)
+    ) {
+      throw new LearningReleaseError("RELEASE_INELIGIBLE");
+    }
+    if (
+      execution.expected !== undefined &&
+      execution.expected.pointer_revision !== pointerRevision
+    ) {
+      throw new LearningReleaseError("POINTER_CONFLICT");
+    }
+    if (
+      execution.expected !== undefined &&
+      execution.expected.control_epoch !== controlEpoch
+    ) {
+      throw new LearningReleaseError("CONTROL_FRONTIER_STALE");
+    }
+    if (
+      request.action === "rollback" &&
+      execution.expected?.current_release_id !== undefined &&
+      execution.expected.current_release_id !== activeReleaseId
+    ) {
+      throw new LearningReleaseError("POINTER_CONFLICT");
+    }
 
     const resultingConfigurationHash =
       this.#configurationHash({
@@ -390,6 +438,12 @@ export class LearningReleaseManager {
       base_configuration_hash: request.base_configuration_hash,
       resulting_configuration_hash: resultingConfigurationHash,
     });
+    if (
+      execution.expected !== undefined &&
+      execution.expected.effect_manifest_hash !== effectManifestHash
+    ) {
+      throw new LearningReleaseError("APPROVAL_INVALID");
+    }
 
     const verifiedAuthority =
       await this.#authorityRegistry.verifyPostCanaryApproval(
@@ -744,6 +798,7 @@ export class LearningReleaseManager {
 
   async #replayResult(
     request: z.output<typeof LearningReleaseInputSchema>,
+    requestHash: CanonicalHash,
   ): Promise<LearningReleaseResult> {
     const ledger = await this.#storage.readLearningLedger({
       principal_id: request.principal_id,
@@ -752,7 +807,7 @@ export class LearningReleaseManager {
     });
     const receipt = ledger.receipts.find(
       (item) =>
-        item.request_hash === canonicalSha256(request) &&
+        item.request_hash === requestHash &&
         (item.kind === "release" || item.kind === "rollback"),
     );
     if (receipt?.kind !== request.action) {

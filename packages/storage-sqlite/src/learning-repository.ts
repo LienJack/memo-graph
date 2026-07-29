@@ -1418,11 +1418,11 @@ export class LearningRepository {
     }
     const current = this.#database
       .prepare(
-        `SELECT control_epoch, status
+        `SELECT control_epoch, status, frontier_hash
          FROM learning_control_state WHERE principal_id = ?`,
       )
       .get(command.control.principal_id) as
-      | { control_epoch: number; status: string }
+      | { control_epoch: number; status: string; frontier_hash: string }
       | undefined;
     const currentEpoch = current === undefined ? 0 : Number(current.control_epoch);
     const currentFrontier = this.frontier().frontier_hash;
@@ -1476,7 +1476,7 @@ export class LearningRepository {
           command.control.changed_at,
           command.control.principal_id,
           command.expected_control_epoch,
-          command.expected_frontier_hash,
+          current.frontier_hash,
         );
       if (changed.changes !== 1) {
         throw new StorageError("CONFLICT");

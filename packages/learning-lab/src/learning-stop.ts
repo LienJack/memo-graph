@@ -54,5 +54,8 @@ export async function persistLearningStop(options: {
     ...command,
     request_hash: canonicalSha256Omitting(command, ["request_hash"]),
   });
-  return { receipt, replayed: result.replayed };
+  return {
+    receipt: LearningStopReceiptSchema.parse(result.receipt),
+    replayed: result.replayed,
+  };
 }

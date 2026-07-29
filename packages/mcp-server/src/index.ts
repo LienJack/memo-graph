@@ -3,6 +3,10 @@ import {
   GraphBackendIdentitySchema,
   GraphQueryModeSchema,
   LanePolicySchema,
+  LearningPauseInputSchema,
+  LearningReleaseInputSchema,
+  LearningResumeInputSchema,
+  LearningRollbackInputSchema,
   MemoryContextCompileInputSchema,
   MemoryCorrectInputSchema,
   MemoryDeleteInputSchema,
@@ -10,6 +14,7 @@ import {
   MemoryEpisodeCommitInputSchema,
   MemoryExplainInputSchema,
   MemoryGetInputSchema,
+  MemoryFeedbackInputSchema,
   MemoryReceiptGetInputSchema,
   MemoryPinInputSchema,
   MemoryProposeInputSchema,
@@ -214,6 +219,16 @@ export const MEMORY_TOOL_METADATA = [
     },
   },
   {
+    name: "memory_feedback",
+    safety_class: "proposal",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
     name: "memory_correct",
     safety_class: "important_mutation",
     annotations: {
@@ -264,6 +279,46 @@ export const MEMORY_TOOL_METADATA = [
     },
   },
   {
+    name: "learning_pause",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "learning_resume",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "learning_release",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "learning_rollback",
+    safety_class: "important_mutation",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
     name: "memory_delete",
     safety_class: "destructive",
     annotations: {
@@ -279,6 +334,7 @@ export const MEMORY_RESOURCE_URIS = [
   "memory://runtime/health",
   "memory://runtime/contracts",
   "memory://runtime/usage",
+  "memory://runtime/learning",
 ] as const;
 
 function toolResult(response: z.infer<typeof GovernedResponseSchema>) {
@@ -403,6 +459,19 @@ export function createMemoryMcpServer(options: {
     async (input) => toolResult(await options.runtime.memoryPropose(input)),
   );
   server.registerTool(
+    "memory_feedback",
+    {
+      title: "Record governed learning feedback",
+      description:
+        "Record content-free outcome metadata without fabricating a trace, publishing a candidate, or changing a release pointer.",
+      inputSchema: MemoryFeedbackInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_feedback"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.memoryFeedback(input)),
+  );
+  server.registerTool(
     "memory_correct",
     {
       title: "Correct governed memory",
@@ -462,6 +531,58 @@ export function createMemoryMcpServer(options: {
       annotations: annotations("memory_revoke"),
     },
     async (input) => toolResult(await options.runtime.memoryRevoke(input)),
+  );
+  server.registerTool(
+    "learning_pause",
+    {
+      title: "Pause governed learning",
+      description:
+        "Advance the exact learning control frontier to paused while leaving ordinary memory service available.",
+      inputSchema: LearningPauseInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("learning_pause"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.learningPause(input)),
+  );
+  server.registerTool(
+    "learning_resume",
+    {
+      title: "Resume governed learning",
+      description:
+        "Resume the exact paused frontier, or explicitly abandon drifted in-flight learning work.",
+      inputSchema: LearningResumeInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("learning_resume"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.learningResume(input)),
+  );
+  server.registerTool(
+    "learning_release",
+    {
+      title: "Release an evaluated learning candidate",
+      description:
+        "Publish one exact post-canary candidate under trusted approval and pointer compare-and-swap.",
+      inputSchema: LearningReleaseInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("learning_release"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.learningRelease(input)),
+  );
+  server.registerTool(
+    "learning_rollback",
+    {
+      title: "Roll back a learning release",
+      description:
+        "Restore one exact prior release pointer under monitor evidence and trusted approval.",
+      inputSchema: LearningRollbackInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("learning_rollback"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.learningRollback(input)),
   );
   server.registerTool(
     "memory_delete",
@@ -543,6 +664,25 @@ export function createMemoryMcpServer(options: {
       ],
     }),
   );
+  server.registerResource(
+    "runtime-learning",
+    "memory://runtime/learning",
+    {
+      title: "Governed learning runtime inspection",
+      description:
+        "Content-free learning control, candidate, release, pointer, receipt, and frontier metadata. Reading this resource does not add it to model context.",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: canonicalJson(await options.runtime.learningInspection()),
+        },
+      ],
+    }),
+  );
   return server;
 }
 
@@ -608,14 +748,19 @@ export async function openMemoryRuntime(configInput: unknown): Promise<{
         ? {}
         : { vectorRetriever }),
     });
+    const approvalRegistry =
+      config.approval_manifest_path === undefined
+        ? undefined
+        : new LocalManifestApprovalRegistry({
+            manifestPath: config.approval_manifest_path,
+          });
     const runtime = new MemoryRuntime({
       storage,
-      ...(config.approval_manifest_path === undefined
+      ...(approvalRegistry === undefined
         ? {}
         : {
-            approvalRegistry: new LocalManifestApprovalRegistry({
-              manifestPath: config.approval_manifest_path,
-            }),
+            approvalRegistry,
+            learningAuthorityRegistry: approvalRegistry,
           }),
       policy: {
         principal: {

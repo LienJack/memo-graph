@@ -18,6 +18,7 @@
   "dependencies": {
     "@memo-graph/context-compiler": "workspace:*",
     "@memo-graph/contracts": "workspace:*",
+    "@memo-graph/learning-lab": "workspace:*",
     "@memo-graph/storage-sqlite": "workspace:*",
     "zod": "4.4.3"
   },

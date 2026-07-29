@@ -884,6 +884,59 @@ export const LearningControlSchema = z
   })
   .strict();
 
+export const LearningInspectionSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    principal_id: IdentifierSchema,
+    storage_frontier: z
+      .object({
+        control_epoch: z.number().int().nonnegative(),
+        release_revision: z.number().int().nonnegative(),
+        frontier_hash: CanonicalHashSchema,
+      })
+      .strict(),
+    control: LearningControlSchema.nullable(),
+    candidates: z.array(
+      z
+        .object({
+          candidate_id: IdentifierSchema,
+          candidate_hash: CanonicalHashSchema,
+          candidate_type: CandidateTypeSchema,
+          release_capability: ReleaseCapabilitySchema,
+          state: CandidateStateSchema,
+          sequence: z.number().int().nonnegative(),
+          transition_hash: CanonicalHashSchema.nullable(),
+          release_slot_hash: CanonicalHashSchema.nullable(),
+        })
+        .strict(),
+    ),
+    releases: z.array(
+      z
+        .object({
+          release_id: IdentifierSchema,
+          release_hash: CanonicalHashSchema,
+          action: z.enum(["release", "rollback"]),
+          candidate_id: IdentifierSchema,
+          configuration_hash: CanonicalHashSchema,
+        })
+        .strict(),
+    ),
+    pointers: z.array(ReleasePointerSchema),
+    receipts: z.array(
+      z
+        .object({
+          receipt_id: IdentifierSchema,
+          kind: StableCodeSchema,
+          state: StableCodeSchema,
+          receipt_hash: CanonicalHashSchema,
+          created_at: UtcTimestampSchema,
+        })
+        .strict(),
+    ),
+    limitations: z.array(StableCodeSchema),
+  })
+  .strict();
+
 export const G5EvidenceEnvelopeSchema = z
   .object({
     schema_version: ContractVersionSchema,
@@ -934,6 +987,7 @@ export type LearningApprovalDetails = z.infer<
   typeof LearningApprovalDetailsSchema
 >;
 export type LearningControl = z.infer<typeof LearningControlSchema>;
+export type LearningInspection = z.infer<typeof LearningInspectionSchema>;
 export type LearningObservation = z.infer<typeof LearningObservationSchema>;
 export type LearningReleaseVersion = z.infer<
   typeof LearningReleaseVersionSchema

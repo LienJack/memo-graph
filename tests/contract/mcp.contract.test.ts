@@ -171,6 +171,8 @@ describe("MCP boundary contracts", () => {
         canary_receipt_id: "receipt_canary_1",
         expected_pointer_revision: 0,
         expected_control_epoch: 0,
+        base_configuration_hash: HASH_A,
+        monitor_contract_hash: HASH_B,
         effect_manifest_hash: HASH_B,
       }).success,
     ).toBe(true);
@@ -182,6 +184,7 @@ describe("MCP boundary contracts", () => {
         monitor_receipt_id: "receipt_monitor_1",
         expected_pointer_revision: 1,
         expected_control_epoch: 0,
+        base_configuration_hash: HASH_A,
         effect_manifest_hash: HASH_B,
       }).success,
     ).toBe(true);
@@ -194,6 +197,8 @@ describe("MCP boundary contracts", () => {
         canary_receipt_id: "receipt_canary_1",
         expected_pointer_revision: 0,
         expected_control_epoch: 0,
+        base_configuration_hash: HASH_A,
+        monitor_contract_hash: HASH_B,
         effect_manifest_hash: HASH_B,
       }).success,
     ).toBe(false);

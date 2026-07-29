@@ -240,55 +240,100 @@ const LearningControlFrontierInputShape = {
   corpus_hash: CanonicalHashSchema,
 };
 
+function requireLearningMutationExecution<T extends z.ZodType>(
+  schema: T,
+): T {
+  return schema.superRefine((value, context) => {
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("envelope" in value) ||
+      typeof value.envelope !== "object" ||
+      value.envelope === null
+    ) {
+      return;
+    }
+    if (
+      "expected_revision_id" in value.envelope &&
+      value.envelope.expected_revision_id !== null
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["envelope", "expected_revision_id"],
+        message:
+          "learning mutations use the exact learning frontier, not a memory revision",
+      });
+    }
+    if ("dry_run" in value.envelope && value.envelope.dry_run !== false) {
+      context.addIssue({
+        code: "custom",
+        path: ["envelope", "dry_run"],
+        message: "learning control mutations require durable execution",
+      });
+    }
+  }) as T;
+}
+
 export const LearningPauseInputSchema = withExpectedTool(
-  z
-    .object({
-      envelope: MutationRequestEnvelopeSchema,
-      ...LearningControlFrontierInputShape,
-    })
-    .strict(),
+  requireLearningMutationExecution(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        ...LearningControlFrontierInputShape,
+      })
+      .strict(),
+  ),
   "learning_pause",
 );
 
 export const LearningResumeInputSchema = withExpectedTool(
-  z
-    .object({
-      envelope: MutationRequestEnvelopeSchema,
-      ...LearningControlFrontierInputShape,
-      abandon_in_flight: z.boolean(),
-    })
-    .strict(),
+  requireLearningMutationExecution(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        ...LearningControlFrontierInputShape,
+        abandon_in_flight: z.boolean(),
+      })
+      .strict(),
+  ),
   "learning_resume",
 );
 
 export const LearningReleaseInputSchema = withExpectedTool(
-  z
-    .object({
-      envelope: MutationRequestEnvelopeSchema,
-      candidate_id: IdentifierSchema,
-      release_slot_hash: CanonicalHashSchema,
-      evaluation_receipt_id: IdentifierSchema,
-      canary_receipt_id: IdentifierSchema,
-      expected_pointer_revision: z.number().int().nonnegative(),
-      expected_control_epoch: z.number().int().nonnegative(),
-      effect_manifest_hash: CanonicalHashSchema,
-    })
-    .strict(),
+  requireLearningMutationExecution(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        candidate_id: IdentifierSchema,
+        release_slot_hash: CanonicalHashSchema,
+        evaluation_receipt_id: IdentifierSchema,
+        canary_receipt_id: IdentifierSchema,
+        expected_pointer_revision: z.number().int().nonnegative(),
+        expected_control_epoch: z.number().int().nonnegative(),
+        base_configuration_hash: CanonicalHashSchema,
+        monitor_contract_hash: CanonicalHashSchema,
+        effect_manifest_hash: CanonicalHashSchema,
+      })
+      .strict(),
+  ),
   "learning_release",
 );
 
 export const LearningRollbackInputSchema = withExpectedTool(
-  z
-    .object({
-      envelope: MutationRequestEnvelopeSchema,
-      release_id: IdentifierSchema,
-      restore_release_id: IdentifierSchema.nullable(),
-      monitor_receipt_id: IdentifierSchema,
-      expected_pointer_revision: z.number().int().nonnegative(),
-      expected_control_epoch: z.number().int().nonnegative(),
-      effect_manifest_hash: CanonicalHashSchema,
-    })
-    .strict(),
+  requireLearningMutationExecution(
+    z
+      .object({
+        envelope: MutationRequestEnvelopeSchema,
+        release_id: IdentifierSchema,
+        restore_release_id: IdentifierSchema.nullable(),
+        monitor_receipt_id: IdentifierSchema,
+        expected_pointer_revision: z.number().int().nonnegative(),
+        expected_control_epoch: z.number().int().nonnegative(),
+        base_configuration_hash: CanonicalHashSchema,
+        effect_manifest_hash: CanonicalHashSchema,
+      })
+      .strict(),
+  ),
   "learning_rollback",
 );
 

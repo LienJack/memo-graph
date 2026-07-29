@@ -55,6 +55,7 @@ export {
   learningReleaseEffectManifestHash,
   narrowLearnedLanePolicy,
   type LearningReleaseInput,
+  type LearningReleaseExecutionOptions,
   type LearningReleaseResult,
   type ReleaseApprovalRegistry,
   type ReleaseAuthorityRegistry,
@@ -66,4 +67,5 @@ export {
   type TraceRecorderInput,
   type TraceRecordResult,
 } from "./trace-recorder.js";
+export { persistLearningStop } from "./learning-stop.js";
 export type { LearningLabStorage } from "./storage-port.js";

@@ -425,8 +425,10 @@ export function authorizeRelease(options: {
   approvals: TestReleaseApprovalRegistry;
   baseReleaseId?: string | null;
   expectedPointerRevision?: number;
+  requestHash?: `sha256:${string}`;
 }): PostCanaryApproval {
-  const requestHash = canonicalSha256(options.request);
+  const requestHash =
+    options.requestHash ?? canonicalSha256(options.request);
   const configurationHash =
     options.prepared.candidate.target.kind === "retrieval_policy"
       ? canonicalSha256(learnedPolicyFor(options.prepared.candidate))
@@ -475,8 +477,10 @@ export function authorizeRollback(options: {
   released: LearningReleaseResult;
   approvals: TestReleaseApprovalRegistry;
   targetRelease?: LearningReleaseResult;
+  requestHash?: `sha256:${string}`;
 }): PostCanaryApproval {
-  const requestHash = canonicalSha256(options.request);
+  const requestHash =
+    options.requestHash ?? canonicalSha256(options.request);
   const resultingConfigurationHash = CanonicalHashSchema.parse(
     options.request.target_release_id === null
       ? options.request.base_configuration_hash
