@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
-  "recorded_at": "2026-07-29T04:05:17.215Z",
+  "recorded_at": "2026-07-29T04:48:33.112Z",
   "gate": "G4A_RESOURCE",
-  "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+  "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
   "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
   "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
   "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517",
@@ -32,8 +32,8 @@
     "corpus": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
     "runner_source_hash": "sha256:3e71d6ad34eacc9d4bbb8ea6f9e3cd1ef1663a08a08fd07abbcf88ff8fc28e47",
     "materializer_source_hash": "sha256:b5a3ac2e8f75b7b819e163ee7656c39212dfdb42883937c3b139cbad52d684b5",
-    "process_host_source_hash": "sha256:e2a047b758df683d9eda869182c6cf66c2c3195604afb66ad30d723cd93c10b2",
-    "native_adapter_source_hash": "sha256:d4ebf0e3fa88cb5e18a3d71f5a77011227c1f01321c69ebf50f34f25ceeb3d60",
+    "process_host_source_hash": "sha256:6475cef06633d3d11dc77a1d126d630f592272da8e25bfacd524c5bc1c1e9dd2",
+    "native_adapter_source_hash": "sha256:4bd785e070c302850f464c095d3a0166b509be7b607daf72798772962bd52367",
     "sample_identity": "sha256:70a568ac01ec3bf589f4891f9f5afadc1961e2604eb909f27dfe65f0d596a6aa"
   },
   "thresholds": {
@@ -58,16 +58,16 @@
     "samples": {
       "warmups": 20,
       "measured": 100,
-      "query_sample_hash": "sha256:c4adff5370f023b6cc7a948e40b027b0289f4836693e6bb2238f9be316741033",
-      "fallback_sample_hash": "sha256:490bee77dac2e0eff279a543b57984784b36b4b2c697f41f5b6442d3884b5562"
+      "query_sample_hash": "sha256:170d88940ecef585e6f35a7d60a5a093326c261592e1d0aa5a7518144755144a",
+      "fallback_sample_hash": "sha256:76e3fb7bc89b2d3859368acdffc4479246b5be65417b7a3690a72c1abd7028d0"
     },
     "latency_ms": {
-      "graph_assisted_p50": 3.770208000000025,
-      "graph_assisted_p95": 6.499125000000049,
-      "fallback_p95": 76.95008400000006,
-      "process_startup": 173.31404099999997,
-      "replacement_max": 261.95820900000035,
-      "small_six_scope_rebuild": 212.96487499999785,
+      "graph_assisted_p50": 2.847499999999968,
+      "graph_assisted_p95": 3.2953750000000355,
+      "fallback_p95": 76.7669590000005,
+      "process_startup": 141.707,
+      "replacement_max": 184.7245409999996,
+      "small_six_scope_rebuild": 234.67674999999872,
       "expected_full_rebuild": null
     },
     "physical_bytes": {
@@ -75,16 +75,16 @@
       "logical_export": 36668,
       "logical_expected_profile_export": 18001,
       "graph_backup": 1920828,
-      "install_delta": 19849707,
+      "install_delta": 19849561,
       "retained_quarantine": 0
     },
     "rss_bytes": {
-      "parent_before": 123469824,
-      "parent_after": 385990656,
-      "child_idle": 160579584,
-      "child_peak_observed": 257130496,
-      "idle_delta": 160579584,
-      "peak_delta": 257130496
+      "parent_before": 122585088,
+      "parent_after": 412286976,
+      "child_idle": 159186944,
+      "child_peak_observed": 240336896,
+      "idle_delta": 159186944,
+      "peak_delta": 240336896
     },
     "process": {
       "queue_debt": 0,
@@ -103,7 +103,7 @@
       "scope_count": 100,
       "logical_materialized": true,
       "logical_digest": "sha256:d8a7968487ad9eaaa4477ced4ecbcdcb35d3e4bf47811bd36067c05fce6575c5",
-      "logical_materialization_ms": 2132.3877079999984,
+      "logical_materialization_ms": 1936.846125,
       "native_physical_materialized": false,
       "native_full_rebuild_measured": false,
       "missing_reason": "EXPECTED_NATIVE_PROFILE_NOT_RUN_AFTER_STRUCTURAL_GATE_FAILED"
@@ -125,5 +125,5 @@
     "expected_native_profile": false
   },
   "resource_gate": false,
-  "report_hash": "sha256:ecba3c53c91eb5d43ab90fa377773b299969c014c99180662e1e3944e8c1a550"
+  "report_hash": "sha256:c1a3a41962f078fe240244c7269eb4aee70acde42d4758b8ea4b73b052914321"
 }

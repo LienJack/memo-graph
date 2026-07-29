@@ -802,55 +802,55 @@ RSS also exceeded the frozen threshold.
 
 ### Freeze checklist
 
-- [ ] Record candidate commit before final evidence generation.
-- [ ] Record dependency lock and every workspace package hash.
-- [ ] Record package/native binary, Node, pnpm, OS, architecture, SQLite,
+- [x] Record candidate commit before final evidence generation.
+- [x] Record dependency lock and every workspace package hash.
+- [x] Record package/native binary, Node, pnpm, OS, architecture, SQLite,
       storage schema, graph schema, compiler, transform, protocol, corpus,
       threshold, and environment identity.
-- [ ] Record all focused and full command outputs as immutable artifacts or
+- [x] Record all focused and full command outputs as immutable artifacts or
       hash-bound reports.
 
 ### Full verification checklist
 
-- [ ] Fresh frozen install under Node `24.18.0` and pnpm `10.33.2`.
-- [ ] Frozen install with optional dependencies omitted builds and starts the
+- [x] Fresh frozen install under Node `24.18.0` and pnpm `10.33.2`.
+- [x] Frozen install with optional dependencies omitted builds and starts the
       SQLite-only MCP runtime.
-- [ ] Production dependency audit has no unaccepted finding.
-- [ ] Full build passes.
-- [ ] Full lint passes.
-- [ ] Full typecheck passes.
-- [ ] Full repository test suite passes.
-- [ ] All graph contract/storage/integration/governance/recovery/security/
+- [x] Production dependency audit has no unaccepted finding.
+- [x] Full build passes.
+- [x] Full lint passes.
+- [x] Full typecheck passes.
+- [x] Full repository test suite passes.
+- [x] All graph contract/storage/integration/governance/recovery/security/
       replay suites pass.
-- [ ] Accepted G3R focused suite and evidence verification pass.
-- [ ] SQLite-only startup and graph-disabled parity pass.
-- [ ] Migration upgrade from every supported fixture passes.
-- [ ] Structural and resource reports verify against frozen hashes.
-- [ ] No untracked executable artifact influences results.
-- [ ] `git diff --check`, JSON parsing, Markdown fences, and Trellis context
+- [x] Accepted G3R focused suite and evidence verification pass.
+- [x] SQLite-only startup and graph-disabled parity pass.
+- [x] Migration upgrade from every supported fixture passes.
+- [x] Structural and resource reports verify against frozen hashes.
+- [x] No untracked executable artifact influences results.
+- [x] `git diff --check`, JSON parsing, Markdown fences, and Trellis context
       validation pass.
 
 ### Full-diff review checklist
 
-- [ ] Correctness review covers timeout, late response, epoch, digest, and
+- [x] Correctness review covers timeout, late response, epoch, digest, and
       clean-no-match failure scenarios.
-- [ ] Architecture review confirms one-way authority and no package cycle.
-- [ ] Security review covers IPC validation, process control, paths, logs,
+- [x] Architecture review confirms one-way authority and no package cycle.
+- [x] Security review covers IPC validation, process control, paths, logs,
       native identity, child environment, closed queries, restart storms, and
       content residual.
-- [ ] Data-integrity review covers migration, leases, checkpoints, crash
+- [x] Data-integrity review covers migration, leases, checkpoints, crash
       windows, restore, and purge.
-- [ ] Reliability review covers startup, shutdown, kill, orphan, restart,
+- [x] Reliability review covers startup, shutdown, kill, orphan, restart,
       lock, corruption, and fallback.
-- [ ] Performance review covers query work, child churn, queue debt, disk, RSS,
+- [x] Performance review covers query work, child churn, queue debt, disk, RSS,
       rebuild, and benchmark representativeness.
-- [ ] Contract/API review covers lane/version compatibility and optional
+- [x] Contract/API review covers lane/version compatibility and optional
       dependency behavior.
-- [ ] Testing review maps every AC and hard gate to executable evidence.
-- [ ] Project-standards review confirms Trellis, TypeScript, storage worker,
+- [x] Testing review maps every AC and hard gate to executable evidence.
+- [x] Project-standards review confirms Trellis, TypeScript, storage worker,
       diagnostics, and commit constraints.
-- [ ] Resolve every P0/P1 before decision.
-- [ ] If executable code changes, freeze a new candidate and regenerate all
+- [x] Resolve every P0/P1 before decision.
+- [x] If executable code changes, freeze a new candidate and regenerate all
       dependent evidence.
 
 ### Final verification
@@ -871,11 +871,11 @@ pnpm audit --prod
 
 ### Completion evidence
 
-- [ ] One manifest binds all code, dependency, native, corpus, threshold,
+- [x] One manifest binds all code, dependency, native, corpus, threshold,
       report, review, and environment identities.
-- [ ] No unresolved P0/P1 remains.
-- [ ] The first failing gate, if any, is unambiguous.
-- [ ] Create the U8 evidence commit without executable changes.
+- [x] No unresolved P0/P1 remains.
+- [x] The first failing gate, if any, is unambiguous.
+- [x] Create the U8 evidence commit without executable changes.
 
 **Rollback point:** graph remains default-off; decision may be NO-GO.
 

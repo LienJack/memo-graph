@@ -2,13 +2,13 @@
 
 ## Decision
 
-**Provisional U7 result: NO-GO.**
+**Verified U8 result: NO-GO.**
 
 The candidate does not satisfy the frozen structural-gain gate or the
 resource gate. SQLite remains the authoritative ledger, graph recall remains
-disabled by default, and no runtime adoption claim is made. U8 will freeze the
-implemented candidate and regenerate the evidence; it may confirm NO-GO but
-must not reinterpret this evidence as GO.
+disabled by default, and no runtime adoption claim is made. U8 froze the
+reviewed candidate and regenerated the evidence. U9 records the formal
+decision and closure; it cannot reinterpret this evidence as GO.
 
 GO is conjunctive:
 
@@ -28,7 +28,7 @@ as NO-GO.
 | Field | Recorded value |
 | --- | --- |
 | Accepted G3R commit | `6224f782c86712488d416d8101ef7c9fa477c0ae` |
-| U7 runtime candidate | `7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb` |
+| U8 reviewed candidate | `36421f5cd75007a1421d3e0594e7881dd4b864b2` |
 | Dependency lock | `sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066` |
 | LadybugDB | `@ladybugdb/core@0.18.3`, storage `42` |
 | Native binary | `sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa` |
@@ -66,7 +66,7 @@ and one transfer gain, with zero regressions. The observed result was:
 - Native/reference mismatches: `0`
 - Governance violations: `0`
 - Logical result hash:
-  `sha256:11f25f40deab01318904d25450e697e09e0c13c331b75876fdc56f1aecd81937`
+  `sha256:bace9907a5cb451a6847aa35f13e32287128a03f4e97c09ce1844ed6bf625596`
 
 Therefore `material_structural_gain=false`.
 
@@ -79,17 +79,17 @@ claims.
 | Metric | Measured | Frozen threshold | Result |
 | --- | ---: | ---: | --- |
 | Warm-ups / samples | 20 / 100 | at least 20 / 100 | Pass |
-| Graph-assisted p50 | 3.77 ms | at most 50 ms | Pass |
-| Graph-assisted p95 | 6.50 ms | at most 200 ms | Pass |
-| Typed fallback p95 | 76.95 ms | at most 100 ms | Pass |
-| Process startup | 173.31 ms | Recorded, no adoption threshold | Informational |
-| Replacement maximum | 261.96 ms | at most 2,000 ms | Pass |
-| Six-scope rebuild | 212.96 ms | Recorded Small evidence | Informational |
+| Graph-assisted p50 | 2.85 ms | at most 50 ms | Pass |
+| Graph-assisted p95 | 3.30 ms | at most 200 ms | Pass |
+| Typed fallback p95 | 76.77 ms | at most 100 ms | Pass |
+| Process startup | 141.71 ms | Recorded, no adoption threshold | Informational |
+| Replacement maximum | 184.72 ms | at most 2,000 ms | Pass |
+| Six-scope rebuild | 234.68 ms | Recorded Small evidence | Informational |
 | Expected native full rebuild | Missing | at most 60,000 ms | **Fail** |
 | Graph database plus WAL | 1,884,160 bytes | at most 536,870,912 | Pass |
 | Install delta | 19,849,707 bytes | at most 67,108,864 | Pass |
-| Idle child RSS | 160,579,584 bytes | at most 134,217,728 | **Fail** |
-| Peak observed child RSS | 257,130,496 bytes | at most 536,870,912 | Pass |
+| Idle child RSS | 159,186,944 bytes | at most 134,217,728 | **Fail** |
+| Peak observed child RSS | 240,336,896 bytes | at most 536,870,912 | Pass |
 | Queue debt | 0 | 0 | Pass |
 | Retained quarantine | 0 bytes | Recorded | Pass |
 
@@ -111,6 +111,9 @@ Therefore `resource_gate=false`.
 - `docs/evaluations/g4a-baseline-report.json`
 - `docs/evaluations/g4a-structural-report.json`
 - `docs/evaluations/g4a-resource-report.json`
+- `docs/evaluations/g4a-code-review.md`
+- `docs/evaluations/g4a-verification-report.json`
+- `docs/evaluations/g4a-reproducibility-manifest.json`
 - `fixtures/g4a/manifest.json`
 
 ```bash

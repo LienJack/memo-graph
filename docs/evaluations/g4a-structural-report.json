@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0.0",
-  "recorded_at": "2026-07-29T04:04:51.883Z",
+  "recorded_at": "2026-07-29T04:48:08.408Z",
   "gate": "G4A",
   "phase": "gate_evaluation",
   "protocol_version": "1.0.0",
   "accepted_g3r_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
   "accepted_g3r_dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
-  "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+  "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
   "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
   "native_identity": {
     "schema_version": "1.0.0",
@@ -33,7 +33,7 @@
     "evaluator_source_hash": "sha256:420136318d5cc34cbc7e0e726a59ce6c23466a9ff70b33ada016b77ed3024d89",
     "materializer_source_hash": "sha256:b5a3ac2e8f75b7b819e163ee7656c39212dfdb42883937c3b139cbad52d684b5",
     "reference_source_hash": "sha256:b8113f134c7675778c5318b1269797d2794e0808c1fd24a6e07d44fdcb38b4fb",
-    "native_adapter_source_hash": "sha256:d4ebf0e3fa88cb5e18a3d71f5a77011227c1f01321c69ebf50f34f25ceeb3d60"
+    "native_adapter_source_hash": "sha256:4bd785e070c302850f464c095d3a0166b509be7b607daf72798772962bd52367"
   },
   "results": [
     {
@@ -114,7 +114,7 @@
             "arm": "m4a_graph_disabled_reference",
             "case_id": "g4a_cal_typed_explanatory_path",
             "partition": "calibration",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": null,
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -161,7 +161,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:bc5f0df347e98b6800759f6f0434c73a40245df6d2a1bb1c624ddd8cd88a2b6d"
+          "result_hash": "sha256:f8d5e8ec20d61c116606083581816d9d1cc11b43789cdf97251e13ab577ea4c0"
         },
         "m4a_graph_enabled": {
           "identity": {
@@ -169,7 +169,7 @@
             "arm": "m4a_graph_enabled",
             "case_id": "g4a_cal_typed_explanatory_path",
             "partition": "calibration",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -216,7 +216,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:64fa9cd8abb075e7e068803a1add4766820efd5320eb1eada728a597d02c08bf"
+          "result_hash": "sha256:eb231596ffbefa1947a9eeef59b00c3a50e5372cf32c9045a0913c798528b793"
         }
       },
       "native_reference_equal": true,
@@ -300,7 +300,7 @@
             "arm": "m4a_graph_disabled_reference",
             "case_id": "g4a_cal_temporal_conflict",
             "partition": "calibration",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": null,
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -348,7 +348,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:d7c77a35ea5e7e72bbbcf652afcfc0fe56139dab8fe4f447ae835ebb5ecbf1d9"
+          "result_hash": "sha256:7837c3cd8b77ed0ad9296e532e896cbf372e3a6056efcc3dca9c876d416a5cc6"
         },
         "m4a_graph_enabled": {
           "identity": {
@@ -356,7 +356,7 @@
             "arm": "m4a_graph_enabled",
             "case_id": "g4a_cal_temporal_conflict",
             "partition": "calibration",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -404,7 +404,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:3293b7023d2755bdc98d12a289b570be0e2c612ff889ed649a9b798417b8afc1"
+          "result_hash": "sha256:77b9e35ac66df976455731edda2bf7390969b51fd93b529942eb3180376b6598"
         }
       },
       "native_reference_equal": true,
@@ -488,7 +488,7 @@
             "arm": "m4a_graph_disabled_reference",
             "case_id": "g4a_hold_scenario_migration",
             "partition": "holdout",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": null,
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -535,7 +535,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:2509d9624f6df089bfa6be70ea103fd14bb9c5e126a201ed9558a3f21d2c5068"
+          "result_hash": "sha256:d684dbce09df534c891ea29db5a273f48c8df2448bd3e7e439b289b8f42b9fdc"
         },
         "m4a_graph_enabled": {
           "identity": {
@@ -543,7 +543,7 @@
             "arm": "m4a_graph_enabled",
             "case_id": "g4a_hold_scenario_migration",
             "partition": "holdout",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -590,7 +590,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:6a1d0e57bb870400183cbaaf3ee48fe21303afc0363d536408e53dc18f9e3234"
+          "result_hash": "sha256:542d80e0aa0389397ad908fd05ff08d00e3ccc06cd181bb8ce2a8a888606ea8f"
         }
       },
       "native_reference_equal": true,
@@ -674,7 +674,7 @@
             "arm": "m4a_graph_disabled_reference",
             "case_id": "g4a_hold_shortest_valid_proof",
             "partition": "holdout",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": null,
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -723,7 +723,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:39ae9e2ebf35d459f852b965f97ad2a1183cbf0a19ec1de64c2c0ab2c0a305f6"
+          "result_hash": "sha256:0eecb167f3ed18c482d093e148547c7c36016f19e8f38fadb77856ca256657d1"
         },
         "m4a_graph_enabled": {
           "identity": {
@@ -731,7 +731,7 @@
             "arm": "m4a_graph_enabled",
             "case_id": "g4a_hold_shortest_valid_proof",
             "partition": "holdout",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -780,7 +780,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:1c1158bdf58eae7266f28ce6c3a44e9c84f46ea42b44d2fa13a1b5628df3f2ee"
+          "result_hash": "sha256:ec391ab10c0afb2e6df428574c83870f6157f8d743bbd27dd025ee601c443307"
         }
       },
       "native_reference_equal": true,
@@ -864,7 +864,7 @@
             "arm": "m4a_graph_disabled_reference",
             "case_id": "g4a_transfer_cycle_fanout_pressure",
             "partition": "transfer",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": null,
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -908,7 +908,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:961b4abc986c740b7c7d630aeb82e2e6af44946512dc71d034292aea2e9462a6"
+          "result_hash": "sha256:567e171dffd6db19d4b90314a40ff25fcd6ff8ea810440bc758d6d168a47993b"
         },
         "m4a_graph_enabled": {
           "identity": {
@@ -916,7 +916,7 @@
             "arm": "m4a_graph_enabled",
             "case_id": "g4a_transfer_cycle_fanout_pressure",
             "partition": "transfer",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -960,7 +960,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:00f96dd1ff65121122f2e51c482d89a719020680ff77959d5d3b5f82d96e3d85"
+          "result_hash": "sha256:51c3d3fc51a1a0604a744dda2cbdd5a9e6259b7bdaa84137297568b069865d2e"
         }
       },
       "native_reference_equal": true,
@@ -1044,7 +1044,7 @@
             "arm": "m4a_graph_disabled_reference",
             "case_id": "g4a_transfer_mid_path_correction",
             "partition": "transfer",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": null,
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -1094,7 +1094,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:dfd0151e54fc7c45f639dcb15d64cba3ae156d56201da4152ff906b293c2449c"
+          "result_hash": "sha256:ccbe07c201c2555e244418bceb1ae9e080db586a64d95fc2bf360f29610f49e3"
         },
         "m4a_graph_enabled": {
           "identity": {
@@ -1102,7 +1102,7 @@
             "arm": "m4a_graph_enabled",
             "case_id": "g4a_transfer_mid_path_correction",
             "partition": "transfer",
-            "candidate_commit": "7b95743f53395bf3ed4fda64c5fbba8e4a14e8bb",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
             "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
             "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
             "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
@@ -1152,7 +1152,7 @@
           },
           "strict_gain": false,
           "governance_violations": [],
-          "result_hash": "sha256:7b3412606d70f0a1eb23e34a803569e25656aa3daa5ee8f7655db5acbf8dbb42"
+          "result_hash": "sha256:66bab98dc452c28623eafad71e8edee4d8c352de71db8f9f0d2d09cb619afd1b"
         }
       },
       "native_reference_equal": true,
@@ -1169,7 +1169,7 @@
     "governance_violations": [],
     "native_reference_mismatches": [],
     "material_structural_gain": false,
-    "logical_results_hash": "sha256:11f25f40deab01318904d25450e697e09e0c13c331b75876fdc56f1aecd81937"
+    "logical_results_hash": "sha256:bace9907a5cb451a6847aa35f13e32287128a03f4e97c09ce1844ed6bf625596"
   },
   "decision_input": {
     "identity_gate": true,
@@ -1179,5 +1179,5 @@
     "resource_gate": "PENDING_U7_RESOURCE_REPORT",
     "eligible_for_go": false
   },
-  "report_hash": "sha256:f506f268ae32d13d55c11c470fb654391aa5d119766e46003d68162d7878680f"
+  "report_hash": "sha256:78b9e417396d9f2259bf4c2fb978fa469022cee1ae8c2aa892fa8b0955eee0d1"
 }

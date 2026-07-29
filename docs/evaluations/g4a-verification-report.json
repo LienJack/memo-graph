@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G4A_U8_VERIFICATION",
+  "recorded_at": "2026-07-29T12:52:13+08:00",
+  "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "commands": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "result": "PASS",
+      "detail": "All 7 workspace projects; lockfile unchanged"
+    },
+    {
+      "command": "pnpm build",
+      "result": "PASS",
+      "detail": "All 6 runtime workspace packages built"
+    },
+    {
+      "command": "pnpm lint",
+      "result": "PASS",
+      "detail": "ESLint completed without findings"
+    },
+    {
+      "command": "pnpm typecheck",
+      "result": "PASS",
+      "detail": "Runtime build and repository TypeScript noEmit check passed"
+    },
+    {
+      "command": "pnpm test",
+      "result": "PASS",
+      "detail": "60 files; 318 passed; 1 environment-gated skip"
+    },
+    {
+      "command": "pnpm test:graph",
+      "result": "PASS",
+      "detail": "11 files; 37 passed"
+    },
+    {
+      "command": "pnpm test:g3r:h3",
+      "result": "PASS",
+      "detail": "8 files; 70 passed; 1 environment-gated skip"
+    },
+    {
+      "command": "pnpm benchmark:graph",
+      "result": "PASS",
+      "detail": "Baseline, three-arm structural replay and physical resource reports regenerated for the frozen candidate"
+    },
+    {
+      "command": "pnpm verify:g3r",
+      "result": "PASS",
+      "detail": "Accepted G3R commit 6224f782c86712488d416d8101ef7c9fa477c0ae verified"
+    },
+    {
+      "command": "pnpm verify:g4a",
+      "result": "PASS",
+      "detail": "Independent verifier confirmed internally consistent NO-GO evidence"
+    },
+    {
+      "command": "pnpm audit --prod",
+      "result": "PASS",
+      "detail": "No known vulnerabilities found"
+    },
+    {
+      "command": "CI=true pnpm install --offline --frozen-lockfile --no-optional && pnpm build && SQLite-only MCP smoke",
+      "result": "PASS",
+      "detail": "Detached candidate worktree; LadybugDB absent; graph disabled; ledger epoch 0; worktree removed"
+    },
+    {
+      "command": "pnpm vitest run tests/storage/data-root-and-migrations.integration.test.ts tests/storage/governance-schema.integration.test.ts tests/storage/graph-projection-schema.integration.test.ts",
+      "result": "PASS",
+      "detail": "3 files; 18 migration and storage tests passed"
+    },
+    {
+      "command": "python3 ./.trellis/scripts/task.py validate 07-29-agent-memory-runtime-m4a",
+      "result": "PASS",
+      "detail": "8 implement and 8 check context entries validated"
+    },
+    {
+      "command": "JSON, JSONL, Markdown fence and git diff checks",
+      "result": "PASS",
+      "detail": "All selected artifacts parsed; all fences matched; git diff --check passed"
+    }
+  ],
+  "review": {
+    "path": "docs/evaluations/g4a-code-review.md",
+    "result": "PASS",
+    "unresolved_p0": 0,
+    "unresolved_p1": 0
+  },
+  "gate_observation": {
+    "structural_gate": false,
+    "governance_gate": true,
+    "resource_gate": false,
+    "eligible_for_go": false,
+    "first_failing_gate": "structural_gate",
+    "decision": "NO-GO"
+  }
+}

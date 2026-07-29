@@ -1,0 +1,163 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G4A",
+  "evaluation_status": "EVIDENCE_READY",
+  "decision": "NO-GO",
+  "recorded_at": "2026-07-29T12:52:13+08:00",
+  "tested_implementation": {
+    "commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+    "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+    "executable_frozen_before_final_evidence": true,
+    "default_graph_enabled": false
+  },
+  "workspace_packages": [
+    {
+      "name": "@memo-graph/context-compiler",
+      "path": "packages/context-compiler",
+      "git_tree": "73ecdebaa200bd8af986f797ff38e1991f979a90"
+    },
+    {
+      "name": "@memo-graph/contracts",
+      "path": "packages/contracts",
+      "git_tree": "d20ae686e443b3b097281fe5af682da36fb21224"
+    },
+    {
+      "name": "@memo-graph/graph-projection",
+      "path": "packages/graph-projection",
+      "git_tree": "3d7b0e645221de91fb96dbefa3dd98f8d6577226"
+    },
+    {
+      "name": "@memo-graph/mcp-server",
+      "path": "packages/mcp-server",
+      "git_tree": "3e2b6cc01806143a733fff3975fb82bc9678061e"
+    },
+    {
+      "name": "@memo-graph/memory-kernel",
+      "path": "packages/memory-kernel",
+      "git_tree": "384ec38435b6d553ccfb3f4b5282d444c3e21a38"
+    },
+    {
+      "name": "@memo-graph/storage-sqlite",
+      "path": "packages/storage-sqlite",
+      "git_tree": "6466e6142046953dc01075e212bd01ffe3349a5f"
+    }
+  ],
+  "frozen_sources": [
+    {
+      "path": "package.json",
+      "raw_hash": "sha256:912947a78d0350397372390300b94b3ca87ea5b4891324369d4069bd34d941a5"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "raw_hash": "sha256:08d75840c97ab0e72d1d9b5b84a17e47a2e06cb159a5fbec5ee0a6a56682dad7"
+    },
+    {
+      "path": "migrations/0012-graph-projection-delivery.sql",
+      "raw_hash": "sha256:5242e089722376e59056cd8d8014eaeeb4656f2ab32e0467b7f5e641902b465b"
+    },
+    {
+      "path": "scripts/run-g4a-baseline.mjs",
+      "raw_hash": "sha256:78e94355bfca94f441bdfa0006edfa3b21108043652e82fa5a2a156e7741668c"
+    },
+    {
+      "path": "scripts/run-g4a-replay.mjs",
+      "raw_hash": "sha256:420136318d5cc34cbc7e0e726a59ce6c23466a9ff70b33ada016b77ed3024d89"
+    },
+    {
+      "path": "scripts/run-g4a-resource-benchmark.mjs",
+      "raw_hash": "sha256:3e71d6ad34eacc9d4bbb8ea6f9e3cd1ef1663a08a08fd07abbcf88ff8fc28e47"
+    },
+    {
+      "path": "scripts/verify-g3r-evidence.mjs",
+      "raw_hash": "sha256:58e5abe8c09eda36eb0af646344d5326558d4ac453e880349d591ebdcc1ce686"
+    },
+    {
+      "path": "scripts/verify-g4a-evidence.mjs",
+      "raw_hash": "sha256:ed76b90138d5840176498923b0cdfaebf6033792464ffc7137018ba5d874a206"
+    }
+  ],
+  "frozen_inputs": {
+    "g4a_manifest_raw": "sha256:eaf76055a54b2a4d15c6ebb0ccadb93d5a87f7129cc666ae5096c966aa655191",
+    "g4a_manifest_canonical": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+    "thresholds_canonical": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+  },
+  "native_identity": {
+    "schema_version": "1.0.0",
+    "backend": "ladybugdb",
+    "package_name": "@ladybugdb/core",
+    "package_version": "0.18.3",
+    "storage_version": "42",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+    "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066"
+  },
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "Darwin 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "versions": {
+    "storage_schema": "0012",
+    "graph_schema": "GraphRevision/GraphLink/GraphScope@1.0.0",
+    "context_compiler": "3.0.0",
+    "context_policy": "2.0.0",
+    "graph_process_protocol": "1.0.0",
+    "g4a_protocol": "G4A@1.0.0",
+    "transform": "g4a-frozen-topology-materializer@1.0.0"
+  },
+  "evidence_reports": {
+    "baseline": {
+      "path": "docs/evaluations/g4a-baseline-report.json",
+      "raw_hash": "sha256:4af8d83b7ac804bb8cecb50227e8088ad1c801d45c8254bc67417df219420c2e",
+      "canonical_hash": "sha256:46e6f02d5dce5dabde682e9d0a93707c7a1578ff018cd43dd5c33180af298dd1",
+      "report_hash": "sha256:56f9e0aee39aabc7fde39088b4a309a5b9af681d9e2526419b8cad1c5b1e9138"
+    },
+    "structural": {
+      "path": "docs/evaluations/g4a-structural-report.json",
+      "raw_hash": "sha256:6697e6780a072d5f1d236143badeca09727a4747e07dd31f02be712c919864ee",
+      "canonical_hash": "sha256:cbe354036b79bc066be2006147cef42239bf696a8c565cef5b714ff5d2feed38",
+      "report_hash": "sha256:78b9e417396d9f2259bf4c2fb978fa469022cee1ae8c2aa892fa8b0955eee0d1"
+    },
+    "resource": {
+      "path": "docs/evaluations/g4a-resource-report.json",
+      "raw_hash": "sha256:84e99d83311498651987a7fcfb03f3726722398c4222c1f6b53e1efa188a59d0",
+      "canonical_hash": "sha256:ef23dc18853d72b22100fc204f10defab90eba174bb4c5dcab3bebe49973aba3",
+      "report_hash": "sha256:c1a3a41962f078fe240244c7269eb4aee70acde42d4758b8ea4b73b052914321"
+    },
+    "verification": {
+      "path": "docs/evaluations/g4a-verification-report.json",
+      "raw_hash": "sha256:9242da4f2af34efa7ef8428d04dbed1c725b9eaed7f4d8bfd0e53bbb1d64391d",
+      "canonical_hash": "sha256:844978149dcd7685572da5a5b0873dcbb4460ed96c9c6f85159d8289aefd4943"
+    }
+  },
+  "review": {
+    "path": "docs/evaluations/g4a-code-review.md",
+    "raw_hash": "sha256:f39d377f37ee62c025f5c2b45283f60e929a9dc30196175d6399a9f0e743e4c7",
+    "result": "PASS",
+    "unresolved_p0": 0,
+    "unresolved_p1": 0
+  },
+  "decision_input": {
+    "baseline_pass": true,
+    "same_candidate": true,
+    "identity_gate": true,
+    "frozen_input_gate": true,
+    "structural_gate": false,
+    "governance_gate": true,
+    "resource_gate": false,
+    "eligible_for_go": false,
+    "first_failing_gate": "structural_gate"
+  },
+  "scope": {
+    "sqlite_authoritative": true,
+    "graph_default_enabled": false,
+    "graph_backend_adopted": false,
+    "vector_gate_opened": true,
+    "production_readiness_claimed": false,
+    "release_fallback": "accepted_g3r_sqlite"
+  }
+}
