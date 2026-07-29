@@ -122,6 +122,8 @@ export type SemanticVectorRuntimeFactory = {
     principalId: string;
     scope: Scope;
     expectedEpoch: VectorEmbeddingEpoch;
+    startupTimeoutMs: number;
+    requestTimeoutMs: number;
   }): Promise<SemanticVectorRuntime>;
 };
 
@@ -200,6 +202,47 @@ function unavailable(
 
 function failureReason(category: VectorFailureCategory): string {
   return `VECTOR_${category}`;
+}
+
+async function openWithinDeadline(
+  factory: SemanticVectorRuntimeFactory,
+  input: Parameters<SemanticVectorRuntimeFactory["open"]>[0],
+  timeoutMs: number,
+): Promise<SemanticVectorRuntime> {
+  const openPromise = factory.open(input);
+  try {
+    return await withinDeadline(openPromise, timeoutMs);
+  } catch (error) {
+    void openPromise
+      .then((runtime) => runtime.close())
+      .catch(() => undefined);
+    throw error;
+  }
+}
+
+async function withinDeadline<Result>(
+  operation: Promise<Result>,
+  timeoutMs: number,
+): Promise<Result> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new VectorRuntimeError("PROCESS_TIMEOUT", {
+              retryable: true,
+            }),
+          );
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 function opaqueRejectedHit(
@@ -362,6 +405,8 @@ export class SemanticVectorRetriever {
     }
     let runtime: SemanticVectorRuntime | null = null;
     let result: VectorQueryResult;
+    const deadline =
+      startedAt + request.vector_query_timeout_ms;
     const queryRequestId =
       `vector-query:${canonicalSha256({
         principal_id: request.principal_id,
@@ -371,31 +416,56 @@ export class SemanticVectorRetriever {
         generation_id: checkpoint.active_generation_id,
       }).slice("sha256:".length, 48)}`;
     try {
-      runtime = await this.#runtimeFactory.open({
-        dataRoot: activeRoot,
-        modelRoot: this.#modelRoot,
-        principalId: request.principal_id,
-        scope: request.scope,
-        expectedEpoch: this.#epoch,
-      });
-      result = VectorQueryResultSchema.parse(
-        await runtime.query({
-          schema_version: "1.0.0",
-          request_id: queryRequestId,
-          principal_id: request.principal_id,
+      const startupRemaining = Math.floor(
+        deadline - performance.now(),
+      );
+      if (startupRemaining < 1) {
+        throw new VectorRuntimeError("PROCESS_TIMEOUT", {
+          retryable: true,
+        });
+      }
+      runtime = await openWithinDeadline(
+        this.#runtimeFactory,
+        {
+          dataRoot: activeRoot,
+          modelRoot: this.#modelRoot,
+          principalId: request.principal_id,
           scope: request.scope,
-          query: request.query,
-          embedding_epoch_id: checkpoint.active_epoch_id,
-          generation_id: checkpoint.active_generation_id,
-          source_frontier_hash:
-            checkpoint.frontier.source_frontier_hash,
-          top_k: Math.min(
-            request.limit,
-            request.vector_top_k,
-          ),
-          parent_deadline_ms: request.vector_query_timeout_ms,
-          max_response_bytes: request.vector_max_response_bytes,
-        }),
+          expectedEpoch: this.#epoch,
+          startupTimeoutMs: startupRemaining,
+          requestTimeoutMs: startupRemaining,
+        },
+        startupRemaining,
+      );
+      const queryRemaining = Math.floor(
+        deadline - performance.now(),
+      );
+      if (queryRemaining < 1) {
+        throw new VectorRuntimeError("PROCESS_TIMEOUT", {
+          retryable: true,
+        });
+      }
+      result = VectorQueryResultSchema.parse(
+        await withinDeadline(
+          runtime.query({
+            schema_version: "1.0.0",
+            request_id: queryRequestId,
+            principal_id: request.principal_id,
+            scope: request.scope,
+            query: request.query,
+            embedding_epoch_id: checkpoint.active_epoch_id,
+            generation_id: checkpoint.active_generation_id,
+            source_frontier_hash:
+              checkpoint.frontier.source_frontier_hash,
+            top_k: Math.min(
+              request.limit,
+              request.vector_top_k,
+            ),
+            parent_deadline_ms: queryRemaining,
+            max_response_bytes: request.vector_max_response_bytes,
+          }),
+          queryRemaining,
+        ),
       );
     } catch (error) {
       const category = error instanceof VectorRuntimeError

@@ -170,9 +170,14 @@ describe("governed semantic vector recall", () => {
         principal_id: "user_local",
         scope: VECTOR_SCOPE,
         top_k: 1,
-        parent_deadline_ms: 50,
         max_response_bytes: 65_536,
       });
+      expect(
+        harness.vectorRuntime.queries[0]?.parent_deadline_ms,
+      ).toBeGreaterThan(0);
+      expect(
+        harness.vectorRuntime.queries[0]?.parent_deadline_ms,
+      ).toBeLessThanOrEqual(50);
       expect(
         JSON.stringify(result.telemetry),
       ).not.toContain("SQLite is the canonical memory authority.");
@@ -366,6 +371,66 @@ describe("governed semantic vector recall", () => {
         code: "ENOENT",
       });
     } finally {
+      await harness.storage.close();
+    }
+  });
+
+  it("enforces the parent deadline across runtime startup and closes a late runtime", async () => {
+    let releaseOpen: () => void = () => {};
+    let markOpenStarted: () => void = () => {};
+    let markLateClosed: () => void = () => {};
+    const openStarted = new Promise<void>((resolve) => {
+      markOpenStarted = resolve;
+    });
+    const lateClosed = new Promise<void>((resolve) => {
+      markLateClosed = resolve;
+    });
+    const openBarrier = new Promise<void>((resolve) => {
+      releaseOpen = resolve;
+    });
+    const harness = await projectedHarness({
+      queryFactory: (base) => ({
+        open: async (input) => {
+          markOpenStarted();
+          await openBarrier;
+          const runtime = await base.open(input);
+          return {
+            query: (queryInput) => runtime.query(queryInput),
+            close: async () => {
+              await runtime.close();
+              markLateClosed();
+            },
+          };
+        },
+      }),
+    });
+    try {
+      const startedAt = performance.now();
+      const pending = recall(
+        harness.orchestrator,
+        ["semantic_vector"],
+      );
+      await openStarted;
+      const result = await pending;
+
+      expect(performance.now() - startedAt).toBeLessThan(200);
+      expect(result.status).toBe("DEGRADED");
+      expect(result.candidates).toEqual([]);
+      expect(result.degraded_lanes).toEqual(["semantic_vector"]);
+      expect(
+        result.telemetry.find(
+          (item) => item.lane === "semantic_vector",
+        ),
+      ).toMatchObject({
+        status: "degraded",
+        reason_codes: ["VECTOR_PROCESS_TIMEOUT"],
+      });
+      expect(harness.vectorRuntime.queries).toEqual([]);
+
+      releaseOpen();
+      await lateClosed;
+    } finally {
+      releaseOpen();
       await harness.storage.close();
     }
   });
