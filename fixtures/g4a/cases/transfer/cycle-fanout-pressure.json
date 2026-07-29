@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "g4a_transfer_cycle_fanout_pressure",
+  "partition": "transfer",
+  "family": "cycle_fanout_pressure",
+  "description": "Terminate cyclic high-fanout work with typed incompleteness rather than a clean no-match.",
+  "principal_id": "user_local",
+  "scope": {
+    "kind": "workspace",
+    "id": "memo_graph"
+  },
+  "as_of": "2026-07-29T00:00:00.000Z",
+  "input_revision_ids": [
+    "revision_cycle_a",
+    "revision_cycle_b",
+    "revision_cycle_c",
+    "revision_cycle_d"
+  ],
+  "input_relation_revision_ids": [
+    "relation_cycle_ab",
+    "relation_cycle_bc",
+    "relation_cycle_ca",
+    "relation_cycle_ad"
+  ],
+  "prohibited_revision_ids": [],
+  "query": {
+    "mode": "typed_path",
+    "start_revision_ids": [
+      "revision_cycle_a"
+    ],
+    "relation_pattern": [
+      "supports"
+    ],
+    "max_depth": 4,
+    "max_fanout": 2,
+    "max_paths": 2,
+    "max_results": 1,
+    "max_relation_allowlist": 4,
+    "parent_deadline_ms": 75
+  },
+  "expected": {
+    "status": "degraded",
+    "revision_ids": [],
+    "ordered_paths": [],
+    "evidence_ids": [],
+    "complete": false,
+    "abstain": true,
+    "reason_codes": [
+      "GRAPH_FANOUT_LIMIT"
+    ]
+  }
+}

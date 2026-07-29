@@ -11,11 +11,16 @@ import {
 import { EvaluationPartitionSchema } from "./learning.js";
 import { RecallStatusSchema } from "./mcp.js";
 import {
+  GraphPathEvidenceSchema,
+  GraphQueryModeSchema,
+} from "./graph.js";
+import {
   LanePolicySchema,
   LaneRequestOverridesSchema,
   ProjectionRevisionSchema,
   ProjectionTypeSchema,
   RecallLaneSchema,
+  RelationTypeSchema,
 } from "./projections.js";
 
 export const ReplayRiskFamilySchema = z.enum([
@@ -336,6 +341,429 @@ export const G3CaseResultSchema = z
   })
   .strict();
 
+export const G4AArmSchema = z.enum([
+  "accepted_g3r",
+  "m4a_graph_disabled_reference",
+  "m4a_graph_enabled",
+]);
+
+export const G4ACaseFamilySchema = z.enum([
+  "typed_explanatory_path",
+  "temporal_conflict",
+  "scenario_migration",
+  "shortest_valid_proof",
+  "cycle_fanout_pressure",
+  "mid_path_correction",
+]);
+
+export const G4AQueryIntentSchema = z
+  .object({
+    mode: GraphQueryModeSchema,
+    start_revision_ids: z.array(IdentifierSchema).min(1).max(100),
+    relation_pattern: z.array(RelationTypeSchema).min(1).max(4),
+    max_depth: z.number().int().min(1).max(4),
+    max_fanout: z.number().int().min(1).max(100),
+    max_paths: z.number().int().min(1).max(1_000),
+    max_results: z.number().int().min(1).max(1_000),
+    max_relation_allowlist: z.number().int().min(1).max(100_000),
+    parent_deadline_ms: z.number().int().min(1).max(60_000),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (new Set(value.start_revision_ids).size !== value.start_revision_ids.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["start_revision_ids"],
+        message: "G4A query starts must be unique",
+      });
+    }
+    if (value.relation_pattern.length > value.max_depth) {
+      context.addIssue({
+        code: "custom",
+        path: ["relation_pattern"],
+        message: "G4A relation pattern cannot exceed maximum depth",
+      });
+    }
+    if (value.max_results > value.max_paths) {
+      context.addIssue({
+        code: "custom",
+        path: ["max_results"],
+        message: "G4A result limit cannot exceed path limit",
+      });
+    }
+  });
+
+export const G4AExpectedOutcomeSchema = z
+  .object({
+    status: z.enum(["complete", "degraded"]),
+    revision_ids: z.array(IdentifierSchema),
+    ordered_paths: z.array(GraphPathEvidenceSchema),
+    evidence_ids: z.array(IdentifierSchema),
+    complete: z.boolean(),
+    abstain: z.boolean(),
+    reason_codes: z.array(z.string().trim().min(1).max(200)),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    for (const [field, entries] of [
+      ["revision_ids", value.revision_ids],
+      ["evidence_ids", value.evidence_ids],
+    ] as const) {
+      if (new Set(entries).size !== entries.length) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `G4A ${field} must be unique`,
+        });
+      }
+    }
+    if (value.complete !== (value.status === "complete")) {
+      context.addIssue({
+        code: "custom",
+        path: ["complete"],
+        message: "G4A expected status and completeness must agree",
+      });
+    }
+    if (!value.complete && value.reason_codes.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["reason_codes"],
+        message: "incomplete G4A expectation requires a stable reason code",
+      });
+    }
+  });
+
+export const G4ACaseBodySchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    case_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    family: G4ACaseFamilySchema,
+    description: NonEmptyReasonSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    as_of: UtcTimestampSchema,
+    input_revision_ids: z.array(IdentifierSchema).min(2).max(1_000),
+    input_relation_revision_ids: z
+      .array(IdentifierSchema)
+      .min(1)
+      .max(100_000),
+    prohibited_revision_ids: z.array(IdentifierSchema),
+    query: G4AQueryIntentSchema,
+    expected: G4AExpectedOutcomeSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    for (const [field, entries] of [
+      ["input_revision_ids", value.input_revision_ids],
+      ["input_relation_revision_ids", value.input_relation_revision_ids],
+      ["prohibited_revision_ids", value.prohibited_revision_ids],
+    ] as const) {
+      if (new Set(entries).size !== entries.length) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `G4A ${field} must be unique`,
+        });
+      }
+    }
+    const inputRevisionIds = new Set(value.input_revision_ids);
+    const inputRelationRevisionIds = new Set(
+      value.input_relation_revision_ids,
+    );
+    if (
+      value.query.start_revision_ids.some(
+        (revisionId) => !inputRevisionIds.has(revisionId),
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["query", "start_revision_ids"],
+        message: "G4A starts must resolve in the case input",
+      });
+    }
+    if (
+      value.expected.revision_ids.some(
+        (revisionId) => !inputRevisionIds.has(revisionId),
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected", "revision_ids"],
+        message: "G4A expected revisions must resolve in the case input",
+      });
+    }
+    if (
+      value.prohibited_revision_ids.some((revisionId) =>
+        value.expected.revision_ids.includes(revisionId)
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected", "revision_ids"],
+        message: "G4A prohibited revisions cannot be expected",
+      });
+    }
+    const expectedPathRevisionIds = new Set(
+      value.expected.ordered_paths.flatMap(
+        (path) => path.node_revision_ids,
+      ),
+    );
+    if (
+      value.expected.ordered_paths.some((path) =>
+        path.node_revision_ids.some(
+          (revisionId) => !inputRevisionIds.has(revisionId),
+        ) ||
+        path.relation_revision_ids.some(
+          (relationRevisionId) =>
+            !inputRelationRevisionIds.has(relationRevisionId),
+        ) ||
+        path.relation_types.some(
+          (relationType, index) =>
+            relationType !== value.query.relation_pattern[index],
+        )
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected", "ordered_paths"],
+        message:
+          "G4A expected paths must resolve in the frozen input and match the query relation pattern",
+      });
+    }
+    const expectedRevisionIds = new Set(value.expected.revision_ids);
+    if (
+      expectedRevisionIds.size !== expectedPathRevisionIds.size ||
+      [...expectedRevisionIds].some(
+        (revisionId) => !expectedPathRevisionIds.has(revisionId),
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected", "revision_ids"],
+        message:
+          "G4A expected revision set must exactly match ordered proof path revisions",
+      });
+    }
+    const emptyExpected =
+      value.expected.revision_ids.length === 0 &&
+      value.expected.ordered_paths.length === 0 &&
+      value.expected.evidence_ids.length === 0;
+    if (value.expected.abstain !== emptyExpected) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected", "abstain"],
+        message:
+          "G4A abstention requires empty revisions, paths, and evidence, and only abstention may be empty",
+      });
+    }
+  });
+
+export const G4ACaseDescriptorSchema = z
+  .object({
+    case_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    family: G4ACaseFamilySchema,
+    requirement_anchors: z
+      .array(z.enum(["R8", "R12", "R14", "R19", "R20"]))
+      .min(1),
+    body_file: z
+      .string()
+      .regex(
+        /^cases\/(calibration|holdout|transfer)\/[A-Za-z0-9._-]+\.json$/,
+      ),
+    content_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (!value.body_file.startsWith(`cases/${value.partition}/`)) {
+      context.addIssue({
+        code: "custom",
+        path: ["body_file"],
+        message: "G4A body path must remain inside its declared partition",
+      });
+    }
+    if (new Set(value.requirement_anchors).size !== value.requirement_anchors.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["requirement_anchors"],
+        message: "G4A requirement anchors must be unique",
+      });
+    }
+  });
+
+export const G4AThresholdsSchema = z
+  .object({
+    strict_case_gains: z.number().int().positive().max(6),
+    minimum_holdout_gains: z.number().int().nonnegative().max(2),
+    minimum_transfer_gains: z.number().int().nonnegative().max(2),
+    critical_regression_tolerance: z.literal(0),
+    host_graph_deadline_ms: z.number().int().positive(),
+    fallback_p95_ms: z.number().int().positive(),
+    governed_recall_p50_ms: z.number().int().positive(),
+    governed_recall_p95_ms: z.number().int().positive(),
+    replacement_ready_ms: z.number().int().positive(),
+    expected_rebuild_ms: z.number().int().positive(),
+    graph_database_wal_bytes: z.number().int().positive(),
+    install_delta_bytes: z.number().int().positive(),
+    idle_rss_delta_bytes: z.number().int().positive(),
+    peak_rss_delta_bytes: z.number().int().positive(),
+    warmup_samples: z.number().int().nonnegative(),
+    measured_samples: z.number().int().positive(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.governed_recall_p50_ms > value.governed_recall_p95_ms) {
+      context.addIssue({
+        code: "custom",
+        path: ["governed_recall_p50_ms"],
+        message: "G4A p50 threshold cannot exceed p95",
+      });
+    }
+    if (value.host_graph_deadline_ms > value.fallback_p95_ms) {
+      context.addIssue({
+        code: "custom",
+        path: ["host_graph_deadline_ms"],
+        message: "G4A host deadline must fit inside fallback p95",
+      });
+    }
+  });
+
+export const G4AOverlayManifestSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    frozen_at: UtcTimestampSchema,
+    baseline_commit: z.string().regex(/^[a-f0-9]{40}$/),
+    candidate: z
+      .object({
+        package_name: z.literal("@ladybugdb/core"),
+        package_version: z
+          .string()
+          .regex(/^(0|[1-9]\d*)\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$/),
+        platform: z.string().trim().min(1).max(80),
+        architecture: z.string().trim().min(1).max(80),
+      })
+      .strict(),
+    arms: z.array(G4AArmSchema),
+    thresholds: G4AThresholdsSchema,
+    expected_profile: z
+      .object({
+        active_l1_memories: z.number().int().positive(),
+        l2_l3_projections: z.number().int().positive(),
+        relations: z.number().int().positive(),
+      })
+      .strict(),
+    strict_gain_rule: NonEmptyReasonSchema,
+    cases: z.array(G4ACaseDescriptorSchema).length(6),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.arms.length !== G4AArmSchema.options.length ||
+      value.arms.some(
+        (arm, index) => arm !== G4AArmSchema.options[index],
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["arms"],
+        message: "G4A manifest must declare the exact ordered three arms",
+      });
+    }
+    const caseIds = value.cases.map((entry) => entry.case_id);
+    if (new Set(caseIds).size !== caseIds.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["cases"],
+        message: "G4A case identities must be unique",
+      });
+    }
+    const families = value.cases.map((entry) => entry.family);
+    if (
+      new Set(families).size !== G4ACaseFamilySchema.options.length ||
+      G4ACaseFamilySchema.options.some(
+        (family) => !families.includes(family),
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["cases"],
+        message: "G4A manifest must contain every structural family once",
+      });
+    }
+    for (const partition of EvaluationPartitionSchema.options) {
+      if (
+        value.cases.filter((entry) => entry.partition === partition).length !==
+        2
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["cases"],
+          message: `G4A manifest requires exactly two ${partition} cases`,
+        });
+      }
+    }
+  });
+
+export const G4AEvaluationPhaseSchema = z.enum([
+  "calibration_tuning",
+  "gate_evaluation",
+]);
+
+export function assertG4APartitionAccess(
+  phaseInput: unknown,
+  partitionInput: unknown,
+): void {
+  const phase = G4AEvaluationPhaseSchema.parse(phaseInput);
+  const partition = EvaluationPartitionSchema.parse(partitionInput);
+  if (phase === "calibration_tuning" && partition !== "calibration") {
+    throw new Error(
+      `G4A partition ${partition} is unavailable during calibration tuning`,
+    );
+  }
+}
+
+export const G4AProtocolIdentitySchema = z
+  .object({
+    protocol_version: z.literal("1.0.0"),
+    arm: G4AArmSchema,
+    case_id: IdentifierSchema,
+    partition: EvaluationPartitionSchema,
+    candidate_commit: z.string().regex(/^[a-f0-9]{40}$/),
+    dependency_lock_hash: CanonicalHashSchema,
+    native_binary_hash: CanonicalHashSchema.nullable(),
+    manifest_hash: CanonicalHashSchema,
+    case_hash: CanonicalHashSchema,
+    query_hash: CanonicalHashSchema,
+    policy_hash: CanonicalHashSchema,
+    frontier_hash: CanonicalHashSchema,
+    thresholds_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.arm === "m4a_graph_enabled") !==
+      (value.native_binary_hash !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["native_binary_hash"],
+        message: "only the enabled graph arm binds a native binary",
+      });
+    }
+  });
+
+export const G4ACaseResultSchema = z
+  .object({
+    identity: G4AProtocolIdentitySchema,
+    status: z.enum(["passed", "failed", "degraded", "invalid"]),
+    actual: G4AExpectedOutcomeSchema,
+    strict_gain: z.boolean(),
+    governance_violations: z.array(z.string().trim().min(1).max(200)),
+    result_hash: CanonicalHashSchema,
+  })
+  .strict();
+
 export type G3Arm = z.infer<typeof G3ArmSchema>;
 export type G3OverlayCase = z.infer<typeof G3OverlayCaseSchema>;
 export type G3OverlayDescriptor = z.infer<
@@ -354,6 +782,18 @@ export type G3ProtocolIdentity = z.infer<
 >;
 export type G3CaseMetrics = z.infer<typeof G3CaseMetricsSchema>;
 export type G3CaseResult = z.infer<typeof G3CaseResultSchema>;
+export type G4AArm = z.infer<typeof G4AArmSchema>;
+export type G4ACaseBody = z.infer<typeof G4ACaseBodySchema>;
+export type G4ACaseDescriptor = z.infer<typeof G4ACaseDescriptorSchema>;
+export type G4ACaseFamily = z.infer<typeof G4ACaseFamilySchema>;
+export type G4ACaseResult = z.infer<typeof G4ACaseResultSchema>;
+export type G4AOverlayManifest = z.infer<
+  typeof G4AOverlayManifestSchema
+>;
+export type G4AProtocolIdentity = z.infer<
+  typeof G4AProtocolIdentitySchema
+>;
+export type G4AThresholds = z.infer<typeof G4AThresholdsSchema>;
 export type ReplayCaseBody = z.infer<typeof ReplayCaseBodySchema>;
 export type ReplayCaseDescriptor = z.infer<typeof ReplayCaseDescriptorSchema>;
 export type ReplayManifest = z.infer<typeof ReplayManifestSchema>;

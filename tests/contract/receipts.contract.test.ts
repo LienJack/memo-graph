@@ -4,8 +4,10 @@ import {
   MutationReceiptSchema,
   PurgeReceiptSchema,
   ReceiptSchema,
+  RetrievalReceiptItemSchema,
   RetrievalReceiptSchema,
   buildContextFrontierV2,
+  buildGraphPathEvidence,
   receiptHashIsValid,
   sealReceipt,
 } from "../../packages/contracts/src/index.js";
@@ -228,6 +230,71 @@ describe("receipt contracts", () => {
       truncated_count: 1,
       complete: false,
     });
+  });
+
+  it("requires ordered graph proof metadata only on relation_graph items", () => {
+    const graphPath = buildGraphPathEvidence({
+      node_revision_ids: ["revision_start", "revision_goal"],
+      relation_revision_ids: ["relation_revision_1"],
+      relation_types: ["supports"],
+      depth: 1,
+    });
+    const item = {
+      memory_id: "projection_relation_1",
+      revision_id: "projection_relation_revision_1",
+      decision: "included",
+      reason_codes: ["GRAPH_PATH_UTILITY"],
+      lane: "relation_graph",
+      score: 1,
+      score_components: {
+        relevance: 1,
+        authority: 0,
+        freshness: 1,
+        evidence_diversity: 1,
+        conflict_cost: 0,
+        token_utility: 1,
+        lane_contribution: 1,
+      },
+      token_estimate: 16,
+      projection: {
+        projection_id: "projection_relation_1",
+        projection_revision_id: "projection_relation_revision_1",
+        source_revision_ids: ["revision_source_1"],
+        source_content_hashes: [HASH_A],
+        transform: {
+          name: "deterministic-g3-projection",
+          version: "1.0.0",
+        },
+        frontier: {
+          schema_version: "1.0.0",
+          ledger_epoch: 10,
+          tombstone_epoch: 2,
+          projection_epoch: 4,
+          transform: {
+            name: "deterministic-g3-projection",
+            version: "1.0.0",
+          },
+          source_frontier_hash: HASH_A,
+          projection_frontier_hash: HASH_B,
+        },
+      },
+      graph_path: graphPath,
+      conflict_group_id: null,
+    } as const;
+
+    expect(RetrievalReceiptItemSchema.safeParse(item).success).toBe(true);
+    expect(
+      RetrievalReceiptItemSchema.safeParse({
+        ...item,
+        graph_path: undefined,
+      }).success,
+    ).toBe(false);
+    expect(
+      RetrievalReceiptItemSchema.safeParse({
+        ...item,
+        lane: "relation_sqlite",
+      }).success,
+    ).toBe(false);
   });
 
   it("cannot complete a purge while residual content remains", () => {

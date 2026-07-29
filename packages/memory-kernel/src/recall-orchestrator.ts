@@ -1,4 +1,5 @@
 import {
+  BASE_RECALL_LANES,
   DEFAULT_BOUNDED_RECALL_LIMITS,
   EffectiveLaneConfigurationSchema,
   GovernedSearchItemSchema,
@@ -72,6 +73,7 @@ const RevalidatedProjectionCandidateSchema = z
       "scenario_procedure",
       "core",
       "relation_sqlite",
+      "relation_graph",
     ]),
     scope: ScopeSchema,
     rank: z.number().finite(),
@@ -112,14 +114,20 @@ export const LayeredRecallResultSchema = z
   .strict()
   .superRefine((value, context) => {
     const lanes = value.telemetry.map((item) => item.lane);
+    const expectedLanes = value.effective_configuration.requested_lanes
+      .includes("relation_graph")
+      ? RecallLaneSchema.options
+      : BASE_RECALL_LANES;
     if (
-      lanes.length !== RecallLaneSchema.options.length ||
-      new Set(lanes).size !== lanes.length
+      lanes.length !== expectedLanes.length ||
+      new Set(lanes).size !== lanes.length ||
+      expectedLanes.some((lane) => !lanes.includes(lane))
     ) {
       context.addIssue({
         code: "custom",
         path: ["telemetry"],
-        message: "layered recall must report every lane exactly once",
+        message:
+          "layered recall must report every applicable lane exactly once",
       });
     }
   });
@@ -220,7 +228,8 @@ export class RecallOrchestrator {
     );
     const laneStates = new Map<RecallLane, LaneState>();
     const nonRelation = effective.enabled_lanes.filter(
-      (lane) => lane !== "relation_sqlite",
+      (lane) =>
+        lane !== "relation_sqlite" && lane !== "relation_graph",
     );
     const concurrency = effective.limits.max_concurrent_lanes;
     for (let offset = 0; offset < nonRelation.length; offset += concurrency) {
@@ -258,6 +267,12 @@ export class RecallOrchestrator {
           ),
         ),
       );
+    }
+    if (effective.enabled_lanes.includes("relation_graph")) {
+      laneStates.set("relation_graph", {
+        result: null,
+        failure_reason: "GRAPH_RUNTIME_NOT_IMPLEMENTED",
+      });
     }
 
     const rawMemoryCandidates = [...laneStates.values()].flatMap((state) =>
@@ -448,7 +463,12 @@ export class RecallOrchestrator {
           ) ?? false);
       })
       .sort();
-    const telemetry = RecallLaneSchema.options.map((lane) => {
+    const telemetryLanes = effective.requested_lanes.includes(
+      "relation_graph",
+    )
+      ? RecallLaneSchema.options
+      : BASE_RECALL_LANES;
+    const telemetry = telemetryLanes.map((lane) => {
       const requested = effective.requested_lanes.includes(lane);
       const enabled = effective.enabled_lanes.includes(lane);
       if (!requested) {

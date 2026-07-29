@@ -621,12 +621,17 @@ export const ProjectionLineageRefSchema = z
     }
   });
 
-export const RecallLaneSchema = z.enum([
+export const BASE_RECALL_LANES = [
   "recent_l1",
   "topic",
   "scenario_procedure",
   "core",
   "relation_sqlite",
+] as const;
+
+export const RecallLaneSchema = z.enum([
+  ...BASE_RECALL_LANES,
+  "relation_graph",
 ]);
 
 export const LaneLimitsSchema = z
@@ -650,6 +655,25 @@ export const LaneLimitsSchema = z
       .max(100_000)
       .optional(),
     relation_max_starts: z.number().int().min(1).max(100).optional(),
+    relation_max_paths: z.number().int().min(1).max(1_000).optional(),
+    graph_max_relation_allowlist: z
+      .number()
+      .int()
+      .min(1)
+      .max(100_000)
+      .optional(),
+    graph_query_timeout_ms: z
+      .number()
+      .int()
+      .min(1)
+      .max(60_000)
+      .optional(),
+    graph_max_response_bytes: z
+      .number()
+      .int()
+      .min(1_024)
+      .max(16 * 1_024 * 1_024)
+      .optional(),
   })
   .strict();
 
@@ -730,12 +754,20 @@ const OPTIONAL_LIMIT_KEYS = [
   "max_projection_scan_per_lane",
   "max_source_revisions_per_batch",
   "relation_max_starts",
+  "relation_max_paths",
+  "graph_max_relation_allowlist",
+  "graph_query_timeout_ms",
+  "graph_max_response_bytes",
 ] as const;
 
 export const DEFAULT_BOUNDED_RECALL_LIMITS = {
   max_projection_scan_per_lane: 10_000,
   max_source_revisions_per_batch: 10_000,
   relation_max_starts: 100,
+  relation_max_paths: 100,
+  graph_max_relation_allowlist: 10_000,
+  graph_query_timeout_ms: 75,
+  graph_max_response_bytes: 1_048_576,
 } as const;
 
 export function computeEffectiveLaneConfiguration(
@@ -810,6 +842,13 @@ export const BoundedWorkBoundarySchema = z.enum([
   "source_lineage_batch",
   "relation_starts",
   "relation_fanout",
+  "relation_depth",
+  "relation_paths",
+  "relation_allowlist",
+  "graph_results",
+  "graph_wall_clock",
+  "graph_response_bytes",
+  "graph_process_restarts",
 ]);
 
 export const BoundedWorkTelemetrySchema = z

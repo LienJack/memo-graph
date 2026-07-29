@@ -30,6 +30,7 @@ const LANE_SCORE = {
   scenario_procedure: 0.9,
   core: 0.8,
   relation_sqlite: 0.5,
+  relation_graph: 0.5,
 } as const;
 
 function terms(value: string): Set<string> {

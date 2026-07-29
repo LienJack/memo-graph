@@ -100,61 +100,61 @@ M4A-AC1/M4A-AC5/M4A-AC8/M4A-AC9.
 
 ### Test-first checklist
 
-- [ ] Add valid minimal graph node, edge, scope snapshot, checkpoint, delivery
+- [x] Add valid minimal graph node, edge, scope snapshot, checkpoint, delivery
       receipt, backend identity, and ordered path fixtures.
-- [ ] Reject graph nodes or edges that contain rendered memory content,
+- [x] Reject graph nodes or edges that contain rendered memory content,
       evidence bodies, approvals, ACLs, or deletion receipts.
-- [ ] Reject mismatched principal, exact scope, lifecycle, validity, epoch,
+- [x] Reject mismatched principal, exact scope, lifecycle, validity, epoch,
       hash, transform, or lineage across snapshot elements.
-- [ ] Reject duplicate node, edge, revision, relation, evidence, or path
+- [x] Reject duplicate node, edge, revision, relation, evidence, or path
       identities.
-- [ ] Prove unordered physical input normalizes to one canonical logical
+- [x] Prove unordered physical input normalizes to one canonical logical
       digest.
-- [ ] Prove changed scope, edge direction, validity, hash, or lineage changes
+- [x] Prove changed scope, edge direction, validity, hash, or lineage changes
       the digest.
-- [ ] Reject graph queries with no explicit depth, starts, path/result bound,
+- [x] Reject graph queries with no explicit depth, starts, path/result bound,
       or parent deadline.
-- [ ] Reject raw Cypher, caller-provided graph paths, path escape, symlink
+- [x] Reject raw Cypher, caller-provided graph paths, path escape, symlink
       substitution, or unbounded relation allowlists.
-- [ ] Reject a partial/incomplete graph result without a stable reason.
-- [ ] Add `relation_graph` lane tests while preserving `relation_sqlite`.
-- [ ] Add graph starts, path/result, depth, timeout, and process bounded-work
+- [x] Reject a partial/incomplete graph result without a stable reason.
+- [x] Add `relation_graph` lane tests while preserving `relation_sqlite`.
+- [x] Add graph starts, path/result, depth, timeout, and process bounded-work
       categories with count invariants.
-- [ ] Prove request graph limits can only narrow operator policy.
-- [ ] Prove disabled graph lane reports zero candidates/selections.
-- [ ] Prove old G3 lane policies, Contexts, receipts, and hashes remain
+- [x] Prove request graph limits can only narrow operator policy.
+- [x] Prove disabled graph lane reports zero candidates/selections.
+- [x] Prove old G3 lane policies, Contexts, receipts, and hashes remain
       unchanged.
-- [ ] Freeze six case bodies with two calibration, two holdout, and two
+- [x] Freeze six case bodies with two calibration, two holdout, and two
       transfer partitions.
-- [ ] Freeze exact expected revision sets, ordered proof paths, evidence
+- [x] Freeze exact expected revision sets, ordered proof paths, evidence
       lineage, completeness, and abstention.
-- [ ] Freeze material gain: three strict improvements, including one holdout
+- [x] Freeze material gain: three strict improvements, including one holdout
       and one transfer, with no regression.
-- [ ] Define a strict improvement as C matching the complete expected
+- [x] Define a strict improvement as C matching the complete expected
       assertions while both A and B fail at least one under identical
       semantics and limits; reject candidate-count, ordering-only, or
       latency-only credit.
-- [ ] Freeze host deadline, fallback, latency, startup, rebuild, disk, install,
+- [x] Freeze host deadline, fallback, latency, startup, rebuild, disk, install,
       and RSS thresholds.
-- [ ] Add fixture tests that reject any case, partition, threshold, or expected
+- [x] Add fixture tests that reject any case, partition, threshold, or expected
       result hash drift.
-- [ ] Add partition-access tests that prevent tuning code from opening
+- [x] Add partition-access tests that prevent tuning code from opening
       holdout/transfer payloads.
 
 ### Implementation checklist
 
-- [ ] Define backend/native identity without importing LadybugDB types.
-- [ ] Define minimal graph node and edge envelopes.
-- [ ] Define exact-scope graph snapshot and canonical logical digest builder.
-- [ ] Define graph delivery/checkpoint/rebuild evidence.
-- [ ] Define bounded graph query and ordered path evidence.
-- [ ] Define process health and typed failure/degradation categories.
-- [ ] Extend lane policy, telemetry, Context, receipt, and replay contracts
+- [x] Define backend/native identity without importing LadybugDB types.
+- [x] Define minimal graph node and edge envelopes.
+- [x] Define exact-scope graph snapshot and canonical logical digest builder.
+- [x] Define graph delivery/checkpoint/rebuild evidence.
+- [x] Define bounded graph query and ordered path evidence.
+- [x] Define process health and typed failure/degradation categories.
+- [x] Extend lane policy, telemetry, Context, receipt, and replay contracts
       through optional/versioned fields.
-- [ ] Add `relation_graph` to every exhaustive lane mapping and ensure old
+- [x] Add `relation_graph` to every exhaustive lane mapping and ensure old
       callers are not default-enabled.
-- [ ] Create immutable G4A manifest and case files.
-- [ ] Export all new public schemas, builders, and types.
+- [x] Create immutable G4A manifest and case files.
+- [x] Export all new public schemas, builders, and types.
 
 ### Focused verification
 
@@ -172,10 +172,10 @@ pnpm build
 
 ### Completion evidence
 
-- [ ] Contract invalid/boundary cases fail for the intended reason.
-- [ ] G3 artifact compatibility is exact.
-- [ ] G4A corpus and threshold hashes are recorded.
-- [ ] Create the U1 commit.
+- [x] Contract invalid/boundary cases fail for the intended reason.
+- [x] G3 artifact compatibility is exact.
+- [x] G4A corpus and threshold hashes are recorded.
+- [x] Create the U1 commit.
 
 **Rollback point:** revert U1; no dependency, migration, or graph state exists.
 

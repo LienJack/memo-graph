@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import {
+  BASE_RECALL_LANES,
   ContextConflictSetSchema,
   ContextFrontierSchema,
   ContextSliceItemSchema,
@@ -580,14 +581,31 @@ export const CompileLayeredContextInputSchema = z
       }
     }
     const telemetryLanes = value.telemetry.map((item) => item.lane);
+    const graphRequested =
+      value.request.lane_overrides?.requested_lanes.includes(
+        "relation_graph",
+      ) === true ||
+      value.effective_configuration.requested_lanes.includes(
+        "relation_graph",
+      ) ||
+      value.effective_configuration.enabled_lanes.includes(
+        "relation_graph",
+      );
+    const expectedTelemetryLanes = graphRequested
+      ? RecallLaneSchema.options
+      : BASE_RECALL_LANES;
     if (
-      telemetryLanes.length !== RecallLaneSchema.options.length ||
-      new Set(telemetryLanes).size !== telemetryLanes.length
+      telemetryLanes.length !== expectedTelemetryLanes.length ||
+      new Set(telemetryLanes).size !== telemetryLanes.length ||
+      expectedTelemetryLanes.some(
+        (lane) => !telemetryLanes.includes(lane),
+      )
     ) {
       context.addIssue({
         code: "custom",
         path: ["telemetry"],
-        message: "layered compile telemetry must cover every lane once",
+        message:
+          "layered compile telemetry must cover every applicable lane once",
       });
     }
   });

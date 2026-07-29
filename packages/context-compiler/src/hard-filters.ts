@@ -74,9 +74,18 @@ export type LayeredCandidateExclusion = {
 const LANE_BY_ABSTRACTION = {
   l2_topic: "topic",
   l2_scenario: "scenario_procedure",
-  l2_relation: "relation_sqlite",
   l3_core: "core",
 } as const;
+
+function laneMatchesAbstraction(
+  lane: RecallLane,
+  abstraction: LayeredProjectionCandidate["abstraction"],
+): boolean {
+  if (abstraction === "l2_relation") {
+    return lane === "relation_sqlite" || lane === "relation_graph";
+  }
+  return lane === LANE_BY_ABSTRACTION[abstraction];
+}
 
 function projectionLineage(
   projection: ProjectionRevision,
@@ -247,7 +256,7 @@ export function hardFilterLayeredCandidates(options: {
       continue;
     }
     if (
-      candidate.lane !== LANE_BY_ABSTRACTION[projection.abstraction] ||
+      !laneMatchesAbstraction(candidate.lane, projection.abstraction) ||
       candidate.abstraction !== projection.abstraction
     ) {
       exclusions.push(exclusion(candidate, "PROJECTION_LANE_MISMATCH"));

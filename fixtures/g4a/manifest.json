@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0.0",
+  "frozen_at": "2026-07-29T00:00:00.000Z",
+  "baseline_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+  "candidate": {
+    "package_name": "@ladybugdb/core",
+    "package_version": "0.18.3",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "arms": [
+    "accepted_g3r",
+    "m4a_graph_disabled_reference",
+    "m4a_graph_enabled"
+  ],
+  "thresholds": {
+    "strict_case_gains": 3,
+    "minimum_holdout_gains": 1,
+    "minimum_transfer_gains": 1,
+    "critical_regression_tolerance": 0,
+    "host_graph_deadline_ms": 75,
+    "fallback_p95_ms": 100,
+    "governed_recall_p50_ms": 50,
+    "governed_recall_p95_ms": 200,
+    "replacement_ready_ms": 2000,
+    "expected_rebuild_ms": 60000,
+    "graph_database_wal_bytes": 536870912,
+    "install_delta_bytes": 67108864,
+    "idle_rss_delta_bytes": 134217728,
+    "peak_rss_delta_bytes": 536870912,
+    "warmup_samples": 20,
+    "measured_samples": 100
+  },
+  "expected_profile": {
+    "active_l1_memories": 25000,
+    "l2_l3_projections": 6000,
+    "relations": 50000
+  },
+  "strict_gain_rule": "Arm m4a_graph_enabled must satisfy every expected governed revision, ordered path, lineage, completeness, and abstention assertion while both accepted_g3r and m4a_graph_disabled_reference fail at least one identical assertion under the same limits; more returned items, alternate ordering, or latency alone is not structural gain.",
+  "cases": [
+    {
+      "case_id": "g4a_cal_typed_explanatory_path",
+      "partition": "calibration",
+      "family": "typed_explanatory_path",
+      "requirement_anchors": [
+        "R8",
+        "R12",
+        "R19",
+        "R20"
+      ],
+      "body_file": "cases/calibration/typed-explanatory-path.json",
+      "content_hash": "sha256:9e940e16352f60b97a0beac2862715a47d90b0d65f299fe3221162fffef45d65"
+    },
+    {
+      "case_id": "g4a_cal_temporal_conflict",
+      "partition": "calibration",
+      "family": "temporal_conflict",
+      "requirement_anchors": [
+        "R8",
+        "R12",
+        "R19"
+      ],
+      "body_file": "cases/calibration/temporal-conflict.json",
+      "content_hash": "sha256:a4e0b9ab2a2463c81564f09d8cf912674d634f3c03778e9e85b0586cdc5e4681"
+    },
+    {
+      "case_id": "g4a_hold_scenario_migration",
+      "partition": "holdout",
+      "family": "scenario_migration",
+      "requirement_anchors": [
+        "R8",
+        "R12",
+        "R19",
+        "R20"
+      ],
+      "body_file": "cases/holdout/scenario-migration.json",
+      "content_hash": "sha256:4b6c7a269b70157dec63fe0596e07b6a2363b7f5f697aeb9adb98ab79c38b169"
+    },
+    {
+      "case_id": "g4a_hold_shortest_valid_proof",
+      "partition": "holdout",
+      "family": "shortest_valid_proof",
+      "requirement_anchors": [
+        "R8",
+        "R12",
+        "R19",
+        "R20"
+      ],
+      "body_file": "cases/holdout/shortest-valid-proof.json",
+      "content_hash": "sha256:2c134eb67f7c3911b2c605a65c5f868df4d8dce4bfe2ab3b88ba4887919f17b3"
+    },
+    {
+      "case_id": "g4a_transfer_cycle_fanout_pressure",
+      "partition": "transfer",
+      "family": "cycle_fanout_pressure",
+      "requirement_anchors": [
+        "R12",
+        "R19",
+        "R20"
+      ],
+      "body_file": "cases/transfer/cycle-fanout-pressure.json",
+      "content_hash": "sha256:983878ead918448ea47f5e0f5cf2f36582cde2a32eb7e7816d20c48c486663fb"
+    },
+    {
+      "case_id": "g4a_transfer_mid_path_correction",
+      "partition": "transfer",
+      "family": "mid_path_correction",
+      "requirement_anchors": [
+        "R8",
+        "R12",
+        "R14",
+        "R19",
+        "R20"
+      ],
+      "body_file": "cases/transfer/mid-path-correction.json",
+      "content_hash": "sha256:209cef7f9c934b54196fa624b6bf1a8fa582b2a76d2857f5fff71a7a254d306f"
+    }
+  ]
+}

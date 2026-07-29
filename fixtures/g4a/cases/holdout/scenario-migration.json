@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "g4a_hold_scenario_migration",
+  "partition": "holdout",
+  "family": "scenario_migration",
+  "description": "Connect one concrete conversation through topic and scenario without crossing scope.",
+  "principal_id": "user_local",
+  "scope": {
+    "kind": "workspace",
+    "id": "memo_graph"
+  },
+  "as_of": "2026-07-29T00:00:00.000Z",
+  "input_revision_ids": [
+    "revision_conversation",
+    "revision_topic",
+    "revision_scenario",
+    "revision_other_scope"
+  ],
+  "input_relation_revision_ids": [
+    "relation_topic_1",
+    "relation_scenario_1",
+    "relation_other_scope_1"
+  ],
+  "prohibited_revision_ids": [
+    "revision_other_scope"
+  ],
+  "query": {
+    "mode": "typed_path",
+    "start_revision_ids": [
+      "revision_conversation"
+    ],
+    "relation_pattern": [
+      "belongs_to_topic",
+      "applies_to_scenario"
+    ],
+    "max_depth": 2,
+    "max_fanout": 10,
+    "max_paths": 4,
+    "max_results": 4,
+    "max_relation_allowlist": 100,
+    "parent_deadline_ms": 75
+  },
+  "expected": {
+    "status": "complete",
+    "revision_ids": [
+      "revision_conversation",
+      "revision_topic",
+      "revision_scenario"
+    ],
+    "ordered_paths": [
+      {
+        "node_revision_ids": [
+          "revision_conversation",
+          "revision_topic",
+          "revision_scenario"
+        ],
+        "relation_revision_ids": [
+          "relation_topic_1",
+          "relation_scenario_1"
+        ],
+        "relation_types": [
+          "belongs_to_topic",
+          "applies_to_scenario"
+        ],
+        "depth": 2,
+        "path_hash": "sha256:e599d2648994b95959dd43e4bb9de2298a1e5a367b268a2c1b12f25d6f711b7d"
+      }
+    ],
+    "evidence_ids": [
+      "evidence_conversation",
+      "evidence_scenario"
+    ],
+    "complete": true,
+    "abstain": false,
+    "reason_codes": []
+  }
+}

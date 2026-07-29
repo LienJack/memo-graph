@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BASE_RECALL_LANES,
   BoundedWorkTelemetrySchema,
+  BoundedWorkBoundarySchema,
   ContextFrontierV1Schema,
   ContextFrontierV2Schema,
   ContextFrontierSchema,
@@ -10,6 +12,7 @@ import {
   G3OverlayManifestSchema,
   LaneTelemetrySchema,
   ProjectionRevisionSchema,
+  RecallLaneSchema,
   buildContextFrontierV2,
   computeEffectiveLaneConfiguration,
   deriveProjectionIdentity,
@@ -296,6 +299,95 @@ describe("layered projection contracts", () => {
 });
 
 describe("lane and frontier contracts", () => {
+  it("adds relation_graph as an explicit opt-in lane with narrowed graph limits", () => {
+    expect(BASE_RECALL_LANES).toEqual([
+      "recent_l1",
+      "topic",
+      "scenario_procedure",
+      "core",
+      "relation_sqlite",
+    ]);
+    expect(RecallLaneSchema.parse("relation_graph")).toBe("relation_graph");
+    const effective = computeEffectiveLaneConfiguration(
+      {
+        allowed_lanes: ["recent_l1", "relation_graph"],
+        limits: {
+          ...LANE_POLICY.limits,
+          relation_max_paths: 20,
+          graph_max_relation_allowlist: 5_000,
+          graph_query_timeout_ms: 75,
+          graph_max_response_bytes: 1_048_576,
+        },
+      },
+      {
+        requested_lanes: ["relation_graph"],
+        limits: {
+          relation_max_paths: 10,
+          graph_max_relation_allowlist: 2_000,
+          graph_query_timeout_ms: 50,
+          graph_max_response_bytes: 524_288,
+        },
+      },
+    );
+
+    expect(effective.enabled_lanes).toEqual(["relation_graph"]);
+    expect(effective.limits).toMatchObject({
+      relation_max_paths: 10,
+      graph_max_relation_allowlist: 2_000,
+      graph_query_timeout_ms: 50,
+      graph_max_response_bytes: 524_288,
+    });
+    expect(
+      computeEffectiveLaneConfiguration(
+        LANE_POLICY,
+        {
+          requested_lanes: ["relation_graph"],
+          limits: {},
+        },
+      ),
+    ).toMatchObject({
+      enabled_lanes: [],
+      reason_codes: ["LANE_DENIED_BY_POLICY:relation_graph"],
+    });
+    expect(
+      LaneTelemetrySchema.safeParse({
+        lane: "relation_graph",
+        status: "disabled_by_policy",
+        duration_ms: 0,
+        candidate_count: 0,
+        eligible_count: 0,
+        selected_count: 0,
+        exclusion_counts: {},
+        reason_codes: ["LANE_DENIED_BY_POLICY:relation_graph"],
+      }).success,
+    ).toBe(true);
+    expect(
+      LaneTelemetrySchema.safeParse({
+        lane: "relation_graph",
+        status: "disabled_by_policy",
+        duration_ms: 0,
+        candidate_count: 1,
+        eligible_count: 1,
+        selected_count: 1,
+        exclusion_counts: {},
+        reason_codes: ["LANE_DENIED_BY_POLICY:relation_graph"],
+      }).success,
+    ).toBe(false);
+    expect(BoundedWorkBoundarySchema.options).toEqual(
+      expect.arrayContaining([
+        "relation_starts",
+        "relation_fanout",
+        "relation_depth",
+        "relation_paths",
+        "relation_allowlist",
+        "graph_results",
+        "graph_wall_clock",
+        "graph_response_bytes",
+        "graph_process_restarts",
+      ]),
+    );
+  });
+
   it("intersects request overrides with operator-owned lane policy", () => {
     const effective = computeEffectiveLaneConfiguration(LANE_POLICY, {
       requested_lanes: ["topic", "core"],

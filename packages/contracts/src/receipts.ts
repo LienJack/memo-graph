@@ -8,6 +8,7 @@ import {
   NonEmptyReasonSchema,
   UtcTimestampSchema,
 } from "./common.js";
+import { GraphPathEvidenceSchema } from "./graph.js";
 import {
   ContextFrontierSchema,
   ContextScoreComponentsSchema,
@@ -47,6 +48,7 @@ export const RetrievalReceiptItemSchema = z
     score_components: ContextScoreComponentsSchema.optional(),
     token_estimate: z.number().int().nonnegative().optional(),
     projection: ProjectionLineageRefSchema.optional(),
+    graph_path: GraphPathEvidenceSchema.optional(),
     conflict_group_id: IdentifierSchema.nullable().optional(),
   })
   .strict()
@@ -62,6 +64,30 @@ export const RetrievalReceiptItemSchema = z
         path: ["projection"],
         message:
           "projection receipt items require a governed lane, score components, and token estimate",
+      });
+    }
+    if (
+      (value.lane === "relation_graph") !==
+      (value.graph_path !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["graph_path"],
+        message:
+          "relation_graph receipt items require graph path evidence and other lanes cannot carry it",
+      });
+    }
+    if (
+      value.lane === "relation_graph" &&
+      (value.projection === undefined ||
+        value.score_components === undefined ||
+        value.token_estimate === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["projection"],
+        message:
+          "relation_graph receipt items require canonical projection lineage, score, and token evidence",
       });
     }
   });

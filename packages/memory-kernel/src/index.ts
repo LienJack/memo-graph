@@ -10,6 +10,7 @@ import {
   type ContextExclusion,
 } from "@memo-graph/context-compiler";
 import {
+  BASE_RECALL_LANES,
   GovernedResponseSchema,
   LanePolicySchema,
   LaneTelemetrySchema,
@@ -358,8 +359,15 @@ function aggregateRecallTelemetry(options: {
     "disabled_by_policy",
     "disabled_by_request",
   ] as const;
+  const telemetryLanes = options.recalls.some((recall) =>
+    recall.effective_configuration.requested_lanes.includes(
+      "relation_graph",
+    )
+  )
+    ? RecallLaneSchema.options
+    : BASE_RECALL_LANES;
   return LaneTelemetrySchema.array().parse(
-    RecallLaneSchema.options.map((lane) => {
+    telemetryLanes.map((lane) => {
       const rows = options.recalls.map((recall) => {
         const row = recall.telemetry.find((item) => item.lane === lane);
         if (row === undefined) {

@@ -3,7 +3,7 @@
   "name": "agent-memory-runtime-m4a",
   "title": "Agent Memory Runtime M4A graph adoption decision",
   "description": "Evaluate one currently maintained local graph projection against the accepted G3R SQLite adjacency baseline and record a hash-bound G4A GO or NO-GO without changing SQLite authority.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "M4A only: decide whether a maintained local graph projection adds material structural retrieval value over the accepted SQLite adjacency baseline while preserving authority, lineage, purge, rebuild, fallback, privacy, latency, disk, and local operations; exclude vector, learning, and M6",
   "package": null,

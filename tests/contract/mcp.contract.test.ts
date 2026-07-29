@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   GovernedResponseSchema,
+  ContextSliceItemSchema,
   LaneRequestOverridesSchema,
   LocalPrincipalSchema,
   MEMORY_TOOL_SAFETY_CLASS,
@@ -16,10 +17,14 @@ import {
   MemoryEpisodeCommitInputSchema,
   MemorySearchInputSchema,
   MutationRequestEnvelopeSchema,
+  RecallRequestSchema,
   ReadRequestEnvelopeSchema,
   authorizeRequestClaims,
+  buildGraphPathEvidence,
 } from "../../packages/contracts/src/index.js";
 import {
+  HASH_A,
+  HASH_B,
   NOW,
   USER_ACTOR,
   USER_SCOPE,
@@ -182,6 +187,111 @@ describe("MCP boundary contracts", () => {
       LaneRequestOverridesSchema.safeParse({
         requested_lanes: ["relation_sqlite"],
         limits: { relation_max_depth: 100 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts graph opt-in only through typed lane fields and proof evidence", () => {
+    const recall = {
+      schema_version: "1.0.0",
+      request_id: "request_graph_1",
+      goal: "Find a governed structural proof",
+      query: "topic dependency scenario",
+      scopes: [USER_SCOPE],
+      as_of: NOW,
+      token_budget: 1_000,
+      include_sensitive: false,
+      lane_overrides: {
+        requested_lanes: ["relation_graph"],
+        limits: {
+          relation_max_depth: 2,
+          graph_query_timeout_ms: 50,
+        },
+      },
+    } as const;
+    expect(RecallRequestSchema.safeParse(recall).success).toBe(true);
+    expect(
+      RecallRequestSchema.safeParse({
+        ...recall,
+        cypher: "MATCH (n) RETURN n",
+      }).success,
+    ).toBe(false);
+    expect(
+      RecallRequestSchema.safeParse({
+        ...recall,
+        graph_path: "/tmp/graph",
+      }).success,
+    ).toBe(false);
+
+    const graphPath = buildGraphPathEvidence({
+      node_revision_ids: ["revision_start", "revision_goal"],
+      relation_revision_ids: ["relation_revision_1"],
+      relation_types: ["supports"],
+      depth: 1,
+    });
+    const item = {
+      memory_id: "projection_relation_1",
+      revision_id: "projection_relation_revision_1",
+      abstraction: "l2_relation",
+      lifecycle: "active",
+      authority: "derived",
+      sensitivity: "internal",
+      scope: USER_SCOPE,
+      content: {
+        storage: "inline",
+        text: "Governed relation proof",
+        media_type: "text/plain",
+      },
+      evidence_ids: ["evidence_1"],
+      selection_reason: "Selected by the governed graph lane.",
+      uncertainty: null,
+      token_estimate: 16,
+      lane: "relation_graph",
+      projection: {
+        projection_id: "projection_relation_1",
+        projection_revision_id: "projection_relation_revision_1",
+        source_revision_ids: ["revision_source_1"],
+        source_content_hashes: [HASH_A],
+        transform: {
+          name: "deterministic-g3-projection",
+          version: "1.0.0",
+        },
+        frontier: {
+          schema_version: "1.0.0",
+          ledger_epoch: 10,
+          tombstone_epoch: 2,
+          projection_epoch: 4,
+          transform: {
+            name: "deterministic-g3-projection",
+            version: "1.0.0",
+          },
+          source_frontier_hash: HASH_A,
+          projection_frontier_hash: HASH_B,
+        },
+      },
+      graph_path: graphPath,
+      score_components: {
+        relevance: 1,
+        authority: 0,
+        freshness: 1,
+        evidence_diversity: 1,
+        conflict_cost: 0,
+        token_utility: 1,
+        lane_contribution: 1,
+      },
+      conflict_group_id: null,
+    } as const;
+    expect(ContextSliceItemSchema.safeParse(item).success).toBe(true);
+    expect(
+      ContextSliceItemSchema.safeParse({
+        ...item,
+        graph_path: undefined,
+      }).success,
+    ).toBe(false);
+    expect(
+      ContextSliceItemSchema.safeParse({
+        ...item,
+        lane: "relation_sqlite",
       }).success,
     ).toBe(false);
   });

@@ -16,6 +16,7 @@ import {
   scopeKey,
 } from "./common.js";
 import { canonicalSha256Omitting } from "./canonical-json.js";
+import { GraphPathEvidenceSchema } from "./graph.js";
 import {
   ContextConflictSetSchema,
   ContextFrontierSchema,
@@ -438,6 +439,7 @@ export const ContextSliceItemSchema = z
     token_estimate: z.number().int().nonnegative(),
     lane: RecallLaneSchema.optional(),
     projection: ProjectionLineageRefSchema.optional(),
+    graph_path: GraphPathEvidenceSchema.optional(),
     score_components: ContextScoreComponentsSchema.optional(),
     conflict_group_id: IdentifierSchema.nullable().optional(),
     decision_reason_codes: z
@@ -450,19 +452,26 @@ export const ContextSliceItemSchema = z
     const projectionLaneByAbstraction = {
       l2_topic: "topic",
       l2_scenario: "scenario_procedure",
-      l2_relation: "relation_sqlite",
       l3_core: "core",
     } as const;
-    const expectedLane =
+    const fixedExpectedLane =
       value.abstraction in projectionLaneByAbstraction
         ? projectionLaneByAbstraction[
             value.abstraction as keyof typeof projectionLaneByAbstraction
           ]
         : null;
+    const laneMatches =
+      value.abstraction === "l2_relation"
+        ? value.lane === "relation_sqlite" ||
+          value.lane === "relation_graph"
+        : fixedExpectedLane === null || value.lane === fixedExpectedLane;
 
-    if (expectedLane !== null) {
+    if (
+      fixedExpectedLane !== null ||
+      value.abstraction === "l2_relation"
+    ) {
       if (
-        value.lane !== expectedLane ||
+        !laneMatches ||
         value.projection === undefined ||
         value.score_components === undefined
       ) {
@@ -473,14 +482,26 @@ export const ContextSliceItemSchema = z
             "L2/L3 Context items require matching lane, lineage, and score components",
         });
       }
+      if (
+        (value.lane === "relation_graph") !==
+        (value.graph_path !== undefined)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["graph_path"],
+          message:
+            "relation_graph Context items require graph path evidence and other lanes cannot carry it",
+        });
+      }
       return;
     }
 
-    if (value.projection !== undefined) {
+    if (value.projection !== undefined || value.graph_path !== undefined) {
       context.addIssue({
         code: "custom",
         path: ["projection"],
-        message: "L0/L1 Context items cannot carry projection lineage",
+        message:
+          "L0/L1 Context items cannot carry projection or graph lineage",
       });
     }
   });

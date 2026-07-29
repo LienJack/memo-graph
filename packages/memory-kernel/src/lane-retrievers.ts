@@ -123,6 +123,9 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
     if (request.lane === "relation_sqlite") {
       return this.#relations(request);
     }
+    if (request.lane === "relation_graph") {
+      throw new Error("graph lane runtime is not implemented");
+    }
     return this.#projections(request);
   }
 
@@ -165,7 +168,8 @@ export class LayeredLaneRetrievers implements RecallLaneRetriever {
   ): Promise<LaneRetrievalResult> {
     if (
       request.lane === "recent_l1" ||
-      request.lane === "relation_sqlite"
+      request.lane === "relation_sqlite" ||
+      request.lane === "relation_graph"
     ) {
       throw new Error("projection retriever received an invalid lane");
     }
