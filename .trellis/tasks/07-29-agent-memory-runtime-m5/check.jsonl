@@ -1,1 +1,7 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Audit transaction atomicity, release/control frontiers, purge, restore, and recovery."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Audit typed failures and MCP parity."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Audit privacy-minimal diagnostics and marker absence."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Audit strict contracts, seals, fixtures, regression gates, and review evidence."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Audit parity across contracts, worker/client, learning, kernel, compiler, and MCP."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m5/research/claim-map.md", "reason": "Verify each G5 claim has implementation and evidence coverage."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m5/research/research-handoff.md", "reason": "Verify authority, partitions, pause, release, rollback, and synthetic-evidence boundaries."}

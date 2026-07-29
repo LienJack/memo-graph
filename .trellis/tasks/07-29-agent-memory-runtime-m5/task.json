@@ -24,7 +24,10 @@
     "docs/brainstorms/2026-07-29-m5-learning-lab-requirements.md",
     ".trellis/tasks/07-29-agent-memory-runtime-m5/prd.md",
     ".trellis/tasks/07-29-agent-memory-runtime-m5/research/claim-map.md",
-    ".trellis/tasks/07-29-agent-memory-runtime-m5/research/research-handoff.md"
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/research/research-handoff.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/design.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/implement.md",
+    "docs/plans/2026-07-29-005-feat-governed-learning-lab-plan.md"
   ],
   "notes": "Run ce-brainstorm, research-to-article, ce-plan, then ce-work under Trellis. Keep implementation inactive until research, design, plan, and context validation are complete.",
   "meta": {
@@ -37,7 +40,27 @@
       "ce-plan",
       "ce-work"
     ],
-    "planning_validation": "pending",
+    "planning_validation": "passed",
+    "planning_validated_at": "2026-07-29",
+    "document_review": {
+      "status": "passed",
+      "method": "ce-doc-review main-thread sequential review",
+      "personas": [
+        "coherence",
+        "feasibility",
+        "security",
+        "scope",
+        "adversarial"
+      ],
+      "applied_fixes": [
+        "independent pre-frozen canary cases",
+        "non-circular two-stage canary and release authority",
+        "pause-release control-epoch linearization",
+        "learned-policy hard-filter boundary",
+        "active-pointer monitor and rollback blocker"
+      ],
+      "residual_p0_p1": 0
+    },
     "research_topic": "memo-graph-m5-learning-lab",
     "research_run": "RUN20260729-183807-m5-governed-learning-lif-896401",
     "research_ready_gate": "passed",
@@ -47,6 +70,10 @@
       "core": 25,
       "supported_core": 25
     },
+    "plan": "docs/plans/2026-07-29-005-feat-governed-learning-lab-plan.md",
+    "plan_units": 9,
+    "plan_depth": "deep",
+    "plan_deepened_at": "2026-07-29",
     "gates": [
       "G5"
     ]

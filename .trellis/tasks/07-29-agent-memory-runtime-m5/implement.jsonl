@@ -1,1 +1,10 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/index.md", "reason": "Load the backend pre-development and quality contract."}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Preserve package ownership and strict contract boundaries."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Apply SQLite authority, transaction, idempotency, approval, restore, and purge rules."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Keep typed MCP and domain failure behavior stable."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Prevent trace, evidence, Context, and candidate content leakage."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Enforce runtime schemas, canonical seals, fixtures, and quality gates."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Map contract-storage-learning-kernel-MCP data flow and parity."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse governance, approval, replay, and transaction patterns before adding abstractions."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m5/research/claim-map.md", "reason": "Bind implementation decisions to supported M5 Claims."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m5/research/research-handoff.md", "reason": "Apply the sealed evidence-to-release lifecycle and G5 identity."}
