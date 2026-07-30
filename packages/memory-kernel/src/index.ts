@@ -300,52 +300,72 @@ function publicFailure(
 }
 
 function storageFailure(error: StorageError): GovernedResponse {
-  if (error.code === "CONFLICT") {
-    return publicFailure("CONFLICT", error.message, error.retryable);
+  switch (error.code) {
+    case "CONFLICT":
+      return publicFailure("CONFLICT", error.message, error.retryable);
+    case "STALE_REVISION":
+      return publicFailure(
+        "STALE_REVISION",
+        error.message,
+        error.retryable,
+      );
+    case "APPROVAL_INVALID":
+      return publicFailure(
+        "APPROVAL_INVALID",
+        error.message,
+        error.retryable,
+      );
+    case "INCOMPLETE_PURGE":
+      return publicFailure(
+        "INCOMPLETE_PURGE",
+        error.message,
+        error.retryable,
+      );
+    case "INVALID_INPUT":
+    case "INVALID_DATA_ROOT":
+    case "ENCRYPTION_REQUIRED":
+      return publicFailure(
+        "INVALID_INPUT",
+        error.message,
+        error.retryable,
+      );
+    case "KEY_PROVIDER_INVALID":
+    case "KEY_UNAVAILABLE":
+    case "KEY_REVOKED":
+    case "KEY_STATE_AMBIGUOUS":
+    case "NONCE_REUSE":
+    case "AUTHORITY_REPLAY":
+    case "ROTATION_INCOMPLETE":
+      return publicFailure(
+        "INVALID_INPUT",
+        "the secret operation is unavailable",
+        false,
+      );
+    case "FTS_UNAVAILABLE":
+      return publicFailure(
+        "PROJECTION_UNAVAILABLE",
+        error.message,
+        error.retryable,
+      );
+    case "QUEUE_SATURATED":
+    case "RESOURCE_PRESSURE":
+    case "MAINTENANCE_BLOCKED":
+      return publicFailure(error.code, error.message, error.retryable);
+    case "STALE_PROJECTION_FRONTIER":
+    case "STALE_TOMBSTONE_FRONTIER":
+    case "STALE_LEARNING_FRONTIER":
+    case "CORRUPTION":
+    case "MIGRATION_DRIFT":
+    case "WORKER_CRASHED":
+    case "STORAGE_UNAVAILABLE":
+    case "ROOT_LEASE_HELD":
+    case "STALE_ROOT_LEASE":
+      return publicFailure(
+        "INTERNAL_FAILURE",
+        error.message,
+        error.retryable,
+      );
   }
-  if (error.code === "STALE_REVISION") {
-    return publicFailure(
-      "STALE_REVISION",
-      error.message,
-      error.retryable,
-    );
-  }
-  if (error.code === "APPROVAL_INVALID") {
-    return publicFailure(
-      "APPROVAL_INVALID",
-      error.message,
-      error.retryable,
-    );
-  }
-  if (error.code === "INCOMPLETE_PURGE") {
-    return publicFailure(
-      "INCOMPLETE_PURGE",
-      error.message,
-      error.retryable,
-    );
-  }
-  if (
-    error.code === "INVALID_INPUT" ||
-    error.code === "INVALID_DATA_ROOT" ||
-    error.code === "ENCRYPTION_REQUIRED"
-  ) {
-    return publicFailure("INVALID_INPUT", error.message, error.retryable);
-  }
-  if (error.code === "FTS_UNAVAILABLE") {
-    return publicFailure(
-      "PROJECTION_UNAVAILABLE",
-      error.message,
-      error.retryable,
-    );
-  }
-  if (
-    error.code === "QUEUE_SATURATED" ||
-    error.code === "RESOURCE_PRESSURE" ||
-    error.code === "MAINTENANCE_BLOCKED"
-  ) {
-    return publicFailure(error.code, error.message, error.retryable);
-  }
-  return publicFailure("INTERNAL_FAILURE", error.message, error.retryable);
 }
 
 function approvalFailureCode(

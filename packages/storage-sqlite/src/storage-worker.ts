@@ -16,11 +16,16 @@ import {
   ApplyGraphProjectionJobCommandSchema,
   ApplyVectorProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
+  RevokeEncryptionKeyCommandSchema,
+  BeginKeyRotationCommandSchema,
   ClaimProjectionJobsInputSchema,
   ClaimGraphProjectionJobsInputSchema,
   ClaimVectorProjectionJobsInputSchema,
   ConfigureVectorProjectionCommandSchema,
   CompleteProjectionJobCommandSchema,
+  CommitEncryptedSecretCommandSchema,
+  CommitRotatedSecretCommandSchema,
+  ConsumeSecretUseAuthorityCommandSchema,
   CommitEpisodeCommandSchema,
   ContentReferenceCountsInputSchema,
   EnqueueProjectionJobCommandSchema,
@@ -32,6 +37,7 @@ import {
   FailGraphProjectionJobCommandSchema,
   FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
+  InstallEncryptionKeyCommandSchema,
   LearningLedgerReadInputSchema,
   LearningLedgerReplayInputSchema,
   LearningLedgerWriteCommandSchema,
@@ -41,12 +47,14 @@ import {
   MemoryDeleteCommandSchema,
   MemoryRevisionCommandSchema,
   PurgeRunInputSchema,
+  KeyRotationInputSchema,
   ProjectionPageQuerySchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
   GraphScopeInputSchema,
   GraphProjectionSnapshotListInputSchema,
   ProjectionSourceBatchQuerySchema,
+  PurgeEncryptedSecretCommandSchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
   MarkGraphRestoreUnavailableInputSchema,
@@ -57,9 +65,14 @@ import {
   StaleVectorProjectionJobCommandSchema,
   VectorProjectionScopeInputSchema,
   RecordRecallCommandSchema,
+  ReserveSecretNonceCommandSchema,
+  ReserveRotationNonceCommandSchema,
   ReceiptLookupInputSchema,
+  ReplaySecretPurgeCommandSchema,
   RelationTraversalInputSchema,
   SearchEvidenceQuerySchema,
+  SecretPurgeTargetInputSchema,
+  VerifyEncryptionKeyCommandSchema,
   WorkerRequestSchema,
 } from "./protocol.js";
 
@@ -69,7 +82,22 @@ const WorkerOptionsSchema = z
     migrationsDir: z.string(),
     busyTimeoutMs: z.number().int().min(1).max(120_000),
     testOperations: z.boolean(),
+    secretPrincipalId: z.string().nullable(),
+    rootFenceToken: z.number().int().positive().nullable(),
     exitAfterCommitBeforeResponse: z.boolean(),
+    encryptedArtifactExitAt: z
+      .enum(["after_prepare", "after_file_commit"])
+      .nullable(),
+    operationalMigrationExitAt: z
+      .enum([
+        "plaintext_guard",
+        "encrypted_storage_schema",
+        "purge_registry",
+        "operational_authority",
+        "release_control",
+        "commit",
+      ])
+      .nullable(),
     inspectionOnly: z.boolean(),
   })
   .strict();
@@ -79,6 +107,23 @@ let database: StorageDatabase | undefined;
 let initializationError: unknown;
 let exitAfterCommitBeforeResponse =
   options.exitAfterCommitBeforeResponse;
+let encryptedArtifactExitAt = options.encryptedArtifactExitAt;
+let operationalMigrationExitAt =
+  options.operationalMigrationExitAt;
+
+const ENCRYPTION_COMMIT_OPERATIONS = new Set([
+  "install_encryption_key",
+  "reserve_secret_nonce",
+  "commit_encrypted_secret",
+  "begin_key_rotation",
+  "consume_secret_use_authority",
+  "reserve_rotation_nonce",
+  "commit_rotated_secret",
+  "complete_key_rotation",
+  "abort_key_rotation",
+  "revoke_encryption_key",
+  "purge_encrypted_secret",
+]);
 
 try {
   database = new StorageDatabase({
@@ -88,7 +133,21 @@ try {
     migrationsDir: options.migrationsDir,
     busyTimeoutMs: options.busyTimeoutMs,
     testOperations: options.testOperations,
+    secretPrincipalId: options.secretPrincipalId,
+    rootFenceToken: options.rootFenceToken,
     inspectionOnly: options.inspectionOnly,
+    encryptedArtifactFault: (point) => {
+      if (encryptedArtifactExitAt === point) {
+        encryptedArtifactExitAt = null;
+        process.exit(92);
+      }
+    },
+    operationalMigrationFault: (point) => {
+      if (operationalMigrationExitAt === point) {
+        operationalMigrationExitAt = null;
+        process.exit(93);
+      }
+    },
   });
 } catch (error) {
   initializationError = error;
@@ -110,6 +169,8 @@ port.on("message", (message: unknown) => {
       if (
         options.inspectionOnly &&
         request.operation !== "health" &&
+        request.operation !== "inspect_encryption_keys" &&
+        request.operation !== "get_key_rotation" &&
         request.operation !== "close"
       ) {
         throw new StorageError("INVALID_INPUT");
@@ -125,6 +186,134 @@ port.on("message", (message: unknown) => {
       switch (request.operation) {
         case "health":
           result = database.health();
+          break;
+        case "inspect_encryption_keys":
+          result = database.inspectEncryptionKeys();
+          break;
+        case "install_encryption_key":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.installEncryptionKey(
+            InstallEncryptionKeyCommandSchema.parse(request.payload),
+          );
+          break;
+        case "verify_encryption_key":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.verifyEncryptionKey(
+            VerifyEncryptionKeyCommandSchema.parse(request.payload),
+          );
+          break;
+        case "reserve_secret_nonce":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.reserveSecretNonce(
+            ReserveSecretNonceCommandSchema.parse(request.payload),
+          );
+          break;
+        case "commit_encrypted_secret":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.commitEncryptedSecret(
+            CommitEncryptedSecretCommandSchema.parse(request.payload),
+          );
+          break;
+        case "begin_key_rotation":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.beginKeyRotation(
+            BeginKeyRotationCommandSchema.parse(request.payload),
+          );
+          break;
+        case "get_key_rotation":
+          result = database.getKeyRotation(
+            KeyRotationInputSchema.parse(request.payload).rotation_id,
+          );
+          break;
+        case "get_key_rotation_next":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.getKeyRotationNext(
+            KeyRotationInputSchema.parse(request.payload).rotation_id,
+          );
+          break;
+        case "consume_secret_use_authority":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.consumeSecretUseAuthority(
+            ConsumeSecretUseAuthorityCommandSchema.parse(request.payload),
+          );
+          break;
+        case "reserve_rotation_nonce":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.reserveRotationNonce(
+            ReserveRotationNonceCommandSchema.parse(request.payload),
+          );
+          break;
+        case "commit_rotated_secret":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.commitRotatedSecret(
+            CommitRotatedSecretCommandSchema.parse(request.payload),
+          );
+          break;
+        case "complete_key_rotation":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.completeKeyRotation(
+            KeyRotationInputSchema.parse(request.payload).rotation_id,
+          );
+          break;
+        case "abort_key_rotation":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.abortKeyRotation(
+            KeyRotationInputSchema.parse(request.payload).rotation_id,
+          );
+          break;
+        case "revoke_encryption_key":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.revokeEncryptionKey(
+            RevokeEncryptionKeyCommandSchema.parse(request.payload),
+          );
+          break;
+        case "replay_secret_purge":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.replaySecretPurge(
+            ReplaySecretPurgeCommandSchema.parse(request.payload),
+          );
+          break;
+        case "get_secret_purge_target":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.getSecretPurgeTarget(
+            SecretPurgeTargetInputSchema.parse(request.payload).owner,
+          );
+          break;
+        case "purge_encrypted_secret":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          result = database.purgeEncryptedSecret(
+            PurgeEncryptedSecretCommandSchema.parse(request.payload),
+          );
           break;
         case "governance_status":
           result = database.governanceStatus();
@@ -465,6 +654,13 @@ port.on("message", (message: unknown) => {
           break;
       }
 
+      if (
+        exitAfterCommitBeforeResponse &&
+        ENCRYPTION_COMMIT_OPERATIONS.has(request.operation)
+      ) {
+        exitAfterCommitBeforeResponse = false;
+        process.exit(91);
+      }
       port.postMessage({
         requestId,
         ok: true,

@@ -142,4 +142,85 @@ describe("operator CLI doctor", () => {
       primary_reason: "CONFIG_INVALID",
     } satisfies Partial<OperationalStatus>);
   });
+
+  it("registers content-free key inspection and disabled rotation/admission dry-runs", async () => {
+    const root = temporaryRoot("operator-encryption");
+    const dataRoot = join(root, "data");
+    const configPath = join(root, "operator.json");
+    await initializeDataRoot(dataRoot);
+    writeFileSync(
+      configPath,
+      JSON.stringify({ data_root: dataRoot }),
+      { mode: 0o600 },
+    );
+    const before = durableSnapshot(dataRoot);
+    const invoke = async (argv: string[]) => {
+      let stdout = "";
+      const code = await runOperatorCli(argv, {
+        stdout: {
+          write: (value) => ((stdout += String(value)), true),
+        },
+        stderr: { write: () => true },
+      });
+      return { code, output: JSON.parse(stdout) as Record<string, unknown> };
+    };
+
+    expect(
+      await invoke([
+        "key",
+        "inspect",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ]),
+    ).toMatchObject({
+      code: 0,
+      output: {
+        keys: [],
+        current_key_id: null,
+        encrypted_content_count: 0,
+      },
+    });
+    expect(
+      await invoke([
+        "key",
+        "rotate",
+        "--dry-run",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ]),
+    ).toMatchObject({
+      code: 3,
+      output: {
+        operation: "key.rotate",
+        status: "disabled",
+        reason_code: "ENCRYPTION_REQUIRED",
+      },
+    });
+    expect(
+      await invoke([
+        "secret",
+        "admit",
+        "--input-fd",
+        "3",
+        "--dry-run",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ]),
+    ).toMatchObject({
+      code: 3,
+      output: {
+        operation: "secret.admit",
+        status: "disabled",
+        reason_code: "ENCRYPTION_REQUIRED",
+        ingress: "private_inherited_descriptor",
+      },
+    });
+    expect(durableSnapshot(dataRoot)).toEqual(before);
+  });
 });

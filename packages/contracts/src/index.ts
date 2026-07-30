@@ -1,5 +1,7 @@
 export * from "./canonical-json.js";
 export * from "./common.js";
+export * from "./encryption.js";
+export * from "./g6.js";
 export * from "./graph.js";
 export * from "./learning.js";
 export * from "./mcp.js";

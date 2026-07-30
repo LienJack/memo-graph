@@ -189,6 +189,51 @@ export const MutationReceiptSchema = z
   })
   .strict();
 
+export const EncryptionReceiptSchema = z
+  .object({
+    ...ReceiptBaseShape,
+    kind: z.literal("encryption"),
+    operation: z.enum([
+      "key_install",
+      "key_rotation_begin",
+      "key_rotation_item",
+      "key_rotation_complete",
+      "key_rotation_abort",
+      "key_revoke",
+      "secret_admit",
+      "secret_use_authority",
+      "secret_purge",
+    ]),
+    operation_id: IdentifierSchema,
+    key_ids: z.array(IdentifierSchema),
+    affected_owner_ids: z.array(IdentifierSchema),
+    ciphertext_ids: z.array(IdentifierSchema),
+    resulting_key_generation: z.number().int().nonnegative(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.operation !== "secret_purge" && value.key_ids.length > 2) {
+      context.addIssue({
+        code: "custom",
+        path: ["key_ids"],
+        message: "non-purge encryption operations bind at most two keys",
+      });
+    }
+    for (const [field, entries] of [
+      ["key_ids", value.key_ids],
+      ["affected_owner_ids", value.affected_owner_ids],
+      ["ciphertext_ids", value.ciphertext_ids],
+    ] as const) {
+      if (new Set(entries).size !== entries.length) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} must contain unique identities`,
+        });
+      }
+    }
+  });
+
 export const LearningFeedbackObservationSchema = z
   .object({
     schema_version: ContractVersionSchema,
@@ -549,6 +594,7 @@ export const PurgeReceiptSchema = z
 export const ReceiptSchema = z.discriminatedUnion("kind", [
   RetrievalReceiptSchema,
   MutationReceiptSchema,
+  EncryptionReceiptSchema,
   LearningStopReceiptSchema,
   CandidateTransitionReceiptSchema,
   EvalReceiptSchema,
@@ -577,6 +623,7 @@ export function receiptHashIsValid(receipt: z.infer<typeof ReceiptSchema>): bool
 }
 
 export type EvalReceipt = z.infer<typeof EvalReceiptSchema>;
+export type EncryptionReceipt = z.infer<typeof EncryptionReceiptSchema>;
 export type CanaryReceipt = z.infer<typeof CanaryReceiptSchema>;
 export type CandidateTransitionReceipt = z.infer<
   typeof CandidateTransitionReceiptSchema

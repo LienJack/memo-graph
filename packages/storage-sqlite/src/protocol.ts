@@ -17,6 +17,8 @@ import {
   EvaluationCommonIdentitySchema,
   EvaluationPartitionSchema,
   EpisodeSchema,
+  EncryptionKeyInventorySchema,
+  EncryptionReceiptSchema,
   EvidenceRecordSchema,
   GovernedSearchItemSchema,
   GraphDeliveryReceiptSchema,
@@ -36,6 +38,7 @@ import {
   MutationReceiptSchema,
   LearningControlReceiptSchema,
   LearningControlSchema,
+  KeyRotationProgressSchema,
   LearningReleaseVersionSchema,
   LearningStopReceiptSchema,
   LearningTraceSchema,
@@ -56,6 +59,11 @@ import {
   RetrievalReceiptSchema,
   ScopeSchema,
   SensitivitySchema,
+  SecretContentOwnerSchema,
+  SecretAdmissionApprovalSchema,
+  SecretEncryptedPayloadSchema,
+  SecretEnvelopeMetadataSchema,
+  SecretUseAuthoritySchema,
   TransformRefSchema,
   UtcTimestampSchema,
   VectorEmbeddingEpochSchema,
@@ -83,6 +91,216 @@ export const CommitEpisodeCommandSchema = z
     episode: EpisodeSchema,
     evidence: z.array(EvidenceRecordSchema).min(1),
     blobs: z.array(BlobWriteSchema),
+  })
+  .strict();
+
+export const InstallEncryptionKeyCommandSchema = z
+  .object({
+    operation_id: IdentifierSchema,
+    request_digest: CanonicalHashSchema,
+    key_id: IdentifierSchema,
+    key_generation: z.number().int().positive(),
+    verification_tag: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+    authority_key_id: IdentifierSchema,
+    authority_public_key_base64url: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{59}$/),
+    commitment_key_id: IdentifierSchema,
+    commitment_verification_tag: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+    created_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const VerifyEncryptionKeyCommandSchema = z
+  .object({
+    key_id: IdentifierSchema,
+    key_generation: z.number().int().positive(),
+    verification_tag: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+  })
+  .strict();
+
+export const ReserveSecretNonceCommandSchema = z
+  .object({
+    operation_id: IdentifierSchema,
+    idempotency_key: z.string().trim().min(8).max(200),
+    request_digest: CanonicalHashSchema,
+    owner: SecretContentOwnerSchema,
+    scope: ScopeSchema,
+    content_identity: IdentifierSchema,
+    media_type: z.string().trim().min(1).max(160),
+    keyed_plaintext_commitment: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+    commitment_key_id: IdentifierSchema,
+    commitment_verification_tag: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+  })
+  .strict();
+
+export const ReserveSecretNonceResultSchema = z.discriminatedUnion("state", [
+  z
+    .object({
+      state: z.literal("prepared"),
+      operation_id: IdentifierSchema,
+      metadata: SecretEnvelopeMetadataSchema,
+    })
+    .strict(),
+  z
+    .object({
+      state: z.literal("committed"),
+      operation_id: IdentifierSchema,
+      receipt: EncryptionReceiptSchema,
+    })
+    .strict(),
+]);
+
+export const CommitEncryptedSecretCommandSchema = z
+  .object({
+    operation_id: IdentifierSchema,
+    request_digest: CanonicalHashSchema,
+    payload: SecretEncryptedPayloadSchema,
+    approval: SecretAdmissionApprovalSchema,
+  })
+  .strict();
+
+export const BeginKeyRotationCommandSchema = z
+  .object({
+    rotation_id: IdentifierSchema,
+    request_digest: CanonicalHashSchema,
+    new_key_id: IdentifierSchema,
+    new_key_generation: z.number().int().positive(),
+    new_verification_tag: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+    new_authority_key_id: IdentifierSchema,
+    new_authority_public_key_base64url: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{59}$/),
+    new_commitment_key_id: IdentifierSchema,
+    new_commitment_verification_tag: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+    started_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const BeginKeyRotationResultSchema = z
+  .object({
+    progress: KeyRotationProgressSchema,
+    receipt: EncryptionReceiptSchema,
+  })
+  .strict();
+
+export const KeyRotationInputSchema = z
+  .object({ rotation_id: IdentifierSchema })
+  .strict();
+
+export const KeyRotationItemSchema = z
+  .object({
+    rotation_id: IdentifierSchema,
+    old_ciphertext_id: IdentifierSchema,
+    owner: SecretContentOwnerSchema,
+    old_metadata: SecretEnvelopeMetadataSchema,
+  })
+  .strict();
+
+export const KeyRotationNextResultSchema = z
+  .object({
+    progress: KeyRotationProgressSchema,
+    item: KeyRotationItemSchema.nullable(),
+  })
+  .strict();
+
+export const ConsumeSecretUseAuthorityCommandSchema =
+  SecretUseAuthoritySchema;
+
+export const AuthorizedSecretUseResultSchema = z
+  .object({
+    receipt: EncryptionReceiptSchema,
+    payload: SecretEncryptedPayloadSchema,
+  })
+  .strict();
+
+export const SecretPurgeTargetInputSchema = z
+  .object({ owner: SecretContentOwnerSchema })
+  .strict();
+
+export const SecretPurgeTargetSchema = z
+  .object({
+    owner: SecretContentOwnerSchema,
+    ciphertext_id: IdentifierSchema,
+    metadata: SecretEnvelopeMetadataSchema,
+    envelope_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const ReplaySecretPurgeCommandSchema = z
+  .object({
+    operation_id: IdentifierSchema,
+    request_digest: CanonicalHashSchema,
+  })
+  .strict();
+
+export const ReplaySecretPurgeResultSchema =
+  EncryptionReceiptSchema.nullable();
+
+export const PurgeEncryptedSecretCommandSchema = z
+  .object({
+    operation_id: IdentifierSchema,
+    request_digest: CanonicalHashSchema,
+    authority: SecretUseAuthoritySchema,
+  })
+  .strict();
+
+export const ReserveRotationNonceCommandSchema =
+  ReserveSecretNonceCommandSchema.extend({
+    rotation_id: IdentifierSchema,
+  }).strict();
+
+export const CommitRotatedSecretCommandSchema = z
+  .object({
+    rotation_id: IdentifierSchema,
+    old_ciphertext_id: IdentifierSchema,
+    operation_id: IdentifierSchema,
+    request_digest: CanonicalHashSchema,
+    payload: SecretEncryptedPayloadSchema,
+  })
+  .strict();
+
+export const CompleteKeyRotationResultSchema = z
+  .object({
+    progress: KeyRotationProgressSchema,
+    receipt: EncryptionReceiptSchema,
+  })
+  .strict();
+
+export const AbortKeyRotationResultSchema = z
+  .object({
+    progress: KeyRotationProgressSchema,
+    receipt: EncryptionReceiptSchema,
+  })
+  .strict();
+
+export const RevokeEncryptionKeyCommandSchema = z
+  .object({
+    operation_id: IdentifierSchema,
+    request_digest: CanonicalHashSchema,
+    key_id: IdentifierSchema,
+    changed_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const RevokeEncryptionKeyResultSchema = z
+  .object({
+    inventory: EncryptionKeyInventorySchema,
+    receipt: EncryptionReceiptSchema,
   })
   .strict();
 
@@ -467,6 +685,13 @@ export const StorageCountsSchema = z
     learning_monitor_results: z.number().int().nonnegative(),
     learning_control_rows: z.number().int().nonnegative(),
     learning_receipts: z.number().int().nonnegative(),
+    encryption_keys: z.number().int().nonnegative(),
+    encrypted_contents: z.number().int().nonnegative(),
+    secret_nonce_reservations: z.number().int().nonnegative(),
+    key_rotations: z.number().int().nonnegative(),
+    encrypted_artifact_operations: z.number().int().nonnegative(),
+    operational_receipts: z.number().int().nonnegative(),
+    artifact_store_registry: z.number().int().nonnegative(),
     ...GovernanceCountsSchema.shape,
     ...PurgeCountsSchema.shape,
   })
@@ -576,6 +801,7 @@ export const StorageHealthSchema = z
     ]),
     projection_frontier: ProjectionStorageFrontierSchema,
     learning_frontier: LearningStorageFrontierSchema,
+    encryption: EncryptionKeyInventorySchema,
     filesystem_type: z.number().int(),
     migrations: z.array(MigrationEvidenceSchema),
     counts: StorageCountsSchema,
@@ -2115,6 +2341,23 @@ export const BlockWorkerResultSchema = z
 
 export const WorkerOperationSchema = z.enum([
   "health",
+  "inspect_encryption_keys",
+  "install_encryption_key",
+  "verify_encryption_key",
+  "reserve_secret_nonce",
+  "commit_encrypted_secret",
+  "begin_key_rotation",
+  "get_key_rotation",
+  "get_key_rotation_next",
+  "consume_secret_use_authority",
+  "replay_secret_purge",
+  "get_secret_purge_target",
+  "purge_encrypted_secret",
+  "reserve_rotation_nonce",
+  "commit_rotated_secret",
+  "complete_key_rotation",
+  "abort_key_rotation",
+  "revoke_encryption_key",
   "governance_status",
   "count_content_references",
   "admit_memory",
@@ -2215,6 +2458,36 @@ export const WorkerResponseSchema = z.discriminatedUnion("ok", [
 ]);
 
 export type BackupResult = z.infer<typeof BackupResultSchema>;
+export type InstallEncryptionKeyCommand = z.input<
+  typeof InstallEncryptionKeyCommandSchema
+>;
+export type VerifyEncryptionKeyCommand = z.input<
+  typeof VerifyEncryptionKeyCommandSchema
+>;
+export type ReserveSecretNonceCommand = z.input<
+  typeof ReserveSecretNonceCommandSchema
+>;
+export type ReserveSecretNonceResult = z.output<
+  typeof ReserveSecretNonceResultSchema
+>;
+export type CommitEncryptedSecretCommand = z.input<
+  typeof CommitEncryptedSecretCommandSchema
+>;
+export type BeginKeyRotationCommand = z.input<
+  typeof BeginKeyRotationCommandSchema
+>;
+export type BeginKeyRotationResult = z.output<
+  typeof BeginKeyRotationResultSchema
+>;
+export type KeyRotationNextResult = z.output<
+  typeof KeyRotationNextResultSchema
+>;
+export type CommitRotatedSecretCommand = z.input<
+  typeof CommitRotatedSecretCommandSchema
+>;
+export type CompleteKeyRotationResult = z.output<
+  typeof CompleteKeyRotationResultSchema
+>;
 export type LearningContaminationEvent = z.infer<
   typeof LearningContaminationEventSchema
 >;

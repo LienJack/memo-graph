@@ -295,7 +295,7 @@ describe("SQLite learning ledger schema", () => {
 
     const reopened = await SqliteStorageClient.open({ dataRoot });
     try {
-      expect((await reopened.health()).schema_version).toBe("0014");
+      expect((await reopened.health()).schema_version).toBe("0015");
       expect((await reopened.health()).counts.learning_candidates).toBe(1);
       expect(
         await reopened.writeLearningLedger(

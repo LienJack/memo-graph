@@ -226,6 +226,48 @@ export function operationalStatusFromStorageHealth(
         measurements: [],
       },
       {
+        component: "encryption",
+        state:
+          health.encryption.rotation_state === "blocked"
+            ? "blocked"
+            : health.encryption.rotation_id !== null
+            ? "active"
+            : health.encryption.keys.length === 0
+              ? "disabled"
+              : health.encryption.current_key_id === null
+                ? "blocked"
+                : "ready",
+        reason_code:
+          health.encryption.rotation_state === "blocked" ||
+          (health.encryption.keys.length > 0 &&
+          health.encryption.current_key_id === null &&
+          health.encryption.rotation_id === null)
+            ? "KEY_UNAVAILABLE"
+            : null,
+        action_code:
+          health.encryption.rotation_state === "blocked" ||
+          (health.encryption.keys.length > 0 &&
+          health.encryption.current_key_id === null &&
+          health.encryption.rotation_id === null)
+            ? "PROVIDE_TRUSTED_KEY"
+            : "NONE",
+        measurements: [
+          {
+            component: "encryption",
+            name: "item_count",
+            value: health.encryption.encrypted_content_count,
+            unit: "count",
+          },
+          {
+            component: "encryption",
+            name: "frontier",
+            value:
+              health.encryption.keys.at(-1)?.generation ?? 0,
+            unit: "epoch",
+          },
+        ],
+      },
+      {
         component: "data_root",
         state: "ready",
         reason_code: null,
@@ -308,6 +350,41 @@ const BLOCKED_ERROR_MAPPING: Partial<
     action_code: "RESTORE_VERIFIED_BACKUP",
   },
   ENCRYPTION_REQUIRED: {
+    component: "encryption",
+    reason_code: "KEY_UNAVAILABLE",
+    action_code: "PROVIDE_TRUSTED_KEY",
+  },
+  KEY_PROVIDER_INVALID: {
+    component: "encryption",
+    reason_code: "KEY_UNAVAILABLE",
+    action_code: "PROVIDE_TRUSTED_KEY",
+  },
+  KEY_UNAVAILABLE: {
+    component: "encryption",
+    reason_code: "KEY_UNAVAILABLE",
+    action_code: "PROVIDE_TRUSTED_KEY",
+  },
+  KEY_REVOKED: {
+    component: "encryption",
+    reason_code: "KEY_UNAVAILABLE",
+    action_code: "PROVIDE_TRUSTED_KEY",
+  },
+  KEY_STATE_AMBIGUOUS: {
+    component: "encryption",
+    reason_code: "KEY_UNAVAILABLE",
+    action_code: "PROVIDE_TRUSTED_KEY",
+  },
+  NONCE_REUSE: {
+    component: "encryption",
+    reason_code: "KEY_UNAVAILABLE",
+    action_code: "PROVIDE_TRUSTED_KEY",
+  },
+  AUTHORITY_REPLAY: {
+    component: "encryption",
+    reason_code: "KEY_UNAVAILABLE",
+    action_code: "PROVIDE_TRUSTED_KEY",
+  },
+  ROTATION_INCOMPLETE: {
     component: "encryption",
     reason_code: "KEY_UNAVAILABLE",
     action_code: "PROVIDE_TRUSTED_KEY",

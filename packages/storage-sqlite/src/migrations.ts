@@ -14,6 +14,22 @@ type MigrationFile = {
   sql: string;
 };
 
+export type OperationalMigrationFailurePoint =
+  | "plaintext_guard"
+  | "encrypted_storage_schema"
+  | "purge_registry"
+  | "operational_authority"
+  | "release_control"
+  | "commit";
+
+const OPERATIONAL_MIGRATION_PHASES = [
+  "plaintext_guard",
+  "encrypted_storage_schema",
+  "purge_registry",
+  "operational_authority",
+  "release_control",
+] as const satisfies readonly OperationalMigrationFailurePoint[];
+
 function sha256(content: string): `sha256:${string}` {
   return `sha256:${createHash("sha256").update(content, "utf8").digest("hex")}`;
 }
@@ -49,6 +65,44 @@ function discoverMigrations(migrationsDir: string): MigrationFile[] {
   return migrations;
 }
 
+function runOperationalMigration(
+  database: Database.Database,
+  sql: string,
+  onFailurePoint?: (point: OperationalMigrationFailurePoint) => void,
+): void {
+  const checkpointPattern =
+    /^-- TRELLIS_MIGRATION_CHECKPOINT:(?<point>[a-z_]+)\s*$/gmu;
+  let sqlStart = 0;
+  const observed: OperationalMigrationFailurePoint[] = [];
+
+  for (const match of sql.matchAll(checkpointPattern)) {
+    const point = match.groups?.point as
+      | OperationalMigrationFailurePoint
+      | undefined;
+    if (
+      point === undefined ||
+      point === "commit" ||
+      !OPERATIONAL_MIGRATION_PHASES.includes(point)
+    ) {
+      throw new StorageError("MIGRATION_DRIFT");
+    }
+    database.exec(sql.slice(sqlStart, match.index));
+    observed.push(point);
+    onFailurePoint?.(point);
+    sqlStart = (match.index ?? 0) + match[0].length;
+  }
+  database.exec(sql.slice(sqlStart));
+
+  if (
+    observed.length !== OPERATIONAL_MIGRATION_PHASES.length ||
+    observed.some(
+      (point, index) => point !== OPERATIONAL_MIGRATION_PHASES[index],
+    )
+  ) {
+    throw new StorageError("MIGRATION_DRIFT");
+  }
+}
+
 function bootstrapMigrationLedger(database: Database.Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -73,6 +127,11 @@ function bootstrapMigrationLedger(database: Database.Database): void {
 export function applyMigrations(
   database: Database.Database,
   migrationsDir: string,
+  options: {
+    operationalFailure?: (
+      point: OperationalMigrationFailurePoint,
+    ) => void;
+  } = {},
 ): MigrationEvidence[] {
   const available = discoverMigrations(migrationsDir);
   bootstrapMigrationLedger(database);
@@ -107,17 +166,40 @@ export function applyMigrations(
   `);
 
   for (const migration of available.slice(applied.length)) {
-    database
-      .transaction(() => {
-        database.exec(migration.sql);
-        insert.run(
-          migration.version,
-          migration.name,
-          migration.hash,
-          new Date().toISOString(),
-        );
-      })
-      .immediate();
+    try {
+      database
+        .transaction(() => {
+          if (migration.version === "0015") {
+            runOperationalMigration(
+              database,
+              migration.sql,
+              options.operationalFailure,
+            );
+          } else {
+            database.exec(migration.sql);
+          }
+          insert.run(
+            migration.version,
+            migration.name,
+            migration.hash,
+            new Date().toISOString(),
+          );
+        })
+        .immediate();
+      if (migration.version === "0015") {
+        options.operationalFailure?.("commit");
+      }
+    } catch (error) {
+      if (
+        migration.version === "0015" &&
+        error instanceof Error &&
+        (error.message.includes("operational_secret_plaintext_guard") ||
+          error.message.includes("secret_rows = 0"))
+      ) {
+        throw new StorageError("MIGRATION_DRIFT");
+      }
+      throw error;
+    }
   }
 
   return database

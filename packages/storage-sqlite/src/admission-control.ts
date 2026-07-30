@@ -65,6 +65,8 @@ export const MaintenanceOperationSchema = z.enum([
   "checkpoint",
   "rebuild_fts",
   "purge_retry",
+  "key_rotation",
+  "secret_write",
 ]);
 
 export const AdmissionObservationSchema = z

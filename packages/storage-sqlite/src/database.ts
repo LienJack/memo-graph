@@ -4,10 +4,14 @@ import {
   closeSync,
   constants,
   copyFileSync,
+  existsSync,
   fsyncSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
+  readdirSync,
+  rmSync,
   statSync,
 } from "node:fs";
 import { basename, join } from "node:path";
@@ -31,6 +35,9 @@ import {
   canonicalSha256Omitting,
   receiptHashIsValid,
   sealReceipt,
+  type SecretUseAuthority,
+  type SecretAdmissionApproval,
+  type SecretContentOwner,
 } from "@memo-graph/contracts";
 import Database from "better-sqlite3";
 import type { z } from "zod";
@@ -38,18 +45,30 @@ import type { z } from "zod";
 import { BlobStore, type StoredBlob } from "./blob-store.js";
 import { ControlRepository } from "./control-repository.js";
 import type { DataRootLayout } from "./data-root.js";
+import {
+  EncryptedArtifactStore,
+  type EncryptedArtifactFailurePoint,
+} from "./encrypted-artifact-store.js";
+import {
+  EncryptedContentStore,
+  type ReserveSecretInput,
+  type ReserveSecretResult,
+} from "./encrypted-content-store.js";
 import { StorageError } from "./errors.js";
 import { FtsIndex } from "./fts-index.js";
 import { GovernanceRepository } from "./governance-repository.js";
 import { GovernedMemoryReader } from "./governed-memory-reader.js";
 import { GraphProjectionRepository } from "./graph-projection-repository.js";
 import { LearningRepository } from "./learning-repository.js";
+import { KeyRepository } from "./key-repository.js";
 import {
   applyMigrations,
+  type OperationalMigrationFailurePoint,
   verifyAppliedMigrations,
 } from "./migrations.js";
 import { ProjectionRepository } from "./projection-repository.js";
 import { PurgeRepository } from "./purge-repository.js";
+import { OperationalRepository } from "./operational-repository.js";
 import { RelationRepository } from "./relation-repository.js";
 import { VectorProjectionRepository } from "./vector-projection-repository.js";
 import {
@@ -145,6 +164,11 @@ import {
   type RestoreVerificationResult,
   type StorageHealth,
 } from "./protocol.js";
+import type {
+  EncryptionKeyInventory,
+  EncryptionReceipt,
+  CanonicalHash,
+} from "@memo-graph/contracts";
 
 type ExistingIdempotency = {
   request_hash: string;
@@ -282,6 +306,10 @@ export class StorageDatabase {
   readonly #projections: ProjectionRepository;
   readonly #relations: RelationRepository;
   readonly #learning: LearningRepository;
+  readonly #operations: OperationalRepository;
+  readonly #keys: KeyRepository;
+  readonly #encryptedContent: EncryptedContentStore;
+  readonly #encryptedArtifacts: EncryptedArtifactStore;
   readonly #journalMode: string;
   readonly #inspectionOnly: boolean;
   readonly #busyTimeoutMs: number;
@@ -291,7 +319,15 @@ export class StorageDatabase {
     migrationsDir: string;
     busyTimeoutMs: number;
     testOperations?: boolean;
+    secretPrincipalId?: string | null;
+    rootFenceToken?: number | null;
     inspectionOnly?: boolean;
+    encryptedArtifactFault?: (
+      point: EncryptedArtifactFailurePoint,
+    ) => void;
+    operationalMigrationFault?: (
+      point: OperationalMigrationFailurePoint,
+    ) => void;
   }) {
     this.#layout = options.layout;
     this.#inspectionOnly = options.inspectionOnly ?? false;
@@ -337,7 +373,14 @@ export class StorageDatabase {
     }
     this.#migrations = this.#inspectionOnly
       ? verifyAppliedMigrations(this.#database, options.migrationsDir)
-      : applyMigrations(this.#database, options.migrationsDir);
+      : applyMigrations(this.#database, options.migrationsDir, {
+          ...(options.operationalMigrationFault === undefined
+            ? {}
+            : {
+                operationalFailure:
+                  options.operationalMigrationFault,
+              }),
+        });
     this.#blobStore = new BlobStore(options.layout.blobs);
     this.#fts = new FtsIndex(this.#database, {
       inspectionOnly: this.#inspectionOnly,
@@ -357,6 +400,174 @@ export class StorageDatabase {
       allowTestOperations: options.testOperations ?? false,
       governance: this.#governance,
     });
+    this.#operations = new OperationalRepository(this.#database);
+    this.#keys = new KeyRepository(this.#database, this.#operations);
+    this.#encryptedArtifacts = new EncryptedArtifactStore({
+      database: this.#database,
+      blobRoot: options.layout.blobs,
+      inspectionOnly: this.#inspectionOnly,
+      ...(options.encryptedArtifactFault === undefined
+        ? {}
+        : { fault: options.encryptedArtifactFault }),
+    });
+    this.#encryptedContent = new EncryptedContentStore(
+      this.#database,
+      this.#keys,
+      this.#operations,
+      this.#encryptedArtifacts,
+      {
+        principalId: options.secretPrincipalId ?? null,
+        rootFenceToken: options.rootFenceToken ?? null,
+      },
+    );
+    if (
+      !this.#inspectionOnly &&
+      this.#tableExists("encrypted_artifact_operations")
+    ) {
+      this.#encryptedArtifacts.reconcile();
+    }
+  }
+
+  inspectEncryptionKeys(): EncryptionKeyInventory {
+    return this.#keys.inventory();
+  }
+
+  installEncryptionKey(input: {
+    operation_id: string;
+    request_digest: CanonicalHash;
+    key_id: string;
+    key_generation: number;
+    verification_tag: string;
+    authority_key_id: string;
+    authority_public_key_base64url: string;
+    commitment_key_id: string;
+    commitment_verification_tag: string;
+    created_at: string;
+  }): EncryptionReceipt {
+    return this.#keys.installCurrent(input);
+  }
+
+  verifyEncryptionKey(input: {
+    key_id: string;
+    key_generation: number;
+    verification_tag: string;
+  }): null {
+    this.#keys.verifyProvider(input);
+    return null;
+  }
+
+  reserveSecretNonce(input: ReserveSecretInput): ReserveSecretResult {
+    return this.#encryptedContent.reserve(input);
+  }
+
+  commitEncryptedSecret(input: {
+    operation_id: string;
+    request_digest: CanonicalHash;
+    payload: unknown;
+    approval: SecretAdmissionApproval;
+  }): EncryptionReceipt {
+    return this.#encryptedContent.commit(input);
+  }
+
+  beginKeyRotation(input: {
+    rotation_id: string;
+    request_digest: CanonicalHash;
+    new_key_id: string;
+    new_key_generation: number;
+    new_verification_tag: string;
+    new_authority_key_id: string;
+    new_authority_public_key_base64url: string;
+    new_commitment_key_id: string;
+    new_commitment_verification_tag: string;
+    started_at: string;
+  }) {
+    return this.#keys.beginRotation(input);
+  }
+
+  getKeyRotation(rotationId: string) {
+    return this.#keys.rotation(rotationId);
+  }
+
+  getKeyRotationNext(rotationId: string) {
+    return this.#encryptedContent.rotationNext(rotationId);
+  }
+
+  consumeSecretUseAuthority(authority: SecretUseAuthority) {
+    return this.#encryptedContent.consumeUseAuthority(authority);
+  }
+
+  reserveRotationNonce(
+    input: ReserveSecretInput & { rotation_id: string },
+  ): ReserveSecretResult {
+    return this.#encryptedContent.reserve(input);
+  }
+
+  commitRotatedSecret(input: {
+    rotation_id: string;
+    old_ciphertext_id: string;
+    operation_id: string;
+    request_digest: CanonicalHash;
+    payload: unknown;
+  }): EncryptionReceipt {
+    const receipt = this.#encryptedContent.commit(input);
+    this.#encryptedArtifacts.finalizeRetired();
+    return receipt;
+  }
+
+  completeKeyRotation(rotationId: string) {
+    return this.#keys.completeRotation(rotationId);
+  }
+
+  abortKeyRotation(rotationId: string) {
+    return this.#keys.abortRotation(rotationId);
+  }
+
+  revokeEncryptionKey(input: {
+    operation_id: string;
+    request_digest: CanonicalHash;
+    key_id: string;
+    changed_at: string;
+  }) {
+    return this.#keys.revoke(input);
+  }
+
+  replaySecretPurge(input: {
+    operation_id: string;
+    request_digest: CanonicalHash;
+  }): EncryptionReceipt | null {
+    return this.#encryptedContent.replayPurge(
+      input.operation_id,
+      input.request_digest,
+    );
+  }
+
+  getSecretPurgeTarget(owner: SecretContentOwner) {
+    return this.#encryptedContent.purgeTarget(owner);
+  }
+
+  purgeEncryptedSecret(input: {
+    operation_id: string;
+    request_digest: CanonicalHash;
+    authority: SecretUseAuthority;
+  }): EncryptionReceipt {
+    const replay = this.#encryptedContent.replayPurge(
+      input.operation_id,
+      input.request_digest,
+    );
+    if (replay !== null) {
+      return replay;
+    }
+    const validatedAt = Date.now();
+    this.#encryptedContent.validatePurgeAuthority(input, validatedAt);
+    this.#removeSecretBackups(input.authority.owner);
+    const receipt = this.#encryptedContent.purge({
+      ...input,
+      validated_at: validatedAt,
+    });
+    this.#encryptedArtifacts.finalizeRetired();
+    this.#database.exec("VACUUM");
+    this.#database.pragma("wal_checkpoint(TRUNCATE)");
+    return receipt;
   }
 
   health(): StorageHealth {
@@ -373,6 +584,8 @@ export class StorageDatabase {
             .get() as { count: number }
         ).count,
       );
+    const countIfPresent = (table: string, where = ""): number =>
+      this.#tableExists(table) ? count(table, where) : 0;
     const ftsRows = this.#tableExists("evidence_fts")
       ? count("evidence_fts")
       : 0;
@@ -410,6 +623,16 @@ export class StorageDatabase {
       layered_projection_state: layeredProjection.status,
       projection_frontier: this.#projections.frontier(),
       learning_frontier: learningFrontier,
+      encryption: this.#tableExists("encryption_keys")
+        ? this.#keys.inventory()
+        : {
+            keys: [],
+            current_key_id: null,
+            rotating_to_key_id: null,
+            encrypted_content_count: 0,
+            rotation_id: null,
+            rotation_state: null,
+          },
       filesystem_type: this.#layout.filesystem_type,
       migrations: this.#migrations,
       counts: {
@@ -427,6 +650,17 @@ export class StorageDatabase {
         retrieval_receipts: count("retrieval_receipts"),
         context_slices: count("context_slices"),
         receipt_access_scopes: count("receipt_access_scopes"),
+        encryption_keys: countIfPresent("encryption_keys"),
+        encrypted_contents: countIfPresent("encrypted_contents"),
+        secret_nonce_reservations: countIfPresent(
+          "secret_nonce_reservations",
+        ),
+        key_rotations: countIfPresent("key_rotations"),
+        encrypted_artifact_operations: countIfPresent(
+          "encrypted_artifact_operations",
+        ),
+        operational_receipts: countIfPresent("operational_receipts"),
+        artifact_store_registry: countIfPresent("artifact_store_registry"),
         ...this.#projections.counts(),
         ...governance,
         ...purge,
@@ -857,6 +1091,22 @@ export class StorageDatabase {
   }
 
   async createBackup(): Promise<BackupResult> {
+    if (
+      this.#tableExists("encrypted_contents") &&
+      (
+        this.#database
+          .prepare(
+            `SELECT 1 FROM encrypted_contents AS c
+             JOIN encrypted_content_owners AS o
+               ON o.ciphertext_id = c.ciphertext_id
+             WHERE c.storage_kind = 'external' AND o.active = 1
+             LIMIT 1`,
+          )
+          .get() !== undefined
+      )
+    ) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
     const epoch = this.#ledgerEpoch();
     const tombstoneEpoch = this.#purge.tombstoneEpoch();
     const learningFrontier = this.#learning.frontier();
@@ -2862,6 +3112,57 @@ export class StorageDatabase {
          ORDER BY resulting_epoch DESC, receipt_id DESC LIMIT 1`,
       )
       .get() as LatestReceipt;
+  }
+
+  #removeSecretBackups(owner: SecretContentOwner): void {
+    for (const entry of readdirSync(this.#layout.backups, {
+      withFileTypes: true,
+    })) {
+      const directory = join(this.#layout.backups, entry.name);
+      if (!entry.isDirectory() || lstatSync(directory).isSymbolicLink()) {
+        continue;
+      }
+      const path = join(directory, "memory.db");
+      if (!existsSync(path) || lstatSync(path).isSymbolicLink()) {
+        continue;
+      }
+      const backup = new Database(path, {
+        readonly: true,
+        fileMustExist: true,
+      });
+      let containsTarget = false;
+      try {
+        const hasEncryption = backup
+          .prepare(
+            `SELECT name FROM sqlite_master
+             WHERE type = 'table' AND name = 'secret_nonce_reservations'`,
+          )
+          .get();
+        if (hasEncryption !== undefined) {
+          containsTarget =
+            backup
+              .prepare(
+                `SELECT 1 FROM secret_nonce_reservations
+                 WHERE owner_kind = ? AND owner_id = ?
+                   AND owner_generation = ?
+                 LIMIT 1`,
+              )
+              .get(owner.kind, owner.id, owner.generation) !== undefined;
+        }
+      } finally {
+        backup.close();
+      }
+      if (!containsTarget) {
+        continue;
+      }
+      rmSync(directory, { recursive: true });
+      this.#database
+        .prepare(
+          "DELETE FROM backup_manifests WHERE relative_path = ?",
+        )
+        .run(`backups/${entry.name}/memory.db`);
+    }
+    fsyncPath(this.#layout.backups);
   }
 
   #tableExists(name: string): boolean {

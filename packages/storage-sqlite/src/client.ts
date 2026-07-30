@@ -4,11 +4,18 @@ import { performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
 
 import {
+  IdentifierSchema,
+  EncryptionKeyInventorySchema,
+  EncryptionReceiptSchema,
+  KeyRotationProgressSchema,
   GraphScopeCheckpointSchema,
   MutationReceiptSchema,
   RootLeaseSchema,
   VectorScopeCheckpointSchema,
   type GraphScopeCheckpoint,
+  type EncryptionKeyInventory,
+  type EncryptionReceipt,
+  type KeyRotationProgress,
   type VectorScopeCheckpoint,
 } from "@memo-graph/contracts";
 import { z } from "zod";
@@ -30,11 +37,16 @@ import {
   StorageError,
   deserializeStorageError,
 } from "./errors.js";
+import type { OperationalMigrationFailurePoint } from "./migrations.js";
 import {
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
   ApplyVectorProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
+  BeginKeyRotationCommandSchema,
+  BeginKeyRotationResultSchema,
+  AuthorizedSecretUseResultSchema,
+  AbortKeyRotationResultSchema,
   BackupResultSchema,
   BlockWorkerResultSchema,
   CheckpointResultSchema,
@@ -46,6 +58,9 @@ import {
   ClaimVectorProjectionJobsResultSchema,
   CompleteProjectionJobCommandSchema,
   CommitEpisodeCommandSchema,
+  CommitEncryptedSecretCommandSchema,
+  CommitRotatedSecretCommandSchema,
+  ConsumeSecretUseAuthorityCommandSchema,
   ContentReferenceCountsInputSchema,
   ContentReferenceCountsSchema,
   DrainFtsResultSchema,
@@ -66,6 +81,9 @@ import {
   FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   InvalidateProjectionDescendantsResultSchema,
+  InstallEncryptionKeyCommandSchema,
+  KeyRotationInputSchema,
+  KeyRotationNextResultSchema,
   LearningLedgerReadInputSchema,
   LearningLedgerReadResultSchema,
   LearningLedgerReplayInputSchema,
@@ -85,6 +103,7 @@ import {
   MemoryDeleteResultSchema,
   PurgeRunInputSchema,
   PurgeRunResultSchema,
+  PurgeEncryptedSecretCommandSchema,
   ProjectionBatchResultSchema,
   ProjectionJobMutationResultSchema,
   ProjectionPageQuerySchema,
@@ -115,21 +134,32 @@ import {
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RecordProjectionRebuildResultSchema,
+  ReserveSecretNonceCommandSchema,
+  ReserveSecretNonceResultSchema,
+  RevokeEncryptionKeyCommandSchema,
+  RevokeEncryptionKeyResultSchema,
+  ReserveRotationNonceCommandSchema,
   RegisterVectorEmbeddingEpochCommandSchema,
   RegisterVectorEmbeddingEpochResultSchema,
   RelationTraversalInputSchema,
   RelationTraversalResultSchema,
   RebuildFtsResultSchema,
   ReceiptLookupInputSchema,
+  ReplaySecretPurgeCommandSchema,
+  ReplaySecretPurgeResultSchema,
   ReceiptLookupResultSchema,
   SearchEvidenceQuerySchema,
   SearchEvidenceResultSchema,
+  SecretPurgeTargetInputSchema,
+  SecretPurgeTargetSchema,
   StorageHealthSchema,
   RestoreVerificationResultSchema,
+  CompleteKeyRotationResultSchema,
   RunVectorTemporalSweepInputSchema,
   RunVectorTemporalSweepResultSchema,
   StaleVectorProjectionJobCommandSchema,
   VerifyArtifactsResultSchema,
+  VerifyEncryptionKeyCommandSchema,
   VectorProjectionJobResultSchema,
   VectorProjectionScopeInputSchema,
   VectorProjectionStatusSchema,
@@ -229,6 +259,16 @@ import {
 } from "./protocol.js";
 import { RootWriterLease } from "./root-lease.js";
 import {
+  createSecretIngressCoordinator,
+  type DarkLaunchAdmitSecretInput,
+  type DarkLaunchBeginKeyRotationInput,
+  type DarkLaunchInstallEncryptionKeyInput,
+  type DarkLaunchPurgeSecretInput,
+  type DarkLaunchRevokeEncryptionKeyInput,
+  type DarkLaunchResumeKeyRotationInput,
+  type SecretIngress,
+} from "./secret-ingress.js";
+import {
   WriterQueue,
   WriterQueueMetricsSchema,
   type WriterQueueMetrics,
@@ -247,8 +287,13 @@ export type SqliteStorageClientOptions = {
   migrationsDir?: string;
   busyTimeoutMs?: number;
   testOperations?: boolean;
+  secretPrincipalId?: string;
   testFaults?: {
     exitAfterCommitBeforeResponseOnce?: boolean;
+    encryptedArtifactExitAt?:
+      | "after_prepare"
+      | "after_file_commit";
+    operationalMigrationExitAt?: OperationalMigrationFailurePoint;
   };
   onDiagnostic?: (diagnostic: StorageDiagnostic) => void;
   admission?: {
@@ -275,7 +320,7 @@ export type StorageClientHealth = z.infer<
 
 export type StorageInspectionClient = Pick<
   SqliteStorageClient,
-  "close" | "health"
+  "close" | "health" | "inspectEncryptionKeys"
 >;
 
 type PendingRequest = {
@@ -295,17 +340,26 @@ export class SqliteStorageClient {
     busyTimeoutMs: number;
     testOperations: boolean;
     inspectionOnly: boolean;
+    secretPrincipalId: string | null;
     databasePath: string;
     onDiagnostic: ((diagnostic: StorageDiagnostic) => void) | undefined;
   };
   readonly #writerQueue: WriterQueue;
   readonly #admission: AdmissionController | undefined;
   readonly #rootLease: RootWriterLease | undefined;
+  readonly #secretIngress: SecretIngress;
   readonly #pending = new Map<string, PendingRequest>();
   #worker: Worker | undefined;
   #closed = false;
   #closing = false;
   #faultOnNextWorker = false;
+  #encryptedArtifactFaultOnNextWorker:
+    | "after_prepare"
+    | "after_file_commit"
+    | null = null;
+  #operationalMigrationFaultOnNextWorker:
+    | OperationalMigrationFailurePoint
+    | null = null;
   #checkpointCounters: CheckpointResult & { attempts: number } = {
     busy: 0,
     log: 0,
@@ -329,6 +383,10 @@ export class SqliteStorageClient {
       busyTimeoutMs: options.busyTimeoutMs ?? 5_000,
       testOperations: options.testOperations ?? false,
       inspectionOnly,
+      secretPrincipalId:
+        options.secretPrincipalId === undefined
+          ? null
+          : IdentifierSchema.parse(options.secretPrincipalId),
       onDiagnostic: options.onDiagnostic,
     };
     this.#admission = inspectionOnly
@@ -362,8 +420,124 @@ export class SqliteStorageClient {
         );
       },
     });
+    this.#secretIngress = createSecretIngressCoordinator({
+      installKey: (input) =>
+        this.#request(
+          "install_encryption_key",
+          InstallEncryptionKeyCommandSchema.parse(input),
+          EncryptionReceiptSchema,
+        ),
+      inspectKeys: () =>
+        this.#request(
+          "inspect_encryption_keys",
+          null,
+          EncryptionKeyInventorySchema,
+        ),
+      verifyKey: async (input) => {
+        await this.#request(
+          "verify_encryption_key",
+          VerifyEncryptionKeyCommandSchema.parse(input),
+          NullSchema,
+        );
+      },
+      reserve: (input) =>
+        this.#request(
+          "reserve_secret_nonce",
+          ReserveSecretNonceCommandSchema.parse(input),
+          ReserveSecretNonceResultSchema,
+        ),
+      commit: (input) =>
+        this.#request(
+          "commit_encrypted_secret",
+          CommitEncryptedSecretCommandSchema.parse(input),
+          EncryptionReceiptSchema,
+        ),
+      rootFenceToken: () => {
+        const lease = this.#rootLease;
+        if (lease === undefined) {
+          throw new StorageError("STALE_ROOT_LEASE");
+        }
+        return lease.snapshot.fence_token;
+      },
+      beginRotation: (input) =>
+        this.#request(
+          "begin_key_rotation",
+          BeginKeyRotationCommandSchema.parse(input),
+          BeginKeyRotationResultSchema,
+        ),
+      rotation: (rotationId) =>
+        this.#request(
+          "get_key_rotation",
+          KeyRotationInputSchema.parse({ rotation_id: rotationId }),
+          KeyRotationProgressSchema,
+        ),
+      rotationNext: (rotationId) =>
+        this.#request(
+          "get_key_rotation_next",
+          KeyRotationInputSchema.parse({ rotation_id: rotationId }),
+          KeyRotationNextResultSchema,
+        ),
+      consumeUseAuthority: (authority) =>
+        this.#request(
+          "consume_secret_use_authority",
+          ConsumeSecretUseAuthorityCommandSchema.parse(authority),
+          AuthorizedSecretUseResultSchema,
+        ),
+      reserveRotation: (input) =>
+        this.#request(
+          "reserve_rotation_nonce",
+          ReserveRotationNonceCommandSchema.parse(input),
+          ReserveSecretNonceResultSchema,
+        ),
+      commitRotation: (input) =>
+        this.#request(
+          "commit_rotated_secret",
+          CommitRotatedSecretCommandSchema.parse(input),
+          EncryptionReceiptSchema,
+        ),
+      completeRotation: (rotationId) =>
+        this.#request(
+          "complete_key_rotation",
+          KeyRotationInputSchema.parse({ rotation_id: rotationId }),
+          CompleteKeyRotationResultSchema,
+        ),
+      abortRotation: (rotationId) =>
+        this.#request(
+          "abort_key_rotation",
+          KeyRotationInputSchema.parse({ rotation_id: rotationId }),
+          AbortKeyRotationResultSchema,
+        ),
+      revokeKey: (input) =>
+        this.#request(
+          "revoke_encryption_key",
+          RevokeEncryptionKeyCommandSchema.parse(input),
+          RevokeEncryptionKeyResultSchema,
+        ),
+      replayPurge: (input) =>
+        this.#request(
+          "replay_secret_purge",
+          ReplaySecretPurgeCommandSchema.parse(input),
+          ReplaySecretPurgeResultSchema,
+        ),
+      purgeTarget: (owner) =>
+        this.#request(
+          "get_secret_purge_target",
+          SecretPurgeTargetInputSchema.parse({ owner }),
+          SecretPurgeTargetSchema,
+        ),
+      purge: (input) =>
+        this.#request(
+          "purge_encrypted_secret",
+          PurgeEncryptedSecretCommandSchema.parse(input),
+          EncryptionReceiptSchema,
+        ),
+    }, this.#options.secretPrincipalId);
     this.#faultOnNextWorker =
       options.testFaults?.exitAfterCommitBeforeResponseOnce ?? false;
+    this.#encryptedArtifactFaultOnNextWorker =
+      options.testFaults?.encryptedArtifactExitAt ?? null;
+    this.#operationalMigrationFaultOnNextWorker =
+      options.testFaults?.operationalMigrationExitAt ?? null;
   }
 
   static async open(
@@ -408,6 +582,104 @@ export class SqliteStorageClient {
       root_lease: this.#rootLease?.snapshot ?? null,
       checkpoint_counters: this.#checkpointCounters,
     });
+  }
+
+  inspectEncryptionKeys(): Promise<EncryptionKeyInventory> {
+    return this.#request(
+      "inspect_encryption_keys",
+      null,
+      EncryptionKeyInventorySchema,
+    );
+  }
+
+  darkLaunchInstallEncryptionKey(
+    input: DarkLaunchInstallEncryptionKeyInput,
+  ): Promise<EncryptionReceipt> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("ENCRYPTION_REQUIRED"));
+    }
+    return this.#writerQueue.enqueue(
+      () => this.#secretIngress.installKey(input),
+      "key_rotation",
+    );
+  }
+
+  darkLaunchAdmitSecret(
+    input: DarkLaunchAdmitSecretInput,
+  ): Promise<EncryptionReceipt> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("ENCRYPTION_REQUIRED"));
+    }
+    return this.#writerQueue.enqueue(
+      () => this.#secretIngress.admit(input),
+      "secret_write",
+    );
+  }
+
+  darkLaunchBeginKeyRotation(
+    input: DarkLaunchBeginKeyRotationInput,
+  ): Promise<{ progress: KeyRotationProgress; receipt: EncryptionReceipt }> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("ENCRYPTION_REQUIRED"));
+    }
+    return this.#writerQueue.enqueue(
+      () => this.#secretIngress.beginRotation(input),
+      "key_rotation",
+    );
+  }
+
+  darkLaunchResumeKeyRotation(
+    input: DarkLaunchResumeKeyRotationInput,
+  ): Promise<KeyRotationProgress> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("ENCRYPTION_REQUIRED"));
+    }
+    return this.#writerQueue.enqueue(
+      () => this.#secretIngress.resumeRotation(input),
+      "key_rotation",
+    );
+  }
+
+  darkLaunchAbortKeyRotation(
+    rotationId: string,
+  ): Promise<{
+    progress: KeyRotationProgress;
+    receipt: EncryptionReceipt;
+  }> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("ENCRYPTION_REQUIRED"));
+    }
+    return this.#writerQueue.enqueue(
+      () => this.#secretIngress.abortRotation(rotationId),
+      "key_rotation",
+    );
+  }
+
+  darkLaunchRevokeEncryptionKey(
+    input: DarkLaunchRevokeEncryptionKeyInput,
+  ): Promise<{
+    inventory: EncryptionKeyInventory;
+    receipt: EncryptionReceipt;
+  }> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("ENCRYPTION_REQUIRED"));
+    }
+    return this.#writerQueue.enqueue(
+      () => this.#secretIngress.revokeKey(input),
+      "key_rotation",
+    );
+  }
+
+  darkLaunchPurgeSecret(
+    input: DarkLaunchPurgeSecretInput,
+  ): Promise<EncryptionReceipt> {
+    if (!this.#options.testOperations) {
+      return Promise.reject(new StorageError("ENCRYPTION_REQUIRED"));
+    }
+    return this.#writerQueue.enqueue(
+      () => this.#secretIngress.purge(input),
+      "purge_retry",
+    );
   }
 
   governanceStatus(): Promise<GovernanceStorageStatus> {
@@ -1185,14 +1457,25 @@ export class SqliteStorageClient {
     }
     const fault = this.#faultOnNextWorker;
     this.#faultOnNextWorker = false;
+    const encryptedArtifactFault =
+      this.#encryptedArtifactFaultOnNextWorker;
+    this.#encryptedArtifactFaultOnNextWorker = null;
+    const operationalMigrationFault =
+      this.#operationalMigrationFaultOnNextWorker;
+    this.#operationalMigrationFaultOnNextWorker = null;
     const worker = new Worker(new URL("./storage-worker.js", import.meta.url), {
       workerData: {
         dataRoot: this.#options.dataRoot,
         migrationsDir: this.#options.migrationsDir,
         busyTimeoutMs: this.#options.busyTimeoutMs,
         testOperations: this.#options.testOperations,
+        secretPrincipalId: this.#options.secretPrincipalId,
+        rootFenceToken:
+          this.#rootLease?.snapshot.fence_token ?? null,
         inspectionOnly: this.#options.inspectionOnly,
         exitAfterCommitBeforeResponse: fault,
+        encryptedArtifactExitAt: encryptedArtifactFault,
+        operationalMigrationExitAt: operationalMigrationFault,
       },
     });
     this.#worker = worker;

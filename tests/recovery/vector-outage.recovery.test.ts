@@ -112,7 +112,7 @@ describe("semantic vector outage recovery", () => {
           Math.max(100, baselineP95 + 60),
         );
         await expect(harness.storage.health()).resolves.toMatchObject({
-          schema_version: "0014",
+          schema_version: "0015",
           journal_mode: "wal",
           foreign_keys: true,
         });

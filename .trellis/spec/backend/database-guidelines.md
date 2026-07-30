@@ -175,6 +175,143 @@ if (replay !== null) return replay;
 return storage.applyMemoryRevision(command);
 ```
 
+## Scenario: Versioned Secret Ciphertext and Key Lifecycle
+
+### 1. Scope / Trigger
+
+Use this contract whenever `secret` content, an encryption-key transition, a
+nonce reservation, an encrypted external artifact, or a secret crypto-erasure
+crosses the main-thread/worker/SQLite boundary. The U2 path is dark-launched:
+normal admission remains `ENCRYPTION_REQUIRED` until the separately qualified
+release-control and operator-authority flow is enabled.
+
+### 2. Signatures
+
+```ts
+storage.inspectEncryptionKeys(): Promise<EncryptionKeyInventory>
+storage.darkLaunchInstallEncryptionKey(input: {
+  idempotency_key: string;
+  key_id: string;
+  key_generation: number;
+  key_descriptor: number;
+  authority_key_id: string;
+  authority_descriptor: number;
+  commitment_key_id: string;
+  commitment_descriptor: number;
+}): Promise<EncryptionReceipt>
+storage.darkLaunchAdmitSecret(input: DarkLaunchAdmitSecretInput): Promise<EncryptionReceipt>
+storage.darkLaunchBeginKeyRotation(input: DarkLaunchBeginKeyRotationInput): Promise<BeginKeyRotationResult>
+storage.darkLaunchResumeKeyRotation(input: DarkLaunchResumeKeyRotationInput): Promise<KeyRotationProgress>
+storage.darkLaunchPurgeSecret(input: DarkLaunchPurgeSecretInput): Promise<EncryptionReceipt>
+```
+
+The storage worker may receive key identities, public verification keys,
+verification tags, signed authority envelopes, nonce reservations, AEAD
+metadata, and ciphertext. It must never receive plaintext, private signing
+keys, commitment keys, or encryption-key bytes.
+
+### 3. Contracts
+
+- Envelope v1 is AES-256-GCM with an exact 32-byte key, 12-byte nonce, 16-byte
+  tag, and AAD bytes formed from the UTF-8
+  `memo-graph/secret-envelope/v1` domain followed by canonical metadata JSON.
+- Metadata binds key and generation, owner and generation, exact scope,
+  sensitivity, content identity/class, media type, and an owner/scope-specific
+  keyed plaintext commitment. The envelope also binds ciphertext hash, size,
+  tag, and AAD hash.
+- Encryption, authority-signing, and commitment keys are distinct. SQLite
+  persists only key IDs, public verification keys, and keyed verification
+  tags; raw or private key bytes remain in short-lived main-thread buffers
+  loaded from already-opened, private, owner-checked regular descriptors.
+- `SecretAdmissionApproval` and `SecretUseAuthority` are Ed25519-verified,
+  purpose-bound, expiring, and single-use. Admission additionally binds the
+  configured principal, current root fence, current key, request digest, and
+  envelope AAD. Consumption commits in the same SQLite transaction as the
+  authorized effect or its content-free receipt.
+- `secret_nonce_reservations` persists the operation class/rotation identity,
+  key generation, AAD hash, commitment, owner generation, and request digest.
+  A retry may reuse a nonce only when every persisted binding is identical.
+  A committed retry routes to the original `secret_admit` or
+  `key_rotation_item` receipt; it cannot reinterpret the operation.
+- Inline ciphertext is the default atomic representation. Ciphertext above
+  the frozen threshold uses a registered `prepared -> committed -> retired`
+  file saga. Startup reconciliation validates live references, removes
+  unreferenced temp/final artifacts, and never promotes an orphan to a live
+  owner.
+- Rotation keeps the old key `current` while the new key is `rotating_to`.
+  Secret writes quiesce; each decrypt requires one verified use authority.
+  Abort is legal only before the first rewrite. Completion atomically retires
+  the old key, promotes the new key, and seals the receipt. After a rewrite,
+  recovery is roll-forward.
+- Secret purge validates the complete authority and target before filesystem
+  mutation, retires every owner reservation/artifact, removes affected
+  backups, seals a content-free receipt, vacuums SQLite, then truncates WAL.
+- Migration 0015 adds side tables without rewriting the 0014 canonical
+  payload tables. Existing non-secret identities, counts, receipts, and
+  frontiers remain unchanged. A pre-0015 live secret plaintext row makes the
+  upgrade fail with `MIGRATION_DRIFT`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Public admission without the qualified release path | `ENCRYPTION_REQUIRED`, zero enqueue/effect |
+| Key descriptor is wrong owner/mode/type/size or changes during read | `KEY_PROVIDER_INVALID` |
+| Missing, revoked, or ambiguous key state | `KEY_UNAVAILABLE`, `KEY_REVOKED`, or `KEY_STATE_AMBIGUOUS` |
+| Forged, expired, replayed, wrong-principal/fence/purpose/scope authority | Typed rejection, zero canonical/file effect and zero new consumption |
+| Same idempotency key with changed operation/rotation/key/AAD/commitment/owner/request | `NONCE_REUSE` or `CONFLICT`; reserved nonce is not re-encrypted |
+| Rotation item response is lost after commit | Replay the original item receipt; do not decrypt or increment twice |
+| External artifact exists without a live encrypted-content reference at startup | Remove/quarantine by registry rule; do not publish |
+| Purge authority is invalid or rotation is active | Reject before deleting backups or ciphertext |
+| Migration interruption before ledger commit | Entire 0015 DDL and migration-ledger row roll back |
+| Historical live secret plaintext is detected during 0015 | `MIGRATION_DRIFT`; no automatic encryption/backfill |
+
+### 5. Good / Base / Bad Cases
+
+- Good: exact private descriptors, distinct key roles, verified authority,
+  durable nonce reservation, ciphertext-only worker payload, and one atomic
+  effect/receipt produce an idempotent encrypted owner.
+- Base: no secret keys or release control are installed; ordinary non-secret
+  reads/writes continue and secret admission stays `ENCRYPTION_REQUIRED`.
+- Bad: a shape-valid authority with an unchecked signature, a nonce replay
+  under another operation class, or backup deletion before authorization is a
+  security/data-integrity defect even when happy-path tests are green.
+
+### 6. Tests Required
+
+- Contract known-answer tests assert exact AES-GCM parameters, canonical AAD,
+  envelope/hash/size binding, legal key states, and strict G6 default-off
+  controls.
+- Storage tests assert descriptor checks, distinct key roles, nonce uniqueness,
+  changed-input replay rejection, transactional approval consumption, and
+  production `testOperations=false` denial.
+- Recovery tests inject response loss and process exit at nonce, rotation,
+  external prepare/file/reference, abort, revoke, purge, and migration
+  boundaries; assert old-or-new state, exact receipt replay, and restart
+  convergence.
+- Security tests scan SQLite, WAL/SHM, blobs/temp/quarantine, backups,
+  diagnostics, and receipts for plaintext and raw-key markers, and prove
+  standard FTS/MCP/Context paths cannot serve secret content.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+SecretUseAuthoritySchema.parse(authority); // shape/hash only
+removeAffectedBackups(owner);              // filesystem effect first
+return storage.purgeEncryptedSecret(authority);
+```
+
+#### Correct
+
+```ts
+verifyEd25519(authority.authority_key_id, authority.signature, authority.authority_hash);
+await storage.preflightSecretPurge({ authority, principal_id, root_fence });
+// The worker rechecks and consumes authority with the durable purge receipt.
+return storage.purgeEncryptedSecret({ authority, request_digest });
+```
+
 ## Scenario: Tombstone-First Purge Saga
 
 ### 1. Scope / Trigger

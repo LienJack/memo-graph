@@ -106,7 +106,7 @@ describe("graph outage recovery", () => {
       });
       expect(store.queryCount).toBe(0);
       await expect(storage.health()).resolves.toMatchObject({
-        schema_version: "0014",
+        schema_version: "0015",
         journal_mode: "wal",
       });
     } finally {
@@ -171,7 +171,7 @@ describe("graph outage recovery", () => {
         });
         expect(starts).toBe(1);
         await expect(storage.health()).resolves.toMatchObject({
-          schema_version: "0014",
+          schema_version: "0015",
           journal_mode: "wal",
           foreign_keys: true,
         });
