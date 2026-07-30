@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { canonicalSha256 } from "../../packages/contracts/src/index.js";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 const cleanupPaths: string[] = [];
 const openDescriptors: number[] = [];
@@ -70,6 +71,9 @@ afterEach(() => {
 
 describe("secret content residuals across rotation", () => {
   it("keeps plaintext and both raw keys absent from every persisted artifact before and after restart", async () => {
+    const recoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:secret-residual",
+    );
     const dataRoot = temporaryRoot("secret-rotation-residual");
     const descriptorRoot = temporaryRoot(
       "secret-rotation-residual-descriptors",
@@ -119,6 +123,7 @@ describe("secret content residuals across rotation", () => {
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:residual",
+      recoveryHeadProvider,
       onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
     });
     await storage.darkLaunchInstallEncryptionKey({
@@ -169,6 +174,7 @@ describe("secret content residuals across rotation", () => {
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:residual",
+      recoveryHeadProvider,
       onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
     });
     expect(await storage.inspectEncryptionKeys()).toMatchObject({
@@ -309,6 +315,9 @@ describe("secret content residuals across rotation", () => {
   });
 
   it("replays a completed purge after worker exit without restoring a decryptable artifact", async () => {
+    const recoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:purge-response",
+    );
     const dataRoot = temporaryRoot("secret-purge-response-loss");
     const descriptorRoot = temporaryRoot(
       "secret-purge-response-loss-descriptors",
@@ -337,6 +346,7 @@ describe("secret content residuals across rotation", () => {
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:purge-response",
+      recoveryHeadProvider,
     });
     await storage.darkLaunchInstallEncryptionKey({
       idempotency_key: "install-purge-response-key-001",
@@ -369,6 +379,7 @@ describe("secret content residuals across rotation", () => {
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:purge-response",
+      recoveryHeadProvider,
       testFaults: { exitAfterCommitBeforeResponseOnce: true },
     });
     const input = {
@@ -381,12 +392,11 @@ describe("secret content residuals across rotation", () => {
       },
       authority_descriptor: authority,
     };
-    await expect(storage.darkLaunchPurgeSecret(input)).rejects.toMatchObject({
-      code: "WORKER_CRASHED",
-    });
-    expect(await storage.darkLaunchPurgeSecret(input)).toMatchObject({
+    const recovered = await storage.darkLaunchPurgeSecret(input);
+    expect(recovered).toMatchObject({
       operation: "secret_purge",
     });
+    expect(await storage.darkLaunchPurgeSecret(input)).toEqual(recovered);
     expect(await storage.inspectEncryptionKeys()).toMatchObject({
       encrypted_content_count: 0,
     });
@@ -409,6 +419,17 @@ describe("secret content residuals across rotation", () => {
           .prepare(
             `SELECT count(*) AS count FROM operational_receipts
              WHERE operation_kind = 'secret_purge'`,
+          )
+          .get() as { count: number }
+      ).count,
+    ).toBe(1);
+    expect(
+      (
+        database
+          .prepare(
+            `SELECT count(*) AS count
+             FROM secret_authority_consumptions
+             WHERE authority_kind = 'use'`,
           )
           .get() as { count: number }
       ).count,

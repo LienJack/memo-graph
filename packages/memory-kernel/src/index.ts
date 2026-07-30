@@ -354,6 +354,10 @@ function storageFailure(error: StorageError): GovernedResponse {
     case "STALE_PROJECTION_FRONTIER":
     case "STALE_TOMBSTONE_FRONTIER":
     case "STALE_LEARNING_FRONTIER":
+    case "RECOVERY_AUTHORITY_INVALID":
+    case "STALE_RECOVERY_HEAD":
+    case "TARGET_EXISTS":
+    case "NO_REPLACE_UNSUPPORTED":
     case "CORRUPTION":
     case "MIGRATION_DRIFT":
     case "WORKER_CRASHED":

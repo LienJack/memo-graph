@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
+    setupFiles: ["tests/setup/recovery-provider.ts"],
     include: ["tests/**/*.test.ts"],
     // Several recovery Oracles intentionally exercise SQLite and isolated
     // child processes under 50-100 ms deadlines. Bounding file workers keeps

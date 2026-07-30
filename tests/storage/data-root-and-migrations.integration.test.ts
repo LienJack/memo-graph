@@ -20,6 +20,8 @@ import {
   SqliteStorageClient,
   StorageError,
 } from "@memo-graph/storage-sqlite";
+import { prepareDataRoot } from "../../packages/storage-sqlite/src/data-root.js";
+import { StorageDatabase } from "../../packages/storage-sqlite/src/database.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
 
 const cleanupPaths: string[] = [];
@@ -50,10 +52,10 @@ describe("data-root and migration contract", () => {
     const health = await storage.health();
     await storage.close();
 
-    expect(health.schema_version).toBe("0015");
+    expect(health.schema_version).toBe("0016");
     expect(health.journal_mode).toBe("wal");
     expect(health.foreign_keys).toBe(true);
-    expect(health.migrations).toHaveLength(15);
+    expect(health.migrations).toHaveLength(16);
     expect(health.migrations.every((migration) =>
       /^sha256:[a-f0-9]{64}$/.test(migration.hash),
     )).toBe(true);
@@ -82,11 +84,12 @@ describe("data-root and migration contract", () => {
       );
     }
 
-    const before = await SqliteStorageClient.open({
-      dataRoot,
+    const before = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
-    await before.commitEpisode(
+    before.commitEpisode(
       inlineEpisode({
         episodeId: "episode_before_scope_frontier_migration",
         evidenceId: "evidence_before_scope_frontier_migration",
@@ -94,8 +97,8 @@ describe("data-root and migration contract", () => {
         text: "The ledger was populated before migration 0011.",
       }),
     );
-    expect((await before.health()).schema_version).toBe("0010");
-    await before.close();
+    expect(before.health().schema_version).toBe("0010");
+    before.close();
 
     cpSync(
       join(
@@ -105,13 +108,14 @@ describe("data-root and migration contract", () => {
       ),
       join(migrationRoot, "0011-scope-projection-frontiers.sql"),
     );
-    const upgraded = await SqliteStorageClient.open({
-      dataRoot,
+    const upgraded = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
-    expect((await upgraded.health()).schema_version).toBe("0011");
-    const oldHealth = await upgraded.health();
-    const oldFrontier = await upgraded.projectionScopeFrontier({
+    expect(upgraded.health().schema_version).toBe("0011");
+    const oldHealth = upgraded.health();
+    const oldFrontier = upgraded.projectionScopeFrontier({
         principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_local" },
       });
@@ -121,7 +125,7 @@ describe("data-root and migration contract", () => {
       source_frontier_hash: null,
       projection_frontier_hash: null,
     });
-    await upgraded.close();
+    upgraded.close();
 
     const databasePath = join(dataRoot, "ledger", "memory.db");
     const beforeGraphMigration = new DatabaseSync(databasePath);
@@ -155,16 +159,17 @@ describe("data-root and migration contract", () => {
       )
       .get();
     beforeGraphMigration.close();
-    const storedBeforeGraphMigration = await SqliteStorageClient.open({
-      dataRoot,
+    const storedBeforeGraphMigration = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
     const storedFrontierBefore =
-      await storedBeforeGraphMigration.projectionScopeFrontier({
+      storedBeforeGraphMigration.projectionScopeFrontier({
         principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_local" },
       });
-    await storedBeforeGraphMigration.close();
+    storedBeforeGraphMigration.close();
 
     cpSync(
       join(
@@ -174,23 +179,24 @@ describe("data-root and migration contract", () => {
       ),
       join(migrationRoot, "0012-graph-projection-delivery.sql"),
     );
-    const graphUpgraded = await SqliteStorageClient.open({
-      dataRoot,
+    const graphUpgraded = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
-    const graphHealth = await graphUpgraded.health();
+    const graphHealth = graphUpgraded.health();
     expect(graphHealth.schema_version).toBe("0012");
     expect(graphHealth.counts.evidence_events).toBe(
       oldHealth.counts.evidence_events,
     );
     expect(
-      await graphUpgraded.projectionScopeFrontier({
+      graphUpgraded.projectionScopeFrontier({
         principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_local" },
       }),
     ).toEqual(storedFrontierBefore);
     expect(
-      await graphUpgraded.graphProjectionCheckpoint({
+      graphUpgraded.graphProjectionCheckpoint({
         principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_local" },
       }),
@@ -199,7 +205,7 @@ describe("data-root and migration contract", () => {
       frontier: null,
       logical_digest: null,
     });
-    await graphUpgraded.close();
+    graphUpgraded.close();
 
     cpSync(
       join(
@@ -209,16 +215,17 @@ describe("data-root and migration contract", () => {
       ),
       join(migrationRoot, "0013-vector-projection-delivery.sql"),
     );
-    const vectorUpgraded = await SqliteStorageClient.open({
-      dataRoot,
+    const vectorUpgraded = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
-    const vectorHealth = await vectorUpgraded.health();
+    const vectorHealth = vectorUpgraded.health();
     expect(vectorHealth.schema_version).toBe("0013");
     expect(vectorHealth.counts.evidence_events).toBe(
       oldHealth.counts.evidence_events,
     );
-    expect(await vectorUpgraded.vectorProjectionStatus()).toEqual({
+    expect(vectorUpgraded.vectorProjectionStatus()).toEqual({
       mode: "disabled",
       epoch_id: null,
       registered_epochs: 0,
@@ -230,12 +237,12 @@ describe("data-root and migration contract", () => {
       receipts: 0,
     });
     expect(
-      await vectorUpgraded.projectionScopeFrontier({
+      vectorUpgraded.projectionScopeFrontier({
         principal_id: "user_local",
         scope: { kind: "workspace", id: "workspace_local" },
       }),
     ).toEqual(storedFrontierBefore);
-    await vectorUpgraded.close();
+    vectorUpgraded.close();
 
     const afterVectorMigration = new DatabaseSync(databasePath);
     expect(

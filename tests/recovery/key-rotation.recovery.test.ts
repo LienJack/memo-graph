@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { canonicalSha256 } from "../../packages/contracts/src/index.js";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 const cleanupPaths: string[] = [];
 const openDescriptors: number[] = [];
@@ -58,6 +59,9 @@ afterEach(() => {
 describe("key rotation crash recovery", () => {
   it("resumes item-by-item with one durable use authority per decrypt", async () => {
     const dataRoot = temporaryRoot("rotation-recovery");
+    const recoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:rotation",
+    );
     const descriptorRoot = temporaryRoot("rotation-descriptors");
     const oldKey = privateDescriptor(
       descriptorRoot,
@@ -104,6 +108,7 @@ describe("key rotation crash recovery", () => {
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:rotation",
+      recoveryHeadProvider,
     });
     await storage.darkLaunchInstallEncryptionKey({
       idempotency_key: "install-rotation-old-key-001",
@@ -205,6 +210,7 @@ describe("key rotation crash recovery", () => {
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:rotation",
+      recoveryHeadProvider,
     });
     const completed = await storage.darkLaunchResumeKeyRotation({
       rotation_id: "rotation:recovery:001",
@@ -512,7 +518,7 @@ describe("key rotation crash recovery", () => {
     await storage.close();
   });
 
-  it("recovers a committed rotation begin after the worker exits before responding", async () => {
+  it("returns the recorded rotation begin after response loss and replays it exactly", async () => {
     const dataRoot = temporaryRoot("rotation-begin-fault");
     const descriptorRoot = temporaryRoot(
       "rotation-begin-fault-descriptors",
@@ -568,18 +574,27 @@ describe("key rotation crash recovery", () => {
       testOperations: true,
       testFaults: { exitAfterCommitBeforeResponseOnce: true },
     });
-    await expect(
-      storage.darkLaunchBeginKeyRotation({
+    const begin = {
+      rotation_id: "rotation:fault:001",
+      new_key_id: "key:fault:new",
+      new_key_generation: 2,
+      new_key_descriptor: newKey,
+      new_authority_key_id: "authority:fault:new",
+      new_authority_descriptor: newAuthority,
+      new_commitment_key_id: "commitment:fault:new",
+      new_commitment_descriptor: newCommitment,
+    };
+    const recovered =
+      await storage.darkLaunchBeginKeyRotation(begin);
+    expect(recovered).toMatchObject({
+      progress: {
         rotation_id: "rotation:fault:001",
-        new_key_id: "key:fault:new",
-        new_key_generation: 2,
-        new_key_descriptor: newKey,
-        new_authority_key_id: "authority:fault:new",
-        new_authority_descriptor: newAuthority,
-        new_commitment_key_id: "commitment:fault:new",
-        new_commitment_descriptor: newCommitment,
-      }),
-    ).rejects.toMatchObject({ code: "WORKER_CRASHED" });
+        state: "in_progress",
+      },
+    });
+    expect(await storage.darkLaunchBeginKeyRotation(begin)).toEqual(
+      recovered,
+    );
     expect(await storage.inspectEncryptionKeys()).toMatchObject({
       current_key_id: "key:fault:old",
       rotating_to_key_id: "key:fault:new",
@@ -593,7 +608,7 @@ describe("key rotation crash recovery", () => {
     await storage.close();
   });
 
-  it("replays a consumed rotation authority after response loss", async () => {
+  it("returns and exactly replays one authority-consuming rotation result after response loss", async () => {
     const dataRoot = temporaryRoot("rotation-authority-response-loss");
     const descriptorRoot = temporaryRoot(
       "rotation-authority-response-loss-descriptors",
@@ -690,16 +705,16 @@ describe("key rotation crash recovery", () => {
       old_authority_descriptor: oldAuthority,
       new_commitment_descriptor: newCommitment,
     };
-    await expect(
-      storage.darkLaunchResumeKeyRotation(resume),
-    ).rejects.toMatchObject({ code: "WORKER_CRASHED" });
-    expect(
-      await storage.darkLaunchResumeKeyRotation(resume),
-    ).toMatchObject({
+    const recovered =
+      await storage.darkLaunchResumeKeyRotation(resume);
+    expect(recovered).toMatchObject({
       state: "completed",
       rewritten_items: 1,
       total_items: 1,
     });
+    expect(
+      await storage.darkLaunchResumeKeyRotation(resume),
+    ).toEqual(recovered);
     await storage.close();
 
     const database = new DatabaseSync(
@@ -933,6 +948,9 @@ describe("key rotation crash recovery", () => {
   );
 
   it("retires external ciphertext across rotation and purge without orphan files", async () => {
+    const recoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:external-rotation",
+    );
     const dataRoot = temporaryRoot("external-rotation-purge");
     const descriptorRoot = temporaryRoot(
       "external-rotation-purge-descriptors",
@@ -978,6 +996,7 @@ describe("key rotation crash recovery", () => {
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:external-rotation",
+      recoveryHeadProvider,
     });
     await storage.darkLaunchInstallEncryptionKey({
       idempotency_key: "install-external-rotation-old-001",
@@ -1006,8 +1025,8 @@ describe("key rotation crash recovery", () => {
       media_type: "application/octet-stream",
       input_descriptor: secret,
     });
-    await expect(storage.createBackup()).rejects.toMatchObject({
-      code: "ENCRYPTION_REQUIRED",
+    await expect(storage.createBackup()).resolves.toMatchObject({
+      integrity_check: "ok",
     });
     await storage.darkLaunchBeginKeyRotation({
       rotation_id: "rotation:external:001",

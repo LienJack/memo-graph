@@ -8,6 +8,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { canonicalSha256 } from "../../packages/contracts/src/index.js";
 import { MemoryRuntime } from "../../packages/memory-kernel/src/index.js";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 
@@ -22,6 +23,7 @@ import {
   deleteRequest,
 } from "../helpers/purge-examples.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
+import { testProviderForDataRoot } from "../setup/recovery-provider.js";
 
 const cleanupPaths: string[] = [];
 
@@ -100,13 +102,21 @@ describe("tombstone and purge saga", () => {
       inlineEpisode({ text: "Exclusive purge marker 8472." }),
     );
     const approvals = new TestApprovalRegistry();
-    const kernel = runtime(storage, approvals);
+    let kernel = runtime(storage, approvals);
     const admitted = await propose(kernel, {
       candidateId: "candidate_purge_exclusive",
       logicalKey: "user.preference.purge_exclusive",
       idempotencyKey: "memory-propose-purge-exclusive",
     });
     await storage.drainFtsOutbox();
+    const recoveryProvider = testProviderForDataRoot(dataRoot);
+    const recoveryHeadBeforePreview = recoveryProvider.readCurrent();
+    await storage.close();
+    storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider: null,
+    });
+    kernel = runtime(storage, approvals);
     const dryRun = deleteRequest({
       memoryId: admitted.memory_id,
       revisionId: admitted.current_revision_id,
@@ -114,7 +124,8 @@ describe("tombstone and purge saga", () => {
       approvalId: null,
       dryRun: true,
     });
-    expect(await kernel.memoryDelete(dryRun)).toMatchObject({
+    const preview = await kernel.memoryDelete(dryRun);
+    expect(preview).toMatchObject({
       status: "OK",
       data: {
         outcome: "DRY_RUN",
@@ -123,6 +134,27 @@ describe("tombstone and purge saga", () => {
       },
     });
     expect((await storage.health()).tombstone_epoch).toBe(0);
+    expect(recoveryProvider.readCurrent()).toEqual(
+      recoveryHeadBeforePreview,
+    );
+    expect(
+      await storage.getReceipt({
+        receipt_id: preview.receipt_id ?? "",
+        principal_id: "user_local",
+        scopes: [PURGE_SCOPE],
+      }),
+    ).toBeNull();
+    expect(
+      await storage.memoryDeleteReplay({
+        idempotency_key:
+          dryRun.envelope.idempotency_key,
+        request_hash: canonicalSha256(dryRun),
+      }),
+    ).toBeNull();
+    await storage.close();
+    storage = await SqliteStorageClient.open({ dataRoot });
+    expect((await storage.health()).recovery.state).toBe("ready");
+    kernel = runtime(storage, approvals);
     const deletion = deleteRequest({
       memoryId: admitted.memory_id,
       revisionId: admitted.current_revision_id,
@@ -211,6 +243,7 @@ describe("tombstone and purge saga", () => {
   it("keeps shared evidence as residual debt until every live reference is gone", async () => {
     const dataRoot = temporaryRoot("purge-shared");
     const storage = await SqliteStorageClient.open({ dataRoot });
+    const recoveryProvider = testProviderForDataRoot(dataRoot);
     const episode = inlineEpisode({ text: "Shared purge marker 9361." });
     await storage.commitEpisode(episode);
     const approvals = new TestApprovalRegistry();
@@ -262,12 +295,17 @@ describe("tombstone and purge saga", () => {
     expect(
       await storage.runPurge({ purge_job_id: secondJob }),
     ).toMatchObject({ completed: true, state: "purged" });
+    const generationBeforeRetry =
+      recoveryProvider.readCurrent()?.payload.generation;
     expect(await storage.runPurge({ purge_job_id: firstJob })).toMatchObject({
       purge_job_id: firstJob,
       completed: true,
       state: "purged",
       residual_hashes: [],
     });
+    expect(recoveryProvider.readCurrent()?.payload.generation).toBe(
+      (generationBeforeRetry ?? 0) + 1,
+    );
     await storage.close();
   });
 });

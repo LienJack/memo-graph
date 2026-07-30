@@ -23,6 +23,7 @@ import {
   applyCompleteGraphProjectionFixture,
   installedGraphBackendIdentity,
 } from "../helpers/graph-runtime-examples.js";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 import {
   projectionFrontier,
 } from "../helpers/projection-examples.js";
@@ -58,9 +59,11 @@ async function temporaryRoot(prefix: string): Promise<string> {
 describe("graph backup and restore", () => {
   it("rejects a stale graph copy until restored SQLite is rebuilt and reverified", async () => {
     const sourceRoot = await temporaryRoot("u4-backup-source");
+    const recoveryHeadProvider = testRecoveryHeadProvider();
     const identity = await installedGraphBackendIdentity();
     const sourceStorage = await SqliteStorageClient.open({
       dataRoot: sourceRoot,
+      recoveryHeadProvider,
     });
     const fixture =
       await applyCompleteGraphProjectionFixture(sourceStorage);
@@ -83,7 +86,7 @@ describe("graph backup and restore", () => {
     await restoreBackupToEmptyDataRoot({
       backup,
       dataRoot: restoredRoot,
-      minimumTombstoneEpoch: 0,
+      recoveryHeadProvider,
     });
     await cp(
       join(sourceRoot, "derived", "graph"),
@@ -93,6 +96,7 @@ describe("graph backup and restore", () => {
 
     const restored = await SqliteStorageClient.open({
       dataRoot: restoredRoot,
+      recoveryHeadProvider,
     });
     try {
       await expect(

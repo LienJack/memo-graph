@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+tools/rename-noreplace/rename-noreplace
 
 data/*
 !data/.gitkeep

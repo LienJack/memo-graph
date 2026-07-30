@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
-import { blockedOperationalStatus } from "@memo-graph/storage-sqlite";
+import {
+  blockedOperationalStatus,
+  operationalStatusFromStorageHealth,
+} from "@memo-graph/storage-sqlite";
 
 import {
   createBlockedMemoryMcpServer,
@@ -39,6 +42,37 @@ export async function runMemoryMcpCli(argv = process.argv.slice(2)): Promise<voi
     configParsed = true;
     const opened = await openMemoryRuntime(parsedConfig);
     openedRuntime = opened;
+    const status = operationalStatusFromStorageHealth(
+      await opened.storage.health(),
+    );
+    if (status.readiness === "blocked") {
+      await opened.close();
+      openedRuntime = null;
+      const handle = serveStdio(
+        () => createBlockedMemoryMcpServer({ status: () => status }),
+        {
+          onerror: () =>
+            writeDiagnostic("transport_error", "MCP_TRANSPORT"),
+        },
+      );
+      let closing = false;
+      const shutdown = async (code: string): Promise<void> => {
+        if (closing) {
+          return;
+        }
+        closing = true;
+        writeDiagnostic("shutdown", code);
+        await handle.close();
+      };
+      process.once("SIGINT", () => void shutdown("SIGINT"));
+      process.once("SIGTERM", () => void shutdown("SIGTERM"));
+      process.stdin.once("end", () => void shutdown("STDIN_END"));
+      writeDiagnostic(
+        "blocked",
+        status.primary_reason ?? "STARTUP_BLOCKED",
+      );
+      return;
+    }
     const handle = serveStdio(
       () =>
         createMemoryMcpServer({

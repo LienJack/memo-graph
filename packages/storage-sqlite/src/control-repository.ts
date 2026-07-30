@@ -550,49 +550,6 @@ export class ControlRepository {
         warnings: options.advanceEpoch ? [] : ["DRY_RUN"],
       }),
     );
-    this.#database
-      .prepare(
-        `INSERT INTO mutation_receipts (
-           receipt_id, idempotency_key, request_hash, receipt_hash, state,
-           resulting_epoch, receipt_json, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        receipt.receipt_id,
-        receipt.idempotency_key,
-        receipt.request_hash,
-        receipt.receipt_hash,
-        receipt.state,
-        receipt.resulting_epoch,
-        canonicalJson(receipt),
-        receipt.created_at,
-      );
-    this.#database
-      .prepare(
-        `INSERT INTO idempotency_keys (
-           idempotency_key, request_hash, receipt_id, created_at
-         ) VALUES (?, ?, ?, ?)`,
-      )
-      .run(
-        receipt.idempotency_key,
-        receipt.request_hash,
-        receipt.receipt_id,
-        receipt.created_at,
-      );
-    this.#database
-      .prepare(
-        `INSERT INTO receipt_access_scopes (
-           receipt_id, receipt_kind, principal_id, scope_kind, scope_id,
-           created_at
-         ) VALUES (?, 'mutation', ?, ?, ?, ?)`,
-      )
-      .run(
-        receipt.receipt_id,
-        request.envelope.actor_claim.principal_id,
-        options.memory.scope_kind,
-        options.memory.scope_id,
-        receipt.created_at,
-      );
     const result = MemoryControlResultSchema.parse({
       receipt,
       replayed: false,
@@ -603,17 +560,62 @@ export class ControlRepository {
       pinned: options.pinned,
       usage_rule_id: options.usageRuleId,
     });
-    this.#database
-      .prepare(
-        `INSERT INTO governance_mutation_results (
-           receipt_id, result_json, created_at
-         ) VALUES (?, ?, ?)`,
-      )
-      .run(
-        receipt.receipt_id,
-        canonicalJson(result),
-        receipt.created_at,
-      );
+    if (options.advanceEpoch) {
+      this.#database
+        .prepare(
+          `INSERT INTO mutation_receipts (
+             receipt_id, idempotency_key, request_hash, receipt_hash, state,
+             resulting_epoch, receipt_json, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          receipt.receipt_id,
+          receipt.idempotency_key,
+          receipt.request_hash,
+          receipt.receipt_hash,
+          receipt.state,
+          receipt.resulting_epoch,
+          canonicalJson(receipt),
+          receipt.created_at,
+        );
+      this.#database
+        .prepare(
+          `INSERT INTO idempotency_keys (
+             idempotency_key, request_hash, receipt_id, created_at
+           ) VALUES (?, ?, ?, ?)`,
+        )
+        .run(
+          receipt.idempotency_key,
+          receipt.request_hash,
+          receipt.receipt_id,
+          receipt.created_at,
+        );
+      this.#database
+        .prepare(
+          `INSERT INTO receipt_access_scopes (
+             receipt_id, receipt_kind, principal_id, scope_kind, scope_id,
+             created_at
+           ) VALUES (?, 'mutation', ?, ?, ?, ?)`,
+        )
+        .run(
+          receipt.receipt_id,
+          request.envelope.actor_claim.principal_id,
+          options.memory.scope_kind,
+          options.memory.scope_id,
+          receipt.created_at,
+        );
+      this.#database
+        .prepare(
+          `INSERT INTO governance_mutation_results (
+             receipt_id, result_json, created_at
+           ) VALUES (?, ?, ?)`,
+        )
+        .run(
+          receipt.receipt_id,
+          canonicalJson(result),
+          receipt.created_at,
+        );
+    }
     return result;
   }
 

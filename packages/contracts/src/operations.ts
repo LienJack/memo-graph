@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { verify, type KeyObject } from "node:crypto";
 
 import {
+  canonicalJson,
   canonicalSha256,
   canonicalSha256Omitting,
 } from "./canonical-json.js";
@@ -10,6 +12,402 @@ import {
   IdentifierSchema,
   UtcTimestampSchema,
 } from "./common.js";
+
+const BundlePathSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/)
+  .refine(
+    (value) =>
+      !value.startsWith("/") &&
+      !value.split("/").some((segment) => segment === "." || segment === ".."),
+    "bundle paths must be relative aliases without traversal",
+  );
+
+export const BackupKeyIdentitySchema = z
+  .object({
+    key_id: IdentifierSchema,
+    key_generation: z.number().int().positive(),
+    state: z.enum([
+      "current",
+      "rotating_to",
+      "retired",
+      "revoked_or_compromised",
+      "unavailable",
+    ]),
+  })
+  .strict();
+
+export const BackupArtifactDescriptorSchema = z
+  .object({
+    kind: z.enum(["blob", "ciphertext"]),
+    artifact_id: IdentifierSchema,
+    storage_kind: z.enum(["inline", "external"]),
+    bundle_path: BundlePathSchema.nullable(),
+    raw_hash: CanonicalHashSchema,
+    size_bytes: z.number().int().positive(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.kind === "blob" &&
+      (value.storage_kind !== "external" || value.bundle_path === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["bundle_path"],
+        message: "blob artifacts are external and require a bundle path",
+      });
+    }
+    if (
+      (value.storage_kind === "inline") !== (value.bundle_path === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["bundle_path"],
+        message:
+          "only database-bound inline ciphertext may omit a bundle path",
+      });
+    }
+    if (
+      value.bundle_path !== null &&
+      !value.bundle_path.startsWith(
+        value.kind === "blob"
+          ? "artifacts/blobs/"
+          : "artifacts/ciphertext/",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["bundle_path"],
+        message: "artifact bundle path must match its declared class",
+      });
+    }
+  });
+
+export const BackupMigrationSchema = z
+  .object({
+    version: z.string().regex(/^\d{4}$/),
+    name: z.string().trim().min(1).max(200),
+    hash: CanonicalHashSchema,
+    applied_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const BackupFrontiersSchema = z
+  .object({
+    ledger_epoch: z.number().int().nonnegative(),
+    latest_receipt_hash: CanonicalHashSchema.nullable(),
+    tombstone_epoch: z.number().int().nonnegative(),
+    purge_frontier_hash: CanonicalHashSchema,
+    purge_debt_count: z.number().int().nonnegative(),
+    fts_frontier_hash: CanonicalHashSchema,
+    fts_logical_frontier_hash: CanonicalHashSchema,
+    layered_frontier_hash: CanonicalHashSchema,
+    relation_frontier_hash: CanonicalHashSchema,
+    context_frontier_hash: CanonicalHashSchema,
+    learning_control_epoch: z.number().int().nonnegative(),
+    learning_release_revision: z.number().int().nonnegative(),
+    learning_frontier_hash: CanonicalHashSchema,
+    learning_pointer_hash: CanonicalHashSchema,
+    learning_monitor_hash: CanonicalHashSchema.nullable(),
+    learning_rollback_hash: CanonicalHashSchema.nullable(),
+    encryption_frontier_hash: CanonicalHashSchema,
+    g6_release_control_hash: CanonicalHashSchema.nullable(),
+  })
+  .strict();
+
+const AcceptedDecisionSchema = z
+  .object({
+    status: z.enum(["GO", "NO-GO"]),
+    decision_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const CompleteBackupManifestSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    backup_id: IdentifierSchema,
+    created_at: UtcTimestampSchema,
+    root_identity: z
+      .object({
+        root_id: IdentifierSchema,
+        principal_id: IdentifierSchema,
+      })
+      .strict(),
+    database: z
+      .object({
+        bundle_path: BundlePathSchema,
+        raw_hash: CanonicalHashSchema,
+        size_bytes: z.number().int().positive(),
+        logical_hash: CanonicalHashSchema,
+      })
+      .strict(),
+    artifacts: z.array(BackupArtifactDescriptorSchema),
+    schema: z
+      .object({
+        current_version: z.string().regex(/^\d{4}$/),
+        migration_set_hash: CanonicalHashSchema,
+        migrations: z.array(BackupMigrationSchema).min(1),
+      })
+      .strict(),
+    frontiers: BackupFrontiersSchema,
+    encryption: z
+      .object({
+        format_version: z.literal(1),
+        required_keys: z.array(BackupKeyIdentitySchema),
+        key_live_ciphertexts: z.array(
+          z
+            .object({
+              key_id: IdentifierSchema,
+              live_ciphertext_count: z.number().int().nonnegative(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    decisions: z
+      .object({
+        g3r: AcceptedDecisionSchema,
+        g4a: AcceptedDecisionSchema,
+        g4b: AcceptedDecisionSchema,
+        g5: AcceptedDecisionSchema,
+        graph_enabled: z.literal(false),
+        vector_enabled: z.literal(false),
+        automatic_learning_publication: z.literal(false),
+      })
+      .strict(),
+    creation_identity: z
+      .object({
+        config_hash: CanonicalHashSchema,
+        environment_hash: CanonicalHashSchema,
+        filesystem_type: z.number().int(),
+        platform: z.string().trim().min(1).max(80),
+        architecture: z.string().trim().min(1).max(80),
+        node_version: z.string().regex(/^24\./),
+      })
+      .strict(),
+    manifest_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const artifactIds = value.artifacts.map(({ artifact_id }) => artifact_id);
+    const artifactPaths = value.artifacts.flatMap(({ bundle_path }) =>
+      bundle_path === null ? [] : [bundle_path],
+    );
+    if (
+      new Set(artifactIds).size !== artifactIds.length ||
+      new Set(artifactPaths).size !== artifactPaths.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["artifacts"],
+        message: "artifact identities and external bundle paths must be unique",
+      });
+    }
+    const migrationVersions = value.schema.migrations.map(
+      ({ version }) => version,
+    );
+    if (new Set(migrationVersions).size !== migrationVersions.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["schema", "migrations"],
+        message: "migration versions must be unique",
+      });
+    }
+    if (
+      value.schema.migrations.at(-1)?.version !== value.schema.current_version
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["schema", "current_version"],
+        message: "current schema must equal the last migration",
+      });
+    }
+    if (value.manifest_hash !== canonicalSha256Omitting(value, ["manifest_hash"])) {
+      context.addIssue({
+        code: "custom",
+        path: ["manifest_hash"],
+        message: "manifest hash must bind the complete logical manifest",
+      });
+    }
+    if (
+      value.creation_identity.environment_hash !==
+      canonicalSha256({
+        platform: value.creation_identity.platform,
+        architecture: value.creation_identity.architecture,
+        node_version: value.creation_identity.node_version,
+        filesystem_type: value.creation_identity.filesystem_type,
+      })
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["creation_identity", "environment_hash"],
+        message: "environment hash must bind the declared creation identity",
+      });
+    }
+  });
+
+export const RecoveryMinimumsSchema = z
+  .object({
+    ledger_epoch: z.number().int().nonnegative(),
+    latest_receipt_hash: CanonicalHashSchema.nullable(),
+    tombstone_epoch: z.number().int().nonnegative(),
+    purge_frontier_hash: CanonicalHashSchema,
+    projection_frontier_hash: CanonicalHashSchema,
+    context_frontier_hash: CanonicalHashSchema,
+    learning_control_epoch: z.number().int().nonnegative(),
+    learning_release_revision: z.number().int().nonnegative(),
+    learning_frontier_hash: CanonicalHashSchema,
+    required_keys: z.array(BackupKeyIdentitySchema),
+    encryption_frontier_hash: CanonicalHashSchema,
+    key_live_ciphertexts: z.array(
+      z
+        .object({
+          key_id: IdentifierSchema,
+          live_ciphertext_count: z.number().int().nonnegative(),
+        })
+        .strict(),
+    ),
+    g6_release_control_hash: CanonicalHashSchema.nullable(),
+  })
+  .strict();
+
+export const RecoveryAnchorPayloadSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    anchor_id: IdentifierSchema,
+    generation: z.number().int().positive(),
+    previous_head_hash: CanonicalHashSchema.nullable(),
+    root_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    trust_root_version: z.number().int().positive(),
+    state_commitment_hash: CanonicalHashSchema,
+    backup_manifest_hash: CanonicalHashSchema.nullable(),
+    minimums: RecoveryMinimumsSchema,
+    issued_at: UtcTimestampSchema,
+    payload_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.payload_hash !== canonicalSha256Omitting(value, ["payload_hash"])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["payload_hash"],
+        message: "recovery anchor payload hash mismatch",
+      });
+    }
+  });
+
+export const RecoveryAnchorSchema = z
+  .object({
+    payload: RecoveryAnchorPayloadSchema,
+    authority_key_id: IdentifierSchema,
+    signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/),
+    anchor_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.anchor_hash !==
+      canonicalSha256({
+        payload: value.payload,
+        authority_key_id: value.authority_key_id,
+      })
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["anchor_hash"],
+        message: "recovery anchor hash mismatch",
+      });
+    }
+  });
+
+export const RecoveryPendingReservationSchema = z
+  .object({
+    pending_id: IdentifierSchema,
+    operation: z.enum([
+      "canonical",
+      "control",
+      "purge",
+      "projection",
+      "context",
+      "learning",
+      "key",
+      "release_control",
+    ]),
+    idempotency_key: IdentifierSchema,
+    request_hash: CanonicalHashSchema,
+    prior_minimums: RecoveryMinimumsSchema,
+    prior_state_commitment_hash: CanonicalHashSchema,
+    prior_head_hash: CanonicalHashSchema.nullable(),
+    state: z.enum(["pending", "committed", "reconciled", "aborted"]),
+    reserved_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const RecoveryPendingAuthorizationSchema = z
+  .object({
+    reservation: RecoveryPendingReservationSchema,
+    authority_key_id: IdentifierSchema,
+    signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/),
+  })
+  .strict();
+
+export type RecoveryAnchor = z.infer<typeof RecoveryAnchorSchema>;
+export type RecoveryMinimums = z.infer<typeof RecoveryMinimumsSchema>;
+export type RecoveryPendingReservation = z.infer<
+  typeof RecoveryPendingReservationSchema
+>;
+export type RecoveryPendingAuthorization = z.infer<
+  typeof RecoveryPendingAuthorizationSchema
+>;
+export type CompleteBackupManifest = z.infer<
+  typeof CompleteBackupManifestSchema
+>;
+
+export function verifyRecoveryAnchor(input: {
+  anchor: unknown;
+  expectedAuthorityKeyId: string;
+  publicKey: KeyObject;
+}): RecoveryAnchor {
+  const anchor = RecoveryAnchorSchema.parse(input.anchor);
+  if (
+    anchor.authority_key_id !== input.expectedAuthorityKeyId ||
+    !verify(
+      null,
+      Buffer.from(canonicalJson(anchor.payload), "utf8"),
+      input.publicKey,
+      Buffer.from(anchor.signature, "base64url"),
+    )
+  ) {
+    throw new Error("recovery anchor is invalid");
+  }
+  return anchor;
+}
+
+export function verifyRecoveryPendingAuthorization(input: {
+  authorization: unknown;
+  expectedAuthorityKeyId: string;
+  publicKey: KeyObject;
+}): RecoveryPendingAuthorization {
+  const authorization = RecoveryPendingAuthorizationSchema.parse(
+    input.authorization,
+  );
+  if (
+    authorization.authority_key_id !== input.expectedAuthorityKeyId ||
+    !verify(
+      null,
+      Buffer.from(canonicalJson(authorization.reservation), "utf8"),
+      input.publicKey,
+      Buffer.from(authorization.signature, "base64url"),
+    )
+  ) {
+    throw new Error("recovery pending authorization is invalid");
+  }
+  return authorization;
+}
 
 export const OperationalReadinessSchema = z.enum([
   "ready",

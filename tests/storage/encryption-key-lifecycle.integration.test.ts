@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { canonicalSha256 } from "../../packages/contracts/src/index.js";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
 
 const cleanupPaths: string[] = [];
@@ -85,10 +86,14 @@ describe("dark-launch encryption and key lifecycle", () => {
       "changed-secret.txt",
       Buffer.from(`${MARKER}-changed`, "utf8"),
     );
+    const recoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:encryption-concurrency",
+    );
     const storage = await SqliteStorageClient.open({
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:test",
+      recoveryHeadProvider,
     });
     const installed = await storage.darkLaunchInstallEncryptionKey({
       idempotency_key: "install-dark-launch-key-001",
@@ -130,11 +135,17 @@ describe("dark-launch encryption and key lifecycle", () => {
     expect(
       (await storage.inspectEncryptionKeys()).encrypted_content_count,
     ).toBe(0);
+    const generationBeforeConcurrent =
+      recoveryHeadProvider.readCurrent()?.payload.generation ?? 0;
     const [first, replay] = await Promise.all([
       storage.darkLaunchAdmitSecret(request),
       storage.darkLaunchAdmitSecret(request),
     ]);
     expect(replay).toEqual(first);
+    expect(recoveryHeadProvider.unresolvedPending()).toHaveLength(0);
+    expect(
+      recoveryHeadProvider.readCurrent()?.payload.generation,
+    ).toBe(generationBeforeConcurrent + 2);
     await expect(
       storage.darkLaunchAdmitSecret({
         ...request,

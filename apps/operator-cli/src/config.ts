@@ -1,7 +1,10 @@
 import { lstatSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { ReleaseQualificationSchema } from "@memo-graph/contracts";
+import {
+  IdentifierSchema,
+  ReleaseQualificationSchema,
+} from "@memo-graph/contracts";
 import { z } from "zod";
 
 const MAX_CONFIG_BYTES = 256 * 1024;
@@ -13,6 +16,19 @@ export const OperatorConfigSchema = z
       status: "pending",
       tested_envelope_digest: null,
     }),
+    recovery: z
+      .object({
+        backup_bundles: z.record(
+          IdentifierSchema,
+          z.string().trim().min(1),
+        ),
+        restore_targets: z.record(
+          IdentifierSchema,
+          z.string().trim().min(1),
+        ),
+      })
+      .strict()
+      .default({ backup_bundles: {}, restore_targets: {} }),
   })
   .strict();
 

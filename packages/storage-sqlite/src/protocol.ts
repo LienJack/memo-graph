@@ -27,6 +27,7 @@ import {
   GraphScopeSnapshotSchema,
   IdentifierSchema,
   ContextSliceSchema,
+  CompleteBackupManifestSchema,
   MemoryCandidateSchema,
   MemoryKindSchema,
   MemoryProposeInputSchema,
@@ -55,6 +56,10 @@ import {
   ReleasePointerSchema,
   ReleaseReceiptSchema,
   RelationTypeSchema,
+  RecoveryAnchorSchema,
+  RecoveryMinimumsSchema,
+  RecoveryPendingAuthorizationSchema,
+  RecoveryPendingReservationSchema,
   RollbackReceiptSchema,
   RetrievalReceiptSchema,
   ScopeSchema,
@@ -901,6 +906,24 @@ export const MemoryRevisionCommandSchema = z
     }
   });
 
+export const PreviewMemoryRevisionCommandSchema =
+  MemoryRevisionCommandSchema.refine(
+    (value) => value.dry_run === true,
+    {
+      path: ["dry_run"],
+      message: "revision previews require dry_run=true",
+    },
+  );
+
+export const EffectMemoryRevisionCommandSchema =
+  MemoryRevisionCommandSchema.refine(
+    (value) => value.dry_run === false,
+    {
+      path: ["dry_run"],
+      message: "effect-bearing revisions require dry_run=false",
+    },
+  );
+
 export const MemoryCorrectionBasisInputSchema = z
   .object({
     memory_id: IdentifierSchema,
@@ -1004,6 +1027,24 @@ export const MemoryControlCommandSchema = z
     }
   });
 
+export const PreviewMemoryControlCommandSchema =
+  MemoryControlCommandSchema.refine(
+    (value) => value.request.envelope.dry_run === true,
+    {
+      path: ["request", "envelope", "dry_run"],
+      message: "control previews require dry_run=true",
+    },
+  );
+
+export const EffectMemoryControlCommandSchema =
+  MemoryControlCommandSchema.refine(
+    (value) => value.request.envelope.dry_run === false,
+    {
+      path: ["request", "envelope", "dry_run"],
+      message: "effect-bearing controls require dry_run=false",
+    },
+  );
+
 export const MemoryControlResultSchema = z
   .object({
     receipt: MutationReceiptSchema,
@@ -1052,6 +1093,24 @@ export const MemoryDeleteCommandSchema = z
       });
     }
   });
+
+export const PreviewMemoryDeleteCommandSchema =
+  MemoryDeleteCommandSchema.refine(
+    (value) => value.request.envelope.dry_run === true,
+    {
+      path: ["request", "envelope", "dry_run"],
+      message: "delete previews require dry_run=true",
+    },
+  );
+
+export const EffectMemoryDeleteCommandSchema =
+  MemoryDeleteCommandSchema.refine(
+    (value) => value.request.envelope.dry_run === false,
+    {
+      path: ["request", "envelope", "dry_run"],
+      message: "effect-bearing deletion requires dry_run=false",
+    },
+  );
 
 export const MemoryDeleteResultSchema = z
   .object({
@@ -1305,7 +1364,7 @@ export const CheckpointResultSchema = z
   })
   .strict();
 
-export const BackupResultSchema = z
+export const BackupDraftResultSchema = z
   .object({
     backup_id: z.string().min(1),
     directory: z.string().min(1),
@@ -1319,8 +1378,14 @@ export const BackupResultSchema = z
     blob_hashes: z.array(z.string().regex(/^sha256:[a-f0-9]{64}$/)),
     integrity_check: z.literal("ok"),
     size_bytes: z.number().int().nonnegative(),
+    manifest_path: z.string().min(1),
+    manifest: CompleteBackupManifestSchema,
   })
   .strict();
+
+export const BackupResultSchema = BackupDraftResultSchema.extend({
+  recovery_anchor: RecoveryAnchorSchema,
+}).strict();
 
 export const VerifyArtifactsResultSchema = z
   .object({
@@ -1333,6 +1398,7 @@ export const RestoreVerificationResultSchema = z
     integrity_check: z.literal("ok"),
     foreign_key_violations: z.literal(0),
     verified_artifacts: z.number().int().nonnegative(),
+    verified_encrypted_contents: z.number().int().nonnegative(),
     active_memories_verified: z.number().int().nonnegative(),
     active_projections_verified: z.number().int().nonnegative(),
     active_relations_verified: z.number().int().nonnegative(),
@@ -2340,6 +2406,10 @@ export const BlockWorkerResultSchema = z
   .strict();
 
 export const WorkerOperationSchema = z.enum([
+  "recovery_state",
+  "recovery_effect",
+  "install_recovery_checkpoint",
+  "reconcile_recovery_effect",
   "health",
   "inspect_encryption_keys",
   "install_encryption_key",
@@ -2353,6 +2423,8 @@ export const WorkerOperationSchema = z.enum([
   "replay_secret_purge",
   "get_secret_purge_target",
   "purge_encrypted_secret",
+  "finalize_secret_purge",
+  "finalize_purge_maintenance",
   "reserve_rotation_nonce",
   "commit_rotated_secret",
   "complete_key_rotation",
@@ -2362,12 +2434,15 @@ export const WorkerOperationSchema = z.enum([
   "count_content_references",
   "admit_memory",
   "apply_memory_revision",
+  "preview_memory_revision",
   "get_memory_correction_basis",
   "governance_replay",
   "memory_control_replay",
   "apply_memory_control",
+  "preview_memory_control",
   "memory_delete_replay",
   "delete_memory",
+  "preview_memory_delete",
   "run_purge",
   "check_memory_eligibility",
   "get_governed_memory",
@@ -2424,11 +2499,48 @@ export const WorkerOperationSchema = z.enum([
   "close",
 ]);
 
+export const RecoveryStorageStateSchema = z
+  .object({
+    root_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    minimums: RecoveryMinimumsSchema,
+    state_commitment_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const RecoveryProtectedEffectSchema =
+  RecoveryPendingAuthorizationSchema;
+
+export const RecoveryEffectRecordSchema = z
+  .object({
+    pending_id: IdentifierSchema,
+    operation: RecoveryPendingReservationSchema.shape.operation,
+    idempotency_key: IdentifierSchema,
+    request_hash: CanonicalHashSchema,
+    prior_minimums_hash: CanonicalHashSchema,
+    prior_state_commitment_hash: CanonicalHashSchema,
+    prior_head_hash: CanonicalHashSchema.nullable(),
+    committed_minimums: RecoveryMinimumsSchema,
+    committed_state_commitment_hash: CanonicalHashSchema,
+    root_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    backup_manifest_hash: CanonicalHashSchema.nullable(),
+    effect_receipt_hash: CanonicalHashSchema,
+    state: z.enum(["effect_committed", "reconciled"]),
+    anchor_hash: CanonicalHashSchema.nullable(),
+  })
+  .strict();
+
+export const RecoveryEffectLookupSchema = z
+  .object({ pending_id: IdentifierSchema })
+  .strict();
+
 export const WorkerRequestSchema = z
   .object({
     requestId: z.string().uuid(),
     operation: WorkerOperationSchema,
     payload: z.unknown(),
+    protected_effect: RecoveryProtectedEffectSchema.optional(),
   })
   .strict();
 
@@ -2458,6 +2570,7 @@ export const WorkerResponseSchema = z.discriminatedUnion("ok", [
 ]);
 
 export type BackupResult = z.infer<typeof BackupResultSchema>;
+export type BackupDraftResult = z.infer<typeof BackupDraftResultSchema>;
 export type InstallEncryptionKeyCommand = z.input<
   typeof InstallEncryptionKeyCommandSchema
 >;
@@ -2834,6 +2947,15 @@ export type StorageHealth = z.infer<typeof StorageHealthSchema>;
 export type VerifyArtifactsResult = z.infer<typeof VerifyArtifactsResultSchema>;
 export type RestoreVerificationResult = z.infer<
   typeof RestoreVerificationResultSchema
+>;
+export type RecoveryStorageState = z.infer<
+  typeof RecoveryStorageStateSchema
+>;
+export type RecoveryProtectedEffect = z.infer<
+  typeof RecoveryProtectedEffectSchema
+>;
+export type RecoveryEffectRecord = z.infer<
+  typeof RecoveryEffectRecordSchema
 >;
 export type WorkerOperation = z.infer<typeof WorkerOperationSchema>;
 export type WorkerResponse = z.infer<typeof WorkerResponseSchema>;

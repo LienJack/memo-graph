@@ -13,6 +13,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { basename, join } from "node:path";
 
@@ -28,6 +29,7 @@ import {
   ProjectionRevisionSchema,
   RecallRequestSchema,
   ReceiptSchema,
+  RecoveryMinimumsSchema,
   RetrievalReceiptSchema,
   ReleasePointerSchema,
   canonicalJson,
@@ -43,6 +45,15 @@ import Database from "better-sqlite3";
 import type { z } from "zod";
 
 import { BlobStore, type StoredBlob } from "./blob-store.js";
+import { recoveryStateCommitment } from "./anchor-coordinator.js";
+import {
+  ACCEPTED_RECOVERY_DECISIONS,
+  backupDatabaseLogicalHash,
+  rawFileHash,
+  sealCompleteBackupManifest,
+  withBackupDatabase,
+  writeCompleteBackupManifest,
+} from "./backup-manifest.js";
 import { ControlRepository } from "./control-repository.js";
 import type { DataRootLayout } from "./data-root.js";
 import {
@@ -68,6 +79,7 @@ import {
 } from "./migrations.js";
 import { ProjectionRepository } from "./projection-repository.js";
 import { PurgeRepository } from "./purge-repository.js";
+import { recoveryContentHash } from "./recovery-hash.js";
 import { OperationalRepository } from "./operational-repository.js";
 import { RelationRepository } from "./relation-repository.js";
 import { VectorProjectionRepository } from "./vector-projection-repository.js";
@@ -119,8 +131,10 @@ import {
   LearningLedgerReplayInputSchema,
   LearningLedgerWriteCommandSchema,
   ReceiptLookupInputSchema,
+  RecoveryEffectRecordSchema,
+  RecoveryStorageStateSchema,
   SearchEvidenceQuerySchema,
-  type BackupResult,
+  type BackupDraftResult,
   type ClaimProjectionJobsResult,
   type ClaimGraphProjectionJobsResult,
   type CheckpointResult,
@@ -162,12 +176,16 @@ import {
   type LearningLedgerReplayResult,
   type LearningLedgerWriteResult,
   type RestoreVerificationResult,
+  type RecoveryEffectRecord,
+  type RecoveryStorageState,
   type StorageHealth,
 } from "./protocol.js";
 import type {
   EncryptionKeyInventory,
   EncryptionReceipt,
   CanonicalHash,
+  RecoveryAnchor,
+  RecoveryPendingAuthorization,
 } from "@memo-graph/contracts";
 
 type ExistingIdempotency = {
@@ -313,6 +331,7 @@ export class StorageDatabase {
   readonly #journalMode: string;
   readonly #inspectionOnly: boolean;
   readonly #busyTimeoutMs: number;
+  readonly #principalId: string;
 
   constructor(options: {
     layout: DataRootLayout;
@@ -330,6 +349,7 @@ export class StorageDatabase {
     ) => void;
   }) {
     this.#layout = options.layout;
+    this.#principalId = options.secretPrincipalId ?? "principal_local_default";
     this.#inspectionOnly = options.inspectionOnly ?? false;
     this.#busyTimeoutMs = options.busyTimeoutMs;
     const persistedBytes = this.#inspectionOnly
@@ -424,6 +444,7 @@ export class StorageDatabase {
       !this.#inspectionOnly &&
       this.#tableExists("encrypted_artifact_operations")
     ) {
+      this.#reconcileBackupPurgeIntents();
       this.#encryptedArtifacts.reconcile();
     }
   }
@@ -559,15 +580,476 @@ export class StorageDatabase {
     }
     const validatedAt = Date.now();
     this.#encryptedContent.validatePurgeAuthority(input, validatedAt);
-    this.#removeSecretBackups(input.authority.owner);
+    this.#registerSecretBackupPurgeIntents(input.authority.owner);
     const receipt = this.#encryptedContent.purge({
       ...input,
       validated_at: validatedAt,
     });
+    return receipt;
+  }
+
+  finalizeSecretPurgeMaintenance(): void {
+    this.#reconcileBackupPurgeIntents();
     this.#encryptedArtifacts.finalizeRetired();
+    this.finalizePurgeMaintenance();
+  }
+
+  finalizePurgeMaintenance(): void {
     this.#database.exec("VACUUM");
     this.#database.pragma("wal_checkpoint(TRUNCATE)");
-    return receipt;
+  }
+
+  recoveryState(): RecoveryStorageState {
+    const identity = this.#recoveryRootIdentity();
+    const purgeRows = this.#database
+      .prepare(
+        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash
+         FROM artifact_purge_frontiers ORDER BY store_id`,
+      )
+      .all();
+    const relationRows = this.#database
+      .prepare(
+        `SELECT relation_id, current_relation_revision_id, lifecycle
+         FROM relation_objects ORDER BY relation_id`,
+      )
+      .all();
+    const contextRows = this.#database
+      .prepare(
+        `SELECT context_slice_id, frozen_hash
+         FROM context_slices ORDER BY context_slice_id`,
+      )
+      .all();
+    const learning = this.#learning.frontier();
+    const g6Control = this.#database
+      .prepare("SELECT control_hash FROM g6_release_controls LIMIT 1")
+      .get() as { control_hash: string } | undefined;
+    const keys = this.#keys.inventory();
+    const keyReceipts = this.#database
+      .prepare(
+        `SELECT operation_kind, operation_id, request_digest, receipt_hash
+         FROM operational_receipts
+         WHERE operation_kind LIKE 'key_%'
+            OR operation_kind = 'secret_purge'
+         ORDER BY created_at, receipt_id`,
+      )
+      .all();
+    const keyStateRows = this.#database
+      .prepare(
+        `SELECT key_id, key_generation, state, authority_key_id,
+                commitment_key_id, created_at, state_changed_at
+         FROM encryption_keys ORDER BY key_generation, key_id`,
+      )
+      .all();
+    const rotationRows = this.#database
+      .prepare(
+        `SELECT rotation_id, old_key_id, new_key_id, state,
+                total_items, rewritten_items, request_digest,
+                started_at, updated_at, completed_at, receipt_id
+         FROM key_rotations ORDER BY started_at, rotation_id`,
+      )
+      .all();
+    const liveCiphertextRows = this.#database
+      .prepare(
+        `SELECT c.key_id, count(DISTINCT c.ciphertext_id) AS value
+         FROM encrypted_contents AS c
+         JOIN encrypted_content_owners AS o
+           ON o.ciphertext_id = c.ciphertext_id
+         WHERE o.active = 1
+         GROUP BY c.key_id`,
+      )
+      .all() as Array<{ key_id: string; value: number }>;
+    const liveCiphertexts = new Map(
+      liveCiphertextRows.map(({ key_id, value }) => [
+        key_id,
+        Number(value),
+      ]),
+    );
+    const minimums = RecoveryMinimumsSchema.parse({
+      ledger_epoch: this.#ledgerEpoch(),
+      latest_receipt_hash: this.#latestReceipt()?.receipt_hash ?? null,
+      tombstone_epoch: this.#purge.tombstoneEpoch(),
+      purge_frontier_hash: canonicalSha256(purgeRows),
+      projection_frontier_hash: canonicalSha256({
+        fts: canonicalSha256({
+          last_epoch: Number(this.#fts.state().last_epoch),
+        }),
+        layered: canonicalSha256(this.#projections.frontier()),
+        relation: canonicalSha256(relationRows),
+      }),
+      context_frontier_hash: canonicalSha256(contextRows),
+      learning_control_epoch: learning.control_epoch,
+      learning_release_revision: learning.release_revision,
+      learning_frontier_hash: learning.frontier_hash,
+      required_keys: keys.keys
+        .filter(
+          ({ key_id, state }) =>
+            state === "current" ||
+            state === "rotating_to" ||
+            state === "retired" ||
+            (state === "revoked_or_compromised" &&
+              (liveCiphertexts.get(key_id) ?? 0) > 0),
+        )
+        .map(({ key_id, generation, state }) => ({
+          key_id,
+          key_generation: generation,
+          state,
+        })),
+      encryption_frontier_hash: canonicalSha256({
+        keys: keyStateRows,
+        rotations: rotationRows,
+        receipts: keyReceipts,
+        live_ciphertexts: keys.keys.map(({ key_id }) => ({
+          key_id,
+          live_ciphertext_count: liveCiphertexts.get(key_id) ?? 0,
+        })),
+      }),
+      key_live_ciphertexts: keys.keys.map(({ key_id }) => ({
+        key_id,
+        live_ciphertext_count: liveCiphertexts.get(key_id) ?? 0,
+      })),
+      g6_release_control_hash: g6Control?.control_hash ?? null,
+    });
+    return RecoveryStorageStateSchema.parse({
+      ...identity,
+      minimums,
+      state_commitment_hash: recoveryStateCommitment({
+        ...identity,
+        minimums,
+      }),
+    });
+  }
+
+  installRecoveryCheckpoint(anchor: RecoveryAnchor): void {
+    const state = this.recoveryState();
+    if (
+      anchor.payload.root_id !== state.root_id ||
+      anchor.payload.principal_id !== state.principal_id ||
+      anchor.payload.state_commitment_hash !==
+        state.state_commitment_hash ||
+      canonicalJson(anchor.payload.minimums) !==
+        canonicalJson(state.minimums)
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const checkpoint = this.#database
+      .prepare(
+        `SELECT anchor_hash, state_commitment_hash, generation
+         FROM recovery_anchor_checkpoint WHERE singleton = 1`,
+      )
+      .get() as {
+      anchor_hash: string | null;
+      state_commitment_hash: string | null;
+      generation: number;
+    };
+    if (
+      checkpoint.anchor_hash === anchor.anchor_hash &&
+      checkpoint.state_commitment_hash ===
+        anchor.payload.state_commitment_hash &&
+      Number(checkpoint.generation) === anchor.payload.generation
+    ) {
+      return;
+    }
+    const initial =
+      checkpoint.anchor_hash === null &&
+      Number(checkpoint.generation) === 0 &&
+      anchor.payload.generation === 1 &&
+      anchor.payload.previous_head_hash === null &&
+      anchor.payload.backup_manifest_hash === null;
+    const advance =
+      checkpoint.anchor_hash !== null &&
+      anchor.payload.backup_manifest_hash !== null &&
+      anchor.payload.previous_head_hash === checkpoint.anchor_hash &&
+      anchor.payload.generation === Number(checkpoint.generation) + 1 &&
+      anchor.payload.state_commitment_hash ===
+        checkpoint.state_commitment_hash;
+    if (!initial && !advance) {
+      throw new StorageError("STALE_RECOVERY_HEAD");
+    }
+    const changed = this.#database
+      .prepare(
+        `UPDATE recovery_anchor_checkpoint
+         SET anchor_hash = ?, state_commitment_hash = ?,
+             generation = ?, updated_at = ?
+         WHERE singleton = 1 AND anchor_hash IS ?
+           AND generation = ?`,
+      )
+      .run(
+        anchor.anchor_hash,
+        anchor.payload.state_commitment_hash,
+        anchor.payload.generation,
+        now(),
+        checkpoint.anchor_hash,
+        checkpoint.generation,
+      ).changes;
+    if (changed !== 1) {
+      throw new StorageError("STALE_RECOVERY_HEAD");
+    }
+  }
+
+  runRecoveryProtectedEffect<T>(
+    authorization: RecoveryPendingAuthorization,
+    effect: () => T,
+  ): { result: T; recovery_effect: RecoveryEffectRecord } {
+    return this.#database.transaction(() => {
+      const input = authorization.reservation;
+      if (input.state === "reconciled") {
+        const recorded = this.recoveryEffect(input.pending_id);
+        const before = this.recoveryState();
+        const checkpoint = this.#database
+          .prepare(
+            `SELECT anchor_hash, state_commitment_hash
+             FROM recovery_anchor_checkpoint WHERE singleton = 1`,
+          )
+          .get() as {
+          anchor_hash: string | null;
+          state_commitment_hash: string | null;
+        };
+        if (
+          recorded === null ||
+          recorded.state !== "reconciled" ||
+          recorded.anchor_hash === null ||
+          recorded.operation !== input.operation ||
+          recorded.idempotency_key !== input.idempotency_key ||
+          recorded.request_hash !== input.request_hash ||
+          checkpoint.anchor_hash === null ||
+          checkpoint.state_commitment_hash !==
+            before.state_commitment_hash
+        ) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        const result = effect();
+        if (result instanceof Promise) {
+          throw new StorageError("INVALID_INPUT");
+        }
+        const after = this.recoveryState();
+        if (
+          canonicalJson(before) !== canonicalJson(after) ||
+          recoveryContentHash(result) !==
+            recorded.effect_receipt_hash
+        ) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        return { result, recovery_effect: recorded };
+      }
+      if (input.state !== "pending") {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      const before = this.recoveryState();
+      const checkpoint = this.#database
+        .prepare(
+          `SELECT anchor_hash, state_commitment_hash
+           FROM recovery_anchor_checkpoint WHERE singleton = 1`,
+        )
+        .get() as {
+        anchor_hash: string | null;
+        state_commitment_hash: string | null;
+      };
+      if (
+        checkpoint.anchor_hash !== input.prior_head_hash ||
+        checkpoint.state_commitment_hash !==
+          input.prior_state_commitment_hash ||
+        before.state_commitment_hash !==
+          input.prior_state_commitment_hash ||
+        canonicalJson(before.minimums) !==
+          canonicalJson(input.prior_minimums)
+      ) {
+        throw new StorageError("STALE_RECOVERY_HEAD");
+      }
+      const result = effect();
+      if (result instanceof Promise) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      const after = this.recoveryState();
+      const afterKeys = new Set(
+        after.minimums.required_keys.map(({ key_id }) => key_id),
+      );
+      const afterLiveCiphertexts = new Map(
+        after.minimums.key_live_ciphertexts.map(
+          ({ key_id, live_ciphertext_count }) => [
+            key_id,
+            live_ciphertext_count,
+          ],
+        ),
+      );
+      for (const priorKey of input.prior_minimums.required_keys) {
+        if (
+          !afterKeys.has(priorKey.key_id) &&
+          ((input.operation !== "key" && input.operation !== "purge") ||
+            after.minimums.encryption_frontier_hash ===
+              input.prior_minimums.encryption_frontier_hash ||
+            afterLiveCiphertexts.get(priorKey.key_id) !== 0)
+        ) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+      }
+      const effectReceiptHash = recoveryContentHash(result);
+      this.#database
+        .prepare(
+          `INSERT INTO recovery_anchored_effects (
+             pending_id, operation_kind, idempotency_key, request_hash,
+             prior_minimums_hash, prior_state_commitment_hash,
+             prior_head_hash,
+             committed_minimums_json, committed_state_commitment_hash,
+             root_id, principal_id, backup_manifest_hash,
+             effect_receipt_hash, state, anchor_hash, created_at,
+             committed_at, reconciled_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?,
+                     'effect_committed', NULL, ?, ?, NULL)`,
+        )
+        .run(
+          input.pending_id,
+          input.operation,
+          input.idempotency_key,
+          input.request_hash,
+          canonicalSha256(input.prior_minimums),
+          input.prior_state_commitment_hash,
+          input.prior_head_hash,
+          canonicalJson(after.minimums),
+          after.state_commitment_hash,
+          after.root_id,
+          after.principal_id,
+          effectReceiptHash,
+          now(),
+          now(),
+        );
+      return {
+        result,
+        recovery_effect: RecoveryEffectRecordSchema.parse({
+          pending_id: input.pending_id,
+          operation: input.operation,
+          idempotency_key: input.idempotency_key,
+          request_hash: input.request_hash,
+          prior_minimums_hash: canonicalSha256(input.prior_minimums),
+          prior_state_commitment_hash:
+            input.prior_state_commitment_hash,
+          prior_head_hash: input.prior_head_hash,
+          committed_minimums: after.minimums,
+          committed_state_commitment_hash:
+            after.state_commitment_hash,
+          root_id: after.root_id,
+          principal_id: after.principal_id,
+          backup_manifest_hash: null,
+          effect_receipt_hash: effectReceiptHash,
+          state: "effect_committed",
+          anchor_hash: null,
+        }),
+      };
+    }).immediate();
+  }
+
+  recoveryEffect(pendingId: string): RecoveryEffectRecord | null {
+    const row = this.#database
+      .prepare(
+        `SELECT pending_id, operation_kind, idempotency_key, request_hash,
+                prior_minimums_hash, prior_state_commitment_hash,
+                prior_head_hash,
+                committed_minimums_json, committed_state_commitment_hash,
+                root_id, principal_id, backup_manifest_hash,
+                effect_receipt_hash, state, anchor_hash
+         FROM recovery_anchored_effects WHERE pending_id = ?`,
+      )
+      .get(pendingId) as
+      | {
+          pending_id: string;
+          operation_kind: RecoveryEffectRecord["operation"];
+          idempotency_key: string;
+          request_hash: `sha256:${string}`;
+          prior_minimums_hash: `sha256:${string}`;
+          prior_state_commitment_hash: `sha256:${string}`;
+          prior_head_hash: `sha256:${string}` | null;
+          committed_minimums_json: string;
+          committed_state_commitment_hash: `sha256:${string}`;
+          root_id: string;
+          principal_id: string;
+          backup_manifest_hash: `sha256:${string}` | null;
+          effect_receipt_hash: `sha256:${string}`;
+          state: RecoveryEffectRecord["state"];
+          anchor_hash: `sha256:${string}` | null;
+        }
+      | undefined;
+    return row === undefined
+      ? null
+      : RecoveryEffectRecordSchema.parse({
+          pending_id: row.pending_id,
+          operation: row.operation_kind,
+          idempotency_key: row.idempotency_key,
+          request_hash: row.request_hash,
+          prior_minimums_hash: row.prior_minimums_hash,
+          prior_state_commitment_hash:
+            row.prior_state_commitment_hash,
+          prior_head_hash: row.prior_head_hash,
+          committed_minimums: RecoveryMinimumsSchema.parse(
+            JSON.parse(row.committed_minimums_json) as unknown,
+          ),
+          committed_state_commitment_hash:
+            row.committed_state_commitment_hash,
+          root_id: row.root_id,
+          principal_id: row.principal_id,
+          backup_manifest_hash: row.backup_manifest_hash,
+          effect_receipt_hash: row.effect_receipt_hash,
+          state: row.state,
+          anchor_hash: row.anchor_hash,
+        });
+  }
+
+  reconcileRecoveryEffect(
+    pendingId: string,
+    anchor: RecoveryAnchor,
+  ): RecoveryEffectRecord {
+    const committed = this.recoveryEffect(pendingId);
+    if (
+      committed === null ||
+      committed.prior_head_hash !== anchor.payload.previous_head_hash ||
+      committed.committed_state_commitment_hash !==
+        anchor.payload.state_commitment_hash ||
+      committed.root_id !== anchor.payload.root_id ||
+      committed.principal_id !== anchor.payload.principal_id ||
+      committed.backup_manifest_hash !==
+        anchor.payload.backup_manifest_hash ||
+      canonicalJson(committed.committed_minimums) !==
+        canonicalJson(anchor.payload.minimums)
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    this.#database.transaction(() => {
+      const changed = this.#database
+        .prepare(
+          `UPDATE recovery_anchored_effects
+           SET state = 'reconciled', anchor_hash = ?, reconciled_at = ?
+           WHERE pending_id = ? AND state = 'effect_committed'`,
+        )
+        .run(anchor.anchor_hash, now(), pendingId).changes;
+      if (changed === 1) {
+        const advanced = this.#database
+          .prepare(
+            `UPDATE recovery_anchor_checkpoint
+             SET anchor_hash = ?, state_commitment_hash = ?,
+                 generation = ?, updated_at = ?
+             WHERE singleton = 1 AND anchor_hash IS ?
+               AND generation = ?`,
+          )
+          .run(
+            anchor.anchor_hash,
+            anchor.payload.state_commitment_hash,
+            anchor.payload.generation,
+            now(),
+            anchor.payload.previous_head_hash,
+            anchor.payload.generation - 1,
+          ).changes;
+        if (advanced !== 1) {
+          throw new StorageError("STALE_RECOVERY_HEAD");
+        }
+      }
+    })();
+    const effect = this.recoveryEffect(pendingId);
+    if (
+      effect === null ||
+      effect.state !== "reconciled" ||
+      effect.anchor_hash !== anchor.anchor_hash
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    return effect;
   }
 
   health(): StorageHealth {
@@ -1090,23 +1572,8 @@ export class StorageDatabase {
     };
   }
 
-  async createBackup(): Promise<BackupResult> {
-    if (
-      this.#tableExists("encrypted_contents") &&
-      (
-        this.#database
-          .prepare(
-            `SELECT 1 FROM encrypted_contents AS c
-             JOIN encrypted_content_owners AS o
-               ON o.ciphertext_id = c.ciphertext_id
-             WHERE c.storage_kind = 'external' AND o.active = 1
-             LIMIT 1`,
-          )
-          .get() !== undefined
-      )
-    ) {
-      throw new StorageError("ENCRYPTION_REQUIRED");
-    }
+  async createBackup(): Promise<BackupDraftResult> {
+    const recoveryState = this.recoveryState();
     const epoch = this.#ledgerEpoch();
     const tombstoneEpoch = this.#purge.tombstoneEpoch();
     const learningFrontier = this.#learning.frontier();
@@ -1115,12 +1582,20 @@ export class StorageDatabase {
       this.#layout.backups,
       `snapshot-${epoch}-${backupId.slice("backup:".length)}`,
     );
-    const backupBlobs = join(directory, "blobs");
+    const backupDatabaseDirectory = join(directory, "database");
+    const backupBlobs = join(directory, "artifacts", "blobs");
+    const backupCiphertext = join(directory, "artifacts", "ciphertext");
+    mkdirSync(backupDatabaseDirectory, { recursive: true, mode: 0o700 });
     mkdirSync(backupBlobs, { recursive: true, mode: 0o700 });
+    mkdirSync(backupCiphertext, { recursive: true, mode: 0o700 });
     chmodSync(directory, 0o700);
+    chmodSync(backupDatabaseDirectory, 0o700);
     chmodSync(backupBlobs, 0o700);
-    const path = join(directory, "memory.db");
+    chmodSync(backupCiphertext, 0o700);
+    try {
+    const path = join(backupDatabaseDirectory, "memory.db");
     const latestReceipt = this.#latestReceipt();
+    const resolvedRootIdentity = this.#recoveryRootIdentity();
     await this.#database.backup(path);
     chmodSync(path, 0o600);
 
@@ -1155,86 +1630,306 @@ export class StorageDatabase {
       }
       fsyncPath(destination);
     }
-    fsyncPath(backupBlobs);
-    fsyncPath(directory);
-
-    const backup = new Database(path, {
-      readonly: true,
-      fileMustExist: true,
-    });
-    let integrityCheck: string;
-    try {
-      integrityCheck = String(
-        backup.pragma("integrity_check", { simple: true }),
-      ).toLowerCase();
-      const backupEpoch = Number(
-        (
-          backup
-            .prepare(
-              "SELECT ledger_epoch FROM ledger_state WHERE singleton = 1",
-            )
-            .get() as { ledger_epoch: number }
-        ).ledger_epoch,
-      );
-      const backupReceipt = backup
-        .prepare(
-          `SELECT receipt_hash FROM mutation_receipts
-           ORDER BY resulting_epoch DESC, receipt_id DESC LIMIT 1`,
-        )
-        .get() as LatestReceipt;
-      const backupTombstoneEpoch = Number(
-        (
-          backup
-            .prepare(
-              `SELECT tombstone_epoch
-               FROM tombstone_state WHERE singleton = 1`,
-            )
-            .get() as { tombstone_epoch: number }
-        ).tombstone_epoch,
-      );
-      const backupLearningControlEpoch = Number(
-        (
-          backup
-            .prepare(
-              `SELECT coalesce(max(control_epoch), 0) AS value
-               FROM learning_control_state`,
-            )
-            .get() as { value: number }
-        ).value,
-      );
-      const backupLearningReleaseRevision = Number(
-        (
-          backup
-            .prepare(
-              `SELECT coalesce(max(pointer_revision), 0) AS value
-               FROM learning_release_pointers`,
-            )
-            .get() as { value: number }
-        ).value,
-      );
-      const backupMigrations = backup
-        .prepare(
-          "SELECT version, name, hash, applied_at FROM schema_migrations ORDER BY version",
-        )
-        .all() as MigrationEvidence[];
-
-      if (
-        integrityCheck !== "ok" ||
-        backupEpoch !== epoch ||
-        backupTombstoneEpoch !== tombstoneEpoch ||
-        backupLearningControlEpoch !== learningFrontier.control_epoch ||
-        backupLearningReleaseRevision !== learningFrontier.release_revision ||
-        backupReceipt?.receipt_hash !== latestReceipt?.receipt_hash ||
-        canonicalJson(backupMigrations) !== canonicalJson(this.#migrations)
-      ) {
+    const ciphertextRows = this.#tableExists("encrypted_contents")
+      ? this.#database
+          .prepare(
+            `SELECT c.ciphertext_id, c.storage_kind,
+                    c.external_relative_path, c.ciphertext_hash,
+                    c.ciphertext_size_bytes
+             FROM encrypted_contents AS c
+             JOIN encrypted_content_owners AS o
+               ON o.ciphertext_id = c.ciphertext_id
+             WHERE c.retired_at IS NULL AND o.active = 1
+             GROUP BY c.ciphertext_id
+             ORDER BY c.ciphertext_id`,
+          )
+          .all() as Array<{
+          ciphertext_id: string;
+          storage_kind: "inline" | "external";
+          external_relative_path: string | null;
+          ciphertext_hash: `sha256:${string}`;
+          ciphertext_size_bytes: number;
+        }>
+      : [];
+    for (const ciphertext of ciphertextRows) {
+      if (ciphertext.storage_kind !== "external") {
+        continue;
+      }
+      if (ciphertext.external_relative_path === null) {
         throw new StorageError("CORRUPTION");
       }
-    } finally {
-      backup.close();
+      const bytes = this.#encryptedArtifacts.read({
+        relative_path: ciphertext.external_relative_path,
+        ciphertext_hash: ciphertext.ciphertext_hash,
+        size_bytes: Number(ciphertext.ciphertext_size_bytes),
+      });
+      const destination = join(
+        backupCiphertext,
+        ciphertext.ciphertext_id.replaceAll(":", "_"),
+      );
+      const descriptor = openSync(destination, "wx", 0o600);
+      try {
+        writeFileSync(descriptor, bytes);
+        fsyncSync(descriptor);
+      } finally {
+        closeSync(descriptor);
+      }
+      chmodSync(destination, 0o600);
     }
+    fsyncPath(backupBlobs);
+    fsyncPath(backupCiphertext);
+    fsyncPath(backupDatabaseDirectory);
+    fsyncPath(directory);
+
+    const { integrityCheck, backupMigrations } = withBackupDatabase(
+      path,
+      (backup) => {
+        const integrityCheck = String(
+        backup.pragma("integrity_check", { simple: true }),
+        ).toLowerCase();
+        const backupEpoch = Number(
+          (
+            backup
+              .prepare(
+                "SELECT ledger_epoch FROM ledger_state WHERE singleton = 1",
+              )
+              .get() as { ledger_epoch: number }
+          ).ledger_epoch,
+        );
+        const backupReceipt = backup
+          .prepare(
+            `SELECT receipt.receipt_hash
+             FROM mutation_receipts AS receipt
+             WHERE NOT EXISTS (
+               SELECT 1
+               FROM json_each(receipt.receipt_json, '$.warnings')
+               WHERE value = 'DRY_RUN'
+             )
+             ORDER BY resulting_epoch DESC, receipt_id DESC LIMIT 1`,
+          )
+          .get() as LatestReceipt;
+        const backupTombstoneEpoch = Number(
+          (
+            backup
+              .prepare(
+                `SELECT tombstone_epoch
+                 FROM tombstone_state WHERE singleton = 1`,
+              )
+              .get() as { tombstone_epoch: number }
+          ).tombstone_epoch,
+        );
+        const backupLearningControlEpoch = Number(
+          (
+            backup
+              .prepare(
+                `SELECT coalesce(max(control_epoch), 0) AS value
+                 FROM learning_control_state`,
+              )
+              .get() as { value: number }
+          ).value,
+        );
+        const backupLearningReleaseRevision = Number(
+          (
+            backup
+              .prepare(
+                `SELECT coalesce(max(pointer_revision), 0) AS value
+                 FROM learning_release_pointers`,
+              )
+              .get() as { value: number }
+          ).value,
+        );
+        const backupMigrations = backup
+          .prepare(
+            "SELECT version, name, hash, applied_at FROM schema_migrations ORDER BY version",
+          )
+          .all() as MigrationEvidence[];
+
+        if (
+          integrityCheck !== "ok" ||
+          backupEpoch !== epoch ||
+          backupTombstoneEpoch !== tombstoneEpoch ||
+          backupLearningControlEpoch !== learningFrontier.control_epoch ||
+          backupLearningReleaseRevision !== learningFrontier.release_revision ||
+          backupReceipt?.receipt_hash !== latestReceipt?.receipt_hash ||
+          canonicalJson(backupMigrations) !== canonicalJson(this.#migrations)
+        ) {
+          throw new StorageError("CORRUPTION");
+        }
+        return { integrityCheck, backupMigrations };
+      },
+    );
 
     const sizeBytes = statSync(path).size;
+    const purgeRows = this.#database
+      .prepare(
+        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash
+         FROM artifact_purge_frontiers ORDER BY store_id`,
+      )
+      .all();
+    const purgeDebtCount = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT coalesce(sum(debt_count), 0) AS value
+             FROM artifact_purge_frontiers`,
+          )
+          .get() as { value: number }
+      ).value,
+    );
+    const relationRows = this.#database
+      .prepare(
+        `SELECT relation_id, current_relation_revision_id, lifecycle
+         FROM relation_objects ORDER BY relation_id`,
+      )
+      .all();
+    const contextRows = this.#database
+      .prepare(
+        `SELECT context_slice_id, frozen_hash
+         FROM context_slices ORDER BY context_slice_id`,
+      )
+      .all();
+    const pointerRows = this.#database
+      .prepare(
+        `SELECT release_slot_hash, active_release_id, pointer_revision,
+                pointer_hash
+         FROM learning_release_pointers ORDER BY release_slot_hash`,
+      )
+      .all();
+    const monitorRows = this.#database
+      .prepare(
+        `SELECT monitor_id, monitor_hash
+         FROM learning_monitor_results ORDER BY monitored_at, monitor_id`,
+      )
+      .all() as Array<{ monitor_id: string; monitor_hash: string }>;
+    const rollbackRows = this.#database
+      .prepare(
+        `SELECT release_id, release_hash
+         FROM learning_release_versions
+         WHERE action = 'rollback'
+         ORDER BY activated_at, release_id`,
+      )
+      .all() as Array<{ release_id: string; release_hash: string }>;
+    const g6Control = this.#database
+      .prepare(
+        `SELECT control_hash FROM g6_release_controls LIMIT 1`,
+      )
+      .get() as { control_hash: string } | undefined;
+    const ftsState = this.#fts.state();
+    const projectionFrontier = this.#projections.frontier();
+    const keyInventory = this.#keys.inventory();
+    const artifactDescriptors = [
+      ...artifacts.map((artifact) => ({
+        kind: "blob" as const,
+        artifact_id: artifact.content_hash,
+        storage_kind: "external" as const,
+        bundle_path:
+          `artifacts/blobs/${artifact.content_hash.slice("sha256:".length)}`,
+        raw_hash: artifact.content_hash,
+        size_bytes: Number(artifact.size_bytes),
+      })),
+      ...ciphertextRows.map((ciphertext) => ({
+        kind: "ciphertext" as const,
+        artifact_id: ciphertext.ciphertext_id,
+        storage_kind: ciphertext.storage_kind,
+        bundle_path:
+          ciphertext.storage_kind === "inline"
+            ? null
+            : `artifacts/ciphertext/${ciphertext.ciphertext_id.replaceAll(":", "_")}`,
+        raw_hash: ciphertext.ciphertext_hash,
+        size_bytes: Number(ciphertext.ciphertext_size_bytes),
+      })),
+    ];
+    const databaseRawHash = rawFileHash(path);
+    const manifest = sealCompleteBackupManifest({
+      schema_version: "1.0.0",
+      backup_id: backupId,
+      created_at: now(),
+      root_identity: resolvedRootIdentity,
+      database: {
+        bundle_path: "database/memory.db",
+        raw_hash: databaseRawHash,
+        size_bytes: sizeBytes,
+        logical_hash: backupDatabaseLogicalHash(path),
+      },
+      artifacts: artifactDescriptors,
+      schema: {
+        current_version:
+          backupMigrations.at(-1)?.version ??
+          (() => {
+            throw new StorageError("MIGRATION_DRIFT");
+          })(),
+        migration_set_hash: canonicalSha256(backupMigrations),
+        migrations: backupMigrations,
+      },
+      frontiers: {
+        ledger_epoch: epoch,
+        latest_receipt_hash: latestReceipt?.receipt_hash ?? null,
+        tombstone_epoch: tombstoneEpoch,
+        purge_frontier_hash: canonicalSha256(purgeRows),
+        purge_debt_count: purgeDebtCount,
+        fts_frontier_hash: canonicalSha256(ftsState),
+        fts_logical_frontier_hash: canonicalSha256({
+          last_epoch: Number(ftsState.last_epoch),
+        }),
+        layered_frontier_hash: canonicalSha256(projectionFrontier),
+        relation_frontier_hash: canonicalSha256(relationRows),
+        context_frontier_hash: canonicalSha256(contextRows),
+        learning_control_epoch: learningFrontier.control_epoch,
+        learning_release_revision: learningFrontier.release_revision,
+        learning_frontier_hash: learningFrontier.frontier_hash,
+        learning_pointer_hash: canonicalSha256(pointerRows),
+        learning_monitor_hash:
+          monitorRows.length === 0 ? null : canonicalSha256(monitorRows),
+        learning_rollback_hash:
+          rollbackRows.length === 0 ? null : canonicalSha256(rollbackRows),
+        encryption_frontier_hash:
+          recoveryState.minimums.encryption_frontier_hash,
+        g6_release_control_hash: g6Control?.control_hash ?? null,
+      },
+      encryption: {
+        format_version: 1,
+        required_keys: keyInventory.keys
+          .filter(
+            ({ key_id, state }) =>
+              state === "current" ||
+              state === "rotating_to" ||
+              state === "retired" ||
+              (state === "revoked_or_compromised" &&
+                (recoveryState.minimums.key_live_ciphertexts.find(
+                  (key) => key.key_id === key_id,
+                )?.live_ciphertext_count ?? 0) > 0),
+          )
+          .map(({ key_id, generation, state }) => ({
+            key_id,
+            key_generation: generation,
+            state,
+          })),
+        key_live_ciphertexts:
+          recoveryState.minimums.key_live_ciphertexts,
+      },
+      decisions: ACCEPTED_RECOVERY_DECISIONS,
+      creation_identity: {
+        config_hash: canonicalSha256({
+          busy_timeout_ms: this.#busyTimeoutMs,
+          schema_version: backupMigrations.at(-1)?.version,
+          principal_id: this.#principalId,
+        }),
+        environment_hash: canonicalSha256({
+          platform: process.platform,
+          architecture: process.arch,
+          node_version: process.versions.node,
+          filesystem_type: this.#layout.filesystem_type,
+        }),
+        filesystem_type: this.#layout.filesystem_type,
+        platform: process.platform,
+        architecture: process.arch,
+        node_version: process.versions.node,
+      },
+    });
+    const manifestPath = writeCompleteBackupManifest(directory, manifest);
     this.#database
+      .transaction(() => {
+        this.#database
       .prepare(
         `INSERT INTO backup_manifests (
            backup_id, relative_path, created_at, ledger_epoch,
@@ -1246,7 +1941,7 @@ export class StorageDatabase {
       )
       .run(
         backupId,
-        `backups/${basename(directory)}/memory.db`,
+        `backups/${basename(directory)}/database/memory.db`,
         now(),
         epoch,
         tombstoneEpoch,
@@ -1258,6 +1953,42 @@ export class StorageDatabase {
         sizeBytes,
         integrityCheck,
       );
+        this.#database
+          .prepare(
+            `INSERT INTO complete_backup_manifests (
+               backup_id, manifest_hash, database_raw_hash,
+               database_logical_hash, root_id, principal_id,
+               manifest_json, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            backupId,
+            manifest.manifest_hash,
+            manifest.database.raw_hash,
+            manifest.database.logical_hash,
+            manifest.root_identity.root_id,
+            manifest.root_identity.principal_id,
+            canonicalJson(manifest),
+            manifest.created_at,
+          );
+        const insertArtifact = this.#database.prepare(
+          `INSERT INTO backup_artifact_inventory (
+             backup_id, artifact_id, artifact_kind, storage_kind,
+             bundle_path, raw_hash, size_bytes
+           ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        );
+        for (const artifact of manifest.artifacts) {
+          insertArtifact.run(
+            backupId,
+            artifact.artifact_id,
+            artifact.kind,
+            artifact.storage_kind,
+            artifact.bundle_path,
+            artifact.raw_hash,
+            artifact.size_bytes,
+          );
+        }
+      })();
 
     return {
       backup_id: backupId,
@@ -1272,7 +2003,16 @@ export class StorageDatabase {
       blob_hashes: artifacts.map((artifact) => artifact.content_hash),
       integrity_check: "ok",
       size_bytes: sizeBytes,
+      manifest_path: manifestPath,
+      manifest,
     };
+    } catch (error) {
+      if (existsSync(directory)) {
+        rmSync(directory, { recursive: true, force: true });
+        fsyncPath(this.#layout.backups);
+      }
+      throw error;
+    }
   }
 
   verifyArtifacts(): { verified: number } {
@@ -1319,6 +2059,50 @@ export class StorageDatabase {
     }
 
     const artifacts = this.verifyArtifacts();
+    const encryptedContents = this.#tableExists("encrypted_contents")
+      ? this.#database
+          .prepare(
+            `SELECT c.storage_kind, c.ciphertext,
+                    c.external_relative_path, c.ciphertext_hash,
+                    c.ciphertext_size_bytes
+             FROM encrypted_contents AS c
+             JOIN encrypted_content_owners AS o
+               ON o.ciphertext_id = c.ciphertext_id
+             WHERE c.retired_at IS NULL AND o.active = 1
+             GROUP BY c.ciphertext_id
+             ORDER BY c.ciphertext_id`,
+          )
+          .all() as Array<{
+          storage_kind: "inline" | "external";
+          ciphertext: Buffer | null;
+          external_relative_path: string | null;
+          ciphertext_hash: string;
+          ciphertext_size_bytes: number;
+        }>
+      : [];
+    for (const encrypted of encryptedContents) {
+      if (encrypted.storage_kind === "external") {
+        if (encrypted.external_relative_path === null) {
+          throw new StorageError("CORRUPTION");
+        }
+        this.#encryptedArtifacts.read({
+          relative_path: encrypted.external_relative_path,
+          ciphertext_hash: encrypted.ciphertext_hash,
+          size_bytes: Number(encrypted.ciphertext_size_bytes),
+        });
+        continue;
+      }
+      if (
+        encrypted.ciphertext === null ||
+        encrypted.ciphertext.byteLength !==
+          Number(encrypted.ciphertext_size_bytes) ||
+        `sha256:${createHash("sha256")
+          .update(encrypted.ciphertext)
+          .digest("hex")}` !== encrypted.ciphertext_hash
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
     const memoryViolations = Number(
       (
         this.#database
@@ -1875,6 +2659,7 @@ export class StorageDatabase {
       integrity_check: "ok",
       foreign_key_violations: 0,
       verified_artifacts: artifacts.verified,
+      verified_encrypted_contents: encryptedContents.length,
       active_memories_verified: Number(
         (
           this.#database
@@ -3105,16 +3890,58 @@ export class StorageDatabase {
     );
   }
 
+  #recoveryRootIdentity(): {
+    root_id: string;
+    principal_id: string;
+  } {
+    const existing = this.#database
+      .prepare(
+        `SELECT root_id, principal_id
+         FROM recovery_root_identity WHERE singleton = 1`,
+      )
+      .get() as
+      | { root_id: string; principal_id: string }
+      | undefined;
+    if (existing !== undefined) {
+      if (existing.principal_id !== this.#principalId) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      return existing;
+    }
+    if (this.#inspectionOnly) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const identity = {
+      root_id: `recovery_root:${randomUUID()}`,
+      principal_id: this.#principalId,
+    };
+    this.#database
+      .prepare(
+        `INSERT INTO recovery_root_identity (
+           singleton, root_id, principal_id, created_at
+         ) VALUES (1, ?, ?, ?)`,
+      )
+      .run(identity.root_id, identity.principal_id, now());
+    return identity;
+  }
+
   #latestReceipt(): LatestReceipt {
     return this.#database
       .prepare(
-        `SELECT receipt_hash FROM mutation_receipts
-         ORDER BY resulting_epoch DESC, receipt_id DESC LIMIT 1`,
+        `SELECT receipt.receipt_hash
+         FROM mutation_receipts AS receipt
+         WHERE NOT EXISTS (
+           SELECT 1
+           FROM json_each(receipt.receipt_json, '$.warnings')
+           WHERE value = 'DRY_RUN'
+         )
+         ORDER BY receipt.resulting_epoch DESC, receipt.receipt_id DESC
+         LIMIT 1`,
       )
       .get() as LatestReceipt;
   }
 
-  #removeSecretBackups(owner: SecretContentOwner): void {
+  #registerSecretBackupPurgeIntents(owner: SecretContentOwner): void {
     for (const entry of readdirSync(this.#layout.backups, {
       withFileTypes: true,
     })) {
@@ -3122,7 +3949,15 @@ export class StorageDatabase {
       if (!entry.isDirectory() || lstatSync(directory).isSymbolicLink()) {
         continue;
       }
-      const path = join(directory, "memory.db");
+      const completeBackupPath = join(
+        directory,
+        "database",
+        "memory.db",
+      );
+      const usesCompleteLayout = existsSync(completeBackupPath);
+      const path = usesCompleteLayout
+        ? completeBackupPath
+        : join(directory, "memory.db");
       if (!existsSync(path) || lstatSync(path).isSymbolicLink()) {
         continue;
       }
@@ -3155,14 +3990,102 @@ export class StorageDatabase {
       if (!containsTarget) {
         continue;
       }
-      rmSync(directory, { recursive: true });
+      const relativePath = usesCompleteLayout
+        ? `backups/${entry.name}/database/memory.db`
+        : `backups/${entry.name}/memory.db`;
+      const manifest = this.#database
+        .prepare(
+          `SELECT backup_id FROM backup_manifests
+           WHERE relative_path = ?`,
+        )
+        .get(relativePath) as { backup_id: string } | undefined;
+      const backupId =
+        manifest?.backup_id ??
+        `backup:legacy:${canonicalSha256(relativePath).slice(
+          "sha256:".length,
+        )}`;
       this.#database
         .prepare(
-          "DELETE FROM backup_manifests WHERE relative_path = ?",
+          `INSERT OR IGNORE INTO backup_manifest_purge_intents (
+             backup_id, relative_path, created_at
+           ) VALUES (?, ?, ?)`,
         )
-        .run(`backups/${entry.name}/memory.db`);
+        .run(
+          backupId,
+          relativePath,
+          new Date().toISOString(),
+        );
     }
-    fsyncPath(this.#layout.backups);
+  }
+
+  #reconcileBackupPurgeIntents(): void {
+    if (!this.#tableExists("backup_manifest_purge_intents")) {
+      return;
+    }
+    const intents = this.#database
+      .prepare(
+        `SELECT backup_id, relative_path
+         FROM backup_manifest_purge_intents ORDER BY created_at, backup_id`,
+      )
+      .all() as Array<{ backup_id: string; relative_path: string }>;
+    for (const intent of intents) {
+      const match =
+        /^backups\/(snapshot-[A-Za-z0-9-]+)\/(?:database\/)?memory\.db$/u.exec(
+          intent.relative_path,
+        );
+      if (match?.[1] === undefined) {
+        throw new StorageError("CORRUPTION");
+      }
+      const directory = join(this.#layout.backups, match[1]);
+      if (existsSync(directory)) {
+        if (lstatSync(directory).isSymbolicLink()) {
+          throw new StorageError("CORRUPTION");
+        }
+        rmSync(directory, { recursive: true });
+        fsyncPath(this.#layout.backups);
+      }
+      this.#database.transaction(() => {
+        if (
+          this.#tableExists("complete_backup_manifests")
+        ) {
+          this.#database
+            .prepare(
+              `INSERT OR IGNORE INTO backup_manifest_purge_authorizations (
+                 backup_id, authorized_at
+               ) VALUES (?, ?)`,
+            )
+            .run(intent.backup_id, new Date().toISOString());
+          this.#database
+            .prepare(
+              "DELETE FROM backup_artifact_inventory WHERE backup_id = ?",
+            )
+            .run(intent.backup_id);
+          this.#database
+            .prepare(
+              "DELETE FROM complete_backup_manifests WHERE backup_id = ?",
+            )
+            .run(intent.backup_id);
+        }
+        this.#database
+          .prepare(
+            "DELETE FROM backup_manifests WHERE backup_id = ?",
+          )
+          .run(intent.backup_id);
+        if (this.#tableExists("backup_manifest_purge_authorizations")) {
+          this.#database
+            .prepare(
+              `DELETE FROM backup_manifest_purge_authorizations
+               WHERE backup_id = ?`,
+            )
+            .run(intent.backup_id);
+        }
+        this.#database
+          .prepare(
+            "DELETE FROM backup_manifest_purge_intents WHERE backup_id = ?",
+          )
+          .run(intent.backup_id);
+      })();
+    }
   }
 
   #tableExists(name: string): boolean {

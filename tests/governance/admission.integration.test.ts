@@ -14,6 +14,8 @@ import {
   GovernanceMutationResultSchema,
   SqliteStorageClient,
 } from "@memo-graph/storage-sqlite";
+import { prepareDataRoot } from "../../packages/storage-sqlite/src/data-root.js";
+import { StorageDatabase } from "../../packages/storage-sqlite/src/database.js";
 import { HASH_A, NOW } from "../helpers/examples.js";
 import {
   memoryCandidate,
@@ -224,12 +226,20 @@ describe("L1 admission matrix", () => {
 
   it("rejects purge-redacted evidence without a candidate side effect", async () => {
     const dataRoot = temporaryRoot("admission-purged");
-    const storage = await SqliteStorageClient.open({ dataRoot });
-    await storage.commitEpisode(inlineEpisode({}));
-    await storage.close();
+    const fixture = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
+      migrationsDir: join(process.cwd(), "migrations"),
+      busyTimeoutMs: 5_000,
+    });
+    fixture.commitEpisode(inlineEpisode({}));
+    fixture.close();
     markEvidencePurged(dataRoot);
 
+    // The provider sees this root for the first time only after the
+    // complete purged fixture exists, so its bootstrap head binds the exact
+    // governed state instead of accepting a stale pre-fixture checkpoint.
     const restarted = await SqliteStorageClient.open({ dataRoot });
+    expect((await restarted.health()).recovery.state).toBe("ready");
     const before = await restarted.governanceStatus();
     const result = await runtime(restarted).memoryPropose(
       memoryProposal({

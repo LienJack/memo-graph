@@ -31,6 +31,7 @@ import {
   memoryCandidate,
   revisionCommand,
 } from "../helpers/governance-examples.js";
+import { mcpRecoveryFixture } from "../helpers/mcp-recovery.js";
 import {
   seedLayeredProjectionSources,
 } from "../helpers/projection-examples.js";
@@ -154,8 +155,13 @@ afterEach(() => {
 
 describe("frozen layered Context runtime", () => {
   it("returns the same typed lane and frontier evidence through stdio MCP", async () => {
-    const dataRoot = temporaryRoot("layered-context-mcp");
-    const storage = await SqliteStorageClient.open({ dataRoot });
+    const fixtureRoot = temporaryRoot("layered-context-mcp");
+    const dataRoot = join(fixtureRoot, "data");
+    const recovery = mcpRecoveryFixture(dataRoot);
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider: recovery.provider,
+    });
     await seedLayeredProjectionSources(storage);
     await drain(storage, "layered_context_mcp_worker");
     await storage.close();
@@ -169,6 +175,7 @@ describe("frozen layered Context runtime", () => {
         allowed_authorities: ["user_stated"],
         destructive_tools_enabled: false,
         default_token_budget: 1_800,
+        recovery_head: recovery.config,
         lane_policy: {
           allowed_lanes: ["recent_l1", "topic"],
           limits: {

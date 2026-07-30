@@ -1,0 +1,122 @@
+import type {
+  RecoveryPendingReservation,
+} from "@memo-graph/contracts";
+
+import { StorageError } from "./errors.js";
+import type { WorkerOperation } from "./protocol.js";
+
+const RECOVERY_OPERATION_BY_WORKER = {
+  recovery_state: null,
+  recovery_effect: null,
+  install_recovery_checkpoint: null,
+  reconcile_recovery_effect: null,
+  health: null,
+  inspect_encryption_keys: null,
+  install_encryption_key: "key",
+  verify_encryption_key: null,
+  reserve_secret_nonce: "key",
+  commit_encrypted_secret: "canonical",
+  begin_key_rotation: "key",
+  get_key_rotation: null,
+  get_key_rotation_next: null,
+  consume_secret_use_authority: "key",
+  replay_secret_purge: null,
+  get_secret_purge_target: null,
+  purge_encrypted_secret: "purge",
+  finalize_secret_purge: null,
+  finalize_purge_maintenance: null,
+  reserve_rotation_nonce: "key",
+  commit_rotated_secret: "key",
+  complete_key_rotation: "key",
+  abort_key_rotation: "key",
+  revoke_encryption_key: "key",
+  governance_status: null,
+  count_content_references: null,
+  admit_memory: "canonical",
+  apply_memory_revision: "canonical",
+  preview_memory_revision: null,
+  get_memory_correction_basis: null,
+  governance_replay: null,
+  memory_control_replay: null,
+  apply_memory_control: "control",
+  preview_memory_control: null,
+  memory_delete_replay: null,
+  delete_memory: "purge",
+  preview_memory_delete: null,
+  run_purge: "purge",
+  check_memory_eligibility: null,
+  get_governed_memory: null,
+  search_governed_memory: null,
+  commit_episode: "canonical",
+  drain_fts: "projection",
+  search_evidence: null,
+  rebuild_fts: "projection",
+  checkpoint: null,
+  backup: null,
+  verify_artifacts: null,
+  verify_restore_candidate: null,
+  get_evidence: null,
+  explain_evidence: null,
+  get_receipt: null,
+  record_recall: "context",
+  apply_projection_batch: "projection",
+  get_projection_scope_frontier: null,
+  query_projections: null,
+  query_projection_page: null,
+  validate_projection_sources: null,
+  list_projection_sources: null,
+  traverse_relations: null,
+  enqueue_projection_job: "projection",
+  claim_projection_jobs: "projection",
+  fail_projection_job: "projection",
+  complete_projection_job: "projection",
+  invalidate_projection_descendants: "projection",
+  record_projection_rebuild: "projection",
+  get_graph_projection_checkpoint: null,
+  get_graph_scope_snapshot: null,
+  list_graph_projection_snapshots: null,
+  claim_graph_projection_jobs: "projection",
+  apply_graph_projection_job: "projection",
+  fail_graph_projection_job: "projection",
+  reset_graph_projection_scopes: "projection",
+  mark_graph_restore_unavailable: "projection",
+  graph_projection_status: null,
+  register_vector_embedding_epoch: "projection",
+  configure_vector_projection: "projection",
+  get_vector_projection_checkpoint: null,
+  claim_vector_projection_jobs: "projection",
+  apply_vector_projection_job: "projection",
+  fail_vector_projection_job: "projection",
+  stale_vector_projection_job: "projection",
+  mark_vector_restore_degraded: "projection",
+  run_vector_temporal_sweep: "projection",
+  vector_projection_status: null,
+  write_learning_ledger: "learning",
+  replay_learning_ledger: null,
+  read_learning_ledger: null,
+  test_block: null,
+  test_hold_write_lock: null,
+  close: null,
+} as const satisfies Record<
+  WorkerOperation,
+  RecoveryPendingReservation["operation"] | null
+>;
+
+export function recoveryOperationForWorker(
+  operation: WorkerOperation,
+): RecoveryPendingReservation["operation"] | null {
+  return RECOVERY_OPERATION_BY_WORKER[operation];
+}
+
+export function assertRecoveryProtectionBinding(
+  workerOperation: WorkerOperation,
+  authorizedOperation: RecoveryPendingReservation["operation"] | null,
+): void {
+  const expected = recoveryOperationForWorker(workerOperation);
+  if (
+    (expected === null) !== (authorizedOperation === null) ||
+    (expected !== null && expected !== authorizedOperation)
+  ) {
+    throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+  }
+}

@@ -8,6 +8,10 @@ export const STORAGE_ERROR_CODES = [
   "INCOMPLETE_PURGE",
   "STALE_TOMBSTONE_FRONTIER",
   "STALE_LEARNING_FRONTIER",
+  "RECOVERY_AUTHORITY_INVALID",
+  "STALE_RECOVERY_HEAD",
+  "TARGET_EXISTS",
+  "NO_REPLACE_UNSUPPORTED",
   "CORRUPTION",
   "MIGRATION_DRIFT",
   "ENCRYPTION_REQUIRED",
@@ -50,6 +54,13 @@ const PUBLIC_MESSAGES: Record<StorageErrorCode, string> = {
     "the backup predates the required tombstone frontier",
   STALE_LEARNING_FRONTIER:
     "the backup predates the required learning release or control frontier",
+  RECOVERY_AUTHORITY_INVALID:
+    "the external recovery authority is missing, invalid, or unresolved",
+  STALE_RECOVERY_HEAD:
+    "the backup anchor is not the separately retained current recovery head",
+  TARGET_EXISTS: "the restore target already exists",
+  NO_REPLACE_UNSUPPORTED:
+    "the required exact-platform no-replace publish primitive is unavailable",
   CORRUPTION: "stored content failed an integrity check",
   MIGRATION_DRIFT: "the migration history differs from the applied schema",
   ENCRYPTION_REQUIRED:

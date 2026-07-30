@@ -972,8 +972,6 @@ export class PurgeRepository {
         }
       })
       .immediate();
-    this.#database.pragma("wal_checkpoint(TRUNCATE)");
-    this.#database.exec("VACUUM");
     return [];
   }
 
@@ -1100,7 +1098,6 @@ export class PurgeRepository {
           );
       })
       .immediate();
-    this.#database.pragma("wal_checkpoint(TRUNCATE)");
     return receipt;
   }
 
@@ -1304,49 +1301,6 @@ export class PurgeRepository {
         warnings: hasEffect ? [] : ["DRY_RUN"],
       }),
     );
-    this.#database
-      .prepare(
-        `INSERT INTO mutation_receipts (
-           receipt_id, idempotency_key, request_hash, receipt_hash, state,
-           resulting_epoch, receipt_json, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        receipt.receipt_id,
-        receipt.idempotency_key,
-        receipt.request_hash,
-        receipt.receipt_hash,
-        receipt.state,
-        receipt.resulting_epoch,
-        canonicalJson(receipt),
-        receipt.created_at,
-      );
-    this.#database
-      .prepare(
-        `INSERT INTO idempotency_keys (
-           idempotency_key, request_hash, receipt_id, created_at
-         ) VALUES (?, ?, ?, ?)`,
-      )
-      .run(
-        receipt.idempotency_key,
-        receipt.request_hash,
-        receipt.receipt_id,
-        receipt.created_at,
-      );
-    this.#database
-      .prepare(
-        `INSERT INTO receipt_access_scopes (
-           receipt_id, receipt_kind, principal_id, scope_kind, scope_id,
-           created_at
-         ) VALUES (?, 'mutation', ?, ?, ?, ?)`,
-      )
-      .run(
-        receipt.receipt_id,
-        options.memory.principal_id,
-        options.memory.scope_kind,
-        options.memory.scope_id,
-        receipt.created_at,
-      );
     const result = MemoryDeleteResultSchema.parse({
       receipt,
       replayed: false,
@@ -1356,13 +1310,62 @@ export class PurgeRepository {
       tombstone_epoch: options.tombstoneEpoch,
       purge_job_id: options.purgeJobId,
     });
-    this.#database
-      .prepare(
-        `INSERT INTO governance_mutation_results (
-           receipt_id, result_json, created_at
-         ) VALUES (?, ?, ?)`,
-      )
-      .run(receipt.receipt_id, canonicalJson(result), receipt.created_at);
+    if (hasEffect) {
+      this.#database
+        .prepare(
+          `INSERT INTO mutation_receipts (
+             receipt_id, idempotency_key, request_hash, receipt_hash, state,
+             resulting_epoch, receipt_json, created_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          receipt.receipt_id,
+          receipt.idempotency_key,
+          receipt.request_hash,
+          receipt.receipt_hash,
+          receipt.state,
+          receipt.resulting_epoch,
+          canonicalJson(receipt),
+          receipt.created_at,
+        );
+      this.#database
+        .prepare(
+          `INSERT INTO idempotency_keys (
+             idempotency_key, request_hash, receipt_id, created_at
+           ) VALUES (?, ?, ?, ?)`,
+        )
+        .run(
+          receipt.idempotency_key,
+          receipt.request_hash,
+          receipt.receipt_id,
+          receipt.created_at,
+        );
+      this.#database
+        .prepare(
+          `INSERT INTO receipt_access_scopes (
+             receipt_id, receipt_kind, principal_id, scope_kind, scope_id,
+             created_at
+           ) VALUES (?, 'mutation', ?, ?, ?, ?)`,
+        )
+        .run(
+          receipt.receipt_id,
+          options.memory.principal_id,
+          options.memory.scope_kind,
+          options.memory.scope_id,
+          receipt.created_at,
+        );
+      this.#database
+        .prepare(
+          `INSERT INTO governance_mutation_results (
+             receipt_id, result_json, created_at
+           ) VALUES (?, ?, ?)`,
+        )
+        .run(
+          receipt.receipt_id,
+          canonicalJson(result),
+          receipt.created_at,
+        );
+    }
     return result;
   }
 

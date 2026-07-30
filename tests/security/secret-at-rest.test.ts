@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { canonicalSha256 } from "../../packages/contracts/src/index.js";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 const cleanupPaths: string[] = [];
 const openDescriptors: number[] = [];
@@ -71,6 +72,9 @@ describe("secret at-rest boundaries", () => {
     const dataRoot = temporaryRoot("secret-at-rest");
     const descriptorRoot = temporaryRoot("secret-at-rest-descriptors");
     const diagnostics: unknown[] = [];
+    const recoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:secret-at-rest",
+    );
     const keyDescriptor = privateDescriptor(
       descriptorRoot,
       "key.bin",
@@ -95,6 +99,7 @@ describe("secret at-rest boundaries", () => {
       dataRoot,
       testOperations: true,
       secretPrincipalId: "principal:secret-at-rest",
+      recoveryHeadProvider,
       onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
     });
     const installReceipt =

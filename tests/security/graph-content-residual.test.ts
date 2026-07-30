@@ -26,6 +26,7 @@ import {
 import {
   SqliteStorageClient,
 } from "@memo-graph/storage-sqlite";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 import { TestApprovalRegistry } from "../helpers/approval.js";
 import {
@@ -75,7 +76,13 @@ const nativeIt =
 describe("graph content residual security", () => {
   nativeIt("keeps purged plaintext out of graph-derived and diagnostic surfaces", async () => {
     const dataRoot = temporaryRoot();
-    const storage = await SqliteStorageClient.open({ dataRoot });
+    const recoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:graph-residual",
+    );
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider,
+    });
     const diagnostics: GraphProcessDiagnostic[] = [];
     const graph = await GraphProcessHost.open({
       dataRoot,

@@ -15,6 +15,7 @@ import {
   restoreBackupToEmptyDataRoot,
 } from "@memo-graph/storage-sqlite";
 import { blobEpisode, inlineEpisode } from "../helpers/storage-examples.js";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 const cleanupPaths: string[] = [];
 
@@ -175,7 +176,11 @@ describe("FTS projection and backup", () => {
     const dataRoot = temporaryRoot("backup");
     const restoreParent = temporaryRoot("restore-parent");
     const restoredRoot = join(restoreParent, "restored");
-    const storage = await SqliteStorageClient.open({ dataRoot });
+    const recoveryHeadProvider = testRecoveryHeadProvider();
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider,
+    });
     const receipt = await storage.commitEpisode(
       blobEpisode({
         bytes: new TextEncoder().encode("artifact included in backup"),
@@ -186,7 +191,7 @@ describe("FTS projection and backup", () => {
     const restored = await restoreBackupToEmptyDataRoot({
       backup,
       dataRoot: restoredRoot,
-      minimumTombstoneEpoch: 0,
+      recoveryHeadProvider,
     });
 
     expect(backup.integrity_check).toBe("ok");

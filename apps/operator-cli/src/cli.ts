@@ -12,12 +12,14 @@ import {
 import { blockedOperationalStatus } from "@memo-graph/storage-sqlite";
 
 import { runDoctor } from "./commands/doctor.js";
+import { inspectBackup } from "./commands/backup.js";
 import {
   inspectKeys,
   keyRotationDryRun,
   renderKeyInventory,
 } from "./commands/key.js";
 import { secretAdmissionDryRun } from "./commands/secret.js";
+import { restoreDryRun } from "./commands/restore.js";
 import {
   OperatorConfigError,
   loadOperatorConfig,
@@ -37,6 +39,10 @@ function argumentValue(argv: readonly string[], flag: string): string | null {
   const index = argv.indexOf(flag);
   const value = index === -1 ? undefined : argv[index + 1];
   return value === undefined || value.trim().length === 0 ? null : value;
+}
+
+function argumentCount(argv: readonly string[], flag: string): number {
+  return argv.filter((argument) => argument === flag).length;
 }
 
 type ParsedArguments =
@@ -60,6 +66,19 @@ type ParsedArguments =
       configPath: string;
       format: OperatorOutputFormat;
       inputDescriptor: number;
+    }
+  | {
+      command: "backup_inspect";
+      configPath: string;
+      format: OperatorOutputFormat;
+      backupRef: string;
+    }
+  | {
+      command: "restore_dry_run";
+      configPath: string;
+      format: OperatorOutputFormat;
+      backupRef: string;
+      targetRef: string;
     };
 
 function parseArguments(argv: readonly string[]): ParsedArguments {
@@ -69,6 +88,10 @@ function parseArguments(argv: readonly string[]): ParsedArguments {
       : argv[0] === "key" &&
           (argv[1] === "inspect" || argv[1] === "rotate")
         ? 2
+        : argv[0] === "backup" && argv[1] === "inspect"
+          ? 2
+          : argv[0] === "restore"
+            ? 1
         : argv[0] === "secret" && argv[1] === "admit"
           ? 2
           : 0;
@@ -89,6 +112,8 @@ function parseArguments(argv: readonly string[]): ParsedArguments {
       argument === "--config" ||
       argument === "--format" ||
       argument === "--input-fd"
+      || argument === "--backup-ref"
+      || argument === "--target-ref"
     ) {
       consumed.add(index);
       if (argv[index + 1] !== undefined) {
@@ -115,16 +140,59 @@ function parseArguments(argv: readonly string[]): ParsedArguments {
   if (argv[0] === "doctor") {
     if (
       argv.includes("--dry-run") ||
-      argv.includes("--input-fd")
+      argv.includes("--input-fd") ||
+      argv.includes("--backup-ref") ||
+      argv.includes("--target-ref")
     ) {
       throw new OperatorConfigError();
     }
     return { command: "doctor", configPath, format };
   }
+  if (argv[0] === "backup" && argv[1] === "inspect") {
+    const backupRef = argumentValue(argv, "--backup-ref");
+    if (
+      backupRef === null ||
+      argumentCount(argv, "--backup-ref") !== 1 ||
+      argv.includes("--dry-run") ||
+      argv.includes("--input-fd") ||
+      argv.includes("--target-ref")
+    ) {
+      throw new OperatorConfigError();
+    }
+    return {
+      command: "backup_inspect",
+      configPath,
+      format,
+      backupRef,
+    };
+  }
+  if (argv[0] === "restore") {
+    const backupRef = argumentValue(argv, "--backup-ref");
+    const targetRef = argumentValue(argv, "--target-ref");
+    if (
+      backupRef === null ||
+      targetRef === null ||
+      argumentCount(argv, "--backup-ref") !== 1 ||
+      argumentCount(argv, "--target-ref") !== 1 ||
+      argv.filter((argument) => argument === "--dry-run").length !== 1 ||
+      argv.includes("--input-fd")
+    ) {
+      throw new OperatorConfigError();
+    }
+    return {
+      command: "restore_dry_run",
+      configPath,
+      format,
+      backupRef,
+      targetRef,
+    };
+  }
   if (argv[0] === "key" && argv[1] === "inspect") {
     if (
       argv.includes("--dry-run") ||
-      argv.includes("--input-fd")
+      argv.includes("--input-fd") ||
+      argv.includes("--backup-ref") ||
+      argv.includes("--target-ref")
     ) {
       throw new OperatorConfigError();
     }
@@ -133,7 +201,9 @@ function parseArguments(argv: readonly string[]): ParsedArguments {
   if (argv[0] === "key" && argv[1] === "rotate") {
     if (
       argv.filter((argument) => argument === "--dry-run").length !== 1 ||
-      argv.includes("--input-fd")
+      argv.includes("--input-fd") ||
+      argv.includes("--backup-ref") ||
+      argv.includes("--target-ref")
     ) {
       throw new OperatorConfigError();
     }
@@ -145,7 +215,9 @@ function parseArguments(argv: readonly string[]): ParsedArguments {
     argv.filter((argument) => argument === "--dry-run").length !== 1 ||
     argv.filter((argument) => argument === "--input-fd").length !== 1 ||
     !Number.isSafeInteger(inputDescriptor) ||
-    inputDescriptor < 3
+    inputDescriptor < 3 ||
+    argv.includes("--backup-ref") ||
+    argv.includes("--target-ref")
   ) {
     throw new OperatorConfigError();
   }
@@ -206,6 +278,39 @@ export async function runOperatorCli(
         void arguments_.inputDescriptor;
         io.stdout.write(`${canonicalJson(secretAdmissionDryRun())}\n`);
         return operatorExitCode("operator_action_required");
+      case "backup_inspect": {
+        const backupBundles = config.recovery
+          .backup_bundles as Record<string, string>;
+        const directory = backupBundles[arguments_.backupRef];
+        if (directory === undefined) {
+          throw new OperatorConfigError();
+        }
+        io.stdout.write(`${canonicalJson(inspectBackup(directory))}\n`);
+        return operatorExitCode("success");
+      }
+      case "restore_dry_run": {
+        const backupBundles = config.recovery
+          .backup_bundles as Record<string, string>;
+        const restoreTargets = config.recovery
+          .restore_targets as Record<string, string>;
+        const directory = backupBundles[arguments_.backupRef];
+        if (
+          directory === undefined ||
+          restoreTargets[arguments_.targetRef] === undefined
+        ) {
+          throw new OperatorConfigError();
+        }
+        io.stdout.write(
+          `${canonicalJson(
+            restoreDryRun({
+              backupDirectory: directory,
+              backupRef: arguments_.backupRef,
+              targetRef: arguments_.targetRef,
+            }),
+          )}\n`,
+        );
+        return operatorExitCode("operator_action_required");
+      }
     }
   } catch (error) {
     const invalidInput = error instanceof OperatorConfigError;

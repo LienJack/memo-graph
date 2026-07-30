@@ -22,6 +22,8 @@ import {
   canonicalSha256,
   canonicalSha256Omitting,
 } from "../../packages/contracts/src/index.js";
+import { prepareDataRoot } from "../../packages/storage-sqlite/src/data-root.js";
+import { StorageDatabase } from "../../packages/storage-sqlite/src/database.js";
 import {
   LEARNING_WORKSPACE_SCOPE,
   learningCanaryAuthorization,
@@ -163,20 +165,21 @@ describe("SQLite learning ledger schema", () => {
         join(migrationRoot, name),
       );
     }
-    const before = await SqliteStorageClient.open({
-      dataRoot,
+    const before = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
-    const receipt = await before.commitEpisode(
+    const receipt = before.commitEpisode(
       inlineEpisode({
         episodeId: "episode_before_learning_migration",
         evidenceId: "evidence_before_learning_migration",
         idempotencyKey: "commit-before-learning-migration-001",
         text: "Canonical row that must survive additive migration 0014.",
       }),
-    );
-    const beforeHealth = await before.health();
-    await before.close();
+    ).receipt;
+    const beforeHealth = before.health();
+    before.close();
 
     const beforeDatabase = new DatabaseSync(
       join(dataRoot, "ledger", "memory.db"),
@@ -192,12 +195,13 @@ describe("SQLite learning ledger schema", () => {
       join(migrationRoot, "0014-learning-lab.sql"),
     );
 
-    const upgraded = await SqliteStorageClient.open({
-      dataRoot,
+    const upgraded = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
     try {
-      const health = await upgraded.health();
+      const health = upgraded.health();
       expect(health.schema_version).toBe("0014");
       expect(health.counts.evidence_events).toBe(
         beforeHealth.counts.evidence_events,
@@ -208,14 +212,14 @@ describe("SQLite learning ledger schema", () => {
         release_revision: 0,
       });
       expect(
-        await upgraded.getReceipt({
+        upgraded.getReceipt({
           receipt_id: receipt.receipt_id,
           principal_id: "user_local",
           scopes: [LEARNING_WORKSPACE_SCOPE],
         }),
       ).toEqual(receipt);
     } finally {
-      await upgraded.close();
+      upgraded.close();
     }
 
     const database = new DatabaseSync(join(dataRoot, "ledger", "memory.db"));
@@ -295,7 +299,7 @@ describe("SQLite learning ledger schema", () => {
 
     const reopened = await SqliteStorageClient.open({ dataRoot });
     try {
-      expect((await reopened.health()).schema_version).toBe("0015");
+      expect((await reopened.health()).schema_version).toBe("0016");
       expect((await reopened.health()).counts.learning_candidates).toBe(1);
       expect(
         await reopened.writeLearningLedger(

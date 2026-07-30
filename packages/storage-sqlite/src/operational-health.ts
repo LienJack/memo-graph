@@ -268,6 +268,33 @@ export function operationalStatusFromStorageHealth(
         ],
       },
       {
+        component: "recovery",
+        state:
+          health.recovery.state === "ready" ? "ready" : "blocked",
+        reason_code:
+          health.recovery.state === "ready"
+            ? null
+            : "RECOVERY_AUTHORITY_INVALID",
+        action_code:
+          health.recovery.state === "ready"
+            ? "NONE"
+            : "RECOVER_EXTERNAL_AUTHORITY",
+        measurements: [
+          {
+            component: "recovery",
+            name: "frontier",
+            value: health.recovery.current_generation ?? 0,
+            unit: "epoch",
+          },
+          {
+            component: "recovery",
+            name: "item_count",
+            value: health.recovery.unresolved_pending_count,
+            unit: "count",
+          },
+        ],
+      },
+      {
         component: "data_root",
         state: "ready",
         reason_code: null,
@@ -388,6 +415,16 @@ const BLOCKED_ERROR_MAPPING: Partial<
     component: "encryption",
     reason_code: "KEY_UNAVAILABLE",
     action_code: "PROVIDE_TRUSTED_KEY",
+  },
+  RECOVERY_AUTHORITY_INVALID: {
+    component: "recovery",
+    reason_code: "RECOVERY_AUTHORITY_INVALID",
+    action_code: "RECOVER_EXTERNAL_AUTHORITY",
+  },
+  STALE_RECOVERY_HEAD: {
+    component: "recovery",
+    reason_code: "RECOVERY_AUTHORITY_INVALID",
+    action_code: "RECOVER_EXTERNAL_AUTHORITY",
   },
 };
 

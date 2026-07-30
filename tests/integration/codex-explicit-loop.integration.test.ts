@@ -22,6 +22,7 @@ import {
   MEMORY_TOOL_METADATA,
 } from "../../packages/mcp-server/src/index.js";
 
+import { mcpRecoveryFixture } from "../helpers/mcp-recovery.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
 
 const cleanupPaths: string[] = [];
@@ -38,6 +39,7 @@ function temporaryRoot(prefix: string): string {
 function configFixture(): { configPath: string; dataRoot: string } {
   const root = temporaryRoot("stdio");
   const dataRoot = join(root, "data");
+  const recovery = mcpRecoveryFixture(dataRoot);
   const configPath = join(root, "mcp-config.json");
   writeFileSync(
     configPath,
@@ -50,6 +52,7 @@ function configFixture(): { configPath: string; dataRoot: string } {
       allowed_authorities: ["user_stated", "tool_result"],
       destructive_tools_enabled: false,
       default_token_budget: 1_800,
+      recovery_head: recovery.config,
     }),
     { encoding: "utf8", mode: 0o600 },
   );

@@ -21,6 +21,7 @@ export {
 } from "./root-lease.js";
 export {
   SqliteStorageClient,
+  RecoveryAuthorityHealthSchema,
   StorageClientHealthSchema,
   type SqliteStorageClientOptions,
   type StorageClientHealth,
@@ -283,3 +284,28 @@ export {
   type RestoreBackupOptions,
   type RestoreBackupResult,
 } from "./restore.js";
+export {
+  FileRecoveryHeadProvider,
+  MemoryRecoveryHeadProvider,
+  minimumsFromManifest,
+  recoveryStateCommitment,
+  type RecoveryHeadProvider,
+} from "./anchor-coordinator.js";
+export {
+  ACCEPTED_RECOVERY_DECISIONS,
+  ACCEPTED_RECOVERY_DECISION_SOURCES,
+  backupDatabaseLogicalHash,
+  rawFileHash,
+  readCompleteBackupManifest,
+  recoveryMinimumsFromManifest,
+  verifyCompleteBackupBundle,
+  verifyBackupKeyDescriptors,
+} from "./backup-manifest.js";
+export {
+  TargetNameReservation,
+  publishDirectoryNoReplace,
+} from "./no-replace-publish.js";
+export {
+  assertRecoveryProtectionBinding,
+  recoveryOperationForWorker,
+} from "./recovery-protection.js";

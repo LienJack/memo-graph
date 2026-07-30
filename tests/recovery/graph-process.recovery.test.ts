@@ -447,7 +447,7 @@ describe("graph child process recovery", () => {
         status: "circuit_open",
       });
       await expect(sqlite.health()).resolves.toMatchObject({
-        schema_version: "0015",
+        schema_version: "0016",
         journal_mode: "wal",
         foreign_keys: true,
       });

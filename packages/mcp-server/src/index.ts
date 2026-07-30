@@ -1,3 +1,17 @@
+import { createPrivateKey, createPublicKey } from "node:crypto";
+import {
+  existsSync,
+  lstatSync,
+  realpathSync,
+} from "node:fs";
+import {
+  dirname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
+
 import {
   GovernedResponseSchema,
   GraphBackendIdentitySchema,
@@ -38,6 +52,7 @@ import {
 } from "@memo-graph/memory-kernel";
 import {
   blockedOperationalStatus,
+  FileRecoveryHeadProvider,
   operationalStatusFromStorageHealth,
   SqliteStorageClient,
   StorageClientHealthSchema,
@@ -49,6 +64,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
 import { LocalManifestApprovalRegistry } from "./mutations.js";
+import { readPrivateOperatorFile } from "./trusted-file.js";
 
 export const MEMORY_MCP_SERVER_VERSION = "0.1.0";
 
@@ -166,6 +182,22 @@ export const VectorServerConfigSchema = z
   ])
   .default({ enabled: false });
 
+const RecoveryHeadConfigSchema = z
+  .discriminatedUnion("enabled", [
+    z.object({ enabled: z.literal(false) }).strict(),
+    z
+      .object({
+        enabled: z.literal(true),
+        directory: z.string().trim().min(1),
+        authority_key_id: z.string().trim().min(1).max(160),
+        trust_root_version: z.number().int().positive(),
+        private_key_path: z.string().trim().min(1),
+        public_key_path: z.string().trim().min(1),
+      })
+      .strict(),
+  ])
+  .default({ enabled: false });
+
 export const MemoryServerConfigSchema = z
   .object({
     data_root: z.string().trim().min(1),
@@ -202,10 +234,75 @@ export const MemoryServerConfigSchema = z
     }),
     graph: GraphServerConfigSchema,
     vector: VectorServerConfigSchema,
+    recovery_head: RecoveryHeadConfigSchema,
   })
   .strict();
 
 export type MemoryServerConfig = z.infer<typeof MemoryServerConfigSchema>;
+
+function resolveNoSymlinkTail(path: string): string {
+  if (!isAbsolute(path)) {
+    throw new Error("recovery paths must be absolute");
+  }
+  const resolved = resolve(path);
+  let cursor = resolved;
+  while (!existsSync(cursor)) {
+    const parent = dirname(cursor);
+    if (parent === cursor) {
+      throw new Error("recovery path has no trusted ancestor");
+    }
+    cursor = parent;
+  }
+  const stat = lstatSync(cursor);
+  if (stat.isSymbolicLink() || realpathSync(cursor) !== cursor) {
+    throw new Error("recovery path contains a symbolic link");
+  }
+  return resolved;
+}
+
+function pathContains(parent: string, candidate: string): boolean {
+  const fromParent = relative(parent, candidate);
+  return (
+    fromParent === "" ||
+    (fromParent !== ".." &&
+      !fromParent.startsWith(`..${sep}`) &&
+      !isAbsolute(fromParent))
+  );
+}
+
+function assertExternalToDataRoot(
+  dataRootInput: string,
+  externalPathInput: string,
+): string {
+  const dataRoot = resolveNoSymlinkTail(dataRootInput);
+  const externalPath = resolveNoSymlinkTail(externalPathInput);
+  if (
+    pathContains(dataRoot, externalPath) ||
+    pathContains(externalPath, dataRoot)
+  ) {
+    throw new Error("recovery authority must be external to the data root");
+  }
+  return externalPath;
+}
+
+function assertExternalRecoveryDirectory(
+  dataRootInput: string,
+  recoveryDirectoryInput: string,
+): string {
+  const recoveryDirectory = assertExternalToDataRoot(
+    dataRootInput,
+    recoveryDirectoryInput,
+  );
+  if (
+    !existsSync(recoveryDirectory) ||
+    !lstatSync(recoveryDirectory).isDirectory() ||
+    lstatSync(recoveryDirectory).isSymbolicLink() ||
+    realpathSync(recoveryDirectory) !== recoveryDirectory
+  ) {
+    throw new Error("recovery head must be external to the data root");
+  }
+  return recoveryDirectory;
+}
 
 export const MEMORY_TOOL_METADATA = [
   {
@@ -787,8 +884,43 @@ export async function openMemoryRuntime(configInput: unknown): Promise<{
   close(): Promise<void>;
 }> {
   const config = MemoryServerConfigSchema.parse(configInput);
+  const recoveryHeadProvider = config.recovery_head.enabled
+    ? (() => {
+        const directory = assertExternalRecoveryDirectory(
+          config.data_root,
+          config.recovery_head.directory,
+        );
+        const privateKeyPath = assertExternalToDataRoot(
+          config.data_root,
+          config.recovery_head.private_key_path,
+        );
+        const publicKeyPath = assertExternalToDataRoot(
+          config.data_root,
+          config.recovery_head.public_key_path,
+        );
+        const privateKeyBytes =
+          readPrivateOperatorFile(privateKeyPath);
+        const publicKeyBytes =
+          readPrivateOperatorFile(publicKeyPath);
+        try {
+          return new FileRecoveryHeadProvider({
+            directory,
+            authorityKeyId:
+              config.recovery_head.authority_key_id,
+            trustRootVersion:
+              config.recovery_head.trust_root_version,
+            privateKey: createPrivateKey(privateKeyBytes),
+            publicKey: createPublicKey(publicKeyBytes),
+          });
+        } finally {
+          privateKeyBytes.fill(0);
+          publicKeyBytes.fill(0);
+        }
+      })()
+    : undefined;
   const storage = await SqliteStorageClient.open({
     dataRoot: config.data_root,
+    recoveryHeadProvider: recoveryHeadProvider ?? null,
   });
   let graphRetriever: GraphRecallRetriever | undefined;
   try {
@@ -908,9 +1040,20 @@ export async function preflightMemoryRuntime(
   options?: { observedAt?: string },
 ): Promise<MemoryRuntimePreflightResult> {
   try {
+    const opened = await openMemoryRuntime(configInput);
+    const status = operationalStatusFromStorageHealth(
+      await opened.storage.health(),
+      options?.observedAt === undefined
+        ? undefined
+        : { observedAt: options.observedAt },
+    );
+    if (status.readiness === "blocked") {
+      await opened.close();
+      return { state: "blocked", status };
+    }
     return {
       state: "opened",
-      opened: await openMemoryRuntime(configInput),
+      opened,
     };
   } catch (error) {
     return {

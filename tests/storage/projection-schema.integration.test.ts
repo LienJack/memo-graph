@@ -15,6 +15,8 @@ import {
   ProjectionRevisionSchema,
   canonicalSha256,
 } from "../../packages/contracts/src/index.js";
+import { prepareDataRoot } from "../../packages/storage-sqlite/src/data-root.js";
+import { StorageDatabase } from "../../packages/storage-sqlite/src/database.js";
 import { projectionSourceReason } from "../../packages/storage-sqlite/src/governed-memory-reader.js";
 
 import {
@@ -126,12 +128,13 @@ describe("layered projection storage", () => {
       cpSync(join(source, name), join(migrationRoot, name));
     }
 
-    const m2 = await SqliteStorageClient.open({
-      dataRoot,
+    const m2 = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
-    expect((await m2.health()).schema_version).toBe("0007");
-    await m2.close();
+    expect(m2.health().schema_version).toBe("0007");
+    m2.close();
 
     cpSync(
       join(process.cwd(), "migrations", "0008-layered-projections.sql"),
@@ -145,12 +148,13 @@ describe("layered projection storage", () => {
       ),
       join(migrationRoot, "0009-projection-purge-redaction.sql"),
     );
-    const upgraded = await SqliteStorageClient.open({
-      dataRoot,
+    const upgraded = new StorageDatabase({
+      layout: prepareDataRoot(dataRoot),
       migrationsDir: migrationRoot,
+      busyTimeoutMs: 5_000,
     });
-    const health = await upgraded.health();
-    await upgraded.close();
+    const health = upgraded.health();
+    upgraded.close();
 
     expect(health.schema_version).toBe("0009");
     expect(health.migrations).toHaveLength(9);

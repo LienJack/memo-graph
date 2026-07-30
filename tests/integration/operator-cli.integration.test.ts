@@ -21,6 +21,7 @@ import { runDoctor } from "../../apps/operator-cli/src/commands/doctor.js";
 import { operatorExitCode } from "../../apps/operator-cli/src/exit-codes.js";
 import { renderOperationalStatus } from "../../apps/operator-cli/src/render.js";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 const cleanupPaths: string[] = [];
 const NOW = "2026-07-30T09:00:00.000Z";
@@ -84,7 +85,12 @@ describe("operator CLI doctor", () => {
     expect(human).toContain(
       `qualification: ${status.qualification.status}`,
     );
-    expect(operatorExitCode(status.exit_class)).toBe(0);
+    expect(operatorExitCode(status.exit_class)).toBe(3);
+    expect(status).toMatchObject({
+      readiness: "blocked",
+      primary_reason: "RECOVERY_AUTHORITY_INVALID",
+      next_action: "RECOVER_EXTERNAL_AUTHORITY",
+    });
     expect(durableSnapshot(dataRoot)).toEqual(before);
   });
 
@@ -111,7 +117,10 @@ describe("operator CLI doctor", () => {
       JSON.parse(stdout) as unknown,
     );
     expect(code).toBe(operatorExitCode(status.exit_class));
-    expect(status.readiness).toBe("ready");
+    expect(status).toMatchObject({
+      readiness: "blocked",
+      primary_reason: "RECOVERY_AUTHORITY_INVALID",
+    });
     expect(stderr).toBe("");
   });
 
@@ -222,5 +231,198 @@ describe("operator CLI doctor", () => {
       },
     });
     expect(durableSnapshot(dataRoot)).toEqual(before);
+  });
+});
+
+describe("operator CLI backup and restore surface", () => {
+  it("inspects a bound bundle without leaking paths and keeps restore publication disabled", async () => {
+    const root = temporaryRoot("operator-recovery");
+    const dataRoot = join(root, "data");
+    const recoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:operator-cli",
+    );
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider,
+    });
+    const backup = await storage.createBackup();
+    await storage.close();
+    const target = join(root, "restore-target");
+    const configPath = join(root, "operator.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        data_root: dataRoot,
+        recovery: {
+          backup_bundles: {
+            current_backup: backup.directory,
+          },
+          restore_targets: {
+            recovery_target: target,
+          },
+        },
+      }),
+      { mode: 0o600 },
+    );
+    const invoke = async (argv: string[]) => {
+      let stdout = "";
+      const code = await runOperatorCli(argv, {
+        stdout: {
+          write: (value) => ((stdout += String(value)), true),
+        },
+        stderr: { write: () => true },
+      });
+      return {
+        code,
+        text: stdout,
+        output: JSON.parse(stdout) as Record<string, unknown>,
+      };
+    };
+
+    const inspected = await invoke([
+      "backup",
+      "inspect",
+      "--backup-ref",
+      "current_backup",
+      "--config",
+      configPath,
+      "--format",
+      "json",
+    ]);
+    expect(inspected).toMatchObject({
+      code: 0,
+      output: {
+        status: "bundle_verified",
+        freshness: "external_head_not_checked",
+        backup_id: backup.manifest.backup_id,
+        manifest_hash: backup.manifest.manifest_hash,
+        artifact_count: 0,
+      },
+    });
+    expect(inspected.text).not.toContain(dataRoot);
+    expect(inspected.text).not.toContain(backup.directory);
+
+    const restoreArguments = [
+      "restore",
+      "--dry-run",
+      "--backup-ref",
+      "current_backup",
+      "--target-ref",
+      "recovery_target",
+      "--config",
+      configPath,
+      "--format",
+      "json",
+    ];
+    const firstRestore = await invoke(restoreArguments);
+    const secondRestore = await invoke(restoreArguments);
+    expect(firstRestore).toMatchObject({
+      code: 3,
+      output: {
+        status: "operator_action_required",
+        publication: "disabled_until_u5",
+        backup_id: backup.manifest.backup_id,
+        manifest_hash: backup.manifest.manifest_hash,
+        intent_digest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),
+      },
+    });
+    expect(secondRestore.output.intent_digest).toBe(
+      firstRestore.output.intent_digest,
+    );
+    expect(firstRestore.text).not.toContain(dataRoot);
+    expect(firstRestore.text).not.toContain(backup.directory);
+    expect(firstRestore.text).not.toContain(target);
+    expect(existsSync(target)).toBe(false);
+
+    for (const argv of [
+      [
+        "backup",
+        "inspect",
+        "--backup-ref",
+        "unknown_backup",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ],
+      [
+        "backup",
+        "inspect",
+        "--backup-ref",
+        "current_backup",
+        "--backup-ref",
+        "current_backup",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ],
+      [
+        "restore",
+        "--dry-run",
+        "--backup-ref",
+        "current_backup",
+        "--target-ref",
+        "unknown_target",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ],
+      [
+        "restore",
+        "--backup-ref",
+        "current_backup",
+        "--target-ref",
+        "recovery_target",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ],
+      [
+        "backup",
+        "inspect",
+        "--backup-ref",
+        "current_backup",
+        "--target-ref",
+        "recovery_target",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ],
+    ]) {
+      const rejected = await invoke(argv);
+      expect(rejected.code).toBe(64);
+      expect(rejected.output).toMatchObject({
+        readiness: "blocked",
+        exit_class: "invalid_input",
+        primary_reason: "CONFIG_INVALID",
+      });
+    }
+
+    writeFileSync(
+      join(backup.directory, "unbound-extra"),
+      "tampered\n",
+      { mode: 0o600 },
+    );
+    const tampered = await invoke([
+      "backup",
+      "inspect",
+      "--backup-ref",
+      "current_backup",
+      "--config",
+      configPath,
+      "--format",
+      "json",
+    ]);
+    expect(tampered.code).toBe(70);
+    expect(tampered.output).toMatchObject({
+      readiness: "blocked",
+      exit_class: "internal_failure",
+    });
+    expect(tampered.text).not.toContain(dataRoot);
+    expect(tampered.text).not.toContain(backup.directory);
   });
 });

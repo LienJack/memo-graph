@@ -9,9 +9,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import { prepareDataRoot } from "../../packages/storage-sqlite/src/data-root.js";
+import { StorageDatabase } from "../../packages/storage-sqlite/src/database.js";
+import {
+  applyMigrations,
+  type OperationalMigrationFailurePoint,
+} from "../../packages/storage-sqlite/src/migrations.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
 
 const cleanupPaths: string[] = [];
@@ -38,6 +45,39 @@ function copyMigrationsThrough(target: string, maximumVersion: number): void {
     if (Number.isInteger(version) && version <= maximumVersion) {
       cpSync(join(process.cwd(), "migrations", name), join(target, name));
     }
+  }
+}
+
+function legacyStorage(
+  dataRoot: string,
+  migrationsDir: string,
+): StorageDatabase {
+  return new StorageDatabase({
+    layout: prepareDataRoot(dataRoot),
+    migrationsDir,
+    busyTimeoutMs: 5_000,
+  });
+}
+
+function applyLegacyMigrationsWithFault(input: {
+  dataRoot: string;
+  migrationsDir: string;
+  failurePoint: OperationalMigrationFailurePoint;
+}): void {
+  const database = new Database(
+    join(input.dataRoot, "ledger", "memory.db"),
+  );
+  try {
+    database.pragma("foreign_keys = ON");
+    applyMigrations(database, input.migrationsDir, {
+      operationalFailure: (point) => {
+        if (point === input.failurePoint) {
+          throw new Error(`test migration interruption:${point}`);
+        }
+      },
+    });
+  } finally {
+    database.close();
   }
 }
 
@@ -98,8 +138,8 @@ describe("0015 operational hardening schema", () => {
     const health = await storage.health();
     await storage.close();
 
-    expect(health.schema_version).toBe("0015");
-    expect(health.migrations).toHaveLength(15);
+    expect(health.schema_version).toBe("0016");
+    expect(health.migrations).toHaveLength(16);
     expect(health.counts).toMatchObject({
       encryption_keys: 0,
       encrypted_contents: 0,
@@ -157,36 +197,30 @@ describe("0015 operational hardening schema", () => {
     const dataRoot = temporaryRoot("operational-upgrade");
     const migrationRoot = temporaryRoot("operational-migrations");
     copyMigrationsThrough(migrationRoot, 14);
-    const before = await SqliteStorageClient.open({
-      dataRoot,
-      migrationsDir: migrationRoot,
-    });
-    const receipt = await before.commitEpisode(
+    const before = legacyStorage(dataRoot, migrationRoot);
+    const receipt = before.commitEpisode(
       inlineEpisode({
         episodeId: "episode_before_0015",
         evidenceId: "evidence_before_0015",
         idempotencyKey: "commit-before-0015-operational",
         text: "non-secret canonical row survives operational migration",
       }),
-    );
-    const beforeHealth = await before.health();
-    await before.close();
+    ).receipt;
+    const beforeHealth = before.health();
+    before.close();
 
     copyMigrationsThrough(migrationRoot, 15);
-    const upgraded = await SqliteStorageClient.open({
-      dataRoot,
-      migrationsDir: migrationRoot,
-    });
-    const afterHealth = await upgraded.health();
-    const replay = await upgraded.commitEpisode(
+    const upgraded = legacyStorage(dataRoot, migrationRoot);
+    const afterHealth = upgraded.health();
+    const replay = upgraded.commitEpisode(
       inlineEpisode({
         episodeId: "episode_before_0015",
         evidenceId: "evidence_before_0015",
         idempotencyKey: "commit-before-0015-operational",
         text: "non-secret canonical row survives operational migration",
       }),
-    );
-    await upgraded.close();
+    ).receipt;
+    upgraded.close();
 
     expect(afterHealth.schema_version).toBe("0015");
     expect(afterHealth.ledger_epoch).toBe(beforeHealth.ledger_epoch);
@@ -203,11 +237,8 @@ describe("0015 operational hardening schema", () => {
     const dataRoot = temporaryRoot("operational-secret-guard");
     const migrationRoot = temporaryRoot("operational-secret-migrations");
     copyMigrationsThrough(migrationRoot, 14);
-    const before = await SqliteStorageClient.open({
-      dataRoot,
-      migrationsDir: migrationRoot,
-    });
-    await before.close();
+    const before = legacyStorage(dataRoot, migrationRoot);
+    before.close();
 
     const database = new DatabaseSync(join(dataRoot, "ledger", "memory.db"));
     database.exec("PRAGMA foreign_keys = ON");
@@ -232,9 +263,18 @@ describe("0015 operational hardening schema", () => {
     database.close();
 
     copyMigrationsThrough(migrationRoot, 15);
-    await expect(
-      SqliteStorageClient.open({ dataRoot, migrationsDir: migrationRoot }),
-    ).rejects.toMatchObject({ code: "MIGRATION_DRIFT" });
+    const migrationDatabase = new Database(
+      join(dataRoot, "ledger", "memory.db"),
+    );
+    try {
+      expect(() =>
+        applyMigrations(migrationDatabase, migrationRoot),
+      ).toThrowError(
+        expect.objectContaining({ code: "MIGRATION_DRIFT" }),
+      );
+    } finally {
+      migrationDatabase.close();
+    }
   });
 
   it.each(operationalMigrationFailurePoints)(
@@ -247,30 +287,25 @@ describe("0015 operational hardening schema", () => {
         `operational-migration-files-${failurePoint}`,
       );
       copyMigrationsThrough(migrationRoot, 14);
-      const before = await SqliteStorageClient.open({
-        dataRoot,
-        migrationsDir: migrationRoot,
-      });
+      const before = legacyStorage(dataRoot, migrationRoot);
       const input = inlineEpisode({
         episodeId: `episode_before_0015_${failurePoint}`,
         evidenceId: `evidence_before_0015_${failurePoint}`,
         idempotencyKey: `commit-before-0015-${failurePoint}`,
         text: `canonical identity survives ${failurePoint}`,
       });
-      const receipt = await before.commitEpisode(input);
-      await before.close();
+      const receipt = before.commitEpisode(input).receipt;
+      before.close();
       const expected = canonicalSnapshot(dataRoot);
 
       copyMigrationsThrough(migrationRoot, 15);
-      await expect(
-        SqliteStorageClient.open({
+      expect(() =>
+        applyLegacyMigrationsWithFault({
           dataRoot,
           migrationsDir: migrationRoot,
-          testFaults: {
-            operationalMigrationExitAt: failurePoint,
-          },
+          failurePoint,
         }),
-      ).rejects.toMatchObject({ code: "WORKER_CRASHED" });
+      ).toThrowError(`test migration interruption:${failurePoint}`);
 
       const interrupted = new DatabaseSync(
         join(dataRoot, "ledger", "memory.db"),
@@ -305,13 +340,10 @@ describe("0015 operational hardening schema", () => {
       }
       expect(canonicalSnapshot(dataRoot)).toEqual(expected);
 
-      const recovered = await SqliteStorageClient.open({
-        dataRoot,
-        migrationsDir: migrationRoot,
-      });
-      const health = await recovered.health();
-      const replay = await recovered.commitEpisode(input);
-      await recovered.close();
+      const recovered = legacyStorage(dataRoot, migrationRoot);
+      const health = recovered.health();
+      const replay = recovered.commitEpisode(input).receipt;
+      recovered.close();
 
       expect(health.schema_version).toBe("0015");
       expect(replay).toEqual(receipt);

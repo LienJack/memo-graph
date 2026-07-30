@@ -333,8 +333,9 @@ storage.runPurge(input: PurgeRunInput): Promise<PurgeReceipt>
   transaction that advances `tombstone_epoch`, clears the current pointer,
   disables Context eligibility, appends a tombstone event, creates the purge
   job, advances the ledger epoch, and seals the mutation receipt.
-- Idempotency replay precedes approval lookup. A dry run records a content-free
-  receipt but does not mutate the tombstone frontier or consume approval.
+- Idempotency replay precedes approval lookup. A dry run returns a sealed,
+  content-free preview receipt but does not persist receipt, idempotency, or
+  result rows, mutate the tombstone frontier, or consume approval.
 - Online reads hard-filter tombstoned objects and purged L0 evidence before
   asynchronous cleanup begins.
 - The purge job checks exactly these stores: revisions/evidence, candidates,
@@ -380,44 +381,173 @@ storage.runPurge(input: PurgeRunInput): Promise<PurgeReceipt>
 
 ### 1. Scope / Trigger
 
-Use this contract whenever publishing a backup into a new data root.
+Use this contract whenever creating or verifying a complete backup, or
+publishing that backup into a new data root. Production operator restore
+remains disabled until the U5 qualification gate records fault, scale,
+resource, and runbook evidence.
 
 ### 2. Signatures
 
 ```ts
+storage.createBackup(): Promise<BackupResult>
+verifyCompleteBackupBundle({
+  directory,
+  expectedManifest?,
+}): CompleteBackupManifest
+
 restoreBackupToEmptyDataRoot({
   backup,
   dataRoot,
-  minimumTombstoneEpoch,
+  recoveryHeadProvider,
+  requiredKeyDescriptors,
 }): Promise<RestoreBackupResult>
 ```
 
 ### 3. Contracts
 
-- `minimumTombstoneEpoch` is required trusted state from outside the snapshot.
-  A backup below it fails before staging is created.
+- A complete manifest binds the canonical database logical hash, every
+  database-owned blob and external artifact, the immutable migration chain,
+  root/principal identity, configuration and environment identities, all
+  governed frontiers, and required key IDs/generations. It does not contain
+  the external recovery anchor.
+- `BackupResult` carries both the manifest and signed external recovery
+  anchor; the anchor's `backup_manifest_hash` binds the two. The head is
+  authoritative state outside the snapshot. Restore must prove it is the
+  provider's current head, matches the trusted key and manifest, and has no
+  unresolved pending/committed reservation. Bundle verification alone does
+  not establish external recovery authority.
+- The restored database checkpoint, external head, manifest minimums, and
+  recomputed state commitment must agree exactly. A snapshot behind any
+  tombstone, purge, projection, Context, learning, release-control, or
+  encryption frontier is not ready to serve.
+- Key metadata is inventory only: manifests and restore inputs contain key IDs
+  and generations, never key bytes. Required key descriptors are verified
+  before staging; absent, mismatched, or unexpectedly live key metadata fails
+  closed.
 - Restore never overwrites an existing target. It copies into a private
-  sibling staging root and publishes by atomic rename only after verification.
+  sibling staging root, fsyncs a publication-intent marker, and uses an
+  atomic no-replace publication. Only the exact matching final marker may
+  reconcile response loss.
 - Opening staging applies and verifies the immutable migration chain through
   the ordinary storage boundary.
 - Publication requires SQLite `integrity_check`, zero foreign-key violations,
   verified content-addressed blobs, canonical memory/redaction invariants,
   valid Context item/frozen hashes, valid receipt hashes, and honest purge
   outcomes.
+- FTS is derived and is verified by its logical source/frontier identity, not
+  by copying or trusting SQLite FTS bytes. Graph and vector state are restored
+  as explicitly unavailable/degraded and require rebuild before readiness.
 - Pending, running, or failed purge jobs make a snapshot unpublishable.
   A partial job is allowed only when its latest valid receipt names non-empty
   residual hashes and no store failed. The tombstone remains authoritative.
 - Any failure closes the worker and removes staging; the requested target must
   remain absent.
 
-### 4. Tests Required
+### 4. Data / State Boundaries
+
+- Backup bytes and the manifest are untrusted input until every manifest,
+  artifact, database fact, signature, and key descriptor is verified.
+- Private recovery keys and provider state live outside both the data root and
+  backup tree. The SQLite ledger stores only the reconciled recovery
+  checkpoint/effect records needed to prove agreement.
+- Publication intent is crash-recovery state inside staging. The final marker
+  is the only evidence that the exact target was published; neither marker
+  weakens the external-head or database-checkpoint checks.
+- Restore produces a blocked/degraded readiness state for derived lanes.
+  Operator enablement, remote restore, and automated disaster-recovery
+  orchestration remain U5-disabled.
+
+### 5. Error / Recovery Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Missing/extra manifest file, artifact, or binding | `CORRUPTION`, no staging publication |
+| Migration set differs from the immutable chain | `MIGRATION_DRIFT`, no staging publication |
+| External head/key/signature differs from manifest | `RECOVERY_AUTHORITY_INVALID` or `STALE_RECOVERY_HEAD` |
+| Provider has unresolved pending/committed work | Refuse backup/restore readiness |
+| Database checkpoint or governed frontier differs | Fail closed before publication |
+| Required key metadata is absent or generation differs | `KEY_UNAVAILABLE` |
+| Target exists, is a symlink, or races into existence | No-replace failure; never overwrite |
+| Failure before publication | Remove staging; target remains absent |
+| Crash after publication with exact final marker | Reconcile and return the prior publication |
+| Intent exists without exact final marker | Do not claim publication |
+| FTS/graph/vector bytes are absent or stale | Rebuild/degrade from canonical logical state; never trust bytes |
+
+### 6. Tests Required
 
 - A current L0 snapshot restores at frontier zero.
-- A pre-delete snapshot fails with `STALE_TOMBSTONE_FRONTIER`.
+- Contract tests omit each required manifest binding and artifact descriptor.
+- A pre-delete snapshot fails behind the external tombstone/purge head.
 - A post-tombstone snapshot without a terminal purge outcome fails with
   `INCOMPLETE_PURGE`.
 - A current snapshot with honestly named backup debt restores, while corrupt
   backup evidence fails before target publication.
+- Fault injection covers every copy, verification, close, fsync, intent,
+  no-replace publication, final-marker, and response-loss boundary.
+- Filesystem tests cover existing, symlink, dangling-symlink, and racing
+  targets; no run may replace another publisher's directory.
+- Recovery tests cover absent/mismatched keys, provider mismatch, unresolved
+  reservations, checkpoint disagreement, and exact response-loss replay.
+- Readiness tests prove logical FTS validation and explicit graph/vector
+  degradation; no production operator path is enabled before U5.
+
+### 7. Forbidden Patterns
+
+- Do not accept a caller-supplied minimum frontier as recovery authority.
+- Do not verify only the manifest JSON while ignoring missing or extra files.
+- Do not place private/public recovery-key files or provider state inside the
+  data root or backup tree.
+- Do not copy or hash raw FTS index bytes as canonical recovery truth.
+- Do not publish with overwrite-capable rename, check-then-rename, or a
+  symlink-following target path.
+- Do not infer success from an intent marker, a directory name, or an observed
+  target without the exact final marker and external/database agreement.
+- Do not expose production restore/operator automation before U5 explicitly
+  releases it.
+
+## Scenario: External Recovery Anchor and Replay Registry
+
+### 1. Scope / Trigger
+
+Use this contract for every recovery-protected canonical, control, purge,
+projection, Context, learning, key, or release-control effect.
+
+### 2. Contracts
+
+- The external provider persists one signed reservation per
+  `idempotency_key`. Pending and committed entries are unresolved; reconciled
+  entries remain as a terminal replay registry and do not block startup or
+  backup.
+- A same-key, same-request replay reuses the terminal `pending_id`, verifies
+  the matching append-only SQLite `recovery_anchored_effect`, returns the
+  original durable operation result, and does not advance the external head
+  generation or insert another recovery effect.
+- Recovery result commitments omit only the request-local `replayed` delivery
+  flag. Receipt hashes, outcomes, state, `committed`, and every other durable
+  result field remain bound and any change fails closed.
+- A same idempotency key with a different operation or request hash conflicts.
+  Duplicate pending IDs or idempotency keys make provider state invalid.
+- Late replay after unrelated newer effects is legal only when the current
+  checkpoint matches the current storage commitment and the replay leaves
+  that complete recovery state byte-for-byte unchanged.
+- A retryable saga step whose result legitimately evolves under one business
+  identifier uses a fresh recovery reservation per invocation; the business
+  repository still enforces its own operation/idempotency transition.
+- The terminal registry is append-only recovery authority, not an unresolved
+  work queue. U5 resource evidence must measure it and define a compaction
+  gate before any pruning; pruning must retain an equivalent authenticated
+  idempotency binding for every live SQLite recovery effect.
+
+### 3. Tests Required
+
+- Response loss and ordinary replay each produce one business receipt, one
+  recovery effect, and one external-head advance.
+- Request A, then request B, then replay A returns A's original result without
+  changing the current head or recovery-effect count.
+- Provider state rejects mismatched key pairs, duplicate idempotency bindings,
+  forged terminal records, and a terminal record without its SQLite effect.
+- Result-commitment tests prove `replayed` may differ while changing any
+  durable field, including `committed`, remains invalid.
 
 ## Scenario: Canonical Eligibility and Governed L1 FTS
 
@@ -542,8 +672,8 @@ digest are internal runtime-to-storage artifacts.
   `BEGIN IMMEDIATE` transaction as the canonical effect and receipt.
 - Effect-bearing approvals are single-use across idempotency keys.
 - Dry-run carries no approval authority, changes no canonical pointer,
-  lifecycle, control state, epoch, or projection, and records a content-free
-  receipt with `DRY_RUN`.
+  lifecycle, control state, epoch, projection, receipt, idempotency, or result
+  row, and returns an ephemeral content-free receipt with `DRY_RUN`.
 - Pin changes retention preference only. It cannot upgrade authority, extend
   validity, resolve conflict, or override usage/revoke filters.
 - Usage rules may be global or exact-Context scoped. An applicable scoped rule
@@ -561,7 +691,7 @@ digest are internal runtime-to-storage artifacts.
 | Expired, forged, changed, reused, wrong-principal/scope/tool/hash grant | `APPROVAL_INVALID`, transaction rollback |
 | Same idempotency key and request hash after approval consumption | Replay durable effect and receipt |
 | Same idempotency key with changed request | `CONFLICT` before approval lookup |
-| Dry-run with no approval | Durable preview receipt, unchanged canonical epoch/state |
+| Dry-run with no approval | Ephemeral preview receipt, no durable row, unchanged canonical epoch/state |
 | Delete while destructive tools are disabled | `PERMISSION_DENIED` before approval lookup |
 | Pin on expired/revoked/conflicted memory | Pin may persist; eligibility remains excluded |
 | Scoped allow over global block | Allowed only in that exact Context scope |

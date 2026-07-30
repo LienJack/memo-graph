@@ -328,6 +328,20 @@ function keyVerificationTag(key: Uint8Array): string {
     .digest("base64url")}`;
 }
 
+export function keyVerificationTagFromDescriptor(
+  descriptor: number,
+): string {
+  const key = readPrivateDescriptor(descriptor, {
+    exactBytes: 32,
+    maximumBytes: 32,
+  });
+  try {
+    return keyVerificationTag(key);
+  } finally {
+    key.fill(0);
+  }
+}
+
 function commitmentVerificationTag(key: Uint8Array): string {
   return `hmac-sha256:${createHmac("sha256", key)
     .update("memo-graph/commitment-key-verification/v1", "utf8")

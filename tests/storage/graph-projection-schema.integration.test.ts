@@ -26,6 +26,7 @@ import {
   seedLayeredProjectionSources,
   projectionFrontier,
 } from "../helpers/projection-examples.js";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 const cleanupPaths: string[] = [];
 const MAIN_SCOPE = ScopeSchema.parse({
@@ -65,9 +66,17 @@ afterEach(() => {
   }
 });
 
-async function projectedStorage(prefix: string) {
+async function projectedStorage(
+  prefix: string,
+  recoveryHeadProvider?: ReturnType<typeof testRecoveryHeadProvider>,
+) {
   const dataRoot = temporaryRoot(prefix);
-  const storage = await SqliteStorageClient.open({ dataRoot });
+  const storage = await SqliteStorageClient.open({
+    dataRoot,
+    ...(recoveryHeadProvider === undefined
+      ? {}
+      : { recoveryHeadProvider }),
+  });
   await seedLayeredProjectionSources(storage, { prefix });
   const consolidation = new ConsolidationService({ storage });
   await consolidation.drain({
@@ -653,7 +662,11 @@ describe("SQLite graph projection delivery", () => {
   });
 
   it("marks restored graph checkpoints unavailable until reverified", async () => {
-    const { storage } = await projectedStorage("graph-restore");
+    const recoveryHeadProvider = testRecoveryHeadProvider();
+    const { storage } = await projectedStorage(
+      "graph-restore",
+      recoveryHeadProvider,
+    );
     const snapshot = await storage.graphScopeSnapshot({
       principal_id: "user_local",
       scope: MAIN_SCOPE,
@@ -693,9 +706,12 @@ describe("SQLite graph projection delivery", () => {
     await restoreBackupToEmptyDataRoot({
       backup,
       dataRoot: target,
-      minimumTombstoneEpoch: 0,
+      recoveryHeadProvider,
     });
-    const restored = await SqliteStorageClient.open({ dataRoot: target });
+    const restored = await SqliteStorageClient.open({
+      dataRoot: target,
+      recoveryHeadProvider,
+    });
     try {
       await expect(
         restored.graphProjectionCheckpoint({

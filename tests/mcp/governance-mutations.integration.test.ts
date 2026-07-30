@@ -6,6 +6,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/client";
@@ -29,14 +30,20 @@ import {
   type ApprovalRegistry,
   type VerifiedApproval,
 } from "../../packages/memory-kernel/src/index.js";
-import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import {
+  SqliteStorageClient,
+  restoreBackupToEmptyDataRoot,
+  verifyCompleteBackupBundle,
+} from "@memo-graph/storage-sqlite";
 import type { z } from "zod";
 
 import {
   memoryCandidate,
   memoryProposal,
 } from "../helpers/governance-examples.js";
+import { mcpRecoveryFixture } from "../helpers/mcp-recovery.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
+import { testProviderForDataRoot } from "../setup/recovery-provider.js";
 
 const cleanupPaths: string[] = [];
 const NOW = "2026-07-28T13:00:00.000Z";
@@ -48,6 +55,24 @@ function temporaryRoot(prefix: string): string {
   );
   cleanupPaths.push(root);
   return root;
+}
+
+function recoveryEffectCount(dataRoot: string): number {
+  const database = new DatabaseSync(
+    join(dataRoot, "ledger", "memory.db"),
+    { readOnly: true },
+  );
+  try {
+    return (
+      database
+        .prepare(
+          "SELECT count(*) AS count FROM recovery_anchored_effects",
+        )
+        .get() as { count: number }
+    ).count;
+  } finally {
+    database.close();
+  }
 }
 
 class TestApprovalRegistry implements ApprovalRegistry {
@@ -127,6 +152,7 @@ function runtime(
 
 async function seeded(
   prefix: string,
+  externalRecovery = false,
 ): Promise<{
   storage: SqliteStorageClient;
   runtime: MemoryRuntime;
@@ -134,9 +160,19 @@ async function seeded(
   memoryId: string;
   revisionId: string;
   dataRoot: string;
+  recoveryConfig?: ReturnType<typeof mcpRecoveryFixture>["config"];
 }> {
-  const dataRoot = temporaryRoot(prefix);
-  const storage = await SqliteStorageClient.open({ dataRoot });
+  const root = temporaryRoot(prefix);
+  const dataRoot = externalRecovery ? join(root, "data") : root;
+  const recovery = externalRecovery
+    ? mcpRecoveryFixture(dataRoot)
+    : undefined;
+  const storage = await SqliteStorageClient.open({
+    dataRoot,
+    ...(recovery === undefined
+      ? {}
+      : { recoveryHeadProvider: recovery.provider }),
+  });
   await storage.commitEpisode(inlineEpisode({}));
   const approvals = new TestApprovalRegistry();
   const kernel = runtime(storage, approvals);
@@ -160,6 +196,9 @@ async function seeded(
     memoryId: result.memory_id,
     revisionId: result.current_revision_id,
     dataRoot,
+    ...(recovery === undefined
+      ? {}
+      : { recoveryConfig: recovery.config }),
   };
 }
 
@@ -229,6 +268,7 @@ describe("governance mutation runtime", () => {
 
   it("atomically consumes approval and replays before asking for it again", async () => {
     const fixture = await seeded("control-replay");
+    const recoveryProvider = testProviderForDataRoot(fixture.dataRoot);
     const input = {
       envelope: mutationEnvelope({
         tool: "memory_pin",
@@ -252,6 +292,17 @@ describe("governance mutation runtime", () => {
       },
     });
     fixture.approvals.grants.clear();
+    await fixture.storage.commitEpisode(
+      inlineEpisode({
+        episodeId: "episode_after_control",
+        evidenceId: "evidence_after_control",
+        idempotencyKey: "commit:after-control-replay",
+      }),
+    );
+    const generationBeforeLateReplay =
+      recoveryProvider.readCurrent()?.payload.generation;
+    const effectsBeforeLateReplay =
+      recoveryEffectCount(fixture.dataRoot);
     const replayed = await fixture.runtime.memoryPin(input);
     expect(replayed).toMatchObject({
       status: "OK",
@@ -267,6 +318,12 @@ describe("governance mutation runtime", () => {
         (replayed.data as { receipt: unknown }).receipt,
       ).toEqual((first.data as { receipt: unknown }).receipt);
     }
+    expect(recoveryProvider.readCurrent()?.payload.generation).toBe(
+      generationBeforeLateReplay,
+    );
+    expect(recoveryEffectCount(fixture.dataRoot)).toBe(
+      effectsBeforeLateReplay,
+    );
     expect(fixture.approvals.verifyCalls).toBe(1);
 
     const reusedInput = {
@@ -293,8 +350,16 @@ describe("governance mutation runtime", () => {
     await fixture.storage.close();
   });
 
-  it("records a dry-run receipt without changing epoch, pointer, pin, or approval", async () => {
+  it("returns an ephemeral control preview without changing durable state", async () => {
     const fixture = await seeded("control-dry-run");
+    const recoveryProvider = testProviderForDataRoot(fixture.dataRoot);
+    const recoveryHeadBeforePreview = recoveryProvider.readCurrent();
+    await fixture.storage.close();
+    fixture.storage = await SqliteStorageClient.open({
+      dataRoot: fixture.dataRoot,
+      recoveryHeadProvider: null,
+    });
+    fixture.runtime = runtime(fixture.storage, fixture.approvals);
     const before = await fixture.storage.health();
     const input = {
       envelope: mutationEnvelope({
@@ -323,7 +388,47 @@ describe("governance mutation runtime", () => {
     expect(after.counts.approval_consumptions).toBe(
       before.counts.approval_consumptions,
     );
+    expect(recoveryProvider.readCurrent()).toEqual(
+      recoveryHeadBeforePreview,
+    );
+    expect(
+      await fixture.storage.getReceipt({
+        receipt_id: preview.receipt_id ?? "",
+        principal_id: "user_local",
+        scopes: [SCOPE],
+      }),
+    ).toBeNull();
+    expect(
+      await fixture.storage.memoryControlReplay({
+        idempotency_key: input.envelope.idempotency_key,
+        request_hash: canonicalSha256(input),
+      }),
+    ).toBeNull();
     await fixture.storage.close();
+    const reopened = await SqliteStorageClient.open({
+      dataRoot: fixture.dataRoot,
+      recoveryHeadProvider: recoveryProvider,
+    });
+    expect((await reopened.health()).recovery.state).toBe("ready");
+    const backup = await reopened.createBackup();
+    expect(
+      verifyCompleteBackupBundle({
+        directory: backup.directory,
+        expectedManifest: backup.manifest,
+      }).manifest_hash,
+    ).toBe(backup.manifest.manifest_hash);
+    await reopened.close();
+    const restored = await restoreBackupToEmptyDataRoot({
+      backup,
+      dataRoot: join(
+        temporaryRoot("control-dry-run-restore"),
+        "target",
+      ),
+      recoveryHeadProvider: recoveryProvider,
+    });
+    expect(restored.health.latest_receipt_hash).toBe(
+      backup.latest_receipt_hash,
+    );
   });
 
   it("keeps pin, scoped usage, demote, and revoke semantically distinct", async () => {
@@ -605,6 +710,14 @@ describe("governance mutation runtime", () => {
 
   it("previews correction without changing epoch, revision, candidate, or approval", async () => {
     const fixture = await seeded("correction-dry-run");
+    const recoveryProvider = testProviderForDataRoot(fixture.dataRoot);
+    const recoveryHeadBeforePreview = recoveryProvider.readCurrent();
+    await fixture.storage.close();
+    fixture.storage = await SqliteStorageClient.open({
+      dataRoot: fixture.dataRoot,
+      recoveryHeadProvider: null,
+    });
+    fixture.runtime = runtime(fixture.storage, fixture.approvals);
     const content = {
       storage: "inline",
       text: "Preview-only correction.",
@@ -652,11 +765,56 @@ describe("governance mutation runtime", () => {
     expect(after.counts.approval_consumptions).toBe(
       before.counts.approval_consumptions,
     );
+    expect(recoveryProvider.readCurrent()).toEqual(
+      recoveryHeadBeforePreview,
+    );
+    expect(
+      await fixture.storage.getReceipt({
+        receipt_id: preview.receipt_id ?? "",
+        principal_id: "user_local",
+        scopes: [SCOPE],
+      }),
+    ).toBeNull();
+    expect(
+      await fixture.storage.governanceReplay({
+        idempotency_key:
+          "memory-correct-dry-run-001",
+        request_hash: canonicalSha256({
+          envelope: mutationEnvelope({
+            tool: "memory_correct",
+            idempotencyKey: "memory-correct-dry-run-001",
+            expectedRevisionId: fixture.revisionId,
+            approvalId: null,
+            dryRun: true,
+          }),
+          memory_id: fixture.memoryId,
+          replacement: {
+            content,
+            content_hash: canonicalSha256(content),
+            evidence_ids: ["evidence_storage_1"],
+            validity: {
+              valid_from: NOW,
+              valid_to: null,
+              recorded_at: NOW,
+            },
+            reason: "Preview a correction without applying it",
+          },
+        }),
+      }),
+    ).toBeNull();
     await fixture.storage.close();
+    const reopened = await SqliteStorageClient.open({
+      dataRoot: fixture.dataRoot,
+    });
+    expect((await reopened.health()).recovery.state).toBe("ready");
+    await reopened.close();
   });
 
   it("returns the same governed result through direct runtime and MCP", async () => {
-    const fixture = await seeded("control-mcp-parity");
+    const fixture = await seeded("control-mcp-parity", true);
+    if (fixture.recoveryConfig === undefined) {
+      throw new Error("MCP parity requires external recovery authority");
+    }
     const input = {
       envelope: mutationEnvelope({
         tool: "memory_pin",
@@ -680,6 +838,7 @@ describe("governance mutation runtime", () => {
         allowed_scopes: [SCOPE],
         allowed_authorities: ["user_stated"],
         destructive_tools_enabled: false,
+        recovery_head: fixture.recoveryConfig,
       }),
       { encoding: "utf8", mode: 0o600 },
     );

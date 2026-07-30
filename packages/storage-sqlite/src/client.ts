@@ -4,6 +4,7 @@ import { performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
 
 import {
+  CanonicalHashSchema,
   IdentifierSchema,
   EncryptionKeyInventorySchema,
   EncryptionReceiptSchema,
@@ -12,10 +13,15 @@ import {
   MutationReceiptSchema,
   RootLeaseSchema,
   VectorScopeCheckpointSchema,
+  canonicalJson,
+  canonicalSha256,
   type GraphScopeCheckpoint,
+  type CanonicalHash,
   type EncryptionKeyInventory,
   type EncryptionReceipt,
   type KeyRotationProgress,
+  type RecoveryAnchor,
+  type RecoveryPendingReservation,
   type VectorScopeCheckpoint,
 } from "@memo-graph/contracts";
 import { z } from "zod";
@@ -33,11 +39,14 @@ import {
   type AdmissionObservation,
   type AdmissionPolicy,
 } from "./admission-control.js";
+import type { RecoveryHeadProvider } from "./anchor-coordinator.js";
+import { recoveryMinimumsFromManifest } from "./backup-manifest.js";
 import {
   StorageError,
   deserializeStorageError,
 } from "./errors.js";
 import type { OperationalMigrationFailurePoint } from "./migrations.js";
+import { recoveryContentHash } from "./recovery-hash.js";
 import {
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
@@ -47,6 +56,7 @@ import {
   BeginKeyRotationResultSchema,
   AuthorizedSecretUseResultSchema,
   AbortKeyRotationResultSchema,
+  BackupDraftResultSchema,
   BackupResultSchema,
   BlockWorkerResultSchema,
   CheckpointResultSchema,
@@ -134,6 +144,8 @@ import {
   RecordRecallCommandSchema,
   RecordRecallResultSchema,
   RecordProjectionRebuildResultSchema,
+  RecoveryEffectRecordSchema,
+  RecoveryStorageStateSchema,
   ReserveSecretNonceCommandSchema,
   ReserveSecretNonceResultSchema,
   RevokeEncryptionKeyCommandSchema,
@@ -246,6 +258,8 @@ import {
   type RelationTraversalInput,
   type RelationTraversalResult,
   type RebuildFtsResult,
+  type RecoveryEffectRecord,
+  type RecoveryProtectedEffect,
   type SearchEvidenceResult,
   type RestoreVerificationResult,
   type RunVectorTemporalSweepInput,
@@ -300,7 +314,17 @@ export type SqliteStorageClientOptions = {
     policy?: AdmissionPolicy;
     observe?: () => AdmissionObservation;
   };
+  recoveryHeadProvider?: RecoveryHeadProvider | null;
 };
+
+export const RecoveryAuthorityHealthSchema = z
+  .object({
+    configured: z.boolean(),
+    state: z.enum(["ready", "blocked"]),
+    current_generation: z.number().int().positive().nullable(),
+    unresolved_pending_count: z.number().int().nonnegative(),
+  })
+  .strict();
 
 export const StorageClientHealthSchema = StorageHealthSchema.extend({
   writer_queue: WriterQueueMetricsSchema,
@@ -312,6 +336,7 @@ export const StorageClientHealthSchema = StorageHealthSchema.extend({
   checkpoint_counters: CheckpointResultSchema.extend({
     attempts: z.number().int().nonnegative(),
   }).strict(),
+  recovery: RecoveryAuthorityHealthSchema,
 }).strict();
 
 export type StorageClientHealth = z.infer<
@@ -348,7 +373,15 @@ export class SqliteStorageClient {
   readonly #admission: AdmissionController | undefined;
   readonly #rootLease: RootWriterLease | undefined;
   readonly #secretIngress: SecretIngress;
+  readonly #recoveryHeadProvider: RecoveryHeadProvider | null;
   readonly #pending = new Map<string, PendingRequest>();
+  readonly #protectedInFlight = new Map<
+    string,
+    {
+      requestHash: CanonicalHash;
+      promise: Promise<unknown>;
+    }
+  >();
   #worker: Worker | undefined;
   #closed = false;
   #closing = false;
@@ -421,12 +454,17 @@ export class SqliteStorageClient {
       },
     });
     this.#secretIngress = createSecretIngressCoordinator({
-      installKey: (input) =>
-        this.#request(
-          "install_encryption_key",
-          InstallEncryptionKeyCommandSchema.parse(input),
-          EncryptionReceiptSchema,
-        ),
+      installKey: (input) => {
+        const command = InstallEncryptionKeyCommandSchema.parse(input);
+        return this.#protectedRequest({
+          workerOperation: "install_encryption_key",
+          payload: command,
+          resultSchema: EncryptionReceiptSchema,
+          operation: "key",
+          idempotencyKey: `install:${command.operation_id}`,
+          requestHash: command.request_digest,
+        });
+      },
       inspectKeys: () =>
         this.#request(
           "inspect_encryption_keys",
@@ -440,18 +478,29 @@ export class SqliteStorageClient {
           NullSchema,
         );
       },
-      reserve: (input) =>
-        this.#request(
-          "reserve_secret_nonce",
-          ReserveSecretNonceCommandSchema.parse(input),
-          ReserveSecretNonceResultSchema,
-        ),
-      commit: (input) =>
-        this.#request(
-          "commit_encrypted_secret",
-          CommitEncryptedSecretCommandSchema.parse(input),
-          EncryptionReceiptSchema,
-        ),
+      reserve: (input) => {
+        const command = ReserveSecretNonceCommandSchema.parse(input);
+        return this.#protectedRequest({
+          workerOperation: "reserve_secret_nonce",
+          payload: command,
+          resultSchema: ReserveSecretNonceResultSchema,
+          operation: "key",
+          idempotencyKey:
+            `reserve:${command.operation_id}:${randomUUID()}`,
+          requestHash: command.request_digest,
+        });
+      },
+      commit: (input) => {
+        const command = CommitEncryptedSecretCommandSchema.parse(input);
+        return this.#protectedRequest({
+          workerOperation: "commit_encrypted_secret",
+          payload: command,
+          resultSchema: EncryptionReceiptSchema,
+          operation: "canonical",
+          idempotencyKey: `commit:${command.operation_id}`,
+          requestHash: command.request_digest,
+        });
+      },
       rootFenceToken: () => {
         const lease = this.#rootLease;
         if (lease === undefined) {
@@ -459,12 +508,17 @@ export class SqliteStorageClient {
         }
         return lease.snapshot.fence_token;
       },
-      beginRotation: (input) =>
-        this.#request(
-          "begin_key_rotation",
-          BeginKeyRotationCommandSchema.parse(input),
-          BeginKeyRotationResultSchema,
-        ),
+      beginRotation: (input) => {
+        const command = BeginKeyRotationCommandSchema.parse(input);
+        return this.#protectedRequest({
+          workerOperation: "begin_key_rotation",
+          payload: command,
+          resultSchema: BeginKeyRotationResultSchema,
+          operation: "key",
+          idempotencyKey: `begin:${command.rotation_id}`,
+          requestHash: command.request_digest,
+        });
+      },
       rotation: (rotationId) =>
         this.#request(
           "get_key_rotation",
@@ -477,42 +531,77 @@ export class SqliteStorageClient {
           KeyRotationInputSchema.parse({ rotation_id: rotationId }),
           KeyRotationNextResultSchema,
         ),
-      consumeUseAuthority: (authority) =>
-        this.#request(
-          "consume_secret_use_authority",
-          ConsumeSecretUseAuthorityCommandSchema.parse(authority),
-          AuthorizedSecretUseResultSchema,
-        ),
-      reserveRotation: (input) =>
-        this.#request(
-          "reserve_rotation_nonce",
-          ReserveRotationNonceCommandSchema.parse(input),
-          ReserveSecretNonceResultSchema,
-        ),
-      commitRotation: (input) =>
-        this.#request(
-          "commit_rotated_secret",
-          CommitRotatedSecretCommandSchema.parse(input),
-          EncryptionReceiptSchema,
-        ),
-      completeRotation: (rotationId) =>
-        this.#request(
-          "complete_key_rotation",
-          KeyRotationInputSchema.parse({ rotation_id: rotationId }),
-          CompleteKeyRotationResultSchema,
-        ),
-      abortRotation: (rotationId) =>
-        this.#request(
-          "abort_key_rotation",
-          KeyRotationInputSchema.parse({ rotation_id: rotationId }),
-          AbortKeyRotationResultSchema,
-        ),
-      revokeKey: (input) =>
-        this.#request(
-          "revoke_encryption_key",
-          RevokeEncryptionKeyCommandSchema.parse(input),
-          RevokeEncryptionKeyResultSchema,
-        ),
+      consumeUseAuthority: (authorityInput) => {
+        const authority =
+          ConsumeSecretUseAuthorityCommandSchema.parse(authorityInput);
+        return this.#protectedRequest({
+          workerOperation: "consume_secret_use_authority",
+          payload: authority,
+          resultSchema: AuthorizedSecretUseResultSchema,
+          operation: "key",
+          idempotencyKey: authority.authority_id,
+          requestHash: authority.authority_hash,
+        });
+      },
+      reserveRotation: (input) => {
+        const command = ReserveRotationNonceCommandSchema.parse(input);
+        return this.#protectedRequest({
+          workerOperation: "reserve_rotation_nonce",
+          payload: command,
+          resultSchema: ReserveSecretNonceResultSchema,
+          operation: "key",
+          idempotencyKey: `rotation-reserve:${command.operation_id}`,
+          requestHash: command.request_digest,
+        });
+      },
+      commitRotation: (input) => {
+        const command = CommitRotatedSecretCommandSchema.parse(input);
+        return this.#protectedRequest({
+          workerOperation: "commit_rotated_secret",
+          payload: command,
+          resultSchema: EncryptionReceiptSchema,
+          operation: "key",
+          idempotencyKey: `rotation-commit:${command.operation_id}`,
+          requestHash: command.request_digest,
+        });
+      },
+      completeRotation: (rotationId) => {
+        const command = KeyRotationInputSchema.parse({
+          rotation_id: rotationId,
+        });
+        return this.#protectedRequest({
+          workerOperation: "complete_key_rotation",
+          payload: command,
+          resultSchema: CompleteKeyRotationResultSchema,
+          operation: "key",
+          idempotencyKey: `complete:${command.rotation_id}`,
+          requestHash: CanonicalHashSchema.parse(canonicalSha256(command)),
+        });
+      },
+      abortRotation: (rotationId) => {
+        const command = KeyRotationInputSchema.parse({
+          rotation_id: rotationId,
+        });
+        return this.#protectedRequest({
+          workerOperation: "abort_key_rotation",
+          payload: command,
+          resultSchema: AbortKeyRotationResultSchema,
+          operation: "key",
+          idempotencyKey: `abort:${command.rotation_id}`,
+          requestHash: CanonicalHashSchema.parse(canonicalSha256(command)),
+        });
+      },
+      revokeKey: (input) => {
+        const command = RevokeEncryptionKeyCommandSchema.parse(input);
+        return this.#protectedRequest({
+          workerOperation: "revoke_encryption_key",
+          payload: command,
+          resultSchema: RevokeEncryptionKeyResultSchema,
+          operation: "key",
+          idempotencyKey: `revoke:${command.operation_id}`,
+          requestHash: command.request_digest,
+        });
+      },
       replayPurge: (input) =>
         this.#request(
           "replay_secret_purge",
@@ -525,12 +614,19 @@ export class SqliteStorageClient {
           SecretPurgeTargetInputSchema.parse({ owner }),
           SecretPurgeTargetSchema,
         ),
-      purge: (input) =>
-        this.#request(
-          "purge_encrypted_secret",
-          PurgeEncryptedSecretCommandSchema.parse(input),
-          EncryptionReceiptSchema,
-        ),
+      purge: async (input) => {
+        const command = PurgeEncryptedSecretCommandSchema.parse(input);
+        const receipt = await this.#protectedRequest({
+          workerOperation: "purge_encrypted_secret",
+          payload: command,
+          resultSchema: EncryptionReceiptSchema,
+          operation: "purge",
+          idempotencyKey: `purge:${command.operation_id}`,
+          requestHash: command.request_digest,
+        });
+        await this.#request("finalize_secret_purge", null, NullSchema);
+        return receipt;
+      },
     }, this.#options.secretPrincipalId);
     this.#faultOnNextWorker =
       options.testFaults?.exitAfterCommitBeforeResponseOnce ?? false;
@@ -538,6 +634,7 @@ export class SqliteStorageClient {
       options.testFaults?.encryptedArtifactExitAt ?? null;
     this.#operationalMigrationFaultOnNextWorker =
       options.testFaults?.operationalMigrationExitAt ?? null;
+    this.#recoveryHeadProvider = options.recoveryHeadProvider ?? null;
   }
 
   static async open(
@@ -546,6 +643,7 @@ export class SqliteStorageClient {
     const client = new SqliteStorageClient(options);
     try {
       await client.health();
+      await client.#initializeRecoveryAuthority();
       return client;
     } catch (error) {
       await client.#abort();
@@ -572,6 +670,56 @@ export class SqliteStorageClient {
   async health(): Promise<StorageClientHealth> {
     this.#admission?.refresh();
     const result = await this.#request("health", null, StorageHealthSchema);
+    const recoveryStorageState =
+      this.#recoveryHeadProvider === null
+        ? null
+        : await this.#request(
+            "recovery_state",
+            null,
+            RecoveryStorageStateSchema,
+          ).catch(() => null);
+    const recovery = (() => {
+      const provider = this.#recoveryHeadProvider;
+      if (provider === null) {
+        return {
+          configured: false,
+          state: "blocked" as const,
+          current_generation: null,
+          unresolved_pending_count: 0,
+        };
+      }
+      try {
+        const current = provider.readCurrent();
+        const unresolvedPendingCount =
+          provider.unresolvedPending().length;
+        const stateMatches =
+          current !== null &&
+          recoveryStorageState !== null &&
+          current.payload.root_id === recoveryStorageState.root_id &&
+          current.payload.principal_id ===
+            recoveryStorageState.principal_id &&
+          current.payload.state_commitment_hash ===
+            recoveryStorageState.state_commitment_hash &&
+          canonicalJson(current.payload.minimums) ===
+            canonicalJson(recoveryStorageState.minimums);
+        return {
+          configured: true,
+          state:
+            stateMatches && unresolvedPendingCount === 0
+              ? ("ready" as const)
+              : ("blocked" as const),
+          current_generation: current?.payload.generation ?? null,
+          unresolved_pending_count: unresolvedPendingCount,
+        };
+      } catch {
+        return {
+          configured: true,
+          state: "blocked" as const,
+          current_generation: null,
+          unresolved_pending_count: 0,
+        };
+      }
+    })();
     return StorageClientHealthSchema.parse({
       ...result,
       writer_queue: this.#writerQueue.metrics(),
@@ -581,6 +729,7 @@ export class SqliteStorageClient {
       pressure_reason: this.#admission?.pressureReason ?? null,
       root_lease: this.#rootLease?.snapshot ?? null,
       checkpoint_counters: this.#checkpointCounters,
+      recovery,
     });
   }
 
@@ -590,6 +739,13 @@ export class SqliteStorageClient {
       null,
       EncryptionKeyInventorySchema,
     );
+  }
+
+  get recoveryHeadProvider(): RecoveryHeadProvider {
+    if (this.#recoveryHeadProvider === null) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    return this.#recoveryHeadProvider;
   }
 
   darkLaunchInstallEncryptionKey(
@@ -610,9 +766,14 @@ export class SqliteStorageClient {
     if (!this.#options.testOperations) {
       return Promise.reject(new StorageError("ENCRYPTION_REQUIRED"));
     }
-    return this.#writerQueue.enqueue(
-      () => this.#secretIngress.admit(input),
-      "secret_write",
+    return this.#coalesceProtected(
+      `dark_launch_admit_secret:${input.idempotency_key}`,
+      recoveryContentHash(input),
+      () =>
+        this.#writerQueue.enqueue(
+          () => this.#secretIngress.admit(input),
+          "secret_write",
+        ),
     );
   }
 
@@ -703,12 +864,11 @@ export class SqliteStorageClient {
     input: ApplyProjectionBatchCommand,
   ): Promise<ProjectionBatchResult> {
     const command = ApplyProjectionBatchCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "apply_projection_batch",
-        command,
-        ProjectionBatchResultSchema,
-      ),
+    return this.#protectedMutation(
+      "apply_projection_batch",
+      command,
+      ProjectionBatchResultSchema,
+      "projection",
     );
   }
 
@@ -780,12 +940,11 @@ export class SqliteStorageClient {
     input: EnqueueProjectionJobCommand,
   ): Promise<ProjectionJobMutationResult> {
     const command = EnqueueProjectionJobCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "enqueue_projection_job",
-        command,
-        ProjectionJobMutationResultSchema,
-      ),
+    return this.#protectedMutation(
+      "enqueue_projection_job",
+      command,
+      ProjectionJobMutationResultSchema,
+      "projection",
     );
   }
 
@@ -793,12 +952,11 @@ export class SqliteStorageClient {
     input: ClaimProjectionJobsInput,
   ): Promise<ClaimProjectionJobsResult> {
     const request = ClaimProjectionJobsInputSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "claim_projection_jobs",
-        request,
-        ClaimProjectionJobsResultSchema,
-      ),
+    return this.#protectedMutation(
+      "claim_projection_jobs",
+      request,
+      ClaimProjectionJobsResultSchema,
+      "projection",
     );
   }
 
@@ -806,12 +964,11 @@ export class SqliteStorageClient {
     input: FailProjectionJobCommand,
   ): Promise<ProjectionJobMutationResult> {
     const command = FailProjectionJobCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "fail_projection_job",
-        command,
-        ProjectionJobMutationResultSchema,
-      ),
+    return this.#protectedMutation(
+      "fail_projection_job",
+      command,
+      ProjectionJobMutationResultSchema,
+      "projection",
     );
   }
 
@@ -819,12 +976,11 @@ export class SqliteStorageClient {
     input: CompleteProjectionJobCommand,
   ): Promise<ProjectionJobMutationResult> {
     const command = CompleteProjectionJobCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "complete_projection_job",
-        command,
-        ProjectionJobMutationResultSchema,
-      ),
+    return this.#protectedMutation(
+      "complete_projection_job",
+      command,
+      ProjectionJobMutationResultSchema,
+      "projection",
     );
   }
 
@@ -833,12 +989,11 @@ export class SqliteStorageClient {
   ): Promise<InvalidateProjectionDescendantsResult> {
     const command =
       InvalidateProjectionDescendantsCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "invalidate_projection_descendants",
-        command,
-        InvalidateProjectionDescendantsResultSchema,
-      ),
+    return this.#protectedMutation(
+      "invalidate_projection_descendants",
+      command,
+      InvalidateProjectionDescendantsResultSchema,
+      "projection",
     );
   }
 
@@ -846,12 +1001,11 @@ export class SqliteStorageClient {
     input: ProjectionRebuildReceipt,
   ): Promise<RecordProjectionRebuildResult> {
     const receipt = ProjectionRebuildReceiptSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "record_projection_rebuild",
-        receipt,
-        RecordProjectionRebuildResultSchema,
-      ),
+    return this.#protectedMutation(
+      "record_projection_rebuild",
+      receipt,
+      RecordProjectionRebuildResultSchema,
+      "projection",
     );
   }
 
@@ -892,12 +1046,11 @@ export class SqliteStorageClient {
     input: ClaimGraphProjectionJobsInput,
   ): Promise<ClaimGraphProjectionJobsResult> {
     const request = ClaimGraphProjectionJobsInputSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "claim_graph_projection_jobs",
-        request,
-        ClaimGraphProjectionJobsResultSchema,
-      ),
+    return this.#protectedMutation(
+      "claim_graph_projection_jobs",
+      request,
+      ClaimGraphProjectionJobsResultSchema,
+      "projection",
     );
   }
 
@@ -905,12 +1058,11 @@ export class SqliteStorageClient {
     input: ApplyGraphProjectionJobCommand,
   ): Promise<GraphProjectionJobResult> {
     const command = ApplyGraphProjectionJobCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "apply_graph_projection_job",
-        command,
-        GraphProjectionJobResultSchema,
-      ),
+    return this.#protectedMutation(
+      "apply_graph_projection_job",
+      command,
+      GraphProjectionJobResultSchema,
+      "projection",
     );
   }
 
@@ -918,12 +1070,11 @@ export class SqliteStorageClient {
     input: FailGraphProjectionJobCommand,
   ): Promise<GraphProjectionJobResult> {
     const command = FailGraphProjectionJobCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "fail_graph_projection_job",
-        command,
-        GraphProjectionJobResultSchema,
-      ),
+    return this.#protectedMutation(
+      "fail_graph_projection_job",
+      command,
+      GraphProjectionJobResultSchema,
+      "projection",
     );
   }
 
@@ -931,12 +1082,11 @@ export class SqliteStorageClient {
     input: ResetGraphProjectionScopesInput,
   ): Promise<ResetGraphProjectionScopesResult> {
     const request = ResetGraphProjectionScopesInputSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "reset_graph_projection_scopes",
-        request,
-        ResetGraphProjectionScopesResultSchema,
-      ),
+    return this.#protectedMutation(
+      "reset_graph_projection_scopes",
+      request,
+      ResetGraphProjectionScopesResultSchema,
+      "projection",
     );
   }
 
@@ -944,12 +1094,11 @@ export class SqliteStorageClient {
     input: MarkGraphRestoreUnavailableInput,
   ): Promise<MarkGraphRestoreUnavailableResult> {
     const request = MarkGraphRestoreUnavailableInputSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "mark_graph_restore_unavailable",
-        request,
-        MarkGraphRestoreUnavailableResultSchema,
-      ),
+    return this.#protectedMutation(
+      "mark_graph_restore_unavailable",
+      request,
+      MarkGraphRestoreUnavailableResultSchema,
+      "projection",
     );
   }
 
@@ -965,12 +1114,11 @@ export class SqliteStorageClient {
     input: RegisterVectorEmbeddingEpochCommand,
   ): Promise<RegisterVectorEmbeddingEpochResult> {
     const command = RegisterVectorEmbeddingEpochCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "register_vector_embedding_epoch",
-        command,
-        RegisterVectorEmbeddingEpochResultSchema,
-      ),
+    return this.#protectedMutation(
+      "register_vector_embedding_epoch",
+      command,
+      RegisterVectorEmbeddingEpochResultSchema,
+      "projection",
     );
   }
 
@@ -978,12 +1126,11 @@ export class SqliteStorageClient {
     input: ConfigureVectorProjectionCommand,
   ): Promise<ConfigureVectorProjectionResult> {
     const command = ConfigureVectorProjectionCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "configure_vector_projection",
-        command,
-        ConfigureVectorProjectionResultSchema,
-      ),
+    return this.#protectedMutation(
+      "configure_vector_projection",
+      command,
+      ConfigureVectorProjectionResultSchema,
+      "projection",
     );
   }
 
@@ -1002,12 +1149,11 @@ export class SqliteStorageClient {
     input: ClaimVectorProjectionJobsInput,
   ): Promise<ClaimVectorProjectionJobsResult> {
     const request = ClaimVectorProjectionJobsInputSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "claim_vector_projection_jobs",
-        request,
-        ClaimVectorProjectionJobsResultSchema,
-      ),
+    return this.#protectedMutation(
+      "claim_vector_projection_jobs",
+      request,
+      ClaimVectorProjectionJobsResultSchema,
+      "projection",
     );
   }
 
@@ -1015,12 +1161,11 @@ export class SqliteStorageClient {
     input: ApplyVectorProjectionJobCommand,
   ): Promise<VectorProjectionJobResult> {
     const command = ApplyVectorProjectionJobCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "apply_vector_projection_job",
-        command,
-        VectorProjectionJobResultSchema,
-      ),
+    return this.#protectedMutation(
+      "apply_vector_projection_job",
+      command,
+      VectorProjectionJobResultSchema,
+      "projection",
     );
   }
 
@@ -1028,12 +1173,11 @@ export class SqliteStorageClient {
     input: FailVectorProjectionJobCommand,
   ): Promise<VectorProjectionJobResult> {
     const command = FailVectorProjectionJobCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "fail_vector_projection_job",
-        command,
-        VectorProjectionJobResultSchema,
-      ),
+    return this.#protectedMutation(
+      "fail_vector_projection_job",
+      command,
+      VectorProjectionJobResultSchema,
+      "projection",
     );
   }
 
@@ -1041,12 +1185,11 @@ export class SqliteStorageClient {
     input: StaleVectorProjectionJobCommand,
   ): Promise<VectorProjectionJobResult> {
     const command = StaleVectorProjectionJobCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "stale_vector_projection_job",
-        command,
-        VectorProjectionJobResultSchema,
-      ),
+    return this.#protectedMutation(
+      "stale_vector_projection_job",
+      command,
+      VectorProjectionJobResultSchema,
+      "projection",
     );
   }
 
@@ -1054,12 +1197,11 @@ export class SqliteStorageClient {
     input: MarkVectorRestoreDegradedInput,
   ): Promise<MarkVectorRestoreDegradedResult> {
     const request = MarkVectorRestoreDegradedInputSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "mark_vector_restore_degraded",
-        request,
-        MarkVectorRestoreDegradedResultSchema,
-      ),
+    return this.#protectedMutation(
+      "mark_vector_restore_degraded",
+      request,
+      MarkVectorRestoreDegradedResultSchema,
+      "projection",
     );
   }
 
@@ -1067,12 +1209,11 @@ export class SqliteStorageClient {
     input: RunVectorTemporalSweepInput,
   ): Promise<RunVectorTemporalSweepResult> {
     const request = RunVectorTemporalSweepInputSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "run_vector_temporal_sweep",
-        request,
-        RunVectorTemporalSweepResultSchema,
-      ),
+    return this.#protectedMutation(
+      "run_vector_temporal_sweep",
+      request,
+      RunVectorTemporalSweepResultSchema,
+      "projection",
     );
   }
 
@@ -1088,12 +1229,11 @@ export class SqliteStorageClient {
     input: LearningLedgerWriteCommand,
   ): Promise<LearningLedgerWriteResult> {
     const command = LearningLedgerWriteCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "write_learning_ledger",
-        command,
-        LearningLedgerWriteResultSchema,
-      ),
+    return this.#protectedMutation(
+      "write_learning_ledger",
+      command,
+      LearningLedgerWriteResultSchema,
+      "learning",
     );
   }
 
@@ -1121,12 +1261,11 @@ export class SqliteStorageClient {
 
   admitMemory(input: AdmitMemoryCommand): Promise<GovernanceMutationResult> {
     const command = AdmitMemoryCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "admit_memory",
-        command,
-        GovernanceMutationResultSchema,
-      ),
+    return this.#protectedMutation(
+      "admit_memory",
+      command,
+      GovernanceMutationResultSchema,
+      "canonical",
     );
   }
 
@@ -1134,12 +1273,18 @@ export class SqliteStorageClient {
     input: MemoryRevisionCommand,
   ): Promise<GovernanceMutationResult> {
     const command = MemoryRevisionCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "apply_memory_revision",
+    if (command.dry_run) {
+      return this.#previewMutation(
+        "preview_memory_revision",
         command,
         GovernanceMutationResultSchema,
-      ),
+      );
+    }
+    return this.#protectedMutation(
+      "apply_memory_revision",
+      command,
+      GovernanceMutationResultSchema,
+      "canonical",
     );
   }
 
@@ -1180,12 +1325,18 @@ export class SqliteStorageClient {
     input: MemoryControlCommand,
   ): Promise<MemoryControlResult> {
     const command = MemoryControlCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "apply_memory_control",
+    if (command.request.envelope.dry_run) {
+      return this.#previewMutation(
+        "preview_memory_control",
         command,
         MemoryControlResultSchema,
-      ),
+      );
+    }
+    return this.#protectedMutation(
+      "apply_memory_control",
+      command,
+      MemoryControlResultSchema,
+      "control",
     );
   }
 
@@ -1202,21 +1353,37 @@ export class SqliteStorageClient {
 
   deleteMemory(input: MemoryDeleteCommand): Promise<MemoryDeleteResult> {
     const command = MemoryDeleteCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "delete_memory",
+    if (command.request.envelope.dry_run) {
+      return this.#previewMutation(
+        "preview_memory_delete",
         command,
         MemoryDeleteResultSchema,
-      ),
+      );
+    }
+    return this.#protectedMutation(
+      "delete_memory",
+      command,
+      MemoryDeleteResultSchema,
+      "purge",
     );
   }
 
   runPurge(input: PurgeRunInput): Promise<PurgeRunResult> {
     const request = PurgeRunInputSchema.parse(input);
-    return this.#writerQueue.enqueue(
-      () => this.#request("run_purge", request, PurgeRunResultSchema),
+    return this.#protectedMutation(
+      "run_purge",
+      request,
+      PurgeRunResultSchema,
+      "purge",
       "purge_retry",
-    );
+    ).then(async (result) => {
+      await this.#request(
+        "finalize_purge_maintenance",
+        null,
+        NullSchema,
+      );
+      return result;
+    });
   }
 
   checkMemoryEligibility(
@@ -1256,18 +1423,20 @@ export class SqliteStorageClient {
     input: unknown,
   ): Promise<DurableEpisodeReceipt> {
     const command = CommitEpisodeCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "commit_episode",
-        command,
-        MutationReceiptSchema,
-      ),
+    return this.#protectedMutation(
+      "commit_episode",
+      command,
+      MutationReceiptSchema,
+      "canonical",
     );
   }
 
   drainFtsOutbox(): Promise<DrainFtsResult> {
-    return this.#writerQueue.enqueue(() =>
-      this.#request("drain_fts", null, DrainFtsResultSchema),
+    return this.#protectedMutation(
+      "drain_fts",
+      null,
+      DrainFtsResultSchema,
+      "projection",
     );
   }
 
@@ -1281,8 +1450,11 @@ export class SqliteStorageClient {
   }
 
   rebuildFts(): Promise<RebuildFtsResult> {
-    return this.#writerQueue.enqueue(
-      () => this.#request("rebuild_fts", null, RebuildFtsResultSchema),
+    return this.#protectedMutation(
+      "rebuild_fts",
+      null,
+      RebuildFtsResultSchema,
+      "projection",
       "rebuild_fts",
     );
   }
@@ -1309,7 +1481,30 @@ export class SqliteStorageClient {
 
   createBackup(): Promise<BackupResult> {
     return this.#writerQueue.enqueue(
-      () => this.#request("backup", null, BackupResultSchema),
+      async () => {
+        if (this.#recoveryHeadProvider === null) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        const draft = await this.#request(
+          "backup",
+          null,
+          BackupDraftResultSchema,
+        );
+        const recoveryAnchor =
+          this.#recoveryHeadProvider.issueBackupAnchor({
+            manifest: draft.manifest,
+            minimums: recoveryMinimumsFromManifest(draft.manifest),
+          });
+        await this.#request(
+          "install_recovery_checkpoint",
+          recoveryAnchor,
+          NullSchema,
+        );
+        return BackupResultSchema.parse({
+          ...draft,
+          recovery_anchor: recoveryAnchor,
+        });
+      },
       "backup",
     );
   }
@@ -1363,12 +1558,11 @@ export class SqliteStorageClient {
 
   recordRecall(input: unknown): Promise<RecordRecallResult> {
     const command = RecordRecallCommandSchema.parse(input);
-    return this.#writerQueue.enqueue(() =>
-      this.#request(
-        "record_recall",
-        command,
-        RecordRecallResultSchema,
-      ),
+    return this.#protectedMutation(
+      "record_recall",
+      command,
+      RecordRecallResultSchema,
+      "context",
     );
   }
 
@@ -1423,10 +1617,383 @@ export class SqliteStorageClient {
     }
   }
 
+  async #initializeRecoveryAuthority(): Promise<void> {
+    const provider = this.#recoveryHeadProvider;
+    if (provider === null || this.#options.inspectionOnly) {
+      return;
+    }
+    let state = await this.#request(
+      "recovery_state",
+      null,
+      RecoveryStorageStateSchema,
+    );
+    let current = provider.readCurrent();
+    const pendingAtOpen = provider.unresolvedPending();
+    if (current === null) {
+      current = provider.bootstrap(state);
+      await this.#request(
+        "install_recovery_checkpoint",
+        current,
+        NullSchema,
+      );
+    } else if (pendingAtOpen.length === 0) {
+      await this.#request(
+        "install_recovery_checkpoint",
+        current,
+        NullSchema,
+      );
+    }
+    for (const pending of pendingAtOpen) {
+      const effect = await this.#request(
+        "recovery_effect",
+        { pending_id: pending.pending_id },
+        RecoveryEffectRecordSchema.nullable(),
+      );
+      if (effect === null) {
+        if (pending.state !== "pending") {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        provider.abort({
+          pending_id: pending.pending_id,
+          effect_provably_absent: true,
+        });
+        continue;
+      }
+      this.#assertRecoveryEffect(pending, effect);
+      await this.#reconcileRecoveryEffect(pending, effect);
+    }
+    state = await this.#request(
+      "recovery_state",
+      null,
+      RecoveryStorageStateSchema,
+    );
+    current = provider.readCurrent();
+    if (
+      current === null ||
+      current.payload.root_id !== state.root_id ||
+      current.payload.principal_id !== state.principal_id ||
+      current.payload.state_commitment_hash !==
+        state.state_commitment_hash ||
+      canonicalJson(current.payload.minimums) !==
+        canonicalJson(state.minimums)
+    ) {
+      throw new StorageError("STALE_RECOVERY_HEAD");
+    }
+  }
+
+  #protectedRequest<T>(input: {
+    workerOperation: WorkerOperation;
+    payload: unknown;
+    resultSchema: z.ZodType<T>;
+    operation: RecoveryPendingReservation["operation"];
+    idempotencyKey: string;
+    requestHash: CanonicalHash;
+  }): Promise<T> {
+    const inFlightKey =
+      `${input.workerOperation}:${input.idempotencyKey}`;
+    return this.#coalesceProtected(
+      inFlightKey,
+      input.requestHash,
+      () => this.#executeProtectedRequest(input),
+    );
+  }
+
+  #coalesceProtected<T>(
+    inFlightKey: string,
+    requestHash: CanonicalHash,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const existing = this.#protectedInFlight.get(inFlightKey);
+    if (existing !== undefined) {
+      if (existing.requestHash !== requestHash) {
+        return Promise.reject(new StorageError("CONFLICT"));
+      }
+      return existing.promise as Promise<T>;
+    }
+    const promise = operation();
+    this.#protectedInFlight.set(inFlightKey, {
+      requestHash,
+      promise,
+    });
+    const clearInFlight = (): void => {
+      if (
+        this.#protectedInFlight.get(inFlightKey)?.promise === promise
+      ) {
+        this.#protectedInFlight.delete(inFlightKey);
+      }
+    };
+    void promise.then(
+      clearInFlight,
+      clearInFlight,
+    );
+    return promise;
+  }
+
+  async #executeProtectedRequest<T>(input: {
+    workerOperation: WorkerOperation;
+    payload: unknown;
+    resultSchema: z.ZodType<T>;
+    operation: RecoveryPendingReservation["operation"];
+    idempotencyKey: string;
+    requestHash: CanonicalHash;
+  }): Promise<T> {
+    const provider = this.#recoveryHeadProvider;
+    if (provider === null) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const before = await this.#request(
+      "recovery_state",
+      null,
+      RecoveryStorageStateSchema,
+    );
+    const authorization = provider.reserve({
+      operation: input.operation,
+      idempotency_key: input.idempotencyKey,
+      request_hash: input.requestHash,
+      prior_minimums: before.minimums,
+      prior_state_commitment_hash: before.state_commitment_hash,
+    });
+    const protectedSchema = z
+      .object({
+        result: input.resultSchema,
+        recovery_effect: RecoveryEffectRecordSchema,
+      })
+      .strict();
+    try {
+      const protectedResult = await this.#request(
+        input.workerOperation,
+        input.payload,
+        protectedSchema,
+        authorization,
+      );
+      if (
+        recoveryContentHash(protectedResult.result) !==
+          protectedResult.recovery_effect.effect_receipt_hash
+      ) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      if (authorization.reservation.state === "pending") {
+        await this.#reconcileRecoveryEffect(
+          authorization.reservation,
+          protectedResult.recovery_effect,
+        );
+      }
+      return protectedResult.result;
+    } catch (error) {
+      const effect = await this.#request(
+        "recovery_effect",
+        { pending_id: authorization.reservation.pending_id },
+        RecoveryEffectRecordSchema.nullable(),
+      );
+      if (effect === null) {
+        if (authorization.reservation.state === "pending") {
+          provider.abort({
+            pending_id: authorization.reservation.pending_id,
+            effect_provably_absent: true,
+          });
+        }
+        throw error;
+      }
+      this.#assertRecoveryEffect(authorization.reservation, effect);
+      if (authorization.reservation.state === "pending") {
+        await this.#reconcileRecoveryEffect(
+          authorization.reservation,
+          effect,
+        );
+      }
+      const replayState = await this.#request(
+        "recovery_state",
+        null,
+        RecoveryStorageStateSchema,
+      );
+      const replayAuthorization = provider.reserve({
+        operation: input.operation,
+        idempotency_key: input.idempotencyKey,
+        request_hash: input.requestHash,
+        prior_minimums: replayState.minimums,
+        prior_state_commitment_hash:
+          replayState.state_commitment_hash,
+      });
+      const replay = await this.#request(
+        input.workerOperation,
+        input.payload,
+        protectedSchema,
+        replayAuthorization,
+      );
+      this.#assertRecoveryEffect(
+        replayAuthorization.reservation,
+        replay.recovery_effect,
+      );
+      if (
+        recoveryContentHash(replay.result) !==
+          replay.recovery_effect.effect_receipt_hash
+      ) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      if (replayAuthorization.reservation.state === "pending") {
+        await this.#reconcileRecoveryEffect(
+          replayAuthorization.reservation,
+          replay.recovery_effect,
+        );
+      }
+      if (
+        provider
+          .unresolvedPending()
+          .some(
+            ({ pending_id: pendingId }) =>
+              pendingId === replayAuthorization.reservation.pending_id,
+          )
+      ) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      return replay.result;
+    }
+  }
+
+  #protectedMutation<T>(
+    workerOperation: WorkerOperation,
+    payload: unknown,
+    resultSchema: z.ZodType<T>,
+    operation: RecoveryPendingReservation["operation"],
+    queueOperation = "canonical_write",
+  ): Promise<T> {
+    const requestHash = CanonicalHashSchema.parse(
+      recoveryContentHash(payload),
+    );
+    const record =
+      typeof payload === "object" && payload !== null
+        ? payload as Record<string, unknown>
+        : {};
+    const nestedRecord = (
+      value: unknown,
+    ): Record<string, unknown> =>
+      typeof value === "object" && value !== null
+        ? value as Record<string, unknown>
+        : {};
+    const requestRecord = nestedRecord(record.request);
+    const envelope = nestedRecord(record.envelope);
+    const requestEnvelope = nestedRecord(requestRecord.envelope);
+    const identityCandidates = (
+      candidate: Record<string, unknown>,
+    ): unknown[] => [
+      candidate.idempotency_key,
+      candidate.idempotencyKey,
+      candidate.operation_id,
+      candidate.operationId,
+      candidate.request_id,
+      candidate.requestId,
+    ];
+    const suppliedIdentity = [
+      ...identityCandidates(record),
+      ...identityCandidates(envelope),
+      ...identityCandidates(requestEnvelope),
+    ].find((value): value is string => typeof value === "string");
+    const request = {
+      workerOperation,
+      payload,
+      resultSchema,
+      operation,
+      idempotencyKey:
+        suppliedIdentity === undefined
+          ? `effect:${workerOperation}:${randomUUID()}`
+          : `${workerOperation}:${suppliedIdentity}`,
+      requestHash,
+    };
+    const inFlightKey =
+      `${request.workerOperation}:${request.idempotencyKey}`;
+    return this.#coalesceProtected(
+      inFlightKey,
+      requestHash,
+      () =>
+        this.#writerQueue.enqueue(
+          () => this.#executeProtectedRequest(request),
+          queueOperation,
+        ),
+    );
+  }
+
+  #previewMutation<T>(
+    workerOperation: WorkerOperation,
+    payload: unknown,
+    resultSchema: z.ZodType<T>,
+  ): Promise<T> {
+    return this.#writerQueue.enqueue(
+      () => this.#request(workerOperation, payload, resultSchema),
+      "canonical_write",
+    );
+  }
+
+  #assertRecoveryEffect(
+    pending: RecoveryPendingReservation,
+    effect: RecoveryEffectRecord,
+  ): void {
+    if (
+      effect.pending_id !== pending.pending_id ||
+      effect.operation !== pending.operation ||
+      effect.idempotency_key !== pending.idempotency_key ||
+      effect.request_hash !== pending.request_hash ||
+      effect.prior_minimums_hash !==
+        canonicalSha256(pending.prior_minimums) ||
+      effect.prior_state_commitment_hash !==
+        pending.prior_state_commitment_hash ||
+      effect.prior_head_hash !== pending.prior_head_hash
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+  }
+
+  async #reconcileRecoveryEffect(
+    pending: RecoveryPendingReservation,
+    effect: RecoveryEffectRecord,
+  ): Promise<RecoveryAnchor> {
+    const provider = this.#recoveryHeadProvider;
+    if (provider === null) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const latest = provider
+      .unresolvedPending()
+      .find(({ pending_id: pendingId }) => pendingId === pending.pending_id);
+    const state = latest?.state ?? "reconciled";
+    const anchor =
+      state === "pending"
+        ? provider.commit({
+            pending_id: pending.pending_id,
+            backup_manifest_hash: effect.backup_manifest_hash,
+            state_commitment_hash:
+              effect.committed_state_commitment_hash,
+            root_id: effect.root_id,
+            principal_id: effect.principal_id,
+            committed_minimums: effect.committed_minimums,
+          })
+        : (() => {
+            const current = provider.readCurrent();
+            if (
+              current === null ||
+              current.payload.previous_head_hash !==
+                pending.prior_head_hash ||
+              current.payload.state_commitment_hash !==
+                effect.committed_state_commitment_hash
+            ) {
+              throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+            }
+            return current;
+          })();
+    await this.#request(
+      "reconcile_recovery_effect",
+      { pending_id: pending.pending_id, anchor },
+      RecoveryEffectRecordSchema,
+    );
+    if (state !== "reconciled") {
+      provider.reconcile(pending.pending_id);
+    }
+    return anchor;
+  }
+
   async #request<T>(
     operation: WorkerOperation,
     payload: unknown,
     schema: z.ZodType<T>,
+    protectedEffect?: RecoveryProtectedEffect,
   ): Promise<T> {
     if (this.#closed || (this.#closing && operation !== "close")) {
       throw new StorageError("STORAGE_UNAVAILABLE");
@@ -1443,7 +2010,14 @@ export class SqliteStorageClient {
         startedAt: performance.now(),
       });
       try {
-        worker.postMessage({ requestId, operation, payload });
+        worker.postMessage({
+          requestId,
+          operation,
+          payload,
+          ...(protectedEffect === undefined
+            ? {}
+            : { protected_effect: protectedEffect }),
+        });
       } catch {
         this.#pending.delete(requestId);
         reject(new StorageError("WORKER_CRASHED", { retryable: true }));
@@ -1476,6 +2050,14 @@ export class SqliteStorageClient {
         exitAfterCommitBeforeResponse: fault,
         encryptedArtifactExitAt: encryptedArtifactFault,
         operationalMigrationExitAt: operationalMigrationFault,
+        recoveryAuthorityKeyId:
+          this.#recoveryHeadProvider?.authorityKeyId ?? null,
+        recoveryAuthorityPublicKeyDer:
+          this.#recoveryHeadProvider === null
+            ? null
+            : this.#recoveryHeadProvider.publicKey
+                .export({ format: "der", type: "spki" })
+                .toString("base64url"),
       },
     });
     this.#worker = worker;

@@ -33,6 +33,7 @@ import {
   deleteRequest,
 } from "../helpers/purge-examples.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 const cleanupPaths: string[] = [];
 
@@ -61,7 +62,11 @@ describe("restore tombstone frontier", () => {
     const unverifiedTarget = join(restoreParent, "unverified");
     const corruptTarget = join(restoreParent, "corrupt");
     const currentTarget = join(restoreParent, "current");
-    const storage = await SqliteStorageClient.open({ dataRoot });
+    const recoveryHeadProvider = testRecoveryHeadProvider();
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider,
+    });
     await storage.commitEpisode(
       inlineEpisode({ text: "Tombstone frontier marker 7315." }),
     );
@@ -130,18 +135,18 @@ describe("restore tombstone frontier", () => {
       restoreBackupToEmptyDataRoot({
         backup: staleBackup,
         dataRoot: staleTarget,
-        minimumTombstoneEpoch: 1,
+        recoveryHeadProvider,
       }),
-    ).rejects.toMatchObject({ code: "STALE_TOMBSTONE_FRONTIER" });
+    ).rejects.toMatchObject({ code: "STALE_RECOVERY_HEAD" });
     expect(existsSync(staleTarget)).toBe(false);
 
     await expect(
       restoreBackupToEmptyDataRoot({
         backup: unverifiedBackup,
         dataRoot: unverifiedTarget,
-        minimumTombstoneEpoch: 1,
+        recoveryHeadProvider,
       }),
-    ).rejects.toMatchObject({ code: "INCOMPLETE_PURGE" });
+    ).rejects.toMatchObject({ code: "STALE_RECOVERY_HEAD" });
     expect(existsSync(unverifiedTarget)).toBe(false);
 
     await expect(
@@ -151,7 +156,7 @@ describe("restore tombstone frontier", () => {
           ledger_epoch: currentBackup.ledger_epoch + 1,
         },
         dataRoot: corruptTarget,
-        minimumTombstoneEpoch: 1,
+        recoveryHeadProvider,
       }),
     ).rejects.toMatchObject({ code: "CORRUPTION" });
     expect(existsSync(corruptTarget)).toBe(false);
@@ -159,7 +164,7 @@ describe("restore tombstone frontier", () => {
     const restored = await restoreBackupToEmptyDataRoot({
       backup: currentBackup,
       dataRoot: currentTarget,
-      minimumTombstoneEpoch: 1,
+      recoveryHeadProvider,
     });
     expect(restored).toMatchObject({
       minimum_tombstone_epoch: 1,
@@ -174,23 +179,31 @@ describe("restore tombstone frontier", () => {
   });
 
   it("preserves ready projections and marks a stale frontier for deterministic rebuild", async () => {
-    const dataRoot = temporaryRoot("projection-restore-source");
     const restoreParent = temporaryRoot("projection-restore-target");
     const readyTarget = join(restoreParent, "ready");
     const pendingTarget = join(restoreParent, "pending");
-    const storage = await SqliteStorageClient.open({ dataRoot });
-    const admitted = await seedLayeredProjectionSources(storage);
-    const consolidation = new ConsolidationService({ storage });
-    await consolidation.drain({
+    const readyRecoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:projection-ready",
+    );
+    const readyStorage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("projection-ready-source"),
+      recoveryHeadProvider: readyRecoveryHeadProvider,
+    });
+    await seedLayeredProjectionSources(readyStorage);
+    const readyConsolidation = new ConsolidationService({
+      storage: readyStorage,
+    });
+    await readyConsolidation.drain({
       worker_id: "projection_restore_ready_worker",
       claimed_at: "2026-07-28T12:10:00.000Z",
       lease_expires_at: "2026-07-28T12:11:00.000Z",
     });
-    const readyBackup = await storage.createBackup();
+    const readyBackup = await readyStorage.createBackup();
+    await readyStorage.close();
     const ready = await restoreBackupToEmptyDataRoot({
       backup: readyBackup,
       dataRoot: readyTarget,
-      minimumTombstoneEpoch: 0,
+      recoveryHeadProvider: readyRecoveryHeadProvider,
     });
     expect(ready.verification).toMatchObject({
       active_projections_verified: expect.any(Number),
@@ -204,7 +217,25 @@ describe("restore tombstone frontier", () => {
       ready.verification.active_relations_verified,
     ).toBeGreaterThan(0);
 
-    await storage.commitEpisode(
+    const pendingRecoveryHeadProvider = testRecoveryHeadProvider(
+      "recovery_authority:projection-pending",
+    );
+    const pendingSourceStorage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("projection-pending-source"),
+      recoveryHeadProvider: pendingRecoveryHeadProvider,
+    });
+    const admitted = await seedLayeredProjectionSources(
+      pendingSourceStorage,
+    );
+    const pendingConsolidation = new ConsolidationService({
+      storage: pendingSourceStorage,
+    });
+    await pendingConsolidation.drain({
+      worker_id: "projection_restore_pending_worker",
+      claimed_at: "2026-07-28T12:12:00.000Z",
+      lease_expires_at: "2026-07-28T12:13:00.000Z",
+    });
+    await pendingSourceStorage.commitEpisode(
       inlineEpisode({
         episodeId: "episode_projection_restore_correction",
         evidenceId: "evidence_projection_restore_correction",
@@ -216,7 +247,7 @@ describe("restore tombstone frontier", () => {
     if (source === undefined) {
       throw new Error("restore fixture requires one projection source");
     }
-    await storage.applyMemoryRevision(
+    await pendingSourceStorage.applyMemoryRevision(
       revisionCommand({
         memoryId: source.memory_id,
         expectedRevisionId: source.current_revision_id,
@@ -230,13 +261,13 @@ describe("restore tombstone frontier", () => {
         idempotencyKey: "projection-restore-correction-0001",
       }),
     );
-    const pendingBackup = await storage.createBackup();
-    await storage.close();
+    const pendingBackup = await pendingSourceStorage.createBackup();
+    await pendingSourceStorage.close();
 
     const pending = await restoreBackupToEmptyDataRoot({
       backup: pendingBackup,
       dataRoot: pendingTarget,
-      minimumTombstoneEpoch: 0,
+      recoveryHeadProvider: pendingRecoveryHeadProvider,
     });
     expect(pending.verification).toMatchObject({
       active_projections_verified: expect.any(Number),
@@ -245,6 +276,7 @@ describe("restore tombstone frontier", () => {
     });
     const pendingStorage = await SqliteStorageClient.open({
       dataRoot: pendingTarget,
+      recoveryHeadProvider: pendingRecoveryHeadProvider,
     });
     const pendingRuntime = new MemoryRuntime({
       storage: pendingStorage,

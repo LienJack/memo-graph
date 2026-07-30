@@ -1,5 +1,11 @@
+import { createPublicKey } from "node:crypto";
 import { parentPort, workerData } from "node:worker_threads";
 
+import {
+  RecoveryAnchorSchema,
+  verifyRecoveryAnchor,
+  verifyRecoveryPendingAuthorization,
+} from "@memo-graph/contracts";
 import { z } from "zod";
 
 import {
@@ -11,6 +17,9 @@ import {
   StorageError,
   serializeStorageError,
 } from "./errors.js";
+import {
+  assertRecoveryProtectionBinding,
+} from "./recovery-protection.js";
 import {
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
@@ -30,6 +39,9 @@ import {
   ContentReferenceCountsInputSchema,
   EnqueueProjectionJobCommandSchema,
   EvidenceLookupInputSchema,
+  EffectMemoryControlCommandSchema,
+  EffectMemoryDeleteCommandSchema,
+  EffectMemoryRevisionCommandSchema,
   GovernanceReplayInputSchema,
   GovernedMemoryLookupInputSchema,
   GovernedMemorySearchQuerySchema,
@@ -42,10 +54,7 @@ import {
   LearningLedgerReplayInputSchema,
   LearningLedgerWriteCommandSchema,
   MemoryEligibilityInputSchema,
-  MemoryControlCommandSchema,
   MemoryCorrectionBasisInputSchema,
-  MemoryDeleteCommandSchema,
-  MemoryRevisionCommandSchema,
   PurgeRunInputSchema,
   KeyRotationInputSchema,
   ProjectionPageQuerySchema,
@@ -57,6 +66,9 @@ import {
   PurgeEncryptedSecretCommandSchema,
   ProjectionSourceListInputSchema,
   ProjectionRebuildReceiptSchema,
+  PreviewMemoryControlCommandSchema,
+  PreviewMemoryDeleteCommandSchema,
+  PreviewMemoryRevisionCommandSchema,
   MarkGraphRestoreUnavailableInputSchema,
   MarkVectorRestoreDegradedInputSchema,
   RegisterVectorEmbeddingEpochCommandSchema,
@@ -69,6 +81,7 @@ import {
   ReserveRotationNonceCommandSchema,
   ReceiptLookupInputSchema,
   ReplaySecretPurgeCommandSchema,
+  RecoveryEffectLookupSchema,
   RelationTraversalInputSchema,
   SearchEvidenceQuerySchema,
   SecretPurgeTargetInputSchema,
@@ -99,6 +112,8 @@ const WorkerOptionsSchema = z
       ])
       .nullable(),
     inspectionOnly: z.boolean(),
+    recoveryAuthorityKeyId: z.string().nullable(),
+    recoveryAuthorityPublicKeyDer: z.string().nullable(),
   })
   .strict();
 
@@ -166,6 +181,10 @@ port.on("message", (message: unknown) => {
     try {
       const request = WorkerRequestSchema.parse(message);
       requestId = request.requestId;
+      assertRecoveryProtectionBinding(
+        request.operation,
+        request.protected_effect?.reservation.operation ?? null,
+      );
       if (
         options.inspectionOnly &&
         request.operation !== "health" &&
@@ -182,8 +201,78 @@ port.on("message", (message: unknown) => {
         throw new StorageError("STORAGE_UNAVAILABLE");
       }
 
-      let result: unknown;
-      switch (request.operation) {
+      const executeRequest = (): unknown => {
+        let result: unknown;
+        switch (request.operation) {
+        case "recovery_state":
+          result = database.recoveryState();
+          break;
+        case "recovery_effect":
+          result = database.recoveryEffect(
+            RecoveryEffectLookupSchema.parse(request.payload).pending_id,
+          );
+          break;
+        case "install_recovery_checkpoint": {
+          if (
+            options.recoveryAuthorityKeyId === null ||
+            options.recoveryAuthorityPublicKeyDer === null
+          ) {
+            throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+          }
+          let anchor;
+          try {
+            anchor = verifyRecoveryAnchor({
+              anchor: RecoveryAnchorSchema.parse(request.payload),
+              expectedAuthorityKeyId: options.recoveryAuthorityKeyId,
+              publicKey: createPublicKey({
+                key: Buffer.from(
+                  options.recoveryAuthorityPublicKeyDer,
+                  "base64url",
+                ),
+                format: "der",
+                type: "spki",
+              }),
+            });
+          } catch {
+            throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+          }
+          database.installRecoveryCheckpoint(anchor);
+          result = null;
+          break;
+        }
+        case "reconcile_recovery_effect": {
+          const payload = RecoveryEffectLookupSchema.extend({
+            anchor: RecoveryAnchorSchema,
+          }).parse(request.payload);
+          if (
+            options.recoveryAuthorityKeyId === null ||
+            options.recoveryAuthorityPublicKeyDer === null
+          ) {
+            throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+          }
+          let anchor;
+          try {
+            anchor = verifyRecoveryAnchor({
+              anchor: payload.anchor,
+              expectedAuthorityKeyId: options.recoveryAuthorityKeyId,
+              publicKey: createPublicKey({
+                key: Buffer.from(
+                  options.recoveryAuthorityPublicKeyDer,
+                  "base64url",
+                ),
+                format: "der",
+                type: "spki",
+              }),
+            });
+          } catch {
+            throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+          }
+          result = database.reconcileRecoveryEffect(
+            payload.pending_id,
+            anchor,
+          );
+          break;
+        }
         case "health":
           result = database.health();
           break;
@@ -314,6 +403,17 @@ port.on("message", (message: unknown) => {
           result = database.purgeEncryptedSecret(
             PurgeEncryptedSecretCommandSchema.parse(request.payload),
           );
+          break;
+        case "finalize_secret_purge":
+          if (!options.testOperations) {
+            throw new StorageError("ENCRYPTION_REQUIRED");
+          }
+          database.finalizeSecretPurgeMaintenance();
+          result = null;
+          break;
+        case "finalize_purge_maintenance":
+          database.finalizePurgeMaintenance();
+          result = null;
           break;
         case "governance_status":
           result = database.governanceStatus();
@@ -519,7 +619,12 @@ port.on("message", (message: unknown) => {
           break;
         case "apply_memory_revision":
           result = database.applyMemoryRevision(
-            MemoryRevisionCommandSchema.parse(request.payload),
+            EffectMemoryRevisionCommandSchema.parse(request.payload),
+          );
+          break;
+        case "preview_memory_revision":
+          result = database.applyMemoryRevision(
+            PreviewMemoryRevisionCommandSchema.parse(request.payload),
           );
           break;
         case "get_memory_correction_basis":
@@ -539,7 +644,12 @@ port.on("message", (message: unknown) => {
         }
         case "apply_memory_control":
           result = database.applyMemoryControl(
-            MemoryControlCommandSchema.parse(request.payload),
+            EffectMemoryControlCommandSchema.parse(request.payload),
+          );
+          break;
+        case "preview_memory_control":
+          result = database.applyMemoryControl(
+            PreviewMemoryControlCommandSchema.parse(request.payload),
           );
           break;
         case "memory_delete_replay": {
@@ -549,7 +659,12 @@ port.on("message", (message: unknown) => {
         }
         case "delete_memory":
           result = database.deleteMemory(
-            MemoryDeleteCommandSchema.parse(request.payload),
+            EffectMemoryDeleteCommandSchema.parse(request.payload),
+          );
+          break;
+        case "preview_memory_delete":
+          result = database.deleteMemory(
+            PreviewMemoryDeleteCommandSchema.parse(request.payload),
           );
           break;
         case "run_purge":
@@ -598,7 +713,7 @@ port.on("message", (message: unknown) => {
           result = database.checkpoint();
           break;
         case "backup":
-          result = await database.createBackup();
+          result = database.createBackup();
           break;
         case "verify_artifacts":
           result = database.verifyArtifacts();
@@ -652,6 +767,49 @@ port.on("message", (message: unknown) => {
           database.close();
           result = null;
           break;
+        }
+        return result;
+      };
+      let result: unknown;
+      if (request.protected_effect === undefined) {
+        assertRecoveryProtectionBinding(request.operation, null);
+        result = await executeRequest();
+      } else {
+        if (
+          options.recoveryAuthorityKeyId === null ||
+          options.recoveryAuthorityPublicKeyDer === null
+        ) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        let authorization;
+        try {
+          authorization = verifyRecoveryPendingAuthorization({
+            authorization: request.protected_effect,
+            expectedAuthorityKeyId: options.recoveryAuthorityKeyId,
+            publicKey: createPublicKey({
+              key: Buffer.from(
+                options.recoveryAuthorityPublicKeyDer,
+                "base64url",
+              ),
+              format: "der",
+              type: "spki",
+            }),
+          });
+        } catch {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        assertRecoveryProtectionBinding(
+          request.operation,
+          authorization.reservation.operation,
+        );
+        const protectedResult = database.runRecoveryProtectedEffect(
+          authorization,
+          executeRequest,
+        );
+        if (protectedResult.result instanceof Promise) {
+          throw new StorageError("INVALID_INPUT");
+        }
+        result = protectedResult;
       }
 
       if (

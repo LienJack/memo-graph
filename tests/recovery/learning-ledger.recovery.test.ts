@@ -37,6 +37,7 @@ import {
   verifiedLearningApproval,
 } from "../helpers/learning-examples.js";
 import { USER_SCOPE } from "../helpers/examples.js";
+import { testRecoveryHeadProvider } from "../helpers/recovery.js";
 
 const cleanupPaths: string[] = [];
 
@@ -386,7 +387,11 @@ describe("learning ledger transaction recovery", () => {
       tool: "learning_pause",
       requestHash: learningControlReceipt().request_hash,
     });
-    const storage = await SqliteStorageClient.open({ dataRoot });
+    const recoveryHeadProvider = testRecoveryHeadProvider();
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider,
+    });
     await storage.writeLearningLedger({
       kind: "control",
       idempotency_key: "learning-control-backup-001",
@@ -399,6 +404,7 @@ describe("learning ledger transaction recovery", () => {
       approval_binding: authority.binding,
       approval: authority.approval,
     });
+    const staleBackup = await storage.createBackup();
     const backup = await storage.createBackup();
     await storage.close();
 
@@ -408,15 +414,14 @@ describe("learning ledger transaction recovery", () => {
     });
     await expect(
       restoreBackupToEmptyDataRoot({
-        backup,
+        backup: staleBackup,
         dataRoot: join(
           temporaryRoot("learning-stale-parent"),
           "stale-restore",
         ),
-        minimumTombstoneEpoch: 0,
-        minimumLearningControlEpoch: 2,
+        recoveryHeadProvider,
       }),
-    ).rejects.toMatchObject({ code: "STALE_LEARNING_FRONTIER" });
+    ).rejects.toMatchObject({ code: "STALE_RECOVERY_HEAD" });
 
     const restored = await restoreBackupToEmptyDataRoot({
       backup,
@@ -424,9 +429,7 @@ describe("learning ledger transaction recovery", () => {
         temporaryRoot("learning-restore-parent"),
         "restored",
       ),
-      minimumTombstoneEpoch: 0,
-      minimumLearningControlEpoch: 1,
-      minimumLearningReleaseRevision: 0,
+      recoveryHeadProvider,
     });
     expect(restored.health.learning_frontier).toMatchObject({
       control_epoch: 1,
