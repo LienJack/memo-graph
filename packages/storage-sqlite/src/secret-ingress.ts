@@ -7,6 +7,7 @@ import {
   createPublicKey,
   sign as signBytes,
   timingSafeEqual,
+  verify as verifyBytes,
 } from "node:crypto";
 import {
   fstatSync,
@@ -31,8 +32,15 @@ import {
   type SecretEncryptedPayload,
   SecretEncryptedPayloadSchema,
   SecretAdmissionApprovalSchema,
+  SecretAdmissionTrustSchema,
+  G6ReleaseControlSchema,
+  secretAdmissionApprovalSigningPayload,
+  secretAdmissionEnvelopeBindingHash,
+  secretAdmissionEnvelopeRequestBindingHash,
   SecretUseAuthoritySchema,
   type SecretAdmissionApproval,
+  type SecretAdmissionTrust,
+  type G6ReleaseControl,
   type SecretUseAuthority,
 } from "@memo-graph/contracts";
 
@@ -61,6 +69,7 @@ type SecretIngressDependencies = {
     key_id: string;
     key_generation: number;
     verification_tag: string;
+    forbidden_authority_public_keys?: string[];
   }): Promise<void>;
   reserve(input: ReserveSecretInput): Promise<ReserveSecretResult>;
   commit(input: {
@@ -68,6 +77,8 @@ type SecretIngressDependencies = {
     request_digest: CanonicalHash;
     payload: SecretEncryptedPayload;
     approval: SecretAdmissionApproval;
+    release_control: G6ReleaseControl | null;
+    validated_at: string;
   }): Promise<EncryptionReceipt>;
   rootFenceToken(): number;
   beginRotation(input: {
@@ -172,6 +183,24 @@ export type DarkLaunchAdmitSecretInput = {
   input_descriptor: number;
 };
 
+export type GovernedAdmitSecretInput = DarkLaunchAdmitSecretInput & {
+  approval: SecretAdmissionApproval;
+};
+
+export type SecretAdmissionVerifier = {
+  trust: SecretAdmissionTrust;
+  commitment_key_descriptor: number;
+  release_authority_public_key_base64url: string;
+  encryption_provider?: {
+    key_id: string;
+    key_generation: number;
+    key_descriptor: number;
+    commitment_key_id: string;
+    commitment_descriptor: number;
+  };
+  now?: () => string;
+};
+
 export type DarkLaunchBeginKeyRotationInput = {
   rotation_id: string;
   new_key_id: string;
@@ -213,6 +242,11 @@ export type SecretIngress = {
     input: DarkLaunchInstallEncryptionKeyInput,
   ): Promise<EncryptionReceipt>;
   admit(input: DarkLaunchAdmitSecretInput): Promise<EncryptionReceipt>;
+  preflightGoverned(input: GovernedAdmitSecretInput): Promise<void>;
+  admitGoverned(
+    input: GovernedAdmitSecretInput,
+    releaseControl: G6ReleaseControl,
+  ): Promise<EncryptionReceipt>;
   beginRotation(
     input: DarkLaunchBeginKeyRotationInput,
   ): Promise<{ progress: KeyRotationProgress; receipt: EncryptionReceipt }>;
@@ -274,6 +308,18 @@ function sameDescriptor(
     left.mtimeNs === right.mtimeNs &&
     left.ctimeNs === right.ctimeNs
   );
+}
+
+function descriptorRecord(identity: DescriptorIdentity) {
+  return {
+    dev: identity.dev.toString(),
+    ino: identity.ino.toString(),
+    size: Number(identity.size),
+    mode: Number(identity.mode),
+    uid: Number(identity.uid),
+    mtime_ns: identity.mtimeNs.toString(),
+    ctime_ns: identity.ctimeNs.toString(),
+  };
 }
 
 function readPrivateDescriptor(
@@ -408,6 +454,32 @@ function plaintextCommitment(
     .digest("base64url")}`;
 }
 
+function admissionDescriptorCommitment(input: {
+  key: Uint8Array;
+  approval: SecretAdmissionApproval;
+  identity: DescriptorIdentity;
+  plaintext: Uint8Array;
+}): string {
+  const {
+    approval_id: _approvalId,
+    descriptor_commitment: _descriptorCommitment,
+    approval_hash: _approvalHash,
+    signature: _signature,
+    ...binding
+  } = input.approval;
+  void _approvalId;
+  void _descriptorCommitment;
+  void _approvalHash;
+  void _signature;
+  return `hmac-sha256:${createHmac("sha256", input.key)
+    .update("memo-graph/secret-admission-descriptor/v1", "utf8")
+    .update(input.approval.request_nonce, "utf8")
+    .update(canonicalJson(descriptorRecord(input.identity)), "utf8")
+    .update(canonicalJson(binding), "utf8")
+    .update(input.plaintext)
+    .digest("base64url")}`;
+}
+
 function encrypt(
   key: Uint8Array,
   plaintext: Uint8Array,
@@ -535,6 +607,8 @@ function createAdmissionApproval(input: {
   metadata: SecretEncryptedPayload["envelope"]["metadata"];
   aad_hash: CanonicalHash;
   root_fence_token: number;
+  descriptor_identity_hash: CanonicalHash;
+  descriptor_commitment: string;
 }): SecretAdmissionApproval {
   const issuedAt = new Date();
   const base = {
@@ -545,13 +619,24 @@ function createAdmissionApproval(input: {
         envelope_aad_hash: input.aad_hash,
       }).slice("sha256:".length, "sha256:".length + 48)}`,
     principal_id: input.principal_id,
+    purpose: "secret_admission" as const,
+    sensitivity: "secret" as const,
+    envelope_version: 1 as const,
+    request_nonce:
+      `dark-launch:${canonicalSha256(input.request_digest).slice(
+        "sha256:".length,
+        "sha256:".length + 40,
+      )}`,
+    descriptor_identity_hash: input.descriptor_identity_hash,
+    descriptor_commitment: input.descriptor_commitment,
     owner: input.metadata.owner,
     scope: input.metadata.scope,
     request_digest: input.request_digest,
-    envelope_aad_hash: input.aad_hash,
+    envelope_aad_hash: secretAdmissionEnvelopeBindingHash(input.metadata),
     key_id: input.metadata.key_id,
     key_generation: input.metadata.key_generation,
     authority_key_id: input.authorityKeyId,
+    authority_key_generation: input.metadata.key_generation,
     signature_algorithm: "Ed25519" as const,
     root_fence_token: input.root_fence_token,
     issued_at: issuedAt.toISOString(),
@@ -602,13 +687,14 @@ function createPurgeUseAuthority(input: {
 class SecretIngressCoordinator implements SecretIngress {
   readonly #dependencies: SecretIngressDependencies;
   readonly #principalId: string | null;
+  readonly #admissionVerifier: SecretAdmissionVerifier | null;
   readonly #keyDescriptors = new Map<
     string,
     {
       generation: number;
       keyDescriptor: number;
-      authorityKeyId: string;
-      authorityDescriptor: number;
+      authorityKeyId: string | null;
+      authorityDescriptor: number | null;
       commitmentKeyId: string;
       commitmentDescriptor: number;
     }
@@ -617,9 +703,200 @@ class SecretIngressCoordinator implements SecretIngress {
   constructor(
     dependencies: SecretIngressDependencies,
     principalId: string | null,
+    admissionVerifier: SecretAdmissionVerifier | null,
   ) {
     this.#dependencies = dependencies;
     this.#principalId = principalId;
+    this.#admissionVerifier = admissionVerifier;
+    const provider = admissionVerifier?.encryption_provider;
+    if (provider !== undefined) {
+      this.#keyDescriptors.set(provider.key_id, {
+        generation: provider.key_generation,
+        keyDescriptor: provider.key_descriptor,
+        authorityKeyId: null,
+        authorityDescriptor: null,
+        commitmentKeyId: provider.commitment_key_id,
+        commitmentDescriptor: provider.commitment_descriptor,
+      });
+    }
+  }
+
+  async #verifyGovernedInput(
+    input: GovernedAdmitSecretInput,
+  ): Promise<{
+    plaintext: Buffer;
+    identity: DescriptorIdentity;
+    approval: SecretAdmissionApproval;
+    validatedAt: string;
+  }> {
+    const verifier = this.#admissionVerifier;
+    if (verifier === null) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
+    const parsedApproval = SecretAdmissionApprovalSchema.safeParse(
+      input.approval,
+    );
+    if (!parsedApproval.success) {
+      throw new StorageError("AUTHORITY_REPLAY");
+    }
+    const approval = parsedApproval.data;
+    const trust = SecretAdmissionTrustSchema.parse(verifier.trust);
+    if (
+      trust.public_key_spki_base64url ===
+      verifier.release_authority_public_key_base64url
+    ) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
+    const validatedAt = (
+      verifier.now ?? (() => new Date().toISOString())
+    )();
+    const now = Date.parse(validatedAt);
+    const issuedAt = Date.parse(approval.issued_at);
+    const expiresAt = Date.parse(approval.expires_at);
+    const revokedAt =
+      trust.revoked_at === null ? null : Date.parse(trust.revoked_at);
+    const expectedRequestDigest = canonicalSha256({
+      schema_version: "1.0.0",
+      purpose: "secret_admission",
+      sensitivity: "secret",
+      envelope_version: 1,
+      idempotency_key: input.idempotency_key,
+      principal_id: input.principal_id,
+      owner: input.owner,
+      scope: input.scope,
+      content_identity: input.content_identity,
+      media_type: input.media_type,
+      request_nonce: approval.request_nonce,
+    });
+    if (
+      input.request_digest !== expectedRequestDigest ||
+      approval.request_digest !== expectedRequestDigest
+    ) {
+      throw new StorageError("AUTHORITY_REPLAY");
+    }
+    let before: DescriptorIdentity;
+    try {
+      before = descriptorIdentity(input.input_descriptor);
+    } catch (error) {
+      if (error instanceof StorageError) {
+        throw error;
+      }
+      throw new StorageError("KEY_PROVIDER_INVALID");
+    }
+    const plaintext = readPrivateDescriptor(input.input_descriptor, {
+      maximumBytes: 256_000,
+    });
+    try {
+      const after = descriptorIdentity(input.input_descriptor);
+      const commitmentKey = readPrivateDescriptor(
+        verifier.commitment_key_descriptor,
+        { exactBytes: 32, maximumBytes: 32 },
+      );
+      try {
+        const signatureValid = (() => {
+          try {
+            return verifyBytes(
+              null,
+              Buffer.from(
+                secretAdmissionApprovalSigningPayload(approval),
+                "utf8",
+              ),
+              {
+                key: Buffer.from(
+                  trust.public_key_spki_base64url,
+                  "base64url",
+                ),
+                format: "der",
+                type: "spki",
+              },
+              Buffer.from(approval.signature, "base64url"),
+            );
+          } catch {
+            return false;
+          }
+        })();
+        const inventory = await this.#dependencies.inspectKeys();
+        const current = inventory.keys.find(
+          ({ key_id }) => key_id === inventory.current_key_id,
+        );
+        if (
+          this.#principalId === null ||
+          input.principal_id !== this.#principalId ||
+          approval.principal_id !== input.principal_id ||
+          approval.purpose !== trust.purpose ||
+          approval.authority_key_id !== trust.authority_key_id ||
+          approval.authority_key_generation !==
+            trust.authority_key_generation ||
+          approval.owner.kind !== input.owner.kind ||
+          approval.owner.id !== input.owner.id ||
+          approval.owner.generation !== input.owner.generation ||
+          canonicalJson(approval.scope) !== canonicalJson(input.scope) ||
+          approval.request_digest !== input.request_digest ||
+          approval.sensitivity !== "secret" ||
+          approval.envelope_version !== 1 ||
+          approval.root_fence_token !==
+            this.#dependencies.rootFenceToken() ||
+          current === undefined ||
+          approval.key_id !== current.key_id ||
+          approval.key_generation !== current.generation ||
+          issuedAt < Date.parse(trust.valid_from) ||
+          expiresAt > Date.parse(trust.expires_at) ||
+          issuedAt > now ||
+          expiresAt <= now ||
+          (expiresAt - issuedAt) / 1_000 >
+            trust.maximum_approval_ttl_seconds ||
+          (revokedAt !== null && revokedAt <= now) ||
+          !sameDescriptor(before, after) ||
+          approval.descriptor_identity_hash !==
+            canonicalSha256(descriptorRecord(before)) ||
+          approval.envelope_aad_hash !==
+            (current === undefined
+              ? null
+              : secretAdmissionEnvelopeRequestBindingHash({
+                  key_id: current.key_id,
+                  key_generation: current.generation,
+                  owner: SecretContentOwnerSchema.parse(input.owner),
+                  scope: ScopeSchema.parse(input.scope),
+                  content_identity: IdentifierSchema.parse(
+                    input.content_identity,
+                  ),
+                  content_class: input.owner.kind,
+                  media_type: input.media_type,
+                })) ||
+          `hmac-sha256:${createHmac("sha256", commitmentKey)
+            .update(
+              "memo-graph/secret-admission-commitment-key-verification/v1",
+              "utf8",
+            )
+            .digest("base64url")}` !==
+            trust.commitment_key_verification_tag ||
+          approval.descriptor_commitment !==
+            admissionDescriptorCommitment({
+              key: commitmentKey,
+              approval,
+              identity: before,
+              plaintext,
+            }) ||
+          !signatureValid
+        ) {
+          throw new StorageError("AUTHORITY_REPLAY");
+        }
+        return { plaintext, identity: before, approval, validatedAt };
+      } finally {
+        commitmentKey.fill(0);
+      }
+    } catch (error) {
+      plaintext.fill(0);
+      if (error instanceof StorageError) {
+        throw error;
+      }
+      throw new StorageError("KEY_PROVIDER_INVALID");
+    }
+  }
+
+  async preflightGoverned(input: GovernedAdmitSecretInput): Promise<void> {
+    const verified = await this.#verifyGovernedInput(input);
+    verified.plaintext.fill(0);
   }
 
   async installKey(
@@ -719,7 +996,7 @@ class SecretIngressCoordinator implements SecretIngress {
       maximumBytes: 32,
     });
     const authorityKey = readPrivateDescriptor(
-      keyDescriptor.authorityDescriptor,
+      keyDescriptor.authorityDescriptor ?? -1,
       { exactBytes: 32, maximumBytes: 32 },
     );
     const commitmentKey = readPrivateDescriptor(
@@ -769,19 +1046,150 @@ class SecretIngressCoordinator implements SecretIngress {
         payload,
         approval: createAdmissionApproval({
           authorityKey,
-          authorityKeyId: keyDescriptor.authorityKeyId,
+          authorityKeyId:
+            keyDescriptor.authorityKeyId ??
+            (() => {
+              throw new StorageError("KEY_PROVIDER_INVALID");
+            })(),
           principal_id: normalized.principal_id,
           request_digest: normalized.request_digest,
           metadata: payload.envelope.metadata,
           aad_hash: payload.envelope.aad_hash,
           root_fence_token: this.#dependencies.rootFenceToken(),
+          descriptor_identity_hash: CanonicalHashSchema.parse(
+            canonicalSha256(
+              descriptorRecord(descriptorIdentity(normalized.input_descriptor)),
+            ),
+          ),
+          descriptor_commitment:
+            `hmac-sha256:${createHmac("sha256", commitmentKey)
+              .update("memo-graph/dark-launch-descriptor/v1", "utf8")
+              .update(plaintext)
+              .digest("base64url")}`,
         }),
+        release_control: null,
+        validated_at: new Date().toISOString(),
       });
     } finally {
       plaintext?.fill(0);
       key.fill(0);
       authorityKey.fill(0);
       commitmentKey.fill(0);
+    }
+  }
+
+  async admitGoverned(
+    input: GovernedAdmitSecretInput,
+    releaseControlInput: G6ReleaseControl,
+  ): Promise<EncryptionReceipt> {
+    const admissionVerifier = this.#admissionVerifier;
+    if (admissionVerifier === null) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
+    const releaseControl = G6ReleaseControlSchema.parse(releaseControlInput);
+    const verified = await this.#verifyGovernedInput(input);
+    const inventory = await this.#dependencies.inspectKeys();
+    const keyId = inventory.current_key_id;
+    const keyMetadata = inventory.keys.find(({ key_id }) => key_id === keyId);
+    const keyDescriptor =
+      keyId === null ? undefined : this.#keyDescriptors.get(keyId);
+    if (
+      keyId === null ||
+      keyMetadata === undefined ||
+      keyDescriptor === undefined
+    ) {
+      verified.plaintext.fill(0);
+      throw new StorageError("KEY_UNAVAILABLE");
+    }
+    let key: Buffer | undefined;
+    let contentCommitmentKey: Buffer | undefined;
+    let admissionCommitmentKey: Buffer | undefined;
+    try {
+      key = readPrivateDescriptor(keyDescriptor.keyDescriptor, {
+        exactBytes: 32,
+        maximumBytes: 32,
+      });
+      contentCommitmentKey = readPrivateDescriptor(
+        keyDescriptor.commitmentDescriptor,
+        { exactBytes: 32, maximumBytes: 32 },
+      );
+      admissionCommitmentKey = readPrivateDescriptor(
+        admissionVerifier.commitment_key_descriptor,
+        { exactBytes: 32, maximumBytes: 32 },
+      );
+      assertDistinctProviderKeys([
+        key,
+        contentCommitmentKey,
+        admissionCommitmentKey,
+      ]);
+      const forbiddenSigningPublicKeys = new Set([
+        admissionVerifier.trust.public_key_spki_base64url,
+        admissionVerifier.release_authority_public_key_base64url,
+      ]);
+      if (
+        [key, contentCommitmentKey, admissionCommitmentKey].some(
+          (providerKey) =>
+            forbiddenSigningPublicKeys.has(
+              authorityPublicKey(providerKey),
+            ),
+        )
+      ) {
+        throw new StorageError("KEY_PROVIDER_INVALID");
+      }
+      await this.#dependencies.verifyKey({
+        key_id: keyId,
+        key_generation: keyMetadata.generation,
+        verification_tag: keyVerificationTag(key),
+        forbidden_authority_public_keys: [
+          admissionVerifier.trust.public_key_spki_base64url,
+          admissionVerifier.release_authority_public_key_base64url,
+        ],
+      });
+      const operationId =
+        `secret-admit:${canonicalSha256(input.idempotency_key).slice(
+          "sha256:".length,
+          "sha256:".length + 48,
+        )}`;
+      const reservation = await this.#dependencies.reserve({
+        operation_id: operationId,
+        idempotency_key: input.idempotency_key,
+        request_digest: CanonicalHashSchema.parse(input.request_digest),
+        owner: SecretContentOwnerSchema.parse(input.owner),
+        scope: ScopeSchema.parse(input.scope),
+        content_identity: IdentifierSchema.parse(input.content_identity),
+        media_type: input.media_type,
+        keyed_plaintext_commitment: plaintextCommitment(
+          contentCommitmentKey,
+          verified.plaintext,
+          input,
+        ),
+        commitment_key_id: keyDescriptor.commitmentKeyId,
+        commitment_verification_tag:
+          commitmentVerificationTag(contentCommitmentKey),
+      });
+      if (reservation.state === "committed") {
+        return reservation.receipt;
+      }
+      const payload = encrypt(key, verified.plaintext, reservation);
+      if (
+        input.approval.envelope_aad_hash !==
+          secretAdmissionEnvelopeBindingHash(payload.envelope.metadata)
+      ) {
+        throw new StorageError("AUTHORITY_REPLAY");
+      }
+      return await this.#dependencies.commit({
+        operation_id: reservation.operation_id,
+        request_digest: CanonicalHashSchema.parse(input.request_digest),
+        payload,
+        approval: verified.approval,
+        release_control: releaseControl,
+        validated_at: verified.validatedAt,
+      });
+    } finally {
+      verified.plaintext.fill(0);
+      key?.fill(0);
+      contentCommitmentKey?.fill(0);
+      admissionCommitmentKey?.fill(0);
     }
   }
 
@@ -1094,6 +1502,11 @@ class SecretIngressCoordinator implements SecretIngress {
 export function createSecretIngressCoordinator(
   dependencies: SecretIngressDependencies,
   principalId: string | null,
+  admissionVerifier: SecretAdmissionVerifier | null = null,
 ): SecretIngress {
-  return new SecretIngressCoordinator(dependencies, principalId);
+  return new SecretIngressCoordinator(
+    dependencies,
+    principalId,
+    admissionVerifier,
+  );
 }

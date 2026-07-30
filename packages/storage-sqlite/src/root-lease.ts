@@ -61,7 +61,7 @@ function readLease(path: string): RootLease {
   }
 }
 
-function nextFence(root: string): number {
+function currentFence(root: string): number {
   const path = join(root, FENCE_FILE);
   let current = 0;
   if (existsSync(path)) {
@@ -74,7 +74,23 @@ function nextFence(root: string): number {
       throw new StorageError("STALE_ROOT_LEASE");
     }
   }
-  const next = current + 1;
+  return current;
+}
+
+export function inspectNextRootFenceToken(root: string): number {
+  if (existsSync(join(root, LEASE_FILE))) {
+    throw new StorageError("ROOT_LEASE_HELD", { retryable: true });
+  }
+  const next = currentFence(root) + 1;
+  if (existsSync(join(root, LEASE_FILE))) {
+    throw new StorageError("ROOT_LEASE_HELD", { retryable: true });
+  }
+  return next;
+}
+
+function nextFence(root: string): number {
+  const next = currentFence(root) + 1;
+  const path = join(root, FENCE_FILE);
   const temporary = `${path}.${randomUUID()}.tmp`;
   const descriptor = openSync(temporary, "wx", 0o600);
   try {

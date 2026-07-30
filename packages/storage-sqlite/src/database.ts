@@ -40,6 +40,10 @@ import {
   sealReceipt,
   type SecretUseAuthority,
   type SecretAdmissionApproval,
+  type G6ReleaseControl,
+  type G6ReleaseControlTrust,
+  type RuntimeIdentity,
+  type SecretAdmissionTrust,
   type SecretContentOwner,
   type ArtifactPurgeAudit,
   type OperatorActionReceipt,
@@ -357,6 +361,11 @@ export class StorageDatabase {
     operationalMigrationFault?: (
       point: OperationalMigrationFailurePoint,
     ) => void;
+    admissionTrust?: SecretAdmissionTrust | null;
+    releaseVerification?: {
+      trust: G6ReleaseControlTrust;
+      runtimeIdentity: RuntimeIdentity;
+    } | null;
   }) {
     this.#layout = options.layout;
     this.#principalId = options.secretPrincipalId ?? "principal_local_default";
@@ -448,6 +457,8 @@ export class StorageDatabase {
       {
         principalId: options.secretPrincipalId ?? null,
         rootFenceToken: options.rootFenceToken ?? null,
+        admissionTrust: options.admissionTrust ?? null,
+        releaseVerification: options.releaseVerification ?? null,
       },
     );
     if (
@@ -482,6 +493,7 @@ export class StorageDatabase {
     key_id: string;
     key_generation: number;
     verification_tag: string;
+    forbidden_authority_public_keys?: readonly string[] | undefined;
   }): null {
     this.#keys.verifyProvider(input);
     return null;
@@ -496,6 +508,8 @@ export class StorageDatabase {
     request_digest: CanonicalHash;
     payload: unknown;
     approval: SecretAdmissionApproval;
+    release_control: G6ReleaseControl | null;
+    validated_at: string;
   }): EncryptionReceipt {
     return this.#encryptedContent.commit(input);
   }

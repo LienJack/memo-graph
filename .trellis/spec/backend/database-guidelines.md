@@ -228,6 +228,9 @@ keys, commitment keys, or encryption-key bytes.
   configured principal, current root fence, current key, request digest, and
   envelope AAD. Consumption commits in the same SQLite transaction as the
   authorized effect or its content-free receipt.
+- Admission preflight and worker-transaction revalidation use an explicit
+  schema-validated verification timestamp from the same runtime clock. Do not
+  mix an injected preflight clock with worker-local `Date.now()`.
 - `secret_nonce_reservations` persists the operation class/rotation identity,
   key generation, AAD hash, commitment, owner generation, and request digest.
   A retry may reuse a nonce only when every persisted binding is identical.

@@ -67,6 +67,7 @@ import {
   SensitivitySchema,
   SecretContentOwnerSchema,
   SecretAdmissionApprovalSchema,
+  G6ReleaseControlSchema,
   SecretEncryptedPayloadSchema,
   SecretEnvelopeMetadataSchema,
   SecretUseAuthoritySchema,
@@ -128,6 +129,10 @@ export const VerifyEncryptionKeyCommandSchema = z
     verification_tag: z
       .string()
       .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+    forbidden_authority_public_keys: z
+      .array(z.string().regex(/^[A-Za-z0-9_-]{59}$/))
+      .max(8)
+      .optional(),
   })
   .strict();
 
@@ -173,6 +178,8 @@ export const CommitEncryptedSecretCommandSchema = z
     request_digest: CanonicalHashSchema,
     payload: SecretEncryptedPayloadSchema,
     approval: SecretAdmissionApprovalSchema,
+    release_control: G6ReleaseControlSchema.nullable(),
+    validated_at: UtcTimestampSchema,
   })
   .strict();
 
@@ -2627,6 +2634,11 @@ export const ConfirmedKeyRotationWorkerOperationSchema = z.enum([
   "commit_rotated_secret",
   "complete_key_rotation",
 ]);
+export const GovernedSecretAdmissionWorkerOperationSchema = z.enum([
+  "verify_encryption_key",
+  "reserve_secret_nonce",
+  "commit_encrypted_secret",
+]);
 
 export const RecoveryEffectRecordSchema = z
   .object({
@@ -2659,7 +2671,10 @@ export const WorkerRequestSchema = z
     payload: z.unknown(),
     protected_effect: RecoveryProtectedEffectSchema.optional(),
     operator_authorization: z
-      .literal("confirmed_key_rotation")
+      .enum([
+        "confirmed_key_rotation",
+        "governed_secret_admission",
+      ])
       .optional(),
   })
   .strict()
@@ -2676,6 +2691,20 @@ export const WorkerRequestSchema = z
         path: ["operator_authorization"],
         message:
           "operator authorization is invalid for this worker operation",
+      });
+    }
+    if (
+      request.operator_authorization ===
+        "governed_secret_admission" &&
+      !GovernedSecretAdmissionWorkerOperationSchema.safeParse(
+        request.operation,
+      ).success
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["operator_authorization"],
+        message:
+          "secret-admission authorization is invalid for this worker operation",
       });
     }
   });

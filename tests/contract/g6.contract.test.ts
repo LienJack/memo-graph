@@ -15,6 +15,7 @@ describe("G6 release control contract", () => {
     const runtime = RuntimeIdentitySchema.parse({
       schema_version: "1.0.0",
       tested_implementation_digest: HASH_A,
+      tested_envelope_digest: HASH_B,
       dependency_lock_digest: HASH_B,
       migration_set_digest: HASH_A,
       platform: {
@@ -28,6 +29,7 @@ describe("G6 release control contract", () => {
       runtime_identity_hash: canonicalSha256({
         schema_version: "1.0.0",
         tested_implementation_digest: HASH_A,
+        tested_envelope_digest: HASH_B,
         dependency_lock_digest: HASH_B,
         migration_set_digest: HASH_A,
         platform: {
@@ -43,11 +45,13 @@ describe("G6 release control contract", () => {
     const base = {
       schema_version: "1.0.0",
       control_id: "g6-control:test",
+      purpose: "g6_release_control" as const,
       decision: "NO-GO" as const,
       runtime_identity_hash: runtime.runtime_identity_hash,
       tested_envelope_digest: HASH_A,
       secret_admission_allowed: false,
       authority_key_id: "g6-authority:test",
+      authority_key_generation: 1,
       signature_algorithm: "Ed25519",
       issued_at: "2026-07-30T00:00:00.000Z",
       expires_at: "2026-08-30T00:00:00.000Z",

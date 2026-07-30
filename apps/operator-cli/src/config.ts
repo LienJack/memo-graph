@@ -28,6 +28,11 @@ import {
   OperationalArtifactClassSchema,
   OperatorConfirmationSchema,
   ReleaseQualificationSchema,
+  G6ReleaseControlSchema,
+  G6ReleaseControlTrustSchema,
+  RuntimeIdentitySchema,
+  SecretAdmissionApprovalSchema,
+  SecretAdmissionTrustSchema,
 } from "@memo-graph/contracts";
 import { z } from "zod";
 import {
@@ -120,6 +125,30 @@ export const OperatorConfigSchema = z
           z.string().trim().min(1),
         ),
         forbidden_markers: z.array(z.string().min(1).max(512)),
+      })
+      .strict()
+      .nullable()
+      .default(null),
+    secret_admission: z
+      .object({
+        enabled: z.boolean(),
+        approval_trust: SecretAdmissionTrustSchema,
+        signing_private_key_path: z.string().trim().min(1),
+        commitment_key_path: z.string().trim().min(1),
+        release_control_path: z.string().trim().min(1),
+        release_trust: G6ReleaseControlTrustSchema,
+        runtime_identity_path: z.string().trim().min(1),
+        encryption_provider: z
+          .object({
+            key_id: IdentifierSchema,
+            key_generation: z.number().int().positive(),
+            key_path: z.string().trim().min(1),
+            commitment_key_id: IdentifierSchema,
+            commitment_key_path: z.string().trim().min(1),
+          })
+          .strict(),
+        requests: z.record(IdentifierSchema, z.string().trim().min(1)),
+        approvals: z.record(IdentifierSchema, z.string().trim().min(1)),
       })
       .strict()
       .nullable()
@@ -246,6 +275,19 @@ function validateOperatorPaths(config: OperatorConfig): OperatorConfig {
           ...Object.values(config.learning_rollback.approval_grants),
         ].map(({ path }) => resolveNoSymlinkTail(path));
   const operationalArtifacts = config.operational_artifacts;
+  const secretAdmissionPaths =
+    config.secret_admission === null
+      ? []
+      : [
+          config.secret_admission.signing_private_key_path,
+          config.secret_admission.commitment_key_path,
+          config.secret_admission.release_control_path,
+          config.secret_admission.runtime_identity_path,
+          config.secret_admission.encryption_provider.key_path,
+          config.secret_admission.encryption_provider.commitment_key_path,
+          ...Object.values(config.secret_admission.requests),
+          ...Object.values(config.secret_admission.approvals),
+        ].map(resolveNoSymlinkTail);
   const operationalArtifactRoots =
     operationalArtifacts === null
       ? []
@@ -279,6 +321,27 @@ function validateOperatorPaths(config: OperatorConfig): OperatorConfig {
       }
     }
   }
+  if (
+    config.secret_admission !== null &&
+    new Set(secretAdmissionPaths.slice(0, 6)).size !== 6
+  ) {
+    throw new OperatorConfigError();
+  }
+  if (
+    config.secret_admission !== null &&
+    (authorityKeys.some((keyPath) =>
+      secretAdmissionPaths.slice(0, 6).includes(keyPath),
+    ) ||
+      (confirmationAuthority !== null &&
+        [
+          config.secret_admission.approval_trust
+            .public_key_spki_base64url,
+          config.secret_admission.release_trust
+            .public_key_spki_base64url,
+        ].includes(confirmationAuthority.trust.public_key_spki)))
+  ) {
+    throw new OperatorConfigError();
+  }
 
   for (const externalPath of [
     ...(authorityDirectory === null ? [] : [authorityDirectory]),
@@ -286,6 +349,7 @@ function validateOperatorPaths(config: OperatorConfig): OperatorConfig {
     ...(actionLedger === null ? [] : [actionLedger]),
     ...grantPaths,
     ...learningArtifactPaths,
+    ...secretAdmissionPaths,
   ]) {
     if (
       protectedRoots.some((root) => pathsOverlap(root, externalPath))
@@ -305,6 +369,7 @@ function validateOperatorPaths(config: OperatorConfig): OperatorConfig {
       ...(actionLedger === null ? [] : [actionLedger]),
       ...grantPaths,
       ...learningArtifactPaths,
+      ...secretAdmissionPaths,
     ].some((path) => pathsOverlap(path, quarantineRoot))
   ) {
     throw new OperatorConfigError();
@@ -413,6 +478,95 @@ function readPrivateBytes(pathInput: string): Buffer {
   } finally {
     closeSync(descriptor);
   }
+}
+
+export function openPrivateOperatorDescriptor(pathInput: string): number {
+  let descriptor: number | undefined;
+  try {
+    const path = resolve(pathInput);
+    descriptor = openSync(
+      path,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+    );
+    const stat = fstatSync(descriptor);
+    const expectedOwner = process.getuid?.();
+    if (
+      !stat.isFile() ||
+      stat.size <= 0 ||
+      stat.size > MAX_CONFIG_BYTES ||
+      (stat.mode & 0o077) !== 0 ||
+      (expectedOwner !== undefined && stat.uid !== expectedOwner)
+    ) {
+      throw new OperatorConfigError();
+    }
+    return descriptor;
+  } catch {
+    if (descriptor !== undefined) {
+      closeSync(descriptor);
+    }
+    throw new OperatorConfigError();
+  }
+}
+
+export function loadSecretAdmissionArtifacts(
+  config: OperatorConfig,
+  input: { requestRef?: string; approvalRef?: string },
+) {
+  const admission = config.secret_admission;
+  if (admission === null) {
+    throw new OperatorConfigError();
+  }
+  const request =
+    input.requestRef === undefined
+      ? null
+      : readPrivateOperatorJson(
+          admission.requests[IdentifierSchema.parse(input.requestRef)] ??
+            (() => {
+              throw new OperatorConfigError();
+            })(),
+        );
+  const approval =
+    input.approvalRef === undefined
+      ? null
+      : SecretAdmissionApprovalSchema.parse(
+          readPrivateOperatorJson(
+            admission.approvals[
+              IdentifierSchema.parse(input.approvalRef)
+            ] ??
+              (() => {
+                throw new OperatorConfigError();
+              })(),
+          ),
+        );
+  return {
+    admission,
+    request,
+    approval,
+    control: G6ReleaseControlSchema.parse(
+      readPrivateOperatorJson(admission.release_control_path),
+    ),
+    runtimeIdentity: RuntimeIdentitySchema.parse(
+      readPrivateOperatorJson(admission.runtime_identity_path),
+    ),
+  };
+}
+
+export function loadSecretAdmissionRequest(
+  config: OperatorConfig,
+  requestRef: string,
+) {
+  const admission = config.secret_admission;
+  if (admission === null) {
+    throw new OperatorConfigError();
+  }
+  const path = admission.requests[IdentifierSchema.parse(requestRef)];
+  if (path === undefined) {
+    throw new OperatorConfigError();
+  }
+  return {
+    admission,
+    request: readPrivateOperatorJson(path),
+  };
 }
 
 export function loadOperatorConfig(pathInput: string): OperatorConfig {

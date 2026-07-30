@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import {
   canonicalJson,
+  canonicalSha256,
   canonicalSha256Omitting,
 } from "./canonical-json.js";
 import {
@@ -12,6 +13,7 @@ import {
   IdentifierSchema,
   ScopeSchema,
   UtcTimestampSchema,
+  type Scope,
 } from "./common.js";
 
 export const SECRET_ENVELOPE_DOMAIN = "memo-graph/secret-envelope/v1";
@@ -351,6 +353,15 @@ export const SecretAdmissionApprovalSchema = z
   .object({
     ...SecretAuthorityBaseShape,
     approval_id: IdentifierSchema,
+    purpose: z.literal("secret_admission"),
+    sensitivity: z.literal("secret"),
+    envelope_version: z.literal(1),
+    request_nonce: IdentifierSchema,
+    descriptor_identity_hash: CanonicalHashSchema,
+    descriptor_commitment: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+    authority_key_generation: z.number().int().positive(),
     envelope_aad_hash: CanonicalHashSchema,
     root_fence_token: z.number().int().positive(),
     approval_hash: CanonicalHashSchema,
@@ -376,6 +387,94 @@ export const SecretAdmissionApprovalSchema = z
     }
   });
 
+export const SecretAdmissionTrustSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    purpose: z.literal("secret_admission"),
+    authority_key_id: IdentifierSchema,
+    authority_key_generation: z.number().int().positive(),
+    public_key_spki_base64url: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{59}$/),
+    valid_from: UtcTimestampSchema,
+    expires_at: UtcTimestampSchema,
+    revoked_at: UtcTimestampSchema.nullable(),
+    maximum_approval_ttl_seconds: z.number().int().positive().max(3_600),
+    commitment_key_id: IdentifierSchema,
+    commitment_key_verification_tag: z
+      .string()
+      .regex(/^hmac-sha256:[A-Za-z0-9_-]{43}$/),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (Date.parse(value.expires_at) <= Date.parse(value.valid_from)) {
+      context.addIssue({
+        code: "custom",
+        path: ["expires_at"],
+        message: "secret-admission trust must expire after becoming valid",
+      });
+    }
+    if (
+      value.revoked_at !== null &&
+      (Date.parse(value.revoked_at) < Date.parse(value.valid_from) ||
+        Date.parse(value.revoked_at) > Date.parse(value.expires_at))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["revoked_at"],
+        message: "secret-admission revocation must fall within trust lifetime",
+      });
+    }
+  });
+
+export function secretAdmissionApprovalSigningPayload(
+  approval: Pick<SecretAdmissionApproval, "approval_hash">,
+): string {
+  return `memo-graph/secret-admission-approval/v1:${approval.approval_hash}`;
+}
+
+export function secretAdmissionEnvelopeBindingHash(
+  metadata: SecretEnvelopeMetadata,
+): `sha256:${string}` {
+  return canonicalSha256({
+    schema_version: metadata.schema_version,
+    envelope_version: metadata.envelope_version,
+    algorithm: metadata.algorithm,
+    key_id: metadata.key_id,
+    key_generation: metadata.key_generation,
+    owner: metadata.owner,
+    scope: metadata.scope,
+    sensitivity: metadata.sensitivity,
+    content_identity: metadata.content_identity,
+    content_class: metadata.content_class,
+    media_type: metadata.media_type,
+  });
+}
+
+export function secretAdmissionEnvelopeRequestBindingHash(input: {
+  key_id: string;
+  key_generation: number;
+  owner: SecretContentOwner;
+  scope: Scope;
+  content_identity: string;
+  content_class: "evidence" | "memory_revision";
+  media_type: string;
+}): `sha256:${string}` {
+  return canonicalSha256({
+    schema_version: "1.0.0",
+    envelope_version: 1,
+    algorithm: "AES-256-GCM",
+    key_id: input.key_id,
+    key_generation: input.key_generation,
+    owner: input.owner,
+    scope: input.scope,
+    sensitivity: "secret",
+    content_identity: input.content_identity,
+    content_class: input.content_class,
+    media_type: input.media_type,
+  });
+}
+
 export type EncryptionKeyDescriptor = z.infer<
   typeof EncryptionKeyDescriptorSchema
 >;
@@ -388,6 +487,9 @@ export type KeyRotationProgress = z.infer<
 >;
 export type SecretAdmissionApproval = z.infer<
   typeof SecretAdmissionApprovalSchema
+>;
+export type SecretAdmissionTrust = z.infer<
+  typeof SecretAdmissionTrustSchema
 >;
 export type SecretContentOwner = z.infer<typeof SecretContentOwnerSchema>;
 export type SecretEncryptedPayload = z.infer<

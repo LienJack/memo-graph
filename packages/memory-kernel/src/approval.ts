@@ -4,6 +4,7 @@ import {
   ApprovalBindingSchema,
   CanaryAuthorizationSchema,
   PostCanaryApprovalSchema,
+  RuntimeIdentitySchema,
   approvalGrantMatches,
   canonicalJson,
   canonicalSha256,
@@ -12,7 +13,11 @@ import {
   type CanaryAuthorization,
   type MemoryToolName,
   type PostCanaryApproval,
+  type G6ReleaseControl,
+  type G6ReleaseControlTrust,
+  type RuntimeIdentityProvider,
 } from "@memo-graph/contracts";
+import { verifyExactG6ReleaseControl } from "@memo-graph/storage-sqlite";
 export { ApprovalBindingSchema, type ApprovalBinding };
 
 export type VerifiedApproval = {
@@ -41,6 +46,27 @@ export class ApprovalError extends Error {
 export interface ApprovalRegistry {
   verify(binding: ApprovalBinding): Promise<VerifiedApproval>;
   confirmUnchanged(approval: VerifiedApproval): Promise<void>;
+}
+
+export async function verifyG6ReleaseControl(input: {
+  control: unknown;
+  trust: G6ReleaseControlTrust;
+  runtimeIdentityProvider: RuntimeIdentityProvider;
+  now: string;
+}): Promise<G6ReleaseControl> {
+  const runtimeIdentity = RuntimeIdentitySchema.parse(
+    await input.runtimeIdentityProvider.current(),
+  );
+  try {
+    return verifyExactG6ReleaseControl({
+      control: input.control,
+      trust: input.trust,
+      runtimeIdentity,
+      now: input.now,
+    });
+  } catch {
+    throw new ApprovalError("APPROVAL_INVALID");
+  }
 }
 
 export type VerifiedCanaryAuthorization = {

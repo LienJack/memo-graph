@@ -222,6 +222,7 @@ export class KeyRepository {
     key_id: string;
     key_generation: number;
     verification_tag: string;
+    forbidden_authority_public_keys?: readonly string[] | undefined;
   }): void {
     const row = this.#database
       .prepare(
@@ -240,7 +241,10 @@ export class KeyRepository {
     }
     if (
       Number(row.key_generation) !== input.key_generation ||
-      row.verification_tag !== input.verification_tag
+      row.verification_tag !== input.verification_tag ||
+      input.forbidden_authority_public_keys?.includes(
+        row.authority_public_key_base64url,
+      )
     ) {
       throw new StorageError("KEY_PROVIDER_INVALID");
     }

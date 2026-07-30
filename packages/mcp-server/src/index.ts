@@ -550,7 +550,7 @@ export function createMemoryMcpServer(options: {
         resources: { listChanged: false, subscribe: false },
       },
       instructions:
-        "Memory is returned only by explicit tool calls. Resources are inspection endpoints and are not automatically added to model context.",
+        "Memory is returned only by explicit tool calls. Resources are inspection endpoints and are not automatically added to model context. MCP cannot originate secret plaintext; it may only reference an existing encrypted evidence identity, and secret content remains excluded from recall and Context.",
     },
   );
   registerOperationalHealthResource(

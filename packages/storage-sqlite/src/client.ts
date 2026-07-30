@@ -11,6 +11,9 @@ import {
   IdentifierSchema,
   EncryptionKeyInventorySchema,
   EncryptionReceiptSchema,
+  G6ReleaseControlTrustSchema,
+  RuntimeIdentitySchema,
+  SecretAdmissionTrustSchema,
   KeyRotationProgressSchema,
   GraphScopeCheckpointSchema,
   MutationReceiptSchema,
@@ -27,6 +30,8 @@ import {
   type CanonicalHash,
   type EncryptionKeyInventory,
   type EncryptionReceipt,
+  type G6ReleaseControl,
+  type G6ReleaseControlTrust,
   type KeyRotationProgress,
   type RecoveryAnchor,
   type RecoveryPendingReservation,
@@ -34,6 +39,9 @@ import {
   type OperationIntent,
   type OperatorConfirmation,
   type OperatorConfirmationTrust,
+  type RuntimeIdentity,
+  type RuntimeIdentityProvider,
+  type SecretAdmissionTrust,
   type VectorScopeCheckpoint,
 } from "@memo-graph/contracts";
 import { z } from "zod";
@@ -110,6 +118,7 @@ import {
   InspectOperationalRepairResultSchema,
   CompleteOperationalRepairInputSchema,
   ConfirmedKeyRotationWorkerOperationSchema,
+  GovernedSecretAdmissionWorkerOperationSchema,
   InstallEncryptionKeyCommandSchema,
   KeyRotationInputSchema,
   KeyRotationNextResultSchema,
@@ -308,8 +317,11 @@ import {
   type DarkLaunchPurgeSecretInput,
   type DarkLaunchRevokeEncryptionKeyInput,
   type DarkLaunchResumeKeyRotationInput,
+  type GovernedAdmitSecretInput,
+  type SecretAdmissionVerifier,
   type SecretIngress,
 } from "./secret-ingress.js";
+import { verifyExactG6ReleaseControl } from "./release-control.js";
 import {
   WriterQueue,
   WriterQueueMetricsSchema,
@@ -424,6 +436,22 @@ export type SqliteStorageClientOptions = {
     observe?: () => AdmissionObservation;
   };
   recoveryHeadProvider?: RecoveryHeadProvider | null;
+  secretAdmission?: {
+    enabled: boolean;
+    approvalTrust: SecretAdmissionTrust;
+    approvalCommitmentDescriptor: number;
+    encryptionProvider?: {
+      key_id: string;
+      key_generation: number;
+      key_descriptor: number;
+      commitment_key_id: string;
+      commitment_descriptor: number;
+    };
+    releaseControl: G6ReleaseControl | null;
+    releaseTrust: G6ReleaseControlTrust;
+    runtimeIdentityProvider: RuntimeIdentityProvider;
+    now?: () => string;
+  };
 };
 
 export const RecoveryAuthorityHealthSchema = z
@@ -477,12 +505,16 @@ export class SqliteStorageClient {
     secretPrincipalId: string | null;
     databasePath: string;
     onDiagnostic: ((diagnostic: StorageDiagnostic) => void) | undefined;
+    secretAdmission:
+      | NonNullable<SqliteStorageClientOptions["secretAdmission"]>
+      | null;
   };
   readonly #writerQueue: WriterQueue;
   readonly #admission: AdmissionController | undefined;
   readonly #rootLease: RootWriterLease | undefined;
   readonly #secretIngress: SecretIngress;
   readonly #recoveryHeadProvider: RecoveryHeadProvider | null;
+  #runtimeIdentity: RuntimeIdentity | null = null;
   readonly #pending = new Map<string, PendingRequest>();
   readonly #protectedInFlight = new Map<
     string,
@@ -517,7 +549,9 @@ export class SqliteStorageClient {
     }
   >();
   readonly #operatorAuthorization =
-    new AsyncLocalStorage<"confirmed_key_rotation">();
+    new AsyncLocalStorage<
+      "confirmed_key_rotation" | "governed_secret_admission"
+    >();
 
   private constructor(
     options: SqliteStorageClientOptions & { inspectionOnly?: boolean },
@@ -540,6 +574,7 @@ export class SqliteStorageClient {
           ? null
           : IdentifierSchema.parse(options.secretPrincipalId),
       onDiagnostic: options.onDiagnostic,
+      secretAdmission: options.secretAdmission ?? null,
     };
     this.#admission = inspectionOnly
       ? undefined
@@ -572,6 +607,29 @@ export class SqliteStorageClient {
         );
       },
     });
+    const admissionVerifier: SecretAdmissionVerifier | null =
+      options.secretAdmission === undefined
+        ? null
+        : {
+            trust: SecretAdmissionTrustSchema.parse(
+              options.secretAdmission.approvalTrust,
+            ),
+            commitment_key_descriptor:
+              options.secretAdmission.approvalCommitmentDescriptor,
+            release_authority_public_key_base64url:
+              G6ReleaseControlTrustSchema.parse(
+                options.secretAdmission.releaseTrust,
+              ).public_key_spki_base64url,
+            ...(options.secretAdmission.encryptionProvider === undefined
+              ? {}
+              : {
+                  encryption_provider:
+                    options.secretAdmission.encryptionProvider,
+                }),
+            ...(options.secretAdmission.now === undefined
+              ? {}
+              : { now: options.secretAdmission.now }),
+          };
     this.#secretIngress = createSecretIngressCoordinator({
       installKey: (input) => {
         const command = InstallEncryptionKeyCommandSchema.parse(input);
@@ -746,7 +804,7 @@ export class SqliteStorageClient {
         await this.#request("finalize_secret_purge", null, NullSchema);
         return receipt;
       },
-    }, this.#options.secretPrincipalId);
+    }, this.#options.secretPrincipalId, admissionVerifier);
     this.#faultOnNextWorker =
       options.testFaults?.exitAfterCommitBeforeResponseOnce ?? false;
     this.#encryptedArtifactFaultOnNextWorker =
@@ -763,6 +821,12 @@ export class SqliteStorageClient {
   ): Promise<SqliteStorageClient> {
     const client = new SqliteStorageClient(options);
     try {
+      client.#runtimeIdentity =
+        options.secretAdmission === undefined
+          ? null
+          : RuntimeIdentitySchema.parse(
+              await options.secretAdmission.runtimeIdentityProvider.current(),
+            );
       await client.health();
       await client.#initializeRecoveryAuthority();
       return client;
@@ -970,6 +1034,86 @@ export class SqliteStorageClient {
     return this.#writerQueue.enqueue(
       () => this.#secretIngress.installKey(input),
       "key_rotation",
+    );
+  }
+
+  async governedAdmitSecret(
+    input: GovernedAdmitSecretInput,
+  ): Promise<EncryptionReceipt> {
+    const configured = this.#options.secretAdmission;
+    if (
+      configured === null ||
+      !configured.enabled ||
+      configured.releaseControl === null ||
+      this.#runtimeIdentity === null
+    ) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
+    const releaseControl = configured.releaseControl;
+    const approvalTrust = SecretAdmissionTrustSchema.safeParse(
+      configured.approvalTrust,
+    );
+    const releaseTrust = G6ReleaseControlTrustSchema.safeParse(
+      configured.releaseTrust,
+    );
+    if (
+      !approvalTrust.success ||
+      !releaseTrust.success ||
+      approvalTrust.data.public_key_spki_base64url ===
+        releaseTrust.data.public_key_spki_base64url
+    ) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
+    const currentIdentity = RuntimeIdentitySchema.parse(
+      await configured.runtimeIdentityProvider.current(),
+    );
+    if (
+      canonicalJson(currentIdentity) !== canonicalJson(this.#runtimeIdentity)
+    ) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
+    verifyExactG6ReleaseControl({
+      control: releaseControl,
+      trust: releaseTrust.data,
+      runtimeIdentity: currentIdentity,
+      now: (configured.now ?? (() => new Date().toISOString()))(),
+    });
+    await this.#secretIngress.preflightGoverned(input);
+    return this.#coalesceProtected(
+      `governed_admit_secret:${input.idempotency_key}`,
+      recoveryContentHash({
+        ...input,
+        input_descriptor: "private_descriptor",
+      }),
+      () =>
+        this.#writerQueue.enqueue(
+          async () => {
+            const transactionIdentity = RuntimeIdentitySchema.parse(
+              await configured.runtimeIdentityProvider.current(),
+            );
+            if (
+              canonicalJson(transactionIdentity) !==
+                canonicalJson(this.#runtimeIdentity)
+            ) {
+              throw new StorageError("ENCRYPTION_REQUIRED");
+            }
+            verifyExactG6ReleaseControl({
+              control: releaseControl,
+              trust: releaseTrust.data,
+              runtimeIdentity: transactionIdentity,
+              now: (configured.now ?? (() => new Date().toISOString()))(),
+            });
+            return this.#operatorAuthorization.run(
+              "governed_secret_admission",
+              () =>
+                this.#secretIngress.admitGoverned(
+                  input,
+                  releaseControl,
+                ),
+            );
+          },
+          "secret_write",
+        ),
     );
   }
 
@@ -2335,13 +2479,18 @@ export class SqliteStorageClient {
         startedAt: performance.now(),
       });
       try {
+        const authorization = this.#operatorAuthorization.getStore();
         const operatorAuthorization =
-          this.#operatorAuthorization.getStore() !== undefined &&
-          ConfirmedKeyRotationWorkerOperationSchema.safeParse(
-            operation,
-          ).success
-            ? ("confirmed_key_rotation" as const)
-            : undefined;
+          authorization === "confirmed_key_rotation" &&
+          ConfirmedKeyRotationWorkerOperationSchema.safeParse(operation)
+            .success
+            ? authorization
+            : authorization === "governed_secret_admission" &&
+                GovernedSecretAdmissionWorkerOperationSchema.safeParse(
+                  operation,
+                ).success
+              ? authorization
+              : undefined;
         worker.postMessage({
           requestId,
           operation,
@@ -2393,6 +2542,11 @@ export class SqliteStorageClient {
             : this.#recoveryHeadProvider.publicKey
                 .export({ format: "der", type: "spki" })
                 .toString("base64url"),
+        secretAdmissionTrust:
+          this.#options.secretAdmission?.approvalTrust ?? null,
+        g6ReleaseTrust:
+          this.#options.secretAdmission?.releaseTrust ?? null,
+        runtimeIdentity: this.#runtimeIdentity,
       },
     });
     this.#worker = worker;

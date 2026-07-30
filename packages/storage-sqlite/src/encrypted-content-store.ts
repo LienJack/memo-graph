@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, verify } from "node:crypto";
 
 import type Database from "better-sqlite3";
 import type { z } from "zod";
@@ -6,6 +6,10 @@ import type { z } from "zod";
 import {
   CanonicalHashSchema,
   SecretEncryptedPayloadSchema,
+  G6ReleaseControlSchema,
+  SecretAdmissionTrustSchema,
+  secretAdmissionApprovalSigningPayload,
+  secretAdmissionEnvelopeRequestBindingHash,
   SecretContentOwnerSchema,
   SecretEnvelopeMetadataSchema,
   canonicalJson,
@@ -18,12 +22,17 @@ import {
   type SecretContentOwner,
   type SecretEnvelopeMetadata,
   type SecretUseAuthority,
+  type G6ReleaseControl,
+  type G6ReleaseControlTrust,
+  type RuntimeIdentity,
+  type SecretAdmissionTrust,
 } from "@memo-graph/contracts";
 
 import { StorageError } from "./errors.js";
 import type { KeyRepository } from "./key-repository.js";
 import type { OperationalRepository } from "./operational-repository.js";
 import type { EncryptedArtifactStore } from "./encrypted-artifact-store.js";
+import { verifyExactG6ReleaseControl } from "./release-control.js";
 
 type ReservationRow = {
   operation_id: string;
@@ -82,6 +91,11 @@ export class EncryptedContentStore {
   readonly #artifacts: EncryptedArtifactStore;
   readonly #principalId: string | null;
   readonly #rootFenceToken: number | null;
+  readonly #releaseVerification: {
+    trust: G6ReleaseControlTrust;
+    runtimeIdentity: RuntimeIdentity;
+  } | null;
+  readonly #admissionTrust: SecretAdmissionTrust | null;
 
   constructor(
     database: Database.Database,
@@ -91,6 +105,11 @@ export class EncryptedContentStore {
     options: {
       principalId: string | null;
       rootFenceToken: number | null;
+      releaseVerification?: {
+        trust: G6ReleaseControlTrust;
+        runtimeIdentity: RuntimeIdentity;
+      } | null;
+      admissionTrust?: SecretAdmissionTrust | null;
     },
   ) {
     this.#database = database;
@@ -99,6 +118,8 @@ export class EncryptedContentStore {
     this.#artifacts = artifacts;
     this.#principalId = options.principalId;
     this.#rootFenceToken = options.rootFenceToken;
+    this.#releaseVerification = options.releaseVerification ?? null;
+    this.#admissionTrust = options.admissionTrust ?? null;
   }
 
   reserve(input: ReserveSecretInput): ReserveSecretResult {
@@ -220,6 +241,8 @@ export class EncryptedContentStore {
     request_digest: CanonicalHash;
     payload: unknown;
     approval?: SecretAdmissionApproval;
+    release_control?: G6ReleaseControl | null;
+    validated_at?: string;
     rotation_id?: string;
     old_ciphertext_id?: string;
   }): EncryptionReceipt {
@@ -280,6 +303,10 @@ export class EncryptedContentStore {
           throw new StorageError("NONCE_REUSE");
         }
         if (input.rotation_id === undefined) {
+          this.#installOrVerifyReleaseControl(
+            input.release_control ?? null,
+            input.validated_at,
+          );
           const current = this.#keys.currentInternal();
           if (
             row.key_id !== current.key_id ||
@@ -293,8 +320,8 @@ export class EncryptedContentStore {
           this.#validateAdmissionApproval(
             input.approval,
             payload.envelope.metadata,
-            payload.envelope.aad_hash,
             input.request_digest,
+            input.validated_at,
           );
         } else {
           const rotation = this.#keys.rotation(input.rotation_id);
@@ -1059,26 +1086,31 @@ export class EncryptedContentStore {
   #validateAdmissionApproval(
     approval: SecretAdmissionApproval | undefined,
     metadata: SecretEnvelopeMetadata,
-    aadHash: CanonicalHash,
     requestDigest: CanonicalHash,
+    validatedAt: string | undefined,
   ): void {
-    const now = Date.now();
-    const expectedApprovalId =
-      `secret-admission:${canonicalSha256({
-        request_digest: requestDigest,
-        envelope_aad_hash: aadHash,
-      }).slice("sha256:".length, "sha256:".length + 48)}`;
+    const now =
+      validatedAt === undefined ? Number.NaN : Date.parse(validatedAt);
+    const envelopeBinding = secretAdmissionEnvelopeRequestBindingHash({
+      key_id: metadata.key_id,
+      key_generation: metadata.key_generation,
+      owner: metadata.owner,
+      scope: metadata.scope,
+      content_identity: metadata.content_identity,
+      content_class: metadata.content_class,
+      media_type: metadata.media_type,
+    });
     if (
       approval === undefined ||
+      !Number.isFinite(now) ||
       this.#principalId === null ||
       this.#rootFenceToken === null ||
       approval.principal_id !== this.#principalId ||
       approval.root_fence_token !== this.#rootFenceToken ||
-      approval.approval_id !== expectedApprovalId ||
       Date.parse(approval.issued_at) > now ||
       Date.parse(approval.expires_at) <= now ||
       approval.request_digest !== requestDigest ||
-      approval.envelope_aad_hash !== aadHash ||
+      approval.envelope_aad_hash !== envelopeBinding ||
       approval.key_id !== metadata.key_id ||
       approval.key_generation !== metadata.key_generation ||
       approval.owner.kind !== metadata.owner.kind ||
@@ -1088,13 +1120,57 @@ export class EncryptedContentStore {
     ) {
       throw new StorageError("INVALID_INPUT");
     }
-    this.#keys.verifyAuthoritySignature({
-      key_id: approval.key_id,
-      key_generation: approval.key_generation,
-      authority_key_id: approval.authority_key_id,
-      authority_hash: approval.approval_hash,
-      signature: approval.signature,
-    });
+    if (this.#admissionTrust === null) {
+      this.#keys.verifyAuthoritySignature({
+        key_id: approval.key_id,
+        key_generation: approval.key_generation,
+        authority_key_id: approval.authority_key_id,
+        authority_hash: approval.approval_hash,
+        signature: approval.signature,
+      });
+    } else {
+      const trust = SecretAdmissionTrustSchema.parse(this.#admissionTrust);
+      const revokedAt =
+        trust.revoked_at === null ? null : Date.parse(trust.revoked_at);
+      const signatureValid = (() => {
+        try {
+          return verify(
+            null,
+            Buffer.from(
+              secretAdmissionApprovalSigningPayload(approval),
+              "utf8",
+            ),
+            {
+              key: Buffer.from(
+                trust.public_key_spki_base64url,
+                "base64url",
+              ),
+              format: "der",
+              type: "spki",
+            },
+            Buffer.from(approval.signature, "base64url"),
+          );
+        } catch {
+          return false;
+        }
+      })();
+      if (
+        approval.purpose !== trust.purpose ||
+        approval.authority_key_id !== trust.authority_key_id ||
+        approval.authority_key_generation !==
+          trust.authority_key_generation ||
+        Date.parse(approval.issued_at) < Date.parse(trust.valid_from) ||
+        Date.parse(approval.expires_at) > Date.parse(trust.expires_at) ||
+        (Date.parse(approval.expires_at) -
+          Date.parse(approval.issued_at)) /
+          1_000 >
+          trust.maximum_approval_ttl_seconds ||
+        (revokedAt !== null && revokedAt <= now) ||
+        !signatureValid
+      ) {
+        throw new StorageError("INVALID_INPUT");
+      }
+    }
     const consumed = this.#database
       .prepare(
         `SELECT authority_hash
@@ -1104,6 +1180,66 @@ export class EncryptedContentStore {
     if (consumed !== undefined) {
       throw new StorageError("AUTHORITY_REPLAY");
     }
+  }
+
+  #installOrVerifyReleaseControl(
+    controlInput: G6ReleaseControl | null,
+    validatedAt: string | undefined,
+  ): void {
+    const verification = this.#releaseVerification;
+    if (verification === null) {
+      if (controlInput !== null) {
+        throw new StorageError("ENCRYPTION_REQUIRED");
+      }
+      return;
+    }
+    if (controlInput === null) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
+    if (validatedAt === undefined) {
+      throw new StorageError("ENCRYPTION_REQUIRED");
+    }
+    const control = verifyExactG6ReleaseControl({
+      control: G6ReleaseControlSchema.parse(controlInput),
+      trust: verification.trust,
+      runtimeIdentity: verification.runtimeIdentity,
+      now: validatedAt,
+    });
+    const existing = this.#database
+      .prepare(
+        `SELECT control_hash, control_json
+         FROM g6_release_controls LIMIT 1`,
+      )
+      .get() as
+      | { control_hash: string; control_json: string }
+      | undefined;
+    if (existing !== undefined) {
+      if (
+        existing.control_hash !== control.control_hash ||
+        existing.control_json !== canonicalJson(control)
+      ) {
+        throw new StorageError("ENCRYPTION_REQUIRED");
+      }
+      return;
+    }
+    this.#database
+      .prepare(
+        `INSERT INTO g6_release_controls (
+           control_id, runtime_identity_hash, tested_envelope_digest,
+           decision, secret_admission_allowed, control_hash, control_json,
+           installed_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        control.control_id,
+        control.runtime_identity_hash,
+        control.tested_envelope_digest,
+        control.decision,
+        control.secret_admission_allowed ? 1 : 0,
+        control.control_hash,
+        canonicalJson(control),
+        validatedAt,
+      );
   }
 
   #metadataJson(

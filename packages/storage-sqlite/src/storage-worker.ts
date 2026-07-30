@@ -4,6 +4,9 @@ import { parentPort, workerData } from "node:worker_threads";
 import {
   OperatorActionReceiptSchema,
   RecoveryAnchorSchema,
+  G6ReleaseControlTrustSchema,
+  RuntimeIdentitySchema,
+  SecretAdmissionTrustSchema,
   verifyRecoveryAnchor,
   verifyRecoveryPendingAuthorization,
 } from "@memo-graph/contracts";
@@ -121,6 +124,9 @@ const WorkerOptionsSchema = z
     inspectionOnly: z.boolean(),
     recoveryAuthorityKeyId: z.string().nullable(),
     recoveryAuthorityPublicKeyDer: z.string().nullable(),
+    secretAdmissionTrust: SecretAdmissionTrustSchema.nullable(),
+    g6ReleaseTrust: G6ReleaseControlTrustSchema.nullable(),
+    runtimeIdentity: RuntimeIdentitySchema.nullable(),
   })
   .strict();
 
@@ -170,6 +176,14 @@ try {
         process.exit(93);
       }
     },
+    admissionTrust: options.secretAdmissionTrust,
+    releaseVerification:
+      options.g6ReleaseTrust === null || options.runtimeIdentity === null
+        ? null
+        : {
+            trust: options.g6ReleaseTrust,
+            runtimeIdentity: options.runtimeIdentity,
+          },
   });
 } catch (error) {
   initializationError = error;
@@ -298,7 +312,9 @@ port.on("message", (message: unknown) => {
           if (
             !options.testOperations &&
             request.operator_authorization !==
-              "confirmed_key_rotation"
+              "confirmed_key_rotation" &&
+            request.operator_authorization !==
+              "governed_secret_admission"
           ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
@@ -307,7 +323,11 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "reserve_secret_nonce":
-          if (!options.testOperations) {
+          if (
+            !options.testOperations &&
+            request.operator_authorization !==
+              "governed_secret_admission"
+          ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
           result = database.reserveSecretNonce(
@@ -315,7 +335,11 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "commit_encrypted_secret":
-          if (!options.testOperations) {
+          if (
+            !options.testOperations &&
+            request.operator_authorization !==
+              "governed_secret_admission"
+          ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
           result = database.commitEncryptedSecret(

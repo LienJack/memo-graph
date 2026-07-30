@@ -158,7 +158,19 @@ export const MemoryEpisodeCommitInputSchema = withExpectedTool(
       evidence: z.array(EvidenceRecordSchema).min(1),
       blobs: z.array(EpisodeBlobInputSchema),
     })
-    .strict(),
+    .strict()
+    .superRefine((value, context) => {
+      for (const [index, evidence] of value.evidence.entries()) {
+        if (evidence.sensitivity === "secret") {
+          context.addIssue({
+            code: "custom",
+            path: ["evidence", index, "sensitivity"],
+            message:
+              "MCP cannot originate secret plaintext; reference an existing encrypted evidence identity",
+          });
+        }
+      }
+    }),
   "memory_episode_commit",
 );
 
@@ -179,6 +191,14 @@ export const MemoryProposeInputSchema = withExpectedTool(
           code: "custom",
           path: ["candidate", "scope"],
           message: "candidate scope is outside the request envelope",
+        });
+      }
+      if (value.candidate.sensitivity === "secret") {
+        context.addIssue({
+          code: "custom",
+          path: ["candidate", "sensitivity"],
+          message:
+            "MCP cannot originate secret plaintext; reference an existing encrypted evidence identity",
         });
       }
     }),
