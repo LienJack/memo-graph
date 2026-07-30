@@ -2,6 +2,7 @@ import { createPublicKey } from "node:crypto";
 import { parentPort, workerData } from "node:worker_threads";
 
 import {
+  OperatorActionReceiptSchema,
   RecoveryAnchorSchema,
   verifyRecoveryAnchor,
   verifyRecoveryPendingAuthorization,
@@ -24,6 +25,7 @@ import {
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
   ApplyVectorProjectionJobCommandSchema,
+  AuditPurgeArtifactsInputSchema,
   AdmitMemoryCommandSchema,
   RevokeEncryptionKeyCommandSchema,
   BeginKeyRotationCommandSchema,
@@ -49,6 +51,11 @@ import {
   FailGraphProjectionJobCommandSchema,
   FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
+  InspectPurgeReceiptInputSchema,
+  InspectOperationalRepairInputSchema,
+  CompleteOperationalRepairInputSchema,
+  OperationalRepairInputSchema,
+  OperatorConfirmationBindingSchema,
   InstallEncryptionKeyCommandSchema,
   LearningLedgerReadInputSchema,
   LearningLedgerReplayInputSchema,
@@ -288,7 +295,11 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "verify_encryption_key":
-          if (!options.testOperations) {
+          if (
+            !options.testOperations &&
+            request.operator_authorization !==
+              "confirmed_key_rotation"
+          ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
           result = database.verifyEncryptionKey(
@@ -312,7 +323,11 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "begin_key_rotation":
-          if (!options.testOperations) {
+          if (
+            !options.testOperations &&
+            request.operator_authorization !==
+              "confirmed_key_rotation"
+          ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
           result = database.beginKeyRotation(
@@ -325,7 +340,11 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "get_key_rotation_next":
-          if (!options.testOperations) {
+          if (
+            !options.testOperations &&
+            request.operator_authorization !==
+              "confirmed_key_rotation"
+          ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
           result = database.getKeyRotationNext(
@@ -341,7 +360,11 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "reserve_rotation_nonce":
-          if (!options.testOperations) {
+          if (
+            !options.testOperations &&
+            request.operator_authorization !==
+              "confirmed_key_rotation"
+          ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
           result = database.reserveRotationNonce(
@@ -349,7 +372,11 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "commit_rotated_secret":
-          if (!options.testOperations) {
+          if (
+            !options.testOperations &&
+            request.operator_authorization !==
+              "confirmed_key_rotation"
+          ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
           result = database.commitRotatedSecret(
@@ -357,7 +384,11 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "complete_key_rotation":
-          if (!options.testOperations) {
+          if (
+            !options.testOperations &&
+            request.operator_authorization !==
+              "confirmed_key_rotation"
+          ) {
             throw new StorageError("ENCRYPTION_REQUIRED");
           }
           result = database.completeKeyRotation(
@@ -672,6 +703,26 @@ port.on("message", (message: unknown) => {
             PurgeRunInputSchema.parse(request.payload),
           );
           break;
+        case "inspect_purge_receipt":
+          result = database.inspectPurgeReceipt(
+            InspectPurgeReceiptInputSchema.parse(request.payload),
+          );
+          break;
+        case "audit_purge_artifacts":
+          result = database.auditPurgeArtifacts(
+            AuditPurgeArtifactsInputSchema.parse(request.payload),
+          );
+          break;
+        case "append_operator_action_receipt":
+          result = database.appendOperatorActionReceipt(
+            OperatorActionReceiptSchema.parse(request.payload),
+          );
+          break;
+        case "bind_operator_confirmation":
+          result = database.bindOperatorConfirmation(
+            OperatorConfirmationBindingSchema.parse(request.payload),
+          );
+          break;
         case "check_memory_eligibility":
           result = database.checkMemoryEligibility(
             MemoryEligibilityInputSchema.parse(request.payload),
@@ -704,6 +755,21 @@ port.on("message", (message: unknown) => {
         case "search_evidence":
           result = database.searchEvidence(
             SearchEvidenceQuerySchema.parse(request.payload),
+          );
+          break;
+        case "prepare_operational_repair":
+          result = database.prepareOperationalRepair(
+            OperationalRepairInputSchema.parse(request.payload),
+          );
+          break;
+        case "complete_operational_repair":
+          result = database.completeOperationalRepair(
+            CompleteOperationalRepairInputSchema.parse(request.payload),
+          );
+          break;
+        case "inspect_operational_repair":
+          result = database.inspectOperationalRepair(
+            InspectOperationalRepairInputSchema.parse(request.payload),
           );
           break;
         case "rebuild_fts":

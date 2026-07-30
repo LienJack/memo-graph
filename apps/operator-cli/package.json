@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",
+    "@memo-graph/learning-lab": "workspace:*",
+    "@memo-graph/memory-kernel": "workspace:*",
     "@memo-graph/storage-sqlite": "workspace:*",
     "zod": "4.4.3"
   },

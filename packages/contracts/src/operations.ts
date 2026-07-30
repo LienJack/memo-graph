@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { verify, type KeyObject } from "node:crypto";
+import { createPublicKey, verify, type KeyObject } from "node:crypto";
 
 import {
   canonicalJson,
@@ -897,6 +897,11 @@ export const OperatorCommandSchema = z.enum([
   "learning_rollback",
 ]);
 
+export const OperatorConfirmationAlgorithmSchema = z.literal("Ed25519");
+export const OperatorConfirmationPurposeSchema = z.literal(
+  "memo-graph/operator-confirmation/v1",
+);
+
 export const OperationIntentSchema = z
   .object({
     schema_version: ContractVersionSchema,
@@ -906,8 +911,12 @@ export const OperationIntentSchema = z
     root_ref: IdentifierSchema,
     source_ref: IdentifierSchema.nullable(),
     target_ref: IdentifierSchema.nullable(),
+    recovery_anchor_hash: CanonicalHashSchema.nullable(),
+    configuration_digest: CanonicalHashSchema,
+    key_state_digest: CanonicalHashSchema,
     expected_state_digest: CanonicalHashSchema,
     expected_frontier_digest: CanonicalHashSchema,
+    parameters_digest: CanonicalHashSchema,
     nonce: IdentifierSchema,
     issued_at: UtcTimestampSchema,
     expires_at: UtcTimestampSchema,
@@ -939,10 +948,14 @@ export const OperatorConfirmationSchema = z
     command: OperatorCommandSchema,
     principal_id: IdentifierSchema,
     nonce: IdentifierSchema,
+    algorithm: OperatorConfirmationAlgorithmSchema,
+    purpose: OperatorConfirmationPurposeSchema,
     authority_key_id: IdentifierSchema,
+    authority_key_generation: z.number().int().positive(),
     issued_at: UtcTimestampSchema,
     expires_at: UtcTimestampSchema,
-    signature: z.string().regex(/^[A-Za-z0-9_-]{43,512}$/),
+    signed_payload_hash: CanonicalHashSchema,
+    signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/),
   })
   .strict()
   .superRefine((value, context) => {
@@ -951,6 +964,53 @@ export const OperatorConfirmationSchema = z
         code: "custom",
         path: ["expires_at"],
         message: "confirmation must expire after issuance",
+      });
+    }
+    if (
+      value.signed_payload_hash !==
+      canonicalSha256(operatorConfirmationSigningFields(value))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["signed_payload_hash"],
+        message: "confirmation signing payload hash mismatch",
+      });
+    }
+  });
+
+export const OperatorConfirmationTrustSchema = z
+  .object({
+    algorithm: OperatorConfirmationAlgorithmSchema,
+    purpose: OperatorConfirmationPurposeSchema,
+    authority_key_id: IdentifierSchema,
+    authority_key_generation: z.number().int().positive(),
+    public_key_spki: z.string().regex(/^[A-Za-z0-9_-]{50,256}$/),
+    max_ttl_seconds: z.number().int().positive().max(3_600),
+    revoked_key_ids: z.array(IdentifierSchema),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (new Set(value.revoked_key_ids).size !== value.revoked_key_ids.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["revoked_key_ids"],
+        message: "revoked confirmation key identities must be unique",
+      });
+    }
+    try {
+      const key = createPublicKey({
+        key: Buffer.from(value.public_key_spki, "base64url"),
+        type: "spki",
+        format: "der",
+      });
+      if (key.asymmetricKeyType !== "ed25519") {
+        throw new Error("wrong key type");
+      }
+    } catch {
+      context.addIssue({
+        code: "custom",
+        path: ["public_key_spki"],
+        message: "confirmation verifier must be an Ed25519 SPKI key",
       });
     }
   });
@@ -971,27 +1031,81 @@ export class OperatorConfirmationValidationError extends Error {
   }
 }
 
+function operatorConfirmationSigningFields(
+  confirmation: Omit<
+    z.input<typeof OperatorConfirmationSchema>,
+    "signature" | "signed_payload_hash"
+  >,
+) {
+  return {
+    schema_version: confirmation.schema_version,
+    confirmation_id: confirmation.confirmation_id,
+    intent_hash: confirmation.intent_hash,
+    command: confirmation.command,
+    principal_id: confirmation.principal_id,
+    nonce: confirmation.nonce,
+    algorithm: confirmation.algorithm,
+    purpose: confirmation.purpose,
+    authority_key_id: confirmation.authority_key_id,
+    authority_key_generation: confirmation.authority_key_generation,
+    issued_at: confirmation.issued_at,
+    expires_at: confirmation.expires_at,
+  };
+}
+
+export function operatorConfirmationSigningPayload(
+  confirmation: Omit<
+    z.input<typeof OperatorConfirmationSchema>,
+    "signature"
+  >,
+): string {
+  return canonicalJson(operatorConfirmationSigningFields(confirmation));
+}
+
 export function verifyOperatorConfirmationBinding(input: {
   intent: unknown;
   confirmation: unknown;
   now: string;
-  expectedAuthorityKeyId: string;
+  trust: unknown;
   consumedConfirmationIds?: ReadonlySet<string>;
+  verifySignature: (input: {
+    payload: string;
+    signature: string;
+    publicKeySpki: string;
+  }) => boolean;
 }): OperatorConfirmation {
   try {
     const intent = OperationIntentSchema.parse(input.intent);
     const confirmation = OperatorConfirmationSchema.parse(input.confirmation);
+    const trust = OperatorConfirmationTrustSchema.parse(input.trust);
     const now = Date.parse(UtcTimestampSchema.parse(input.now));
+    const ttlMilliseconds =
+      Date.parse(confirmation.expires_at) -
+      Date.parse(confirmation.issued_at);
     if (
       confirmation.intent_hash !== intent.intent_hash ||
       confirmation.command !== intent.command ||
       confirmation.principal_id !== intent.principal_id ||
       confirmation.nonce !== intent.nonce ||
-      confirmation.authority_key_id !== input.expectedAuthorityKeyId ||
+      confirmation.algorithm !== trust.algorithm ||
+      confirmation.purpose !== trust.purpose ||
+      confirmation.authority_key_id !== trust.authority_key_id ||
+      confirmation.authority_key_generation !==
+        trust.authority_key_generation ||
+      trust.revoked_key_ids.includes(confirmation.authority_key_id) ||
+      ttlMilliseconds > trust.max_ttl_seconds * 1_000 ||
       Date.parse(intent.expires_at) <= now ||
       Date.parse(confirmation.expires_at) <= now ||
+      Date.parse(confirmation.issued_at) > now ||
       Date.parse(confirmation.issued_at) < Date.parse(intent.issued_at) ||
-      input.consumedConfirmationIds?.has(confirmation.confirmation_id) === true
+      Date.parse(confirmation.expires_at) > Date.parse(intent.expires_at) ||
+      input.consumedConfirmationIds?.has(confirmation.confirmation_id) ===
+        true ||
+      !input.verifySignature({
+        payload: operatorConfirmationSigningPayload(confirmation),
+        signature: confirmation.signature,
+        publicKeySpki: trust.public_key_spki,
+      })
     ) {
       throw new OperatorConfirmationValidationError();
     }
@@ -1000,6 +1114,271 @@ export function verifyOperatorConfirmationBinding(input: {
     throw new OperatorConfirmationValidationError();
   }
 }
+
+export const OperatorActionStateSchema = z.enum([
+  "authorized",
+  "effect_prepared",
+  "effect_committed",
+  "receipt_committed",
+  "responded",
+]);
+
+export const OperatorActionReceiptSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    receipt_id: IdentifierSchema,
+    operation_id: IdentifierSchema,
+    command: OperatorCommandSchema,
+    intent_hash: CanonicalHashSchema,
+    confirmation_id: IdentifierSchema,
+    confirmation_key_id: IdentifierSchema,
+    confirmation_key_generation: z.number().int().positive(),
+    state: z.literal("receipt_committed"),
+    effect_digest: CanonicalHashSchema,
+    result_digest: CanonicalHashSchema,
+    created_at: UtcTimestampSchema,
+    completed_at: UtcTimestampSchema,
+    receipt_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (Date.parse(value.completed_at) < Date.parse(value.created_at)) {
+      context.addIssue({
+        code: "custom",
+        path: ["completed_at"],
+        message: "operator action completion cannot precede creation",
+      });
+    }
+    if (
+      value.receipt_hash !==
+      canonicalSha256Omitting(value, ["receipt_hash"])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["receipt_hash"],
+        message: "operator action receipt hash mismatch",
+      });
+    }
+  });
+
+export const ArtifactStoreIdSchema = z.enum([
+  "canonical_evidence",
+  "canonical_memory",
+  "fts",
+  "context",
+  "layered_projection",
+  "graph_projection_disabled",
+  "vector_projection_disabled",
+  "learning",
+  "blobs",
+  "encrypted_content",
+  "backups",
+  "operational_artifacts",
+]);
+
+export const OperationalArtifactClassSchema = z.enum([
+  "canonical",
+  "context",
+  "projection",
+  "learning",
+  "backup",
+  "log",
+  "temp",
+  "quarantine",
+  "ciphertext",
+]);
+
+export const OperationalArtifactClassAuditSchema = z
+  .object({
+    artifact_class: OperationalArtifactClassSchema,
+    outcome: z.enum([
+      "verified_present",
+      "quarantined_non_publishable",
+      "blocked",
+    ]),
+    file_count: z.number().int().nonnegative(),
+    byte_count: z.number().int().nonnegative(),
+    inventory_hash: CanonicalHashSchema.nullable(),
+    error_code: IdentifierSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const blocked = value.outcome === "blocked";
+    if (
+      blocked !== (value.error_code !== null) ||
+      blocked === (value.inventory_hash !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["outcome"],
+        message: "artifact class audit outcome is inconsistent",
+      });
+    }
+    if (
+      value.artifact_class === "quarantine" &&
+      !blocked &&
+      value.outcome !== "quarantined_non_publishable"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["artifact_class"],
+        message: "quarantine cannot become a publishable artifact class",
+      });
+    }
+  });
+
+export const OperationalArtifactResidualAuditSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    audit_id: IdentifierSchema,
+    checked_at: UtcTimestampSchema,
+    classes: z.array(OperationalArtifactClassAuditSchema),
+    completed: z.boolean(),
+    audit_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.classes.length !== OperationalArtifactClassSchema.options.length ||
+      value.classes.some(
+        (entry, index) =>
+          entry.artifact_class !==
+          OperationalArtifactClassSchema.options[index],
+      ) ||
+      value.completed !==
+        value.classes.every(({ outcome }) => outcome !== "blocked") ||
+      value.audit_hash !==
+        canonicalSha256Omitting(value, ["audit_hash"])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["classes"],
+        message: "artifact residual audit is incomplete or invalid",
+      });
+    }
+  });
+
+export const ArtifactPurgeOutcomeSchema = z.enum([
+  "verified_removed",
+  "verified_ineligible",
+  "verified_retained_identity_only",
+  "retryable",
+  "blocked",
+]);
+
+export const ArtifactPurgeStoreAuditSchema = z
+  .object({
+    store_id: ArtifactStoreIdSchema,
+    store_version: z.number().int().positive(),
+    required_for_purge: z.boolean(),
+    outcome: ArtifactPurgeOutcomeSchema,
+    debt_count: z.number().int().nonnegative(),
+    frontier_hash: CanonicalHashSchema,
+    checked_at: UtcTimestampSchema,
+    error_code: z.string().trim().min(1).max(200).nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const unsuccessful =
+      value.outcome === "retryable" || value.outcome === "blocked";
+    if (unsuccessful !== (value.error_code !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["error_code"],
+        message: "only retryable or blocked audit outcomes require an error",
+      });
+    }
+    if (
+      value.outcome !== "verified_retained_identity_only" &&
+      value.debt_count !== 0 &&
+      !unsuccessful
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["debt_count"],
+        message: "verified removal or ineligibility cannot retain purge debt",
+      });
+    }
+  });
+
+export const ArtifactPurgeAuditSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    audit_id: IdentifierSchema,
+    tombstone_epoch: z.number().int().nonnegative(),
+    stores: z.array(ArtifactPurgeStoreAuditSchema),
+    completed: z.boolean(),
+    audit_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const expectedStores = [...ArtifactStoreIdSchema.options].sort();
+    const actualStores = value.stores.map(({ store_id }) => store_id).sort();
+    if (
+      actualStores.length !== expectedStores.length ||
+      actualStores.some((store, index) => store !== expectedStores[index])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["stores"],
+        message: "purge audit must cover every versioned artifact store",
+      });
+    }
+    const canComplete = value.stores.every(
+      (store) =>
+        store.outcome !== "retryable" &&
+        store.outcome !== "blocked" &&
+        (!store.required_for_purge || store.debt_count === 0),
+    );
+    if (value.completed !== canComplete) {
+      context.addIssue({
+        code: "custom",
+        path: ["completed"],
+        message: "purge audit completion must match all required outcomes",
+      });
+    }
+    if (value.audit_hash !== canonicalSha256Omitting(value, ["audit_hash"])) {
+      context.addIssue({
+        code: "custom",
+        path: ["audit_hash"],
+        message: "purge audit hash mismatch",
+      });
+    }
+  });
+
+export const OperationalPurgeVerificationSchema = z
+  .object({
+    schema_version: ContractVersionSchema,
+    purge_audit: ArtifactPurgeAuditSchema,
+    residual_audit: OperationalArtifactResidualAuditSchema,
+    completed: z.boolean(),
+    verification_hash: CanonicalHashSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.completed !==
+      (value.purge_audit.completed &&
+        value.residual_audit.completed)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["completed"],
+        message:
+          "purge verification requires both frontier and residual completion",
+      });
+    }
+    if (
+      value.verification_hash !==
+      canonicalSha256Omitting(value, ["verification_hash"])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["verification_hash"],
+        message: "purge verification hash mismatch",
+      });
+    }
+  });
 
 export const RootLeaseSchema = z
   .object({
@@ -1054,11 +1433,35 @@ export type OperationalReason = z.infer<typeof OperationalReasonSchema>;
 export type OperationalStatus = z.infer<typeof OperationalStatusSchema>;
 export type OperationIntent = z.infer<typeof OperationIntentSchema>;
 export type OperatorCommand = z.infer<typeof OperatorCommandSchema>;
+export type OperatorActionReceipt = z.infer<
+  typeof OperatorActionReceiptSchema
+>;
+export type OperatorActionState = z.infer<typeof OperatorActionStateSchema>;
 export type OperatorConfirmation = z.infer<
   typeof OperatorConfirmationSchema
 >;
+export type OperatorConfirmationTrust = z.infer<
+  typeof OperatorConfirmationTrustSchema
+>;
 export type OperatorConfirmationConsumption = z.infer<
   typeof OperatorConfirmationConsumptionSchema
+>;
+export type ArtifactPurgeAudit = z.infer<typeof ArtifactPurgeAuditSchema>;
+export type ArtifactPurgeOutcome = z.infer<
+  typeof ArtifactPurgeOutcomeSchema
+>;
+export type ArtifactPurgeStoreAudit = z.infer<
+  typeof ArtifactPurgeStoreAuditSchema
+>;
+export type ArtifactStoreId = z.infer<typeof ArtifactStoreIdSchema>;
+export type OperationalArtifactClass = z.infer<
+  typeof OperationalArtifactClassSchema
+>;
+export type OperationalArtifactResidualAudit = z.infer<
+  typeof OperationalArtifactResidualAuditSchema
+>;
+export type OperationalPurgeVerification = z.infer<
+  typeof OperationalPurgeVerificationSchema
 >;
 export type ReleaseQualification = z.infer<
   typeof ReleaseQualificationSchema

@@ -61,6 +61,12 @@ importers:
       '@memo-graph/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@memo-graph/learning-lab':
+        specifier: workspace:*
+        version: link:../../packages/learning-lab
+      '@memo-graph/memory-kernel':
+        specifier: workspace:*
+        version: link:../../packages/memory-kernel
       '@memo-graph/storage-sqlite':
         specifier: workspace:*
         version: link:../../packages/storage-sqlite

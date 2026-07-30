@@ -1,9 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash, randomUUID, verify } from "node:crypto";
+import { fstatSync, readSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
 
 import {
+  ArtifactPurgeAuditSchema,
   CanonicalHashSchema,
   IdentifierSchema,
   EncryptionKeyInventorySchema,
@@ -11,17 +14,26 @@ import {
   KeyRotationProgressSchema,
   GraphScopeCheckpointSchema,
   MutationReceiptSchema,
+  OperationIntentSchema,
+  OperatorActionReceiptSchema,
+  OperatorConfirmationSchema,
   RootLeaseSchema,
   VectorScopeCheckpointSchema,
   canonicalJson,
   canonicalSha256,
+  verifyOperatorConfirmationBinding,
   type GraphScopeCheckpoint,
+  type ArtifactPurgeAudit,
   type CanonicalHash,
   type EncryptionKeyInventory,
   type EncryptionReceipt,
   type KeyRotationProgress,
   type RecoveryAnchor,
   type RecoveryPendingReservation,
+  type OperatorActionReceipt,
+  type OperationIntent,
+  type OperatorConfirmation,
+  type OperatorConfirmationTrust,
   type VectorScopeCheckpoint,
 } from "@memo-graph/contracts";
 import { z } from "zod";
@@ -51,6 +63,7 @@ import {
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
   ApplyVectorProjectionJobCommandSchema,
+  AuditPurgeArtifactsInputSchema,
   AdmitMemoryCommandSchema,
   BeginKeyRotationCommandSchema,
   BeginKeyRotationResultSchema,
@@ -91,6 +104,12 @@ import {
   FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   InvalidateProjectionDescendantsResultSchema,
+  InspectPurgeReceiptInputSchema,
+  InspectPurgeReceiptResultSchema,
+  InspectOperationalRepairInputSchema,
+  InspectOperationalRepairResultSchema,
+  CompleteOperationalRepairInputSchema,
+  ConfirmedKeyRotationWorkerOperationSchema,
   InstallEncryptionKeyCommandSchema,
   KeyRotationInputSchema,
   KeyRotationNextResultSchema,
@@ -113,6 +132,9 @@ import {
   MemoryDeleteResultSchema,
   PurgeRunInputSchema,
   PurgeRunResultSchema,
+  OperationalRepairInputSchema,
+  OperationalRepairResultSchema,
+  OperatorConfirmationBindingSchema,
   PurgeEncryptedSecretCommandSchema,
   ProjectionBatchResultSchema,
   ProjectionJobMutationResultSchema,
@@ -177,6 +199,7 @@ import {
   VectorProjectionStatusSchema,
   WorkerResponseSchema,
   type BackupResult,
+  type AuditPurgeArtifactsInput,
   type ApplyProjectionBatchCommand,
   type ApplyVectorProjectionJobCommand,
   type AdmitMemoryCommand,
@@ -221,8 +244,13 @@ import {
   type MemoryCorrectionBasisInput,
   type MemoryDeleteCommand,
   type MemoryDeleteResult,
+  type InspectPurgeReceiptInput,
+  type InspectOperationalRepairInput,
+  type CompleteOperationalRepairInput,
   type PurgeRunInput,
   type PurgeRunResult,
+  type OperationalRepairInput,
+  type OperationalRepairResult,
   type ProjectionBatchResult,
   type ApplyGraphProjectionJobCommand,
   type GraphProjectionJobResult,
@@ -296,6 +324,86 @@ export type StorageDiagnostic = {
   error_code?: string;
 };
 
+export type OperatorKeyRotationCapability = {
+  purpose: "confirmed_operator_key_rotation";
+  begin: () => Promise<{
+    progress: KeyRotationProgress;
+    receipt: EncryptionReceipt;
+  }>;
+  resume: () => Promise<KeyRotationProgress>;
+};
+
+function privateDescriptorDigest(descriptor: number): `sha256:${string}` {
+  const stat = fstatSync(descriptor);
+  const expectedOwner = process.getuid?.();
+  if (
+    !stat.isFile() ||
+    stat.size !== 32 ||
+    (stat.mode & 0o077) !== 0 ||
+    (expectedOwner !== undefined && stat.uid !== expectedOwner)
+  ) {
+    throw new StorageError("KEY_PROVIDER_INVALID");
+  }
+  const bytes = Buffer.alloc(32);
+  let offset = 0;
+  while (offset < bytes.length) {
+    const count = readSync(
+      descriptor,
+      bytes,
+      offset,
+      bytes.length - offset,
+      offset,
+    );
+    if (count === 0) {
+      bytes.fill(0);
+      throw new StorageError("KEY_PROVIDER_INVALID");
+    }
+    offset += count;
+  }
+  try {
+    return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  } finally {
+    bytes.fill(0);
+  }
+}
+
+export function operatorKeyRotationParameters(input: {
+  begin: DarkLaunchBeginKeyRotationInput;
+  resume: Omit<DarkLaunchResumeKeyRotationInput, "rotation_id">;
+}) {
+  const maxItems = input.resume.max_items ?? 100;
+  const newKeyDigest = privateDescriptorDigest(
+    input.begin.new_key_descriptor,
+  );
+  if (
+    newKeyDigest !==
+    privateDescriptorDigest(input.resume.new_key_descriptor)
+  ) {
+    throw new StorageError("KEY_PROVIDER_INVALID");
+  }
+  return {
+    rotation_id: input.begin.rotation_id,
+    new_key_id: input.begin.new_key_id,
+    new_key_generation: input.begin.new_key_generation,
+    new_authority_key_id: input.begin.new_authority_key_id,
+    new_commitment_key_id: input.begin.new_commitment_key_id,
+    max_items: maxItems,
+    old_key_material_digest: privateDescriptorDigest(
+      input.resume.old_key_descriptor,
+    ),
+    new_key_material_digest: newKeyDigest,
+    old_authority_material_digest: privateDescriptorDigest(
+      input.resume.old_authority_descriptor,
+    ),
+    new_authority_material_digest: privateDescriptorDigest(
+      input.begin.new_authority_descriptor,
+    ),
+    new_commitment_material_digest: privateDescriptorDigest(
+      input.begin.new_commitment_descriptor,
+    ),
+  };
+}
+
 export type SqliteStorageClientOptions = {
   dataRoot: string;
   migrationsDir?: string;
@@ -308,6 +416,7 @@ export type SqliteStorageClientOptions = {
       | "after_prepare"
       | "after_file_commit";
     operationalMigrationExitAt?: OperationalMigrationFailurePoint;
+    operationalRepairExitAfterPrepareOnce?: boolean;
   };
   onDiagnostic?: (diagnostic: StorageDiagnostic) => void;
   admission?: {
@@ -393,12 +502,22 @@ export class SqliteStorageClient {
   #operationalMigrationFaultOnNextWorker:
     | OperationalMigrationFailurePoint
     | null = null;
+  #operationalRepairFaultAfterPrepare = false;
   #checkpointCounters: CheckpointResult & { attempts: number } = {
     busy: 0,
     log: 0,
     checkpointed: 0,
     attempts: 0,
   };
+  readonly #operatorKeyRotationCapabilities = new Map<
+    string,
+    {
+      intentHash: string;
+      capability: OperatorKeyRotationCapability;
+    }
+  >();
+  readonly #operatorAuthorization =
+    new AsyncLocalStorage<"confirmed_key_rotation">();
 
   private constructor(
     options: SqliteStorageClientOptions & { inspectionOnly?: boolean },
@@ -634,6 +753,8 @@ export class SqliteStorageClient {
       options.testFaults?.encryptedArtifactExitAt ?? null;
     this.#operationalMigrationFaultOnNextWorker =
       options.testFaults?.operationalMigrationExitAt ?? null;
+    this.#operationalRepairFaultAfterPrepare =
+      options.testFaults?.operationalRepairExitAfterPrepareOnce ?? false;
     this.#recoveryHeadProvider = options.recoveryHeadProvider ?? null;
   }
 
@@ -748,6 +869,98 @@ export class SqliteStorageClient {
     return this.#recoveryHeadProvider;
   }
 
+  async authorizeOperatorKeyRotation(input: {
+    intent: OperationIntent;
+    confirmation: OperatorConfirmation;
+    trust: OperatorConfirmationTrust;
+    now: string;
+    begin: DarkLaunchBeginKeyRotationInput;
+    resume: Omit<DarkLaunchResumeKeyRotationInput, "rotation_id">;
+  }): Promise<OperatorKeyRotationCapability> {
+    const intent = OperationIntentSchema.parse(input.intent);
+    const parameters = operatorKeyRotationParameters(input);
+    if (
+      intent.command !== "key_rotate" ||
+      intent.source_ref !== input.begin.rotation_id ||
+      intent.target_ref !== input.begin.new_key_id ||
+      intent.parameters_digest !== canonicalSha256(parameters)
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    const parsedConfirmation =
+      OperatorConfirmationSchema.parse(input.confirmation);
+    const existing = this.#operatorKeyRotationCapabilities.get(
+      parsedConfirmation.confirmation_id,
+    );
+    if (existing !== undefined) {
+      if (existing.intentHash !== intent.intent_hash) {
+        throw new StorageError("AUTHORITY_REPLAY");
+      }
+      return existing.capability;
+    }
+    const confirmation = verifyOperatorConfirmationBinding({
+      ...input,
+      verifySignature: ({ payload, signature, publicKeySpki }) =>
+        verify(
+          null,
+          Buffer.from(payload, "utf8"),
+          {
+            key: Buffer.from(publicKeySpki, "base64url"),
+            type: "spki",
+            format: "der",
+          },
+          Buffer.from(signature, "base64url"),
+        ),
+    });
+    await this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "bind_operator_confirmation",
+          OperatorConfirmationBindingSchema.parse({
+            confirmation_id: confirmation.confirmation_id,
+            operation_id: intent.operation_id,
+            intent_hash: intent.intent_hash,
+            command: "key_rotate",
+            parameters_digest: intent.parameters_digest,
+            created_at: confirmation.issued_at,
+          }),
+          OperatorConfirmationBindingSchema,
+        ),
+      "operator_action",
+    );
+    const resumeInput = {
+      ...input.resume,
+      rotation_id: input.begin.rotation_id,
+      max_items: input.resume.max_items ?? 100,
+    };
+    const capability = Object.freeze({
+      purpose: "confirmed_operator_key_rotation" as const,
+      begin: () =>
+        this.#writerQueue.enqueue(
+          () =>
+            this.#operatorAuthorization.run(
+              "confirmed_key_rotation",
+              () => this.#secretIngress.beginRotation(input.begin),
+            ),
+          "key_rotation",
+        ),
+      resume: () =>
+        this.#writerQueue.enqueue(
+          () =>
+            this.#operatorAuthorization.run(
+              "confirmed_key_rotation",
+              () => this.#secretIngress.resumeRotation(resumeInput),
+            ),
+          "key_rotation",
+        ),
+    });
+    this.#operatorKeyRotationCapabilities.set(
+      confirmation.confirmation_id,
+      { intentHash: intent.intent_hash, capability },
+    );
+    return capability;
+  }
+
   darkLaunchInstallEncryptionKey(
     input: DarkLaunchInstallEncryptionKeyInput,
   ): Promise<EncryptionReceipt> {
@@ -800,6 +1013,7 @@ export class SqliteStorageClient {
       "key_rotation",
     );
   }
+
 
   darkLaunchAbortKeyRotation(
     rotationId: string,
@@ -1386,6 +1600,47 @@ export class SqliteStorageClient {
     });
   }
 
+  inspectPurgeReceipt(
+    input: InspectPurgeReceiptInput,
+  ): Promise<PurgeRunResult | null> {
+    const request = InspectPurgeReceiptInputSchema.parse(input);
+    return this.#request(
+      "inspect_purge_receipt",
+      request,
+      InspectPurgeReceiptResultSchema,
+    );
+  }
+
+  auditPurgeArtifacts(
+    input: AuditPurgeArtifactsInput,
+  ): Promise<ArtifactPurgeAudit> {
+    const request = AuditPurgeArtifactsInputSchema.parse(input);
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "audit_purge_artifacts",
+          request,
+          ArtifactPurgeAuditSchema,
+        ),
+      "purge_audit",
+    );
+  }
+
+  appendOperatorActionReceipt(
+    input: OperatorActionReceipt,
+  ): Promise<OperatorActionReceipt> {
+    const receipt = OperatorActionReceiptSchema.parse(input);
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "append_operator_action_receipt",
+          receipt,
+          OperatorActionReceiptSchema,
+        ),
+      "operator_action",
+    );
+  }
+
   checkMemoryEligibility(
     input: MemoryEligibilityInput,
   ): Promise<MemoryEligibilityResult> {
@@ -1456,6 +1711,76 @@ export class SqliteStorageClient {
       RebuildFtsResultSchema,
       "projection",
       "rebuild_fts",
+    );
+  }
+
+  async repairFts(
+    input: OperationalRepairInput,
+  ): Promise<OperationalRepairResult> {
+    const command = OperationalRepairInputSchema.parse(input);
+    const prepared = await this.prepareOperationalRepair(command);
+    if (prepared.state === "completed") {
+      return prepared;
+    }
+    if (this.#operationalRepairFaultAfterPrepare) {
+      this.#operationalRepairFaultAfterPrepare = false;
+      throw new StorageError("STORAGE_UNAVAILABLE");
+    }
+    const rebuilt = await this.rebuildFts();
+    return this.completeOperationalRepair({
+      command,
+      artifact_count: rebuilt.indexed,
+      relation_count: 0,
+      ledger_epoch: rebuilt.ledger_epoch,
+    });
+  }
+
+  prepareOperationalRepair(
+    input: OperationalRepairInput,
+  ): Promise<OperationalRepairResult> {
+    const command = OperationalRepairInputSchema.parse(input);
+    const maintenanceOperation =
+      command.repair_kind === "fts"
+        ? "rebuild_fts"
+        : command.repair_kind === "layered_projection"
+          ? "rebuild_layered_projection"
+          : "rebuild_sqlite_relations";
+    return this.#protectedMutation(
+      "prepare_operational_repair",
+      command,
+      OperationalRepairResultSchema,
+      "projection",
+      maintenanceOperation,
+    );
+  }
+
+  completeOperationalRepair(
+    input: CompleteOperationalRepairInput,
+  ): Promise<OperationalRepairResult> {
+    const command = CompleteOperationalRepairInputSchema.parse(input);
+    const maintenanceOperation =
+      command.command.repair_kind === "fts"
+        ? "rebuild_fts"
+        : command.command.repair_kind === "layered_projection"
+          ? "rebuild_layered_projection"
+          : "rebuild_sqlite_relations";
+    return this.#protectedMutation(
+      "complete_operational_repair",
+      command,
+      OperationalRepairResultSchema,
+      "projection",
+      maintenanceOperation,
+    );
+  }
+
+  inspectOperationalRepair(
+    input: InspectOperationalRepairInput,
+  ): Promise<OperationalRepairResult | null> {
+    const request = InspectOperationalRepairInputSchema.parse(input);
+    return this.#request(
+      "inspect_operational_repair",
+      request,
+      InspectOperationalRepairResultSchema,
     );
   }
 
@@ -2010,6 +2335,13 @@ export class SqliteStorageClient {
         startedAt: performance.now(),
       });
       try {
+        const operatorAuthorization =
+          this.#operatorAuthorization.getStore() !== undefined &&
+          ConfirmedKeyRotationWorkerOperationSchema.safeParse(
+            operation,
+          ).success
+            ? ("confirmed_key_rotation" as const)
+            : undefined;
         worker.postMessage({
           requestId,
           operation,
@@ -2017,6 +2349,9 @@ export class SqliteStorageClient {
           ...(protectedEffect === undefined
             ? {}
             : { protected_effect: protectedEffect }),
+          ...(operatorAuthorization === undefined
+            ? {}
+            : { operator_authorization: operatorAuthorization }),
         });
       } catch {
         this.#pending.delete(requestId);

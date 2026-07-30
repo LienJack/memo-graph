@@ -22,6 +22,7 @@ import {
   ContextSliceSchema,
   EpisodeSchema,
   EvidenceRecordSchema,
+  OperatorActionReceiptSchema,
   MutationReceiptSchema,
   LearningControlSchema,
   LearningReleaseVersionSchema,
@@ -40,6 +41,8 @@ import {
   type SecretUseAuthority,
   type SecretAdmissionApproval,
   type SecretContentOwner,
+  type ArtifactPurgeAudit,
+  type OperatorActionReceipt,
 } from "@memo-graph/contracts";
 import Database from "better-sqlite3";
 import type { z } from "zod";
@@ -85,6 +88,7 @@ import { RelationRepository } from "./relation-repository.js";
 import { VectorProjectionRepository } from "./vector-projection-repository.js";
 import {
   ApplyVectorProjectionJobCommandSchema,
+  AuditPurgeArtifactsInputSchema,
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
   AdmitMemoryCommandSchema,
@@ -109,6 +113,11 @@ import {
   FailGraphProjectionJobCommandSchema,
   FailVectorProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
+  InspectPurgeReceiptInputSchema,
+  InspectOperationalRepairInputSchema,
+  CompleteOperationalRepairInputSchema,
+  OperationalRepairInputSchema,
+  OperatorConfirmationBindingSchema,
   ProjectionPageQuerySchema,
   ProjectionQuerySchema,
   ProjectionScopeFrontierInputSchema,
@@ -152,6 +161,7 @@ import {
   type ParsedRecordRecallCommand,
   type RecordRecallResult,
   type RebuildFtsResult,
+  type OperationalRepairResult,
   type SearchEvidenceResult,
   type GovernanceStorageStatus,
   type GovernanceMutationResult,
@@ -603,7 +613,8 @@ export class StorageDatabase {
     const identity = this.#recoveryRootIdentity();
     const purgeRows = this.#database
       .prepare(
-        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash
+        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash,
+                source_purge_job_id
          FROM artifact_purge_frontiers ORDER BY store_id`,
       )
       .all();
@@ -1425,7 +1436,36 @@ export class StorageDatabase {
 
   runPurge(input: unknown): PurgeRunResult {
     const request = PurgeRunInputSchema.parse(input);
-    return this.#purge.run(request.purge_job_id);
+    return this.#purge.run(
+      request.purge_job_id,
+      request.operator_action,
+    );
+  }
+
+  inspectPurgeReceipt(input: unknown): PurgeRunResult | null {
+    const request = InspectPurgeReceiptInputSchema.parse(input);
+    return this.#purge.inspectReceipt(
+      request.purge_job_id,
+      request.operator_operation_id,
+    );
+  }
+
+  auditPurgeArtifacts(input: unknown): ArtifactPurgeAudit {
+    return this.#operations.auditPurgeArtifacts(
+      AuditPurgeArtifactsInputSchema.parse(input),
+    );
+  }
+
+  appendOperatorActionReceipt(input: unknown): OperatorActionReceipt {
+    return this.#operations.appendOperatorActionReceipt(
+      OperatorActionReceiptSchema.parse(input),
+    );
+  }
+
+  bindOperatorConfirmation(input: unknown) {
+    return this.#operations.bindOperatorConfirmation(
+      OperatorConfirmationBindingSchema.parse(input),
+    );
   }
 
   checkMemoryEligibility(input: unknown): MemoryEligibilityResult {
@@ -1549,6 +1589,23 @@ export class StorageDatabase {
 
   rebuildFts(): RebuildFtsResult {
     return this.#fts.rebuild();
+  }
+
+  prepareOperationalRepair(input: unknown): OperationalRepairResult {
+    return this.#operations.prepareRepair(
+      OperationalRepairInputSchema.parse(input),
+    );
+  }
+
+  completeOperationalRepair(input: unknown): OperationalRepairResult {
+    return this.#operations.completeRepair(
+      CompleteOperationalRepairInputSchema.parse(input),
+    );
+  }
+
+  inspectOperationalRepair(input: unknown): OperationalRepairResult | null {
+    const request = InspectOperationalRepairInputSchema.parse(input);
+    return this.#operations.inspectRepair(request.operation_id);
   }
 
   checkpoint(): CheckpointResult {
@@ -1762,7 +1819,8 @@ export class StorageDatabase {
     const sizeBytes = statSync(path).size;
     const purgeRows = this.#database
       .prepare(
-        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash
+        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash,
+                source_purge_job_id
          FROM artifact_purge_frontiers ORDER BY store_id`,
       )
       .all();

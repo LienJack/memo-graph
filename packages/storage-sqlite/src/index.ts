@@ -21,12 +21,14 @@ export {
 } from "./root-lease.js";
 export {
   SqliteStorageClient,
+  operatorKeyRotationParameters,
   RecoveryAuthorityHealthSchema,
   StorageClientHealthSchema,
   type SqliteStorageClientOptions,
   type StorageClientHealth,
   type StorageDiagnostic,
   type StorageInspectionClient,
+  type OperatorKeyRotationCapability,
 } from "./client.js";
 export {
   STORAGE_ERROR_CODES,
@@ -35,6 +37,8 @@ export {
 } from "./errors.js";
 export {
   AdmissionEvaluationSchema,
+  AuditPurgeArtifactsInputSchema,
+  AuditPurgeArtifactsResultSchema,
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
   ApplyVectorProjectionJobCommandSchema,
@@ -80,6 +84,11 @@ export {
   ConfigureVectorProjectionResultSchema,
   InvalidateProjectionDescendantsCommandSchema,
   InvalidateProjectionDescendantsResultSchema,
+  InspectPurgeReceiptInputSchema,
+  InspectPurgeReceiptResultSchema,
+  InspectOperationalRepairInputSchema,
+  InspectOperationalRepairResultSchema,
+  CompleteOperationalRepairInputSchema,
   LearningCandidateStateSchema,
   LearningContaminationEventSchema,
   LearningLedgerReadInputSchema,
@@ -104,6 +113,8 @@ export {
   MemoryDeleteResultSchema,
   PurgeRunInputSchema,
   PurgeRunResultSchema,
+  OperationalRepairInputSchema,
+  OperationalRepairResultSchema,
   ProjectionBatchResultSchema,
   ProjectionJobMutationResultSchema,
   ProjectionOutboxJobSchema,
@@ -158,6 +169,8 @@ export {
   WorkerResponseSchema,
   type BackupResult,
   type AdmissionEvaluation,
+  type AuditPurgeArtifactsInput,
+  type AuditPurgeArtifactsResult,
   type ApplyProjectionBatchCommand,
   type ApplyGraphProjectionJobCommand,
   type ApplyVectorProjectionJobCommand,
@@ -198,6 +211,10 @@ export {
   type ConfigureVectorProjectionResult,
   type InvalidateProjectionDescendantsCommand,
   type InvalidateProjectionDescendantsResult,
+  type InspectPurgeReceiptInput,
+  type InspectPurgeReceiptResult,
+  type InspectOperationalRepairInput,
+  type CompleteOperationalRepairInput,
   type LearningContaminationEvent,
   type LearningLedgerReadInput,
   type LearningLedgerReadResult,
@@ -220,6 +237,8 @@ export {
   type MemoryEligibilityResult,
   type PurgeRunInput,
   type PurgeRunResult,
+  type OperationalRepairInput,
+  type OperationalRepairResult,
   type ProjectionBatchResult,
   type ProjectionJobMutationResult,
   type ProjectionOutboxJob,
@@ -275,12 +294,17 @@ export {
   WriterQueueMetricsSchema,
   type WriterQueueMetrics,
 } from "./writer-queue.js";
+export type {
+  DarkLaunchBeginKeyRotationInput as BeginKeyRotationInput,
+  DarkLaunchResumeKeyRotationInput as ResumeKeyRotationInput,
+} from "./secret-ingress.js";
 export {
   runStorageBenchmark,
   storageBenchmarkCommand,
 } from "./benchmark.js";
 export {
   restoreBackupToEmptyDataRoot,
+  inspectRestorePublication,
   type RestoreBackupOptions,
   type RestoreBackupResult,
 } from "./restore.js";

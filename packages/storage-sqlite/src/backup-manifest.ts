@@ -348,7 +348,8 @@ export function verifyManifestDatabaseFacts(input: {
       .get() as { receipt_hash: string } | undefined;
     const purgeRows = database
       .prepare(
-        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash
+        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash,
+                source_purge_job_id
          FROM artifact_purge_frontiers ORDER BY store_id`,
       )
       .all();

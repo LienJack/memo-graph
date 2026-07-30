@@ -4,6 +4,7 @@ import {
   AuthoritySchema,
   ApprovalBindingSchema,
   ApprovalGrantSchema,
+  ArtifactPurgeAuditSchema,
   CanonicalHashSchema,
   CandidateChangeSchema,
   CandidateStateSchema,
@@ -1147,10 +1148,36 @@ export const MemoryDeleteReplayResultSchema =
 export const PurgeRunInputSchema = z
   .object({
     purge_job_id: IdentifierSchema,
+    operator_action: z
+      .object({
+        operation_id: IdentifierSchema,
+        expected_prior_receipt_id: IdentifierSchema.nullable(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
 export const PurgeRunResultSchema = PurgeReceiptSchema;
+
+export const InspectPurgeReceiptInputSchema = z
+  .object({
+    purge_job_id: IdentifierSchema,
+    operator_operation_id: IdentifierSchema.optional(),
+  })
+  .strict();
+
+export const InspectPurgeReceiptResultSchema = PurgeReceiptSchema.nullable();
+
+export const AuditPurgeArtifactsInputSchema = z
+  .object({
+    audit_id: IdentifierSchema,
+    expected_tombstone_epoch: z.number().int().nonnegative(),
+    checked_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const AuditPurgeArtifactsResultSchema = ArtifactPurgeAuditSchema;
 
 export const DrainFtsResultSchema = z
   .object({
@@ -1352,6 +1379,80 @@ export const ProjectionSourceListResultSchema = z
 export const RebuildFtsResultSchema = z
   .object({
     indexed: z.number().int().nonnegative(),
+    ledger_epoch: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const OperationalRepairInputSchema = z
+  .object({
+    operation_id: IdentifierSchema,
+    repair_kind: z.enum([
+      "fts",
+      "layered_projection",
+      "sqlite_relations",
+    ]),
+    source: z.literal("canonical_sqlite"),
+    expected_frontier_hash: CanonicalHashSchema,
+    started_at: UtcTimestampSchema,
+    completed_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const OperationalRepairResultSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    operation_id: IdentifierSchema,
+    repair_kind: OperationalRepairInputSchema.shape.repair_kind,
+    source: z.literal("canonical_sqlite"),
+    state: z.enum(["rebuilding", "completed", "blocked"]),
+    source_frontier_hash: CanonicalHashSchema,
+    artifact_count: z.number().int().nonnegative().nullable(),
+    relation_count: z.number().int().nonnegative().nullable(),
+    ledger_epoch: z.number().int().nonnegative().nullable(),
+    result_hash: CanonicalHashSchema.nullable(),
+    completed_at: UtcTimestampSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const complete = value.state !== "rebuilding";
+    if (
+      (value.artifact_count !== null) !== complete ||
+      (value.relation_count !== null) !== complete ||
+      (value.ledger_epoch !== null) !== complete ||
+      (value.result_hash !== null) !== complete ||
+      (value.completed_at !== null) !== complete
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["state"],
+        message: "operational repair result does not match state",
+      });
+    }
+  });
+
+export const InspectOperationalRepairInputSchema = z
+  .object({ operation_id: IdentifierSchema })
+  .strict();
+
+export const InspectOperationalRepairResultSchema =
+  OperationalRepairResultSchema.nullable();
+
+export const OperatorConfirmationBindingSchema = z
+  .object({
+    confirmation_id: IdentifierSchema,
+    operation_id: IdentifierSchema,
+    intent_hash: CanonicalHashSchema,
+    command: z.literal("key_rotate"),
+    parameters_digest: CanonicalHashSchema,
+    created_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const CompleteOperationalRepairInputSchema = z
+  .object({
+    command: OperationalRepairInputSchema,
+    artifact_count: z.number().int().nonnegative(),
+    relation_count: z.number().int().nonnegative(),
     ledger_epoch: z.number().int().nonnegative(),
   })
   .strict();
@@ -2443,13 +2544,20 @@ export const WorkerOperationSchema = z.enum([
   "memory_delete_replay",
   "delete_memory",
   "preview_memory_delete",
+  "inspect_purge_receipt",
   "run_purge",
+  "audit_purge_artifacts",
+  "append_operator_action_receipt",
+  "bind_operator_confirmation",
   "check_memory_eligibility",
   "get_governed_memory",
   "search_governed_memory",
   "commit_episode",
   "drain_fts",
   "search_evidence",
+  "prepare_operational_repair",
+  "complete_operational_repair",
+  "inspect_operational_repair",
   "rebuild_fts",
   "checkpoint",
   "backup",
@@ -2511,6 +2619,15 @@ export const RecoveryStorageStateSchema = z
 export const RecoveryProtectedEffectSchema =
   RecoveryPendingAuthorizationSchema;
 
+export const ConfirmedKeyRotationWorkerOperationSchema = z.enum([
+  "verify_encryption_key",
+  "begin_key_rotation",
+  "get_key_rotation_next",
+  "reserve_rotation_nonce",
+  "commit_rotated_secret",
+  "complete_key_rotation",
+]);
+
 export const RecoveryEffectRecordSchema = z
   .object({
     pending_id: IdentifierSchema,
@@ -2541,8 +2658,27 @@ export const WorkerRequestSchema = z
     operation: WorkerOperationSchema,
     payload: z.unknown(),
     protected_effect: RecoveryProtectedEffectSchema.optional(),
+    operator_authorization: z
+      .literal("confirmed_key_rotation")
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((request, context) => {
+    if (
+      request.operator_authorization ===
+        "confirmed_key_rotation" &&
+      !ConfirmedKeyRotationWorkerOperationSchema.safeParse(
+        request.operation,
+      ).success
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["operator_authorization"],
+        message:
+          "operator authorization is invalid for this worker operation",
+      });
+    }
+  });
 
 export const SerializedErrorSchema = z
   .object({
@@ -2873,6 +3009,18 @@ export type MemoryDeleteResult = z.infer<
 >;
 export type PurgeRunInput = z.input<typeof PurgeRunInputSchema>;
 export type PurgeRunResult = z.infer<typeof PurgeRunResultSchema>;
+export type InspectPurgeReceiptInput = z.input<
+  typeof InspectPurgeReceiptInputSchema
+>;
+export type InspectPurgeReceiptResult = z.infer<
+  typeof InspectPurgeReceiptResultSchema
+>;
+export type AuditPurgeArtifactsInput = z.input<
+  typeof AuditPurgeArtifactsInputSchema
+>;
+export type AuditPurgeArtifactsResult = z.infer<
+  typeof AuditPurgeArtifactsResultSchema
+>;
 export type GovernanceStorageStatus = z.infer<
   typeof GovernanceStorageStatusSchema
 >;
@@ -2907,6 +3055,18 @@ export type ParsedRecordRecallCommand = z.output<
 >;
 export type RecordRecallResult = z.infer<typeof RecordRecallResultSchema>;
 export type RebuildFtsResult = z.infer<typeof RebuildFtsResultSchema>;
+export type OperationalRepairInput = z.input<
+  typeof OperationalRepairInputSchema
+>;
+export type OperationalRepairResult = z.infer<
+  typeof OperationalRepairResultSchema
+>;
+export type InspectOperationalRepairInput = z.input<
+  typeof InspectOperationalRepairInputSchema
+>;
+export type CompleteOperationalRepairInput = z.input<
+  typeof CompleteOperationalRepairInputSchema
+>;
 export type PurgeCounts = z.infer<typeof PurgeCountsSchema>;
 export type SearchEvidenceQuery = z.input<typeof SearchEvidenceQuerySchema>;
 export type ParsedSearchEvidenceQuery = z.output<

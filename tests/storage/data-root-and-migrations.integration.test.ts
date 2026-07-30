@@ -52,10 +52,10 @@ describe("data-root and migration contract", () => {
     const health = await storage.health();
     await storage.close();
 
-    expect(health.schema_version).toBe("0016");
+    expect(health.schema_version).toBe("0017");
     expect(health.journal_mode).toBe("wal");
     expect(health.foreign_keys).toBe(true);
-    expect(health.migrations).toHaveLength(16);
+    expect(health.migrations).toHaveLength(17);
     expect(health.migrations.every((migration) =>
       /^sha256:[a-f0-9]{64}$/.test(migration.hash),
     )).toBe(true);

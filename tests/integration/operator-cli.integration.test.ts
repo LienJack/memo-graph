@@ -235,7 +235,36 @@ describe("operator CLI doctor", () => {
 });
 
 describe("operator CLI backup and restore surface", () => {
-  it("inspects a bound bundle without leaking paths and keeps restore publication disabled", async () => {
+  it("rejects human purge verification instead of emitting ad-hoc output", async () => {
+    let stdout = "";
+    const code = await runOperatorCli(
+      [
+        "purge",
+        "audit",
+        "--audit-id",
+        "purge_audit_human_rejected",
+        "--tombstone-epoch",
+        "0",
+        "--config",
+        "/not-read-after-argument-rejection.json",
+        "--format",
+        "human",
+      ],
+      {
+        stdout: {
+          write: (value) => ((stdout += String(value)), true),
+        },
+        stderr: { write: () => true },
+      },
+    );
+    const status = OperationalStatusSchema.parse(
+      JSON.parse(stdout) as unknown,
+    );
+    expect(code).toBe(operatorExitCode("invalid_input"));
+    expect(status.exit_class).toBe("invalid_input");
+  });
+
+  it("inspects a bound bundle without leaking paths and requires confirmed restore publication", async () => {
     const root = temporaryRoot("operator-recovery");
     const dataRoot = join(root, "data");
     const recoveryHeadProvider = testRecoveryHeadProvider(
@@ -320,7 +349,7 @@ describe("operator CLI backup and restore surface", () => {
       code: 3,
       output: {
         status: "operator_action_required",
-        publication: "disabled_until_u5",
+        publication: "confirmation_required",
         backup_id: backup.manifest.backup_id,
         manifest_hash: backup.manifest.manifest_hash,
         intent_digest: expect.stringMatching(/^sha256:[a-f0-9]{64}$/),

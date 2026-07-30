@@ -6,6 +6,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -13,6 +14,7 @@ import {
   ConsolidationService,
   MemoryRuntime,
 } from "../../packages/memory-kernel/src/index.js";
+import { canonicalSha256 } from "../../packages/contracts/src/index.js";
 import {
   SqliteStorageClient,
   restoreBackupToEmptyDataRoot,
@@ -130,6 +132,28 @@ describe("restore tombstone frontier", () => {
     });
     const currentBackup = await storage.createBackup();
     await storage.close();
+    const database = new DatabaseSync(
+      join(dataRoot, "ledger", "memory.db"),
+      { readOnly: true },
+    );
+    const purgeRows = database
+      .prepare(
+        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash,
+                source_purge_job_id
+         FROM artifact_purge_frontiers ORDER BY store_id`,
+      )
+      .all();
+    database.close();
+    expect(
+      purgeRows.every(
+        (row) =>
+          (row as { source_purge_job_id: unknown })
+            .source_purge_job_id === purgeJobId,
+      ),
+    ).toBe(true);
+    expect(
+      currentBackup.manifest.frontiers.purge_frontier_hash,
+    ).toBe(canonicalSha256(purgeRows));
 
     await expect(
       restoreBackupToEmptyDataRoot({

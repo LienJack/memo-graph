@@ -1,11 +1,22 @@
+import { generateKeyPairSync, sign, verify } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import {
+  ArtifactPurgeAuditSchema,
+  ArtifactStoreIdSchema,
   OperationIntentSchema,
+  OperatorActionReceiptSchema,
+  OperationalArtifactClassSchema,
+  OperationalArtifactResidualAuditSchema,
+  OperationalPurgeVerificationSchema,
   OperationalStatusSchema,
+  OperatorConfirmationTrustSchema,
   OperatorConfirmationSchema,
   ReleaseQualificationSchema,
+  canonicalSha256,
   canonicalSha256Omitting,
+  operatorConfirmationSigningPayload,
   reduceOperationalStatus,
   verifyOperatorConfirmationBinding,
   type OperationalComponent,
@@ -15,6 +26,8 @@ import {
 const NOW = "2026-07-30T08:00:00.000Z";
 const HASH_A = `sha256:${"a".repeat(64)}`;
 const HASH_B = `sha256:${"b".repeat(64)}`;
+const CONFIRMATION_PURPOSE = "memo-graph/operator-confirmation/v1";
+const CONFIRMATION_ALGORITHM = "Ed25519";
 
 function readyObservation(
   component: OperationalComponent = "canonical_store",
@@ -37,8 +50,17 @@ function sealIntent(overrides: Record<string, unknown> = {}) {
     root_ref: "root_primary",
     source_ref: "bundle_candidate",
     target_ref: "root_restored",
+    recovery_anchor_hash: HASH_A,
+    configuration_digest: HASH_B,
+    key_state_digest: HASH_A,
     expected_state_digest: HASH_A,
     expected_frontier_digest: HASH_B,
+    parameters_digest: canonicalSha256({
+      command: "restore",
+      root_ref: "root_primary",
+      source_ref: "backup_verified",
+      target_ref: "root_restored",
+    }),
     nonce: "nonce_restore_1",
     issued_at: NOW,
     expires_at: "2026-07-30T08:05:00.000Z",
@@ -54,18 +76,28 @@ function confirmationFor(
   intent: ReturnType<typeof sealIntent>,
   overrides: Record<string, unknown> = {},
 ) {
-  return OperatorConfirmationSchema.parse({
+  const unsigned = {
     schema_version: "1.0.0",
     confirmation_id: "confirmation_restore_1",
     intent_hash: intent.intent_hash,
     command: intent.command,
     principal_id: intent.principal_id,
     nonce: intent.nonce,
+    algorithm: CONFIRMATION_ALGORITHM,
+    purpose: CONFIRMATION_PURPOSE,
     authority_key_id: "operator_authority_1",
+    authority_key_generation: 1,
     issued_at: "2026-07-30T08:00:01.000Z",
     expires_at: "2026-07-30T08:04:00.000Z",
-    signature: "a".repeat(64),
     ...overrides,
+  };
+  return OperatorConfirmationSchema.parse({
+    ...unsigned,
+    signed_payload_hash: canonicalSha256Omitting(unsigned, [
+      "signed_payload_hash",
+      "signature",
+    ]),
+    signature: "a".repeat(86),
   });
 }
 
@@ -284,13 +316,44 @@ describe("operational contracts", () => {
 
   it("binds confirmation to the exact intent, authority, expiry, and use", () => {
     const intent = sealIntent();
-    const confirmation = confirmationFor(intent);
+    const keys = generateKeyPairSync("ed25519");
+    const trust = OperatorConfirmationTrustSchema.parse({
+      algorithm: CONFIRMATION_ALGORITHM,
+      purpose: CONFIRMATION_PURPOSE,
+      authority_key_id: "operator_authority_1",
+      authority_key_generation: 1,
+      public_key_spki: keys.publicKey
+        .export({ type: "spki", format: "der" })
+        .toString("base64url"),
+      max_ttl_seconds: 300,
+      revoked_key_ids: [],
+    });
+    const unsigned = confirmationFor(intent);
+    const confirmation = OperatorConfirmationSchema.parse({
+      ...unsigned,
+      signature: sign(
+        null,
+        Buffer.from(operatorConfirmationSigningPayload(unsigned), "utf8"),
+        keys.privateKey,
+      ).toString("base64url"),
+    });
     expect(
       verifyOperatorConfirmationBinding({
         intent,
         confirmation,
         now: "2026-07-30T08:02:00.000Z",
-        expectedAuthorityKeyId: "operator_authority_1",
+        trust,
+        verifySignature: ({ payload, signature, publicKeySpki }) =>
+          verify(
+            null,
+            Buffer.from(payload, "utf8"),
+            {
+              key: Buffer.from(publicKeySpki, "base64url"),
+              type: "spki",
+              format: "der",
+            },
+            Buffer.from(signature, "base64url"),
+          ),
       }),
     ).toEqual(confirmation);
     for (const changed of [
@@ -304,7 +367,53 @@ describe("operational contracts", () => {
           intent,
           confirmation: changed,
           now: "2026-07-30T08:02:00.000Z",
-          expectedAuthorityKeyId: "operator_authority_1",
+          trust,
+          verifySignature: () => false,
+        }),
+      ).toThrow("operator confirmation is invalid");
+    }
+    expect(
+      OperatorConfirmationSchema.safeParse({
+        ...confirmation,
+        purpose: "memo-graph/other-purpose/v1",
+      }).success,
+    ).toBe(false);
+    expect(
+      OperatorConfirmationSchema.safeParse({
+        ...confirmation,
+        algorithm: "RSA-PSS",
+      }).success,
+    ).toBe(false);
+    expect(() =>
+      verifyOperatorConfirmationBinding({
+        intent,
+        confirmation,
+        now: "2026-07-30T08:05:00.000Z",
+        trust,
+        verifySignature: () => true,
+      }),
+    ).toThrow("operator confirmation is invalid");
+    for (const rejected of [
+      confirmationFor(intent, {
+        issued_at: "2026-07-30T08:03:00.000Z",
+        expires_at: "2026-07-30T08:04:00.000Z",
+      }),
+      confirmationFor(intent, {
+        issued_at: "2026-07-30T08:00:01.000Z",
+        expires_at: "2026-07-30T08:05:01.000Z",
+      }),
+      confirmationFor(intent, {
+        issued_at: "2026-07-30T08:00:01.000Z",
+        expires_at: "2026-07-30T08:06:00.000Z",
+      }),
+    ]) {
+      expect(() =>
+        verifyOperatorConfirmationBinding({
+          intent,
+          confirmation: rejected,
+          now: "2026-07-30T08:02:00.000Z",
+          trust,
+          verifySignature: () => true,
         }),
       ).toThrow("operator confirmation is invalid");
     }
@@ -312,8 +421,10 @@ describe("operational contracts", () => {
       verifyOperatorConfirmationBinding({
         intent,
         confirmation,
-        now: "2026-07-30T08:05:00.000Z",
-        expectedAuthorityKeyId: "operator_authority_1",
+        now: "2026-07-30T08:02:00.000Z",
+        trust,
+        consumedConfirmationIds: new Set([confirmation.confirmation_id]),
+        verifySignature: () => true,
       }),
     ).toThrow("operator confirmation is invalid");
     expect(() =>
@@ -321,10 +432,21 @@ describe("operational contracts", () => {
         intent,
         confirmation,
         now: "2026-07-30T08:02:00.000Z",
-        expectedAuthorityKeyId: "operator_authority_1",
-        consumedConfirmationIds: new Set([confirmation.confirmation_id]),
+        trust: {
+          ...trust,
+          revoked_key_ids: [trust.authority_key_id],
+        },
+        verifySignature: () => true,
       }),
     ).toThrow("operator confirmation is invalid");
+    expect(
+      OperatorConfirmationTrustSchema.safeParse({
+        ...trust,
+        public_key_spki: Buffer.from("not-an-ed25519-spki").toString(
+          "base64url",
+        ),
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects a target change under the same sealed intent", () => {
@@ -333,6 +455,135 @@ describe("operational contracts", () => {
       OperationIntentSchema.safeParse({
         ...intent,
         target_ref: "root_attacker",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps legacy purge stores separate from the versioned artifact audit", () => {
+    expect(ArtifactStoreIdSchema.options).toEqual([
+      "canonical_evidence",
+      "canonical_memory",
+      "fts",
+      "context",
+      "layered_projection",
+      "graph_projection_disabled",
+      "vector_projection_disabled",
+      "learning",
+      "blobs",
+      "encrypted_content",
+      "backups",
+      "operational_artifacts",
+    ]);
+    const stores = ArtifactStoreIdSchema.options.map((store_id) => ({
+      store_id,
+      store_version: 1,
+      required_for_purge:
+        store_id !== "graph_projection_disabled" &&
+        store_id !== "vector_projection_disabled",
+      outcome:
+        store_id.endsWith("_disabled")
+          ? ("verified_ineligible" as const)
+          : ("verified_removed" as const),
+      debt_count: 0,
+      frontier_hash: HASH_A,
+      checked_at: NOW,
+      error_code: null,
+    }));
+    const purgeAudit = ArtifactPurgeAuditSchema.parse({
+        schema_version: "1.0.0",
+        audit_id: "purge_audit_1",
+        tombstone_epoch: 3,
+        stores,
+        completed: true,
+        audit_hash: canonicalSha256Omitting(
+          {
+            schema_version: "1.0.0",
+            audit_id: "purge_audit_1",
+            tombstone_epoch: 3,
+            stores,
+            completed: true,
+          },
+          ["audit_hash"],
+        ),
+      });
+    expect(purgeAudit.stores).toHaveLength(12);
+    const classes = OperationalArtifactClassSchema.options.map(
+      (artifact_class) => ({
+        artifact_class,
+        outcome:
+          artifact_class === "quarantine"
+            ? ("quarantined_non_publishable" as const)
+            : ("verified_present" as const),
+        file_count: 0,
+        byte_count: 0,
+        inventory_hash: HASH_A,
+        error_code: null,
+      }),
+    );
+    const residualBody = {
+      schema_version: "1.0.0" as const,
+      audit_id: "residual_audit_1",
+      checked_at: NOW,
+      classes,
+      completed: true,
+    };
+    const residualAudit =
+      OperationalArtifactResidualAuditSchema.parse({
+        ...residualBody,
+        audit_hash: canonicalSha256(residualBody),
+      });
+    const verificationBody = {
+      schema_version: "1.0.0" as const,
+      purge_audit: purgeAudit,
+      residual_audit: residualAudit,
+      completed: true,
+    };
+    const verification = OperationalPurgeVerificationSchema.parse({
+      ...verificationBody,
+      verification_hash: canonicalSha256(verificationBody),
+    });
+    expect(verification.completed).toBe(true);
+    expect(
+      OperationalPurgeVerificationSchema.safeParse({
+        ...verification,
+        completed: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      OperationalPurgeVerificationSchema.safeParse({
+        ...verification,
+        verification_hash: HASH_B,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts only content-free, hash-bound operator action receipts", () => {
+    const value = {
+      schema_version: "1.0.0",
+      receipt_id: "operator_receipt_1",
+      operation_id: "operation_restore_1",
+      command: "restore",
+      intent_hash: HASH_A,
+      confirmation_id: "confirmation_restore_1",
+      confirmation_key_id: "operator_authority_1",
+      confirmation_key_generation: 1,
+      state: "receipt_committed",
+      effect_digest: HASH_B,
+      result_digest: HASH_A,
+      created_at: NOW,
+      completed_at: NOW,
+    };
+    expect(
+      OperatorActionReceiptSchema.parse({
+        ...value,
+        receipt_hash: canonicalSha256Omitting(value, ["receipt_hash"]),
+      }).receipt_id,
+    ).toBe("operator_receipt_1");
+    expect(
+      OperatorActionReceiptSchema.safeParse({
+        ...value,
+        receipt_hash: canonicalSha256Omitting(value, ["receipt_hash"]),
+        raw_path: "/private/memory-root",
       }).success,
     ).toBe(false);
   });

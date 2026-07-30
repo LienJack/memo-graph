@@ -89,6 +89,11 @@ type ProjectionRevisionRow = {
   revision_json: string;
 };
 
+type OperatorPurgeAction = {
+  operation_id: string;
+  expected_prior_receipt_id: string | null;
+};
+
 const PURGE_STORES = PurgeStoreSchema.options;
 const REDACTED_MEDIA_TYPE = "application/x.memo-graph-redacted";
 
@@ -304,9 +309,31 @@ export class PurgeRepository {
     });
   }
 
-  run(purgeJobId: string): PurgeReceipt {
+  run(
+    purgeJobId: string,
+    operatorAction?: OperatorPurgeAction,
+  ): PurgeReceipt {
+    if (operatorAction !== undefined) {
+      const replay = this.#inspectOperatorReceipt(
+        purgeJobId,
+        operatorAction.operation_id,
+      );
+      if (replay !== null) {
+        return replay;
+      }
+      const priorReceipt = this.inspectReceipt(purgeJobId);
+      if (
+        priorReceipt?.receipt_id !==
+        operatorAction.expected_prior_receipt_id
+      ) {
+        throw new StorageError("STALE_REVISION");
+      }
+    }
     const initial = this.#readPurgeJob(purgeJobId);
     if (initial.status === "completed") {
+      if (operatorAction !== undefined) {
+        throw new StorageError("INVALID_INPUT");
+      }
       return this.#latestPurgeReceipt(purgeJobId);
     }
     const job = this.#claim(initial);
@@ -340,7 +367,65 @@ export class PurgeRepository {
         );
       }
     }
-    return this.#finalize(job, outcomes);
+    return this.#finalize(job, outcomes, operatorAction);
+  }
+
+  inspectReceipt(
+    purgeJobId: string,
+    operatorOperationId?: string,
+  ): PurgeReceipt | null {
+    if (operatorOperationId !== undefined) {
+      return this.#inspectOperatorReceipt(
+        purgeJobId,
+        operatorOperationId,
+      );
+    }
+    const row = this.#database
+      .prepare(
+        `SELECT receipt_json FROM purge_receipts
+         WHERE purge_job_id = ?
+         ORDER BY created_at DESC, receipt_id DESC LIMIT 1`,
+      )
+      .get(purgeJobId) as { receipt_json: string } | undefined;
+    if (row === undefined) {
+      return null;
+    }
+    const receipt = PurgeReceiptSchema.parse(
+      JSON.parse(row.receipt_json) as unknown,
+    );
+    if (!receiptHashIsValid(receipt)) {
+      throw new StorageError("CORRUPTION");
+    }
+    return receipt;
+  }
+
+  #inspectOperatorReceipt(
+    purgeJobId: string,
+    operatorOperationId: string,
+  ): PurgeReceipt | null {
+    const row = this.#database
+      .prepare(
+        `SELECT r.receipt_json
+         FROM operator_purge_attempts AS a
+         JOIN purge_receipts AS r ON r.receipt_id = a.receipt_id
+         WHERE a.purge_job_id = ? AND a.operation_id = ?`,
+      )
+      .get(purgeJobId, operatorOperationId) as
+      | { receipt_json: string }
+      | undefined;
+    if (row === undefined) {
+      return null;
+    }
+    const receipt = PurgeReceiptSchema.parse(
+      JSON.parse(row.receipt_json) as unknown,
+    );
+    if (
+      receipt.purge_job_id !== purgeJobId ||
+      !receiptHashIsValid(receipt)
+    ) {
+      throw new StorageError("CORRUPTION");
+    }
+    return receipt;
   }
 
   #claim(job: PurgeJobRow): PurgeJobRow {
@@ -1011,6 +1096,7 @@ export class PurgeRepository {
   #finalize(
     job: PurgeJobRow,
     outcomes: PurgeStoreOutcome[],
+    operatorAction?: OperatorPurgeAction,
   ): PurgeReceipt {
     const hasFailure = outcomes.some((outcome) => outcome.status === "failed");
     const residualHashes = uniqueHashes(
@@ -1096,29 +1182,144 @@ export class PurgeRepository {
             hasFailure ? "PURGE_STORE_FAILURE" : null,
             job.purge_job_id,
           );
+        this.#updateArtifactPurgeFrontiers(
+          job.purge_job_id,
+          job.tombstone_epoch,
+          outcomes,
+          receipt.created_at,
+        );
+        if (operatorAction !== undefined) {
+          this.#database
+            .prepare(
+              `INSERT INTO operator_purge_attempts (
+                 operation_id, purge_job_id, expected_prior_receipt_id,
+                 receipt_id, created_at
+               ) VALUES (?, ?, ?, ?, ?)`,
+            )
+            .run(
+              operatorAction.operation_id,
+              job.purge_job_id,
+              operatorAction.expected_prior_receipt_id,
+              receipt.receipt_id,
+              receipt.created_at,
+            );
+        }
       })
       .immediate();
     return receipt;
   }
 
-  #latestPurgeReceipt(purgeJobId: string): PurgeReceipt {
-    const row = this.#database
-      .prepare(
-        `SELECT receipt_json FROM purge_receipts
-         WHERE purge_job_id = ?
-         ORDER BY created_at DESC, receipt_id DESC LIMIT 1`,
-      )
-      .get(purgeJobId) as { receipt_json: string } | undefined;
-    if (row === undefined) {
-      throw new StorageError("CORRUPTION");
-    }
-    const receipt = PurgeReceiptSchema.parse(
-      JSON.parse(row.receipt_json) as unknown,
+  #updateArtifactPurgeFrontiers(
+    purgeJobId: string,
+    tombstoneEpoch: number,
+    outcomes: PurgeStoreOutcome[],
+    updatedAt: string,
+  ): void {
+    const currentTombstoneEpoch = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT tombstone_epoch
+             FROM tombstone_state WHERE singleton = 1`,
+          )
+          .get() as { tombstone_epoch: number }
+      ).tombstone_epoch,
     );
-    if (!receiptHashIsValid(receipt)) {
+    if (tombstoneEpoch < currentTombstoneEpoch) {
+      return;
+    }
+    if (tombstoneEpoch > currentTombstoneEpoch) {
       throw new StorageError("CORRUPTION");
     }
-    return receipt;
+    const byStore = new Map(
+      outcomes.map((outcome) => [outcome.store, outcome] as const),
+    );
+    const debtFor = (...stores: PurgeStore[]): number =>
+      stores.reduce((total, store) => {
+        const outcome = byStore.get(store);
+        if (outcome === undefined || outcome.status === "failed") {
+          return total + 1;
+        }
+        return total + outcome.residual_hashes.length;
+      }, 0);
+    const debts = {
+      canonical_evidence: debtFor("memory_revisions"),
+      canonical_memory: debtFor("candidates", "conflicts"),
+      fts: debtFor("fts"),
+      context: debtFor("context"),
+      layered_projection: debtFor("projections"),
+      graph_projection_disabled: 0,
+      vector_projection_disabled: 0,
+      learning: debtFor("projections"),
+      blobs: debtFor("blobs"),
+      encrypted_content: this.#activeEncryptedContentDebt(),
+      backups: debtFor("backups"),
+      operational_artifacts: debtFor("exports"),
+    } as const;
+    const upsert = this.#database.prepare(
+      `INSERT INTO artifact_purge_frontiers (
+         store_id, tombstone_epoch, debt_count, frontier_hash, updated_at,
+         source_purge_job_id
+       ) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(store_id) DO UPDATE SET
+         tombstone_epoch = excluded.tombstone_epoch,
+         debt_count = excluded.debt_count,
+         frontier_hash = excluded.frontier_hash,
+         updated_at = excluded.updated_at,
+         source_purge_job_id = excluded.source_purge_job_id
+       WHERE excluded.tombstone_epoch >
+             artifact_purge_frontiers.tombstone_epoch
+          OR (
+            excluded.tombstone_epoch =
+              artifact_purge_frontiers.tombstone_epoch
+            AND (
+              artifact_purge_frontiers.source_purge_job_id IS NULL
+              OR artifact_purge_frontiers.source_purge_job_id =
+                excluded.source_purge_job_id
+            )
+          )`,
+    );
+    for (const [storeId, debtCount] of Object.entries(debts)) {
+      const result = upsert.run(
+        storeId,
+        tombstoneEpoch,
+        debtCount,
+        canonicalSha256({
+          store_id: storeId,
+          tombstone_epoch: tombstoneEpoch,
+          debt_count: debtCount,
+          source_purge_job_id: purgeJobId,
+        }),
+        updatedAt,
+        purgeJobId,
+      );
+      if (result.changes !== 1) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
+  }
+
+  #activeEncryptedContentDebt(): number {
+    return Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count
+             FROM encrypted_content_owners AS owner
+             WHERE owner.active = 1`,
+          )
+          .get() as { count: number }
+      ).count,
+    );
+  }
+
+  #latestPurgeReceipt(purgeJobId: string): PurgeReceipt {
+    return (
+      this.inspectReceipt(purgeJobId) ??
+      (() => {
+        throw new StorageError("CORRUPTION");
+      })()
+    );
   }
 
   #readPurgeJob(purgeJobId: string): PurgeJobRow {

@@ -1,17 +1,50 @@
-import { lstatSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  closeSync,
+  constants,
+  existsSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  realpathSync,
+  readSync,
+} from "node:fs";
+import {
+  createPrivateKey,
+  createPublicKey,
+} from "node:crypto";
+import {
+  dirname,
+  isAbsolute,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 
 import {
+  CanonicalHashSchema,
   IdentifierSchema,
+  OperatorConfirmationTrustSchema,
+  OperationIntentSchema,
+  OperationalArtifactClassSchema,
+  OperatorConfirmationSchema,
   ReleaseQualificationSchema,
 } from "@memo-graph/contracts";
 import { z } from "zod";
+import {
+  FileRecoveryHeadProvider,
+} from "@memo-graph/storage-sqlite";
 
 const MAX_CONFIG_BYTES = 256 * 1024;
 
 export const OperatorConfigSchema = z
   .object({
     data_root: z.string().trim().min(1),
+    principal_id: IdentifierSchema.default(
+      IdentifierSchema.parse("user_local"),
+    ),
+    root_ref: IdentifierSchema.default(
+      IdentifierSchema.parse("root_primary"),
+    ),
     qualification: ReleaseQualificationSchema.default({
       status: "pending",
       tested_envelope_digest: null,
@@ -26,9 +59,71 @@ export const OperatorConfigSchema = z
           IdentifierSchema,
           z.string().trim().min(1),
         ),
+        authority: z
+          .object({
+            directory: z.string().trim().min(1),
+            authority_key_id: IdentifierSchema,
+            trust_root_version: z.number().int().positive(),
+            private_key_path: z.string().trim().min(1),
+            public_key_path: z.string().trim().min(1),
+          })
+          .strict()
+          .nullable()
+          .default(null),
       })
       .strict()
-      .default({ backup_bundles: {}, restore_targets: {} }),
+      .default({
+        backup_bundles: {},
+        restore_targets: {},
+        authority: null,
+      }),
+    operator_confirmation: z
+      .object({
+        trust: OperatorConfirmationTrustSchema,
+        action_ledger_directory: z.string().trim().min(1),
+        grants: z.record(
+          IdentifierSchema,
+          z.string().trim().min(1),
+        ),
+      })
+      .strict()
+      .nullable()
+      .default(null),
+    learning_rollback: z
+      .object({
+        post_canary_approvals: z.record(
+          IdentifierSchema,
+          z
+            .object({
+              path: z.string().trim().min(1),
+              artifact_hash: CanonicalHashSchema,
+            })
+            .strict(),
+        ),
+        approval_grants: z.record(
+          IdentifierSchema,
+          z
+            .object({
+              path: z.string().trim().min(1),
+              artifact_hash: CanonicalHashSchema,
+            })
+            .strict(),
+        ),
+      })
+      .strict()
+      .nullable()
+      .default(null),
+    operational_artifacts: z
+      .object({
+        roots: z.record(
+          OperationalArtifactClassSchema,
+          z.string().trim().min(1),
+        ),
+        forbidden_markers: z.array(z.string().min(1).max(512)),
+      })
+      .strict()
+      .nullable()
+      .default(null),
   })
   .strict();
 
@@ -41,23 +136,330 @@ export class OperatorConfigError extends Error {
   }
 }
 
-export function loadOperatorConfig(pathInput: string): OperatorConfig {
-  try {
-    const path = resolve(pathInput);
-    const stat = lstatSync(path);
-    const expectedOwner = process.getuid?.();
+export const OperatorGrantSchema = z
+  .object({
+    intent: OperationIntentSchema,
+    confirmation: OperatorConfirmationSchema,
+    payload: z.unknown(),
+  })
+  .strict();
+
+export type OperatorGrant = z.output<typeof OperatorGrantSchema>;
+
+function resolveNoSymlinkTail(pathInput: string): string {
+  if (!isAbsolute(pathInput)) {
+    throw new OperatorConfigError();
+  }
+  const path = resolve(pathInput);
+  let cursor = path;
+  while (!existsSync(cursor)) {
+    const parent = dirname(cursor);
+    if (parent === cursor) {
+      throw new OperatorConfigError();
+    }
+    cursor = parent;
+  }
+  const stat = lstatSync(cursor);
+  if (stat.isSymbolicLink() || realpathSync(cursor) !== cursor) {
+    throw new OperatorConfigError();
+  }
+  return path;
+}
+
+function pathContains(parent: string, candidate: string): boolean {
+  const fromParent = relative(parent, candidate);
+  return (
+    fromParent === "" ||
+    (fromParent !== ".." &&
+      !fromParent.startsWith(`..${sep}`) &&
+      !isAbsolute(fromParent))
+  );
+}
+
+function pathsOverlap(left: string, right: string): boolean {
+  return pathContains(left, right) || pathContains(right, left);
+}
+
+function validateOperatorPaths(config: OperatorConfig): OperatorConfig {
+  const dataRoot = resolveNoSymlinkTail(config.data_root);
+  const backupRoots = Object.values(
+    config.recovery.backup_bundles,
+  ).map(resolveNoSymlinkTail);
+  const restoreTargets = Object.values(
+    config.recovery.restore_targets,
+  ).map(resolveNoSymlinkTail);
+  const protectedRoots = [dataRoot, ...backupRoots, ...restoreTargets];
+  for (const [index, target] of restoreTargets.entries()) {
     if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      stat.size > MAX_CONFIG_BYTES ||
-      (stat.mode & 0o022) !== 0 ||
-      (expectedOwner !== undefined && stat.uid !== expectedOwner)
+      pathsOverlap(dataRoot, target) ||
+      backupRoots.some((backup) => pathsOverlap(backup, target))
     ) {
       throw new OperatorConfigError();
     }
-    const payload = JSON.parse(readFileSync(path, "utf8")) as unknown;
-    return OperatorConfigSchema.parse(payload);
+    for (
+      let other = index + 1;
+      other < restoreTargets.length;
+      other += 1
+    ) {
+      const otherTarget = restoreTargets[other];
+      if (
+        otherTarget !== undefined &&
+        pathsOverlap(target, otherTarget)
+      ) {
+        throw new OperatorConfigError();
+      }
+    }
+  }
+
+  const recoveryAuthority = config.recovery.authority;
+  const authorityDirectory =
+    recoveryAuthority === null
+      ? null
+      : resolveNoSymlinkTail(recoveryAuthority.directory);
+  const authorityKeys =
+    recoveryAuthority === null
+      ? []
+      : [
+          resolveNoSymlinkTail(recoveryAuthority.private_key_path),
+          resolveNoSymlinkTail(recoveryAuthority.public_key_path),
+        ];
+  const confirmationAuthority = config.operator_confirmation;
+  const actionLedger =
+    confirmationAuthority === null
+      ? null
+      : resolveNoSymlinkTail(
+          confirmationAuthority.action_ledger_directory,
+        );
+  const grantPaths =
+    confirmationAuthority === null
+      ? []
+      : Object.values(confirmationAuthority.grants).map(
+          resolveNoSymlinkTail,
+        );
+  const learningArtifactPaths =
+    config.learning_rollback === null
+      ? []
+      : [
+          ...Object.values(
+            config.learning_rollback.post_canary_approvals,
+          ),
+          ...Object.values(config.learning_rollback.approval_grants),
+        ].map(({ path }) => resolveNoSymlinkTail(path));
+  const operationalArtifacts = config.operational_artifacts;
+  const operationalArtifactRoots =
+    operationalArtifacts === null
+      ? []
+      : OperationalArtifactClassSchema.options.map(
+          (artifactClass) =>
+            [
+              artifactClass,
+              resolveNoSymlinkTail(
+                operationalArtifacts.roots[artifactClass],
+              ),
+            ] as const,
+        );
+  for (
+    let index = 0;
+    index < operationalArtifactRoots.length;
+    index += 1
+  ) {
+    for (
+      let other = index + 1;
+      other < operationalArtifactRoots.length;
+      other += 1
+    ) {
+      const left = operationalArtifactRoots[index];
+      const right = operationalArtifactRoots[other];
+      if (
+        left !== undefined &&
+        right !== undefined &&
+        pathsOverlap(left[1], right[1])
+      ) {
+        throw new OperatorConfigError();
+      }
+    }
+  }
+
+  for (const externalPath of [
+    ...(authorityDirectory === null ? [] : [authorityDirectory]),
+    ...authorityKeys,
+    ...(actionLedger === null ? [] : [actionLedger]),
+    ...grantPaths,
+    ...learningArtifactPaths,
+  ]) {
+    if (
+      protectedRoots.some((root) => pathsOverlap(root, externalPath))
+    ) {
+      throw new OperatorConfigError();
+    }
+  }
+  const quarantineRoot = operationalArtifactRoots.find(
+    ([artifactClass]) => artifactClass === "quarantine",
+  )?.[1];
+  if (
+    quarantineRoot !== undefined &&
+    [
+      ...protectedRoots,
+      ...(authorityDirectory === null ? [] : [authorityDirectory]),
+      ...authorityKeys,
+      ...(actionLedger === null ? [] : [actionLedger]),
+      ...grantPaths,
+      ...learningArtifactPaths,
+    ].some((path) => pathsOverlap(path, quarantineRoot))
+  ) {
+    throw new OperatorConfigError();
+  }
+  if (
+    authorityDirectory !== null &&
+    actionLedger !== null &&
+    pathsOverlap(authorityDirectory, actionLedger)
+  ) {
+    throw new OperatorConfigError();
+  }
+  for (const grantPath of grantPaths) {
+    if (
+      (actionLedger !== null &&
+        pathsOverlap(actionLedger, grantPath)) ||
+      (authorityDirectory !== null &&
+        pathsOverlap(authorityDirectory, grantPath))
+    ) {
+      throw new OperatorConfigError();
+    }
+  }
+  for (const artifactPath of learningArtifactPaths) {
+    if (
+      (actionLedger !== null &&
+        pathsOverlap(actionLedger, artifactPath)) ||
+      (authorityDirectory !== null &&
+        pathsOverlap(authorityDirectory, artifactPath)) ||
+      grantPaths.some((grantPath) => grantPath === artifactPath)
+    ) {
+      throw new OperatorConfigError();
+    }
+  }
+  if (
+    authorityKeys.length === 2 &&
+    authorityKeys[0] === authorityKeys[1]
+  ) {
+    throw new OperatorConfigError();
+  }
+  for (const keyPath of authorityKeys) {
+    if (
+      (actionLedger !== null &&
+        pathsOverlap(actionLedger, keyPath)) ||
+      grantPaths.some((grantPath) => grantPath === keyPath)
+    ) {
+      throw new OperatorConfigError();
+    }
+  }
+  return config;
+}
+
+function readPrivateJson(pathInput: string): unknown {
+  return JSON.parse(readPrivateBytes(pathInput).toString("utf8")) as unknown;
+}
+
+export function readPrivateOperatorJson(pathInput: string): unknown {
+  try {
+    return readPrivateJson(pathInput);
   } catch {
     throw new OperatorConfigError();
+  }
+}
+
+function readPrivateBytes(pathInput: string): Buffer {
+  const path = resolve(pathInput);
+  const descriptor = openSync(
+    path,
+    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+  );
+  try {
+    const before = fstatSync(descriptor);
+    const expectedOwner = process.getuid?.();
+    if (
+      !before.isFile() ||
+      before.size <= 0 ||
+      before.size > MAX_CONFIG_BYTES ||
+      (before.mode & 0o077) !== 0 ||
+      (expectedOwner !== undefined && before.uid !== expectedOwner)
+    ) {
+      throw new OperatorConfigError();
+    }
+    const bytes = Buffer.alloc(before.size);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = readSync(
+        descriptor,
+        bytes,
+        offset,
+        bytes.length - offset,
+        offset,
+      );
+      if (count === 0) {
+        throw new OperatorConfigError();
+      }
+      offset += count;
+    }
+    const after = fstatSync(descriptor);
+    if (
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.size !== after.size ||
+      before.mtimeMs !== after.mtimeMs
+    ) {
+      throw new OperatorConfigError();
+    }
+    return bytes;
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+export function loadOperatorConfig(pathInput: string): OperatorConfig {
+  try {
+    return validateOperatorPaths(
+      OperatorConfigSchema.parse(readPrivateJson(pathInput)),
+    );
+  } catch {
+    throw new OperatorConfigError();
+  }
+}
+
+export function loadOperatorGrant(
+  config: OperatorConfig,
+  grantRef: string,
+): OperatorGrant {
+  try {
+    const authority = config.operator_confirmation;
+    const path = authority?.grants[IdentifierSchema.parse(grantRef)];
+    if (authority === null || path === undefined) {
+      throw new OperatorConfigError();
+    }
+    return OperatorGrantSchema.parse(readPrivateJson(path));
+  } catch {
+    throw new OperatorConfigError();
+  }
+}
+
+export function loadRecoveryHeadProvider(config: OperatorConfig) {
+  const authority = config.recovery.authority;
+  if (authority === null) {
+    throw new OperatorConfigError();
+  }
+  const privateBytes = readPrivateBytes(authority.private_key_path);
+  const publicBytes = readPrivateBytes(authority.public_key_path);
+  try {
+    return new FileRecoveryHeadProvider({
+      directory: authority.directory,
+      authorityKeyId: authority.authority_key_id,
+      trustRootVersion: authority.trust_root_version,
+      privateKey: createPrivateKey(privateBytes),
+      publicKey: createPublicKey(publicBytes),
+    });
+  } catch {
+    throw new OperatorConfigError();
+  } finally {
+    privateBytes.fill(0);
+    publicBytes.fill(0);
   }
 }

@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
 import {
   AdmissionController,
+  MaintenanceOperationSchema,
   maintenanceCompatible,
 } from "../../packages/storage-sqlite/src/admission-control.js";
 import { WriterQueue } from "../../packages/storage-sqlite/src/writer-queue.js";
@@ -35,6 +36,37 @@ afterEach(() => {
 });
 
 describe("maintenance compatibility", () => {
+  it("defines the exhaustive concrete compatibility matrix", () => {
+    const observational = new Set([
+      "read_only_inspection",
+      "key_inspection",
+      "learning_rollback_verification",
+    ]);
+    for (const active of [
+      null,
+      ...MaintenanceOperationSchema.options,
+    ]) {
+      for (const requested of MaintenanceOperationSchema.options) {
+        const expected =
+          active === null ||
+          observational.has(requested) ||
+          (active !== null && observational.has(active)) ||
+          (active === "canonical_write" &&
+            requested === "canonical_write");
+        expect(
+          maintenanceCompatible(active, requested),
+          `${active ?? "none"} -> ${requested}`,
+        ).toBe(expected);
+      }
+    }
+    expect(
+      maintenanceCompatible("future_maintenance", "backup"),
+    ).toBe(false);
+    expect(
+      maintenanceCompatible("backup", "future_maintenance"),
+    ).toBe(false);
+  });
+
   it("fails closed for incompatible and unknown operations", async () => {
     expect(maintenanceCompatible(null, "backup")).toBe(true);
     expect(maintenanceCompatible("backup", "canonical_write")).toBe(false);

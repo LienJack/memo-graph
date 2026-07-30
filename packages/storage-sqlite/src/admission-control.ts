@@ -60,12 +60,21 @@ export const DEFAULT_ADMISSION_POLICY = AdmissionPolicySchema.parse({
 });
 
 export const MaintenanceOperationSchema = z.enum([
+  "read_only_inspection",
   "canonical_write",
   "backup",
   "checkpoint",
   "rebuild_fts",
+  "rebuild_layered_projection",
+  "rebuild_sqlite_relations",
+  "purge_audit",
   "purge_retry",
+  "key_inspection",
   "key_rotation",
+  "restore_publication",
+  "learning_rollback",
+  "learning_rollback_verification",
+  "operator_action",
   "secret_write",
 ]);
 
@@ -121,6 +130,16 @@ export function maintenanceCompatible(
     return false;
   }
   if (parsedActive.data === null) {
+    return true;
+  }
+  if (
+    parsedActive.data === "read_only_inspection" ||
+    parsedActive.data === "key_inspection" ||
+    parsedActive.data === "learning_rollback_verification" ||
+    parsedRequested.data === "read_only_inspection" ||
+    parsedRequested.data === "key_inspection" ||
+    parsedRequested.data === "learning_rollback_verification"
+  ) {
     return true;
   }
   return (

@@ -953,3 +953,118 @@ release or rollback races a control transition.
 Use plural snake_case tables, snake_case columns, explicit foreign keys, and
 indexes named for table plus ordered columns. Final names are frozen by the
 first migration and should not be inferred from TypeScript class names.
+
+## Scenario: Confirmed Operator Repair and Purge Audit
+
+### 1. Scope / Trigger
+
+Use this contract for restore, purge retry, FTS/layered/SQLite-relation repair,
+key rotation, learning rollback, operator-action recovery, and residual
+artifact audit at the local operator boundary.
+
+### 2. Signatures
+
+```ts
+executeConfirmedOperatorAction(input): Promise<ContentFreeOperatorResult>
+storage.auditPurgeArtifacts(input): Promise<ArtifactPurgeAudit>
+storage.prepareOperationalRepair(input): Promise<OperationalRepairResult>
+storage.completeOperationalRepair(input): Promise<OperationalRepairResult>
+```
+
+The executable mutation surface is `operator execute --confirmation-ref ...`.
+The ref resolves only through an owner-only config file to an exact grant.
+
+### 3. Contracts
+
+- Ed25519 confirmation binds purpose, algorithm, authority generation,
+  principal, command, nonce, intent hash, TTL, state/config/key/frontier/
+  recovery digests, and the complete effect-parameter digest.
+- Confirmation consumption is globally atomic across operation IDs. A durable
+  confirmation-ID binding permits an exact crash replay after expiry while
+  still rechecking signature, trust, revocation, intent, and consumption
+  identity; it never authorizes a new operation. Expiry may finish an already
+  committed effect or reconcile exact external publication evidence, but it
+  cannot start an effect from `authorized` or an unreconciled
+  `effect_prepared` state.
+- Validate every signed state binding before preparation and immediately
+  before the first external effect. The external action ledger advances only
+  through authorized, prepared, effect-committed, receipt-committed, and
+  responded states and reconciles exact publication evidence after crashes.
+- Purge audit covers the exact versioned store registry. At a nonzero
+  tombstone epoch, every required store needs a same-epoch, internally hashed
+  frontier; missing, stale, corrupt, or indebted frontiers block completion.
+  Audit never fabricates or rewrites purge frontiers or historical receipts.
+  A retry for an older purge epoch cannot regress the current global frontier;
+  same-epoch updates remain bound to their originating purge job.
+- Repair source is canonical SQLite only. FTS marks only FTS rebuilding;
+  layered and SQLite-relation repair mark the layered lane rebuilding. Resume
+  uses the exact append-only repair job and canonical frontier. Completed jobs
+  persist their artifact/relation counts and ledger epoch so later canonical
+  changes cannot alter replayed results. Salvage and quarantine never publish.
+- Key rotation receives a purpose-scoped capability only after exact signed
+  plan verification and durable confirmation binding. Direct production
+  begin/resume primitives remain unavailable. The capability propagates a
+  private authorization only to the exact whitelisted rotation worker
+  operations; unrelated or direct dark-launch operations remain denied.
+- Recovery authority, action ledger, grants, approval artifacts, and key files
+  are private, owner-checked, symlink-safe, bounded, and external to live data,
+  backup, and restore targets. Residual audit scans all registered classes by
+  descriptor with before/after identity checks and emits no content or paths.
+  Its file identities are per-audit keyed commitments, and file/key buffers
+  are zeroed after use.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Expired confirmation with no durable consumption | Reject, zero effect |
+| Exact consumed confirmation after crash | Reconcile/finish only its bound operation |
+| Confirmation ID reused for another intent/operation | Conflict before effect |
+| Signed state/config/key/frontier/parameter drift | Reject before preparation/effect |
+| Purge frontier missing, stale, corrupt, or indebted | `blocked`/`retryable`; audit incomplete |
+| Repair source is salvage/quarantine | Reject; no derived publication |
+| Artifact path is missing, unreadable, symlinked, replaced, or oversized | Block the class and the audit |
+| Operator lock owner may still be live | Fail closed; no lock/temp removal |
+
+### 5. Good / Base / Bad Cases
+
+- Good: one exact confirmation consumption, two fresh state validations, one
+  effect, one content-free receipt, and exact replay reconciliation.
+- Base: epoch-zero purge audit records an explicit no-tombstone genesis proof;
+  graph/vector remain verified ineligible.
+- Bad: accept any latest purge receipt, rebuild FTS for a layered repair,
+  reuse a confirmation ID across operations, or publish from salvage.
+
+### 6. Tests Required
+
+- Fault every operator-action transition and the external-effect response
+  window; prove exactly one effect across restart, including post-expiry close.
+- Race operation and confirmation locks; prove global confirmation-ID
+  consumption, owner-not-live stale recovery, and no live-temp deletion.
+- Exercise encrypted CLI restore, purge retry, each repair kind, key rotation,
+  and learning rollback through config-bound grants and authorities.
+- Prove direct production key-rotation methods remain denied, the confirmed
+  capability survives begin/restart/resume, and its authorization cannot
+  authorize an unrelated worker operation.
+- Prove missing/stale/corrupt purge frontiers block, while completed same-epoch
+  zero-debt frontiers converge without rewriting historical evidence.
+- Interrupt each repair kind after prepare, reopen, observe the named degraded
+  lane, and resume deterministically from canonical state.
+- Replace files/directories during residual scan and assert fail-closed,
+  content-free output for every artifact class.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+if (operatorSaidYes) await mutate();
+auditFrontier ??= { debt_count: 0 };
+```
+
+#### Correct
+
+```ts
+await executeConfirmedOperatorAction(exactSignedBindings);
+if (!sameEpochVerifiedFrontier) return blockedAudit;
+```

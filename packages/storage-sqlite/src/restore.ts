@@ -91,6 +91,30 @@ type PublicationMarker = {
   marker_hash: string;
 };
 
+export function inspectRestorePublication(input: {
+  dataRoot: string;
+  operationId: string;
+  manifestHash: string;
+  recoveryAnchorHash: string;
+}): boolean {
+  const target = resolve(input.dataRoot);
+  if (
+    !isAbsolute(input.dataRoot) ||
+    target === parse(target).root ||
+    !existsSync(target)
+  ) {
+    return false;
+  }
+  return hasExactPublicationMarker(
+    target,
+    markerFor({
+      operationId: IdentifierSchema.parse(input.operationId),
+      manifestHash: input.manifestHash,
+      anchorHash: input.recoveryAnchorHash,
+    }),
+  );
+}
+
 function fsyncPath(path: string): void {
   const descriptor = openSync(path, "r");
   try {
