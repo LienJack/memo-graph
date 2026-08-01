@@ -1,7 +1,7 @@
 ---
 title: M6 Agent Memory Runtime Operational Hardening
 type: feat
-status: active
+status: decision-complete
 date: 2026-07-30
 deepened: 2026-07-30
 artifact_contract: ce-unified-plan/v1
@@ -14,6 +14,12 @@ trellis_task: .trellis/tasks/07-30-agent-memory-runtime-m6
 research_handoff: .trellis/tasks/07-30-agent-memory-runtime-m6/research/research-handoff.md
 milestone: M6
 gate: G6
+decision: NO-GO
+decision_date: 2026-08-02
+tested_candidate: 6e2ca601e435c0fa585341c5bdde2c68a12c9e25
+evidence_commit: 33549e61c73a801fdaca33be54a51d0754790c0b
+first_non_pass: integrity
+secret_admission_allowed: false
 baseline_branch: codex/agent-memory-runtime-m5
 baseline_commit: de1a4db3bfdd11446cd14687676c099afcacfadf
 ---
@@ -33,6 +39,26 @@ restore, health, purge, and evidence patterns. It keeps SQLite authoritative,
 publishes restores only to a new root, preserves graph/vector `NO-GO`,
 preserves automatic learning publication as disabled, and treats a supported
 G6 `NO-GO` as a complete milestone outcome.
+
+## Recorded G6 outcome
+
+M6 completed on 2026-08-02 with a verifier-backed **G6 NO-GO**. The tested
+candidate is `6e2ca601e435c0fa585341c5bdde2c68a12c9e25`; immutable evidence is committed
+at `33549e61c73a801fdaca33be54a51d0754790c0b`; the evidence bundle is
+`sha256:1d6d025934733687cefec12cd97e0c8e8cc3e0c4c7f1acc42bf6af5078f5cb45`.
+
+The first non-pass is `integrity`. Forty fault obligations remain blocked
+because the frozen evaluator does not accept their aggregate proof commands as
+direct per-obligation evidence. All ten Runbook proof tests pass, but direct
+automation observation and typed-result verification remain absent. The signed
+NO-GO control therefore sets `secret_admission_allowed=false`.
+
+This result preserves the last verified non-secret local runtime, G3R layered
+Context, SQLite relations, FTS5 recall, and the exact G5 release/rollback
+mechanism. Graph/vector remain disabled and automatic learning publication
+remains disabled. See [`g6-decision.md`](../evaluations/g6-decision.md) and
+[`g6-handoff.md`](../evaluations/g6-handoff.md). No production, fleet,
+multi-platform, traffic, or SLO claim is made.
 
 ## Problem Frame
 
@@ -1552,6 +1578,7 @@ update the authoritative roadmap without rewriting evidence.
 **Files:**
 
 - Create: `docs/evaluations/g6-decision.md`
+- Create: `docs/evaluations/g6-handoff.md`
 - Create: `docs/evaluations/g6-release-control.json`
 - Create: `docs/adr/0006-local-operational-release-baseline.md`
 - Modify: `docs/plans/2026-07-30-001-feat-agent-memory-runtime-m6-operational-hardening-plan.md`
@@ -1760,6 +1787,9 @@ flowchart TB
 - `docs/evaluations/g4a-decision.md`
 - `docs/evaluations/g4b-decision.md`
 - `docs/evaluations/g5-decision.md`
+- `docs/evaluations/g6-verification-report.json`
+- `docs/evaluations/g6-decision.md`
+- `docs/evaluations/g6-handoff.md`
 - `docs/operations/backup-restore.md`
 - `docs/storage/sqlite-ledger.md`
 - `docs/threat-model.md`

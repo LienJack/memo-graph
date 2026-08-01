@@ -22,7 +22,7 @@ research_topic: /Users/lienli/Documents/work/深度调研/research/agent-context
   - Product Contract：`docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md`
   - 研究：`agent-context-management` 的 `RQ032`–`RQ041`
   - Trellis：`.trellis/tasks/07-28-agent-memory-runtime/`
-- **实施状态：**用户已于 2026-07-28 授权实施；Trellis 父任务保持 `planning`，通过里程碑子任务执行，首个子任务为 M0 / G0。
+- **实施状态：**用户已于 2026-07-28 授权实施；M0-M6 里程碑子任务均已执行并产生明确 Gate 结果。G6 于 2026-08-02 以受支持 `NO-GO` 收口，父任务等待独立状态收口、归档和日志提交。
 - **停止条件：**任何设计如果让派生图/向量成为事实权威、绕过 MCP/用户授权、削弱作用域或墓碑过滤、允许在线 Agent 直接发布学习结果，必须返回规划阶段。
 
 ---
@@ -455,6 +455,7 @@ gate decisions.
 | G4A Graph | `NO-GO` on 2026-07-29; SQLite adjacency retained | `36421f5cd75007a1421d3e0594e7881dd4b864b2` | `docs/evaluations/g4a-decision.md` |
 | G4B Vector | `NO-GO` on 2026-07-29; FTS5/layered/SQLite relations retained | `3eec7119b1e441d76523d0a57c328d4d811a4af3` | `docs/evaluations/g4b-decision.md` |
 | G5 Learning | `GO` on 2026-07-30 for the exact local synthetic release path; automatic publication remains disabled | `91d810efe17632e64f5e9a3ddae81f8e9f0b9985` | `docs/evaluations/g5-decision.md` |
+| G6 Release | `NO-GO` on 2026-08-02; first non-pass `integrity`, secret admission disabled | `6e2ca601e435c0fa585341c5bdde2c68a12c9e25` | `docs/evaluations/g6-decision.md` |
 
 G3R GO made M4A, M4B, and M5 eligible for separate Trellis workflows. G4A
 completed with `NO-GO`; it retains SQLite adjacency and does not enable the
@@ -465,7 +466,13 @@ narrow-only retrieval-policy release and its exact rollback to the base
 pointer. Learning remains candidate-only by default, every publication still
 requires exact authority, and the decision binds both prior optional-lane
 receipts. G5 is local synthetic evidence only and does not establish M6
-production readiness.
+production readiness. M6 completed with a supported G6 `NO-GO`: security,
+resource, supply-chain, encryption, privacy, and independent review evidence
+passed, while direct per-fault integrity proof and direct typed Runbook
+automation evidence remained blocked. The signed control is audit-only,
+`secret_admission_allowed=false`, and the last verified non-secret local
+fallback remains active. This is a complete roadmap gate outcome, not a
+production-readiness claim.
 
 ---
 
@@ -557,9 +564,10 @@ production readiness.
 
 ## 10. Trellis Delivery Strategy
 
-The current Trellis task is the planning parent. It must not be started as one giant coding task. After separate implementation approval, create reviewable child tasks:
+The Trellis task remained a planning parent and was never started as one giant
+coding task. Implementation was delivered through these reviewable children:
 
-| Future child | Scope | Parent Gate |
+| Child | Scope | Parent Gate |
 | --- | --- | --- |
 | M0 | U1 contracts/corpus | G0 |
 | M1A | U2 storage | G1 |
@@ -571,7 +579,8 @@ The current Trellis task is the planning parent. It must not be started as one g
 | M5 | U8 learning | G5 |
 | M6 | U9 operations/release | G6 |
 
-No child is created or activated by this planning deliverable.
+Each child kept its own evidence, decision, archive, journal, and commit
+boundary. The parent closes only after the terminal M6 handoff.
 
 ---
 
@@ -587,10 +596,13 @@ No child is created or activated by this planning deliverable.
 - Trellis artifacts agree with this plan and the task remains `planning`.
 - Markdown structure, Mermaid syntax, numbering, internal links, scope and dependency consistency are reviewed.
 
-### Future Implementation Done
+### Implementation Done
 
-- G0–G6 pass on the final dependency lock and schema.
-- AE1–AE8 pass with evidence.
+- G0–G6 each have an explicit evidence-backed terminal result on their tested
+  lock/schema. Optional adoption gates and G6 may complete with supported
+  `NO-GO`; they are not relabeled as pass.
+- AE1–AE8 are exercised with evidence; any blocked critical Oracle is named
+  and drives the relevant fallback or `NO-GO`.
 - SQLite remains authoritative; every projection is traceable and rebuildable.
 - Explicit Codex MCP lifecycle, correction, purge and learning rollback are exercised end to end.
 - No unresolved P0/P1 integrity, privacy, deletion, authorization or rollback issue remains.

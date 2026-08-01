@@ -274,8 +274,10 @@ keys, commitment keys, or encryption-key bytes.
 - Good: exact private descriptors, distinct key roles, verified authority,
   durable nonce reservation, ciphertext-only worker payload, and one atomic
   effect/receipt produce an idempotent encrypted owner.
-- Base: no secret keys or release control are installed; ordinary non-secret
-  reads/writes continue and secret admission stays `ENCRYPTION_REQUIRED`.
+- Base: no qualifying G6 `GO` control is installed. The repository's signed
+  G6 `NO-GO` artifact is audit-only and never auto-discovered; ordinary
+  non-secret reads/writes continue and secret admission stays
+  `ENCRYPTION_REQUIRED`.
 - Bad: a shape-valid authority with an unchecked signature, a nonce replay
   under another operation class, or backup deletion before authorization is a
   security/data-integrity defect even when happy-path tests are green.
@@ -295,6 +297,20 @@ keys, commitment keys, or encryption-key bytes.
 - Security tests scan SQLite, WAL/SHM, blobs/temp/quarantine, backups,
   diagnostics, and receipts for plaintext and raw-key markers, and prove
   standard FTS/MCP/Context paths cannot serve secret content.
+
+### 6.1 Recorded G6 boundary
+
+G6 closed `NO-GO` on 2026-08-02 for the exact Darwin arm64/APFS local
+candidate. Security, resource, encryption, privacy, supply-chain, and review
+evidence passed, but direct per-fault integrity proofs and direct typed
+Runbook automation evidence remained blocked. Therefore:
+
+- `secret_admission_allowed` remains false;
+- a shape-valid or correctly signed `NO-GO` control never qualifies ingress;
+- graph/vector remain disabled and automatic learning publication remains
+  disabled;
+- reopening G6 requires a new candidate and evidence bundle rather than
+  rewriting the immutable U7 reports.
 
 ### 7. Wrong vs Correct
 

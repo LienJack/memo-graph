@@ -12,21 +12,29 @@ The accepted runtime includes:
 - an append-only L0 evidence and episode ledger;
 - FTS5-backed governed recall with canonical SQLite fallback;
 - versioned L1 admission, correction, conflict, user controls, tombstone-first
-  deletion, purge, backup, and verified restore;
-- an explicit stdio MCP loop for Context compilation and episode commit.
+  deletion and purge;
+- the G3R-remediated layered Context Compiler over rebuildable SQLite-derived
+  L2/L3 projections;
+- an explicit stdio MCP loop for Context compilation and episode commit;
+- one exact local synthetic G5 governed-learning release/rollback path, while
+  automatic publication remains disabled.
 
-M3 L2/L3 projections and the layered Context Compiler are implemented as an
-experimental, rebuildable plane, but G3 is currently **HOLD**. Projection
-lanes remain disabled by default while bounded retrieval, source-frontier
-validation above 1,000 active L1 rows, and multi-scope frontier composition
-are corrected and re-evaluated. The authoritative and releasable fallback is
-the accepted L0/L1 path.
+Graph remains disabled under G4A `NO-GO`, and vector remains disabled under
+G4B `NO-GO`; SQLite relations plus FTS5/recency/layered recall are the active
+fallbacks. M6 implemented local operational hardening, but G6 is **NO-GO**
+because direct per-fault integrity proofs and direct typed Runbook automation
+evidence remain blocked. Its signed control is audit-only and keeps secret
+admission disabled. The runtime therefore remains local experimental software,
+not a production release.
 
 See:
 
-- `docs/evaluations/g2-decision.md` for the accepted L1 governance gate;
-- `docs/evaluations/g3-decision.md` for the current M3 HOLD and unblock
-  requirements;
+- `docs/evaluations/g3r-h3-decision.md` for the accepted layered Context gate;
+- `docs/evaluations/g4a-decision.md` and `g4b-decision.md` for the independent
+  graph/vector NO-GO decisions;
+- `docs/evaluations/g5-decision.md` for the exact local synthetic governed
+  learning decision;
+- `docs/evaluations/g6-decision.md` for the terminal operational NO-GO;
 - `docs/operations/mcp-explicit-loop.md` for local MCP configuration;
 - `docs/operations/memory-governance.md` for approvals and user controls.
 

@@ -61,6 +61,29 @@ Planned commit map:
 If implementation proves a unit is not atomic, update the durable plan first,
 assign the next unused stable U-ID, and do not renumber existing units.
 
+### Execution ledger
+
+M6 reached its terminal U8 boundary on 2026-08-02. Unit completion is recorded
+by immutable commits rather than by retroactively rewriting every design-time
+checkbox:
+
+| Unit | Commit / outcome |
+| --- | --- |
+| U1 | `b0cd16b` typed readiness and operator shell |
+| U4 | `576ecc2` bounded pressure and maintenance admission |
+| U2 | `66cdfc5` encrypted secret persistence and governed keys |
+| U3 | `e386274` complete verified restore publication |
+| U5 | `0150dd1` repair audit and executable Runbooks |
+| U9 | `e0a8872` governed secret-admission qualification |
+| U6 | `707f70b` frozen harness plus R1-R5 remediation commits |
+| U7 | `33549e6` immutable G6 evidence |
+| U8 | G6 `NO-GO`; first non-pass `integrity`, signed control non-enabling |
+
+U7 honestly preserves two terminal blocked boundaries: 40 fault obligations
+lack direct per-obligation proof, and ten Runbook paths lack direct typed
+automation observation. Those unchecked success conditions are not waived;
+they force the supported G6 `NO-GO`.
+
 ## 2. Non-negotiable invariants
 
 - [ ] SQLite remains the sole authority for canonical, key state,
@@ -1110,6 +1133,7 @@ implementation change requires a new committed candidate and evidence run.
 **Files:**
 
 - `docs/evaluations/g6-decision.md`
+- `docs/evaluations/g6-handoff.md`
 - `docs/evaluations/g6-release-control.json`
 - `docs/adr/0006-local-operational-release-baseline.md`
 - `docs/plans/2026-07-30-001-feat-agent-memory-runtime-m6-operational-hardening-plan.md`
@@ -1121,35 +1145,35 @@ implementation change requires a new committed candidate and evidence run.
 
 ### Decision checklist
 
-- [ ] Read the committed G6 verification report.
-- [ ] Confirm tested implementation and evidence commits are immutable.
-- [ ] Identify the first false/blocked hard rule, if any.
-- [ ] Confirm exact platform, lock, filesystem, schema, configuration,
+- [x] Read the committed G6 verification report.
+- [x] Confirm tested implementation and evidence commits are immutable.
+- [x] Identify the first false/blocked hard rule, if any.
+- [x] Confirm exact platform, lock, filesystem, schema, configuration,
       thresholds, fixtures, key IDs, and prior gate decisions.
-- [ ] Confirm active learning/base pointer and exact rollback.
-- [ ] Confirm graph/vector decisions are unchanged.
-- [ ] Record exactly one result:
+- [x] Confirm active learning/base pointer and exact rollback.
+- [x] Confirm graph/vector decisions are unchanged.
+- [x] Record exactly one result:
   - [ ] `GO` only if every required rule is true and none is blocked.
-  - [ ] `NO-GO` on the first false/blocked/missing rule.
-- [ ] Create the only current `G6ReleaseControl`, bound to the exact tested
+  - [x] `NO-GO` on the first false/blocked/missing rule.
+- [x] Create the only current `G6ReleaseControl`, bound to the exact tested
       envelope; set `secret_admission_allowed=true` only for GO.
-- [ ] Execute only U6's precommitted `build-g6-release-control.mjs`; do not
+- [x] Execute only U6's precommitted `build-g6-release-control.mjs`; do not
       author or modify signer behavior in U8.
-- [ ] Load the offline decision private key from a verified restricted local
+- [x] Load the offline decision private key from a verified restricted local
       file, sign with the U6 `G6DecisionAuthority`, and leave runtime with only
       the pinned verifier.
-- [ ] Reject unknown/expired/revoked/wrong-key/candidate-minted controls.
-- [ ] Prove U7 evidence and U8 decision/handoff paths do not change
+- [x] Reject unknown/expired/revoked/wrong-key/candidate-minted controls.
+- [x] Prove U7 evidence and U8 decision/handoff paths do not change
       `tested_implementation_digest`, while runtime/contract/migration/
       dependency/native/build drift does.
-- [ ] Verify NO-GO control remains non-enabling and any source/lock/platform/
+- [x] Verify NO-GO control remains non-enabling and any source/lock/platform/
       schema/config/key drift reports `outside_tested_envelope`.
-- [ ] Scope `GO` only to the exact local topology and explicitly disclaim
+- [x] Scope `GO` only to the exact local topology and explicitly disclaim
       production/fleet/multi-platform/SLO claims.
-- [ ] On `NO-GO`, preserve the last verified fallback and rerun boundary.
-- [ ] Update ADR, parent roadmap, plan, task, README, and backend spec to the
+- [x] On `NO-GO`, preserve the last verified fallback and rerun boundary.
+- [x] Update ADR, parent roadmap, plan, task, README, and backend spec to the
       same result.
-- [ ] Do not rewrite or regenerate U7 evidence.
+- [x] Do not rewrite or regenerate U7 evidence.
 
 ### Final verification
 
@@ -1168,12 +1192,12 @@ git diff --check
 
 ### Completion evidence
 
-- [ ] One verifier-backed G6 outcome exists.
-- [ ] The release-control artifact exactly matches that outcome and cannot
+- [x] One verifier-backed G6 outcome exists.
+- [x] The release-control artifact exactly matches that outcome and cannot
       enable outside the tested envelope.
-- [ ] Parent/ADR/plan/task/README/spec agree.
-- [ ] Accepted fallback remains independently runnable.
-- [ ] Create only the U8 decision commit.
+- [x] Parent/ADR/plan/task/README/spec agree.
+- [x] Accepted fallback remains independently runnable.
+- [x] Create only the U8 decision commit.
 
 **Rollback point:** revert only U8 documentation/metadata; U7 evidence and the
 tested implementation remain immutable.
