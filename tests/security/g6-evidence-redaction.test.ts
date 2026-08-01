@@ -105,6 +105,9 @@ describe("G6 content-free evidence boundary", () => {
             "--pending",
           ],
         },
+        fault_points: [
+          { id: "secret_ciphertext", state: "pass" },
+        ],
       }),
     ).not.toThrow();
 

@@ -79,12 +79,10 @@ export function runG6FaultMatrix() {
     "fault and acceptance",
   );
   const faultState = stateFor(recoveryCommands);
-  const faultPointStates = Object.fromEntries(
-    manifest.fault_points.map((faultPoint) => [
-      faultPoint,
-      proofStates[`fault:${faultPoint}`],
-    ]),
-  );
+  const faultPointStates = manifest.fault_points.map((faultPoint) => ({
+    id: faultPoint,
+    state: proofStates[`fault:${faultPoint}`],
+  }));
   const faultReport = {
     schema_version: "1.0.0",
     gate: "G6",
@@ -98,7 +96,7 @@ export function runG6FaultMatrix() {
     oracles: Object.fromEntries(
       faultFixture.required_oracles.map((oracle) => [
         oracle,
-        Object.values(faultPointStates).every((state) => state === "pass"),
+        faultPointStates.every(({ state }) => state === "pass"),
       ]),
     ),
     acceptance_examples: Object.fromEntries(

@@ -225,14 +225,14 @@ function verifyProofClaims(name, report, manifest, fixture) {
       [...expectedFaults, ...expectedAcceptance],
       "fault and acceptance report",
     );
-    const expectedFaultStates = Object.fromEntries(
-      manifest.fault_points.map((faultPoint) => [
-        faultPoint,
-        states[`fault:${faultPoint}`],
-      ]),
+    const expectedFaultStates = manifest.fault_points.map(
+      (faultPoint) => ({
+        id: faultPoint,
+        state: states[`fault:${faultPoint}`],
+      }),
     );
-    const allFaultsPass = Object.values(expectedFaultStates).every(
-      (state) => state === "pass",
+    const allFaultsPass = expectedFaultStates.every(
+      ({ state }) => state === "pass",
     );
     const expectedOracles = Object.fromEntries(
       fixture.fault_fixture.required_oracles.map((oracle) => [
