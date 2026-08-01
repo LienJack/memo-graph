@@ -423,3 +423,41 @@ Completed ce-brainstorm, research-to-article, ce-plan, activation, U1/U4/U2/U3/U
 ### Status
 
 [OK] **Completed**
+
+
+## Session 11: Agent Memory Runtime roadmap closure
+
+**Date**: 2026-08-02
+**Task**: Agent Memory Runtime roadmap closure
+**Branch**: `codex/agent-memory-runtime-m6`
+
+### Summary
+
+Closed and archived the M0-M6 Agent Memory Runtime roadmap. Gate outcomes: G0 GO, G1A GO, G1 GO, G2 GO, historical G3 HOLD superseded by G3R GO, G4A graph NO-GO, G4B vector NO-GO, G5 GO_LOCAL_SYNTHETIC, and G6 NO-GO. The G6 decision is audit-only with first_non_pass=integrity and secret_admission_allowed=false. Parent status commit is 36007bc3d04ec7a93430a5c7c1f093b552652076; parent archive commit is 4130c0ef0fc0b2edb85404648cedff6eb1e18509. No push or PR was created.
+
+### Main Changes
+
+- Recorded final M0-M6 gate matrix and preserved the historical G3 HOLD to G3R GO transition.
+- Bound G6 to candidate 6e2ca601e435c0fa585341c5bdde2c68a12c9e25, tree 589955e07bcf6b16e92f9c48dd51ce1ee3a91d54, implementation digest sha256:0a456f8dea612f9bf97e5b0fc1eca5fdde0dc3a748bde653d47ebb59326f2363, evidence commit 33549e61c73a801fdaca33be54a51d0754790c0b, evidence digest sha256:1d6d025934733687cefec12cd97e0c8e8cc3e0c4c7f1acc42bf6af5078f5cb45, and runtime identity sha256:6af775567441db6c8ef791cbbb4e591fa2e5b6a843afb8cf87bb61ea4fb5be77.
+- Kept the supported fallback at non-secret local SQLite/FTS5/layered runtime with the G5 exact synthetic release and rollback mechanism; graph, vector, automatic learning publication, and secret admission remain disabled.
+- Preserved limits: no production, fleet, high-availability, multi-platform, traffic, or SLO claim.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `36007bc3d04ec7a93430a5c7c1f093b552652076` | (see git log) |
+
+### Testing
+
+- [OK] Final clean full suite passed: 140 files, 712 tests passed, 6 skipped.
+- [OK] The first full-suite attempt had two timeout flakes; both tests passed individually and the complete suite then passed on a clean retry.
+- [OK] Lint, typecheck, build, Trellis validation, Markdown fence checks, and git diff checks passed; only existing context-size injection warnings remained.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Any future operational admission must create a new governed task and independently close the G6 integrity evidence gap before changing NO-GO.
