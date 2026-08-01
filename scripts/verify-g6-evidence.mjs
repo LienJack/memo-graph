@@ -209,9 +209,9 @@ function allBooleanLeavesTrue(value) {
   return false;
 }
 
-function verifyProofClaims(name, report, manifest, fixture) {
+function verifyProofClaims(name, report, fixture) {
   if (name === "fault") {
-    const expectedFaults = manifest.fault_points.map(
+    const expectedFaults = fixture.fault_points.map(
       (faultPoint) => `fault:${faultPoint}`,
     );
     const expectedAcceptance = Object.keys(
@@ -225,7 +225,7 @@ function verifyProofClaims(name, report, manifest, fixture) {
       [...expectedFaults, ...expectedAcceptance],
       "fault and acceptance report",
     );
-    const expectedFaultStates = manifest.fault_points.map(
+    const expectedFaultStates = fixture.fault_points.map(
       (faultPoint) => ({
         id: faultPoint,
         state: states[`fault:${faultPoint}`],
@@ -492,7 +492,7 @@ function reportState(name, report, manifest, fixture) {
   }
   verifySourceBindings(report.source_bindings);
   if (name !== "supply_chain") {
-    verifyProofClaims(name, report, manifest, fixture);
+    verifyProofClaims(name, report, fixture);
   }
   if (deriveG6ReportState(name, report) !== report.state) {
     throw new Error(`G6 ${name} report claim mismatch`);
