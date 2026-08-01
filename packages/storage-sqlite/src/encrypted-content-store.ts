@@ -1008,6 +1008,20 @@ export class EncryptedContentStore {
             receipt.receipt_id,
             purgedAt,
           );
+        this.#database
+          .prepare(
+            `INSERT INTO secret_purge_physical_maintenance (
+               operation_id, request_digest, receipt_id, receipt_hash,
+               state, requested_at, completed_at
+             ) VALUES (?, ?, ?, ?, 'pending', ?, NULL)`,
+          )
+          .run(
+            input.operation_id,
+            input.request_digest,
+            receipt.receipt_id,
+            receipt.receipt_hash,
+            purgedAt,
+          );
         return receipt;
       })
       .immediate();

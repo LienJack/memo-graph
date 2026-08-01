@@ -27,7 +27,6 @@ import {
 import {
   G5_RECORDED_AT,
   git,
-  migrationIdentity,
   read,
   readJson,
   repositoryRoot,
@@ -65,6 +64,29 @@ function committed(commit, path) {
   });
 }
 
+function committedMigrationIdentity(commit) {
+  const paths = git(
+    "ls-tree",
+    "-r",
+    "--name-only",
+    commit,
+    "--",
+    "migrations",
+  )
+    .split("\n")
+    .filter((path) => path.endsWith(".sql"))
+    .sort();
+  const bindings = paths.map((path) => ({
+    path,
+    raw_hash: rawSha256(committed(commit, path)),
+  }));
+  return {
+    latest: paths.at(-1)?.slice("migrations/".length),
+    files: bindings,
+    migration_set_hash: canonicalSha256(bindings),
+  };
+}
+
 function verifyHashedReport(report, label) {
   const { report_hash: reportHash, ...body } = report;
   assertEqual(
@@ -74,8 +96,7 @@ function verifyHashedReport(report, label) {
   );
 }
 
-function verifyBinding(binding, json) {
-  const bytes = read(binding.path);
+function verifyBinding(binding, json, bytes = read(binding.path)) {
   assertEqual(
     rawSha256(bytes),
     binding.raw_hash,
@@ -382,12 +403,28 @@ export async function verifyG5Evidence(options = {}) {
     );
   }
   assertEqual(
-    migrationIdentity(),
+    committedMigrationIdentity(candidate),
     manifest.migrations,
     "migration set",
   );
+  const evidenceCommit = git(
+    "log",
+    "-1",
+    "--format=%H",
+    "--",
+    "docs/evaluations/g5-reproducibility-manifest.json",
+  );
+  execFileSync(
+    "git",
+    ["merge-base", "--is-ancestor", candidate, evidenceCommit],
+    { cwd: repositoryRoot },
+  );
   for (const binding of manifest.source_bindings) {
-    verifyBinding(binding, false);
+    verifyBinding(
+      binding,
+      false,
+      committed(evidenceCommit, binding.path),
+    );
   }
   for (const binding of Object.values(
     manifest.evidence_reports,

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "decision_recorded": false,
+  "current_control": null,
+  "maximum_control_ttl_seconds": 900,
+  "scenarios": [
+    {
+      "name": "pending",
+      "decision": null,
+      "secret_admission_allowed": false
+    },
+    {
+      "name": "synthetic_go",
+      "decision": "GO",
+      "secret_admission_allowed": true
+    },
+    {
+      "name": "synthetic_no_go",
+      "decision": "NO-GO",
+      "secret_admission_allowed": false
+    }
+  ]
+}

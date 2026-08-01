@@ -18,6 +18,7 @@ import {
   type OperationalExitClass,
   type OperationalStatus,
   type OperationIntent,
+  type RuntimeIdentityProvider,
 } from "@memo-graph/contracts";
 import {
   blockedOperationalStatus,
@@ -71,6 +72,7 @@ import {
   loadSecretAdmissionArtifacts,
   loadSecretAdmissionRequest,
   openPrivateOperatorDescriptor,
+  readPrivateOperatorJson,
 } from "./config.js";
 import { OperatorActionLedger } from "./operator-action-ledger.js";
 import {
@@ -87,10 +89,16 @@ import {
   renderOperationalStatus,
   type OperatorOutputFormat,
 } from "./render.js";
+import { productionRuntimeIdentityProvider } from "./runtime-identity.js";
 
 type OperatorIo = {
   stdout: Pick<NodeJS.WriteStream, "write">;
   stderr: Pick<NodeJS.WriteStream, "write">;
+};
+
+type OperatorRuntime = {
+  now?: () => string;
+  runtimeIdentityProvider?: RuntimeIdentityProvider;
 };
 
 const ExecutePurgePayloadSchema = z
@@ -434,7 +442,9 @@ type ParsedArguments =
       expectedProcessId: number;
     };
 
-function parseArguments(argv: readonly string[]): ParsedArguments {
+export function parseOperatorArguments(
+  argv: readonly string[],
+): ParsedArguments {
   const commandLength =
     argv[0] === "doctor"
       ? 1
@@ -852,10 +862,11 @@ function replaceExitClass(
 export async function runOperatorCli(
   argv = process.argv.slice(2),
   io: OperatorIo = { stdout: process.stdout, stderr: process.stderr },
+  runtime: OperatorRuntime = {},
 ): Promise<number> {
   let format: OperatorOutputFormat = "json";
   try {
-    const arguments_ = parseArguments(argv);
+    const arguments_ = parseOperatorArguments(argv);
     format = arguments_.format;
     const config = loadOperatorConfig(arguments_.configPath);
     switch (arguments_.command) {
@@ -979,9 +990,15 @@ export async function runOperatorCli(
               },
               releaseControl: artifacts.control,
               releaseTrust: artifacts.admission.release_trust,
-              runtimeIdentityProvider: {
-                current: async () => artifacts.runtimeIdentity,
-              },
+              runtimeIdentityProvider:
+                runtime.runtimeIdentityProvider ??
+                productionRuntimeIdentityProvider(
+                  artifacts.runtimeIdentity,
+                  config,
+                ),
+              ...(runtime.now === undefined
+                ? {}
+                : { now: runtime.now }),
             },
           });
           try {
@@ -1106,6 +1123,9 @@ export async function runOperatorCli(
           `${canonicalJson(
             verifyG6Candidate({
               evidenceRef: arguments_.evidenceRef,
+              report: readPrivateOperatorJson(
+                arguments_.evidenceRef,
+              ),
             }),
           )}\n`,
         );

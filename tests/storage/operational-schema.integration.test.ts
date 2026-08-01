@@ -19,6 +19,7 @@ import {
   applyMigrations,
   type OperationalMigrationFailurePoint,
 } from "../../packages/storage-sqlite/src/migrations.js";
+import { canonicalSha256 } from "../../packages/contracts/src/index.js";
 import { inlineEpisode } from "../helpers/storage-examples.js";
 
 const cleanupPaths: string[] = [];
@@ -138,8 +139,8 @@ describe("0015 operational hardening schema", () => {
     const health = await storage.health();
     await storage.close();
 
-    expect(health.schema_version).toBe("0017");
-    expect(health.migrations).toHaveLength(17);
+    expect(health.schema_version).toBe("0019");
+    expect(health.migrations).toHaveLength(19);
     expect(health.counts).toMatchObject({
       encryption_keys: 0,
       encrypted_contents: 0,
@@ -191,6 +192,140 @@ describe("0015 operational hardening schema", () => {
         "secret_nonce_reservations_key_nonce",
       ]),
     );
+  });
+
+  it("upgrades an accepted 0017 ledger to the purge saga without rewriting canonical rows", () => {
+    const dataRoot = temporaryRoot("purge-saga-upgrade");
+    const migrationRoot = temporaryRoot("purge-saga-migrations");
+    copyMigrationsThrough(migrationRoot, 17);
+    const before = legacyStorage(dataRoot, migrationRoot);
+    const input = inlineEpisode({
+      episodeId: "episode_before_0018",
+      evidenceId: "evidence_before_0018",
+      idempotencyKey: "commit-before-0018-purge-saga",
+      text: "canonical row survives the additive purge saga migration",
+    });
+    const receipt = before.commitEpisode(input).receipt;
+    const beforeSnapshot = canonicalSnapshot(dataRoot);
+    before.close();
+
+    copyMigrationsThrough(migrationRoot, 18);
+    const upgraded = legacyStorage(dataRoot, migrationRoot);
+    const health = upgraded.health();
+    const replay = upgraded.commitEpisode(input).receipt;
+    upgraded.close();
+
+    expect(health.schema_version).toBe("0018");
+    expect(replay).toEqual(receipt);
+    expect(canonicalSnapshot(dataRoot)).toEqual(beforeSnapshot);
+    const database = new DatabaseSync(
+      join(dataRoot, "ledger", "memory.db"),
+      { readOnly: true },
+    );
+    expect(database.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect(
+      database
+        .prepare(
+          `SELECT name FROM sqlite_schema
+           WHERE type = 'table'
+             AND name IN (
+               'purge_blob_deletion_intents',
+               'purge_physical_maintenance'
+             )
+           ORDER BY name`,
+        )
+        .all(),
+    ).toEqual([
+      { name: "purge_blob_deletion_intents" },
+      { name: "purge_physical_maintenance" },
+    ]);
+    database.close();
+  });
+
+  it("quarantines an unscoped pre-0019 projection repair", () => {
+    const dataRoot = temporaryRoot("legacy-unscoped-repair");
+    const migrationRoot = temporaryRoot("legacy-unscoped-repair-migrations");
+    copyMigrationsThrough(migrationRoot, 18);
+    legacyStorage(dataRoot, migrationRoot).close();
+    const operationId = "legacy_unscoped_projection_repair_1";
+    const completedOperationId =
+      "legacy_unscoped_completed_projection_repair_1";
+    const database = new DatabaseSync(join(dataRoot, "ledger", "memory.db"));
+    database
+      .prepare(
+        `INSERT INTO operational_repair_jobs (
+           operation_id, repair_kind, request_hash, state,
+           source_frontier_hash, artifact_count, relation_count,
+           ledger_epoch, result_hash, started_at, completed_at
+         ) VALUES (?, 'layered_projection', ?, 'rebuilding', ?,
+                   NULL, NULL, NULL, NULL, ?, NULL)`,
+      )
+      .run(
+        operationId,
+        canonicalSha256("legacy unscoped repair request"),
+        canonicalSha256("legacy unscoped repair frontier"),
+        "2026-07-30T00:00:00.000Z",
+      );
+    database
+      .prepare(
+        `INSERT INTO operational_repair_jobs (
+           operation_id, repair_kind, request_hash, state,
+           source_frontier_hash, artifact_count, relation_count,
+           ledger_epoch, result_hash, started_at, completed_at
+         ) VALUES (?, 'sqlite_relations', ?, 'completed', ?,
+                   2, 3, 4, ?, ?, ?)` ,
+      )
+      .run(
+        completedOperationId,
+        canonicalSha256("legacy completed repair request"),
+        canonicalSha256("legacy completed repair frontier"),
+        canonicalSha256("legacy completed repair result"),
+        "2026-07-30T00:00:00.000Z",
+        "2026-07-30T00:01:00.000Z",
+      );
+    database.close();
+
+    copyMigrationsThrough(migrationRoot, 19);
+    const upgraded = legacyStorage(dataRoot, migrationRoot);
+    expect(
+      upgraded.inspectOperationalRepair({ operation_id: operationId }),
+    ).toMatchObject({
+      operation_id: operationId,
+      repair_kind: "layered_projection",
+      principal_id: null,
+      scope: null,
+      state: "blocked",
+      artifact_count: 0,
+      relation_count: 0,
+    });
+    expect(
+      upgraded.inspectOperationalRepair({
+        operation_id: completedOperationId,
+      }),
+    ).toMatchObject({
+      operation_id: completedOperationId,
+      repair_kind: "sqlite_relations",
+      principal_id: null,
+      scope: null,
+      state: "completed",
+      artifact_count: 2,
+      relation_count: 3,
+    });
+    expect(() =>
+      upgraded.prepareOperationalRepair({
+        operation_id: completedOperationId,
+        repair_kind: "sqlite_relations",
+        source: "canonical_sqlite",
+        principal_id: "principal:legacy-repair",
+        scope: { kind: "workspace", id: "workspace:legacy-repair" },
+        expected_frontier_hash: canonicalSha256(
+          "legacy completed repair frontier",
+        ),
+        started_at: "2026-07-30T00:00:00.000Z",
+        completed_at: "2026-07-30T00:01:00.000Z",
+      }),
+    ).toThrowError(expect.objectContaining({ code: "CONFLICT" }));
+    upgraded.close();
   });
 
   it("preserves an accepted non-secret 0014 database through forward upgrade", async () => {

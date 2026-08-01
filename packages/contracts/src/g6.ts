@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { canonicalSha256Omitting } from "./canonical-json.js";
+import {
+  canonicalSha256,
+  canonicalSha256Omitting,
+} from "./canonical-json.js";
 import {
   CanonicalHashSchema,
   ContractVersionSchema,
@@ -28,6 +31,7 @@ export const RuntimeIdentitySchema = z
     migration_set_digest: CanonicalHashSchema,
     platform: RuntimePlatformIdentitySchema,
     configuration_digest: CanonicalHashSchema,
+    decision_authority_hash: CanonicalHashSchema,
     runtime_identity_hash: CanonicalHashSchema,
   })
   .strict()
@@ -126,6 +130,25 @@ export const G6ReleaseControlTrustSchema = z
   });
 
 /**
+ * Runtime release authority is a compile-time trust root, not an operator
+ * configuration value. Rotation therefore requires a reviewed code change;
+ * candidate evidence may repeat this value but cannot replace it.
+ */
+export const PINNED_G6_RELEASE_CONTROL_TRUST =
+  G6ReleaseControlTrustSchema.parse({
+    schema_version: "1.0.0",
+    purpose: "g6_release_control",
+    authority_key_id: "g6-authority:local-operational-v1",
+    authority_key_generation: 1,
+    public_key_spki_base64url:
+      "MCowBQYDK2VwAyEA9v19wUHOuex6XkIHsieXR3f_EImpD5EinzlUjDxfl_I",
+    valid_from: "2026-07-30T00:00:00.000Z",
+    expires_at: "2027-07-30T00:00:00.000Z",
+    revoked_at: null,
+    maximum_control_ttl_seconds: 900,
+  });
+
+/**
  * U6's offline signer signs these exact UTF-8 bytes with Ed25519.
  * Keeping the domain and hash projection here gives the signer and runtime
  * verifier one immutable semantic contract without exposing a signing key.
@@ -148,3 +171,9 @@ export type RuntimeIdentity = z.infer<typeof RuntimeIdentitySchema>;
 export type RuntimePlatformIdentity = z.infer<
   typeof RuntimePlatformIdentitySchema
 >;
+
+export function g6ReleaseControlTrustHash(
+  trust: G6ReleaseControlTrust,
+): `sha256:${string}` {
+  return canonicalSha256(G6ReleaseControlTrustSchema.parse(trust));
+}

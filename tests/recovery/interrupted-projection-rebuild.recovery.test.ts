@@ -36,6 +36,13 @@ const SCOPE = {
     id: "workspace_local",
   }).id,
 } as const;
+const UNRELATED_SCOPE = {
+  kind: "workspace",
+  id: ScopeSchema.parse({
+    kind: "workspace",
+    id: "workspace_unrelated_repair",
+  }).id,
+} as const;
 const STARTED_AT = "2026-07-30T12:00:00.000Z";
 const COMPLETED_AT = "2026-07-30T12:01:00.000Z";
 
@@ -193,6 +200,43 @@ describe("interrupted canonical projection repair", () => {
     const dataRoot = temporaryRoot("layered-relation-repair");
     let storage = await SqliteStorageClient.open({ dataRoot });
     await seedCurrentRevision(storage);
+    await storage.commitEpisode(
+      inlineEpisode({
+        episodeId: "episode_unrelated_repair_scope",
+        evidenceId: "evidence_unrelated_repair_scope",
+        idempotencyKey: "commit-unrelated-repair-scope",
+        scopeId: UNRELATED_SCOPE.id,
+        text: "An unrelated scope must stay ready during scoped repair.",
+      }),
+    );
+    await storage.admitMemory({
+      request: memoryProposal({
+        candidate: memoryCandidate({
+          candidateId: "candidate_unrelated_repair_scope",
+          logicalKey: "repair.unrelated.scope",
+          scope: UNRELATED_SCOPE,
+          evidenceIds: ["evidence_unrelated_repair_scope"],
+          text: "An unrelated scope must stay ready during scoped repair.",
+        }),
+        idempotencyKey: "repair-proposal-unrelated-scope",
+        requestId: "request_repair_unrelated_scope",
+      }),
+      evaluation: {
+        decision: "activate",
+        reason: "Seed an independently populated repair scope.",
+      },
+    });
+    await new ConsolidationService({ storage }).rebuild({
+      principal_id: "user_local",
+      scope: UNRELATED_SCOPE,
+      as_of: COMPLETED_AT,
+      idempotency_key: "repair-unrelated-scope-effect",
+      rebuild_receipt_id: "repair_unrelated_scope_receipt_1",
+    });
+    const unrelatedBefore = await storage.projectionScopeFrontier({
+      principal_id: "user_local",
+      scope: UNRELATED_SCOPE,
+    });
     const health = await storage.health();
     const frontier = canonicalSha256({
       ledger_epoch: health.ledger_epoch,
@@ -203,19 +247,29 @@ describe("interrupted canonical projection repair", () => {
       "layered_projection",
       "sqlite_relations",
     ] as const) {
+      const stateBeforePrepare = await storage.health();
       const command = OperationalRepairInputSchema.parse({
         operation_id: `repair_${repairKind}_1`,
         repair_kind: repairKind,
         source: "canonical_sqlite",
+        principal_id: "user_local",
+        scope: SCOPE,
         expected_frontier_hash: frontier,
         started_at: STARTED_AT,
         completed_at: COMPLETED_AT,
       });
       await storage.prepareOperationalRepair(command);
       expect(await storage.health()).toMatchObject({
-        projection_state: "ready",
-        layered_projection_state: "rebuilding",
+        projection_state: stateBeforePrepare.projection_state,
+        layered_projection_state:
+          stateBeforePrepare.layered_projection_state,
       });
+      await expect(
+        storage.projectionScopeFrontier({
+          principal_id: "user_local",
+          scope: UNRELATED_SCOPE,
+        }),
+      ).resolves.toEqual(unrelatedBefore);
       await storage.close();
       storage = await SqliteStorageClient.open({ dataRoot });
       await expect(
@@ -227,9 +281,16 @@ describe("interrupted canonical projection repair", () => {
         repair_kind: repairKind,
       });
       expect(await storage.health()).toMatchObject({
-        projection_state: "ready",
-        layered_projection_state: "rebuilding",
+        projection_state: stateBeforePrepare.projection_state,
+        layered_projection_state:
+          stateBeforePrepare.layered_projection_state,
       });
+      await expect(
+        storage.projectionScopeFrontier({
+          principal_id: "user_local",
+          scope: UNRELATED_SCOPE,
+        }),
+      ).resolves.toEqual(unrelatedBefore);
       const service = new ConsolidationService({ storage });
       const rebuilt = await service.rebuild({
         principal_id: "user_local",
@@ -251,6 +312,17 @@ describe("interrupted canonical projection repair", () => {
             repairKind === "sqlite_relations"
               ? relationCount
               : rebuilt.projections.length,
+          relation_count: relationCount,
+          ledger_epoch: rebuilt.frontier.ledger_epoch,
+        }),
+      ).rejects.toMatchObject({ code: "CONFLICT" });
+      await expect(
+        storage.completeOperationalRepair({
+          command,
+          artifact_count:
+            (repairKind === "sqlite_relations"
+              ? relationCount
+              : rebuilt.projections.length) + 1,
           relation_count: relationCount,
           ledger_epoch: rebuilt.frontier.ledger_epoch,
         }),

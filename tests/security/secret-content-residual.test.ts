@@ -340,7 +340,7 @@ describe("secret content residuals across rotation", () => {
     const secret = privateDescriptor(
       descriptorRoot,
       "secret.txt",
-      Buffer.from("purge-response-loss-secret", "utf8"),
+      Buffer.alloc(70 * 1024, 0x70),
     );
     let storage = await SqliteStorageClient.open({
       dataRoot,
@@ -424,6 +424,14 @@ describe("secret content residuals across rotation", () => {
       ).count,
     ).toBe(1);
     expect(
+      database
+        .prepare(
+          `SELECT state, completed_at IS NOT NULL AS completed
+           FROM secret_purge_physical_maintenance`,
+        )
+        .get(),
+    ).toEqual({ state: "completed", completed: 1 });
+    expect(
       (
         database
           .prepare(
@@ -436,5 +444,8 @@ describe("secret content residuals across rotation", () => {
     ).toBe(1);
     database.close();
     expect(readdirSync(join(dataRoot, "backups"))).toEqual([]);
+    expect(
+      readdirSync(join(dataRoot, "blobs", "encrypted")),
+    ).toEqual([".quarantine"]);
   });
 });

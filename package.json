@@ -23,6 +23,14 @@
     "g5:canary": "pnpm build:runtime && node scripts/run-g5-canary.mjs",
     "g5:resources": "pnpm build:runtime && node scripts/run-g5-resource-report.mjs",
     "g5:manifest": "pnpm build:runtime && node scripts/build-g5-manifest.mjs",
+    "g6:bootstrap": "node scripts/g6-bootstrap.mjs verify",
+    "g6:provenance": "node scripts/g6-bootstrap.mjs build-provenance",
+    "g6:faults": "pnpm build:runtime && node scripts/run-g6-fault-matrix.mjs",
+    "g6:resources": "pnpm build:runtime && node scripts/run-g6-resource-report.mjs",
+    "g6:runbooks": "pnpm build:runtime && node scripts/run-g6-runbooks.mjs",
+    "g6:manifest": "pnpm build:runtime && node scripts/build-g6-manifest.mjs",
+    "g6:runtime-identity": "pnpm build:runtime && node scripts/build-g6-runtime-identity.mjs",
+    "g6:release-control": "node scripts/build-g6-release-control.mjs",
     "lint": "eslint .",
     "test": "pnpm build:runtime && vitest run",
     "test:contract": "vitest run tests/contract",
@@ -40,7 +48,8 @@
     "verify:g3r": "pnpm build:runtime && node scripts/verify-g3r-evidence.mjs",
     "verify:g4a": "pnpm build:runtime && node scripts/verify-g4a-evidence.mjs",
     "verify:g4b": "pnpm build:runtime && node scripts/verify-g4b-evidence.mjs",
-    "verify:g5": "pnpm build:runtime && node scripts/verify-g5-evidence.mjs"
+    "verify:g5": "pnpm build:runtime && node scripts/verify-g5-evidence.mjs",
+    "verify:g6": "pnpm build:runtime && node scripts/verify-g6-evidence.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"
@@ -70,6 +79,7 @@
       "better-sqlite3",
       "esbuild",
       "onnxruntime-node",
+      "protobufjs",
       "sharp",
       "sqlite-vec"
     ]

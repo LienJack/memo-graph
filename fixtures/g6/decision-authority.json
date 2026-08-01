@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "algorithm": "Ed25519",
+  "authority_key_id": "g6-authority:local-operational-v1",
+  "authority_key_generation": 1,
+  "public_key_spki_base64url": "MCowBQYDK2VwAyEA9v19wUHOuex6XkIHsieXR3f_EImpD5EinzlUjDxfl_I",
+  "valid_from": "2026-07-30T00:00:00.000Z",
+  "expires_at": "2027-07-30T00:00:00.000Z",
+  "revoked_at": null,
+  "maximum_control_ttl_seconds": 900,
+  "rotation_policy": "new-generation-new-key-id-and-explicit-revocation"
+}

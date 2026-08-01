@@ -517,12 +517,16 @@ export async function restoreBackupToEmptyDataRoot(
   });
 
   mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
-  const reservation = TargetNameReservation.acquire(target);
+  const reservation = TargetNameReservation.acquire(target, operationId);
   const staging = join(
     dirname(target),
     `.memo-restore-${randomUUID()}.staging`,
   );
   let client: SqliteStorageClient | undefined;
+  let publishedSourceIdentity:
+    | { dev: bigint; ino: bigint }
+    | undefined;
+  let finalizationValidationFailed = false;
   try {
     const layout = prepareDataRoot(staging);
     if (
@@ -599,15 +603,33 @@ export async function restoreBackupToEmptyDataRoot(
     injectTestFault(options, "after_staging_fsync");
 
     injectTestFault(options, "before_publish");
+    const stagingIdentity = lstatSync(staging, { bigint: true });
+    publishedSourceIdentity = {
+      dev: stagingIdentity.dev,
+      ino: stagingIdentity.ino,
+    };
     reservation.publish(staging);
     injectTestFault(options, "after_publish_parent_fsync");
-    const published = await finalizePublishedTarget({
-      target,
-      options,
-      manifest,
-      operationId,
-      publication: "published",
-    });
+    let published: RestoreBackupResult;
+    try {
+      published = await finalizePublishedTarget({
+        target,
+        options,
+        manifest,
+        operationId,
+        publication: "published",
+      });
+    } catch (error) {
+      finalizationValidationFailed =
+        error instanceof StorageError &&
+        [
+          "CORRUPTION",
+          "INCOMPLETE_PURGE",
+          "KEY_UNAVAILABLE",
+          "RECOVERY_AUTHORITY_INVALID",
+        ].includes(error.code);
+      throw error;
+    }
     injectTestFault(options, "after_publish_before_response");
     return published;
   } catch (error) {
@@ -633,6 +655,25 @@ export async function restoreBackupToEmptyDataRoot(
             publication: "reconciled",
           });
         }
+      }
+    }
+    if (
+      finalizationValidationFailed &&
+      publishedSourceIdentity !== undefined &&
+      existsSync(target)
+    ) {
+      try {
+        const publishedStat = lstatSync(target, { bigint: true });
+        if (
+          !publishedStat.isSymbolicLink() &&
+          publishedStat.dev === publishedSourceIdentity.dev &&
+          publishedStat.ino === publishedSourceIdentity.ino
+        ) {
+          rmSync(target, { recursive: true, force: true });
+          fsyncPath(dirname(target));
+        }
+      } catch {
+        throw new StorageError("STORAGE_UNAVAILABLE");
       }
     }
     throw error;

@@ -15,7 +15,10 @@ export {
   blockedOperationalStatus,
   operationalStatusFromStorageHealth,
 } from "./operational-health.js";
-export { verifyExactG6ReleaseControl } from "./release-control.js";
+export {
+  verifyExactG6ReleaseControl,
+  verifyPinnedG6ReleaseControl,
+} from "./release-control.js";
 export {
   inspectNextRootFenceToken,
   RootWriterLease,

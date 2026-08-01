@@ -21,6 +21,7 @@ import {
   OperationalRepairResultSchema,
   OperatorConfirmationBindingSchema,
   type OperationalRepairInput,
+  type ParsedOperationalRepairInput,
   type OperationalRepairResult,
   type CompleteOperationalRepairInput,
 } from "./protocol.js";
@@ -402,7 +403,8 @@ export class OperationalRepository {
   inspectRepair(operationId: string): OperationalRepairResult | null {
     const row = this.#database
       .prepare(
-        `SELECT operation_id, repair_kind, state, source_frontier_hash,
+        `SELECT operation_id, repair_kind, principal_id, scope_kind, scope_id,
+                state, source_frontier_hash,
                 artifact_count, relation_count, ledger_epoch,
                 result_hash, completed_at
          FROM operational_repair_jobs WHERE operation_id = ?`,
@@ -414,6 +416,9 @@ export class OperationalRepository {
             | "fts"
             | "layered_projection"
             | "sqlite_relations";
+          principal_id: string | null;
+          scope_kind: string | null;
+          scope_id: string | null;
           state: "rebuilding" | "completed" | "blocked";
           source_frontier_hash: string;
           artifact_count: number | null;
@@ -431,6 +436,11 @@ export class OperationalRepository {
       operation_id: row.operation_id,
       repair_kind: row.repair_kind,
       source: "canonical_sqlite",
+      principal_id: row.principal_id,
+      scope:
+        row.scope_kind === null || row.scope_id === null
+          ? null
+          : { kind: row.scope_kind, id: row.scope_id },
       state: row.state,
       source_frontier_hash: row.source_frontier_hash,
       artifact_count: row.artifact_count,
@@ -465,16 +475,20 @@ export class OperationalRepository {
         this.#database
           .prepare(
             `INSERT INTO operational_repair_jobs (
-               operation_id, repair_kind, request_hash, state,
+               operation_id, repair_kind, principal_id, scope_kind,
+               scope_id, request_hash, state,
                source_frontier_hash, artifact_count, relation_count,
                ledger_epoch, result_hash, started_at, completed_at
              ) VALUES (
-               ?, ?, ?, 'rebuilding', ?, NULL, NULL, NULL, NULL, ?, NULL
+               ?, ?, ?, ?, ?, ?, 'rebuilding', ?, NULL, NULL, NULL, NULL, ?, NULL
              )`,
           )
           .run(
             command.operation_id,
             command.repair_kind,
+            command.principal_id,
+            command.scope?.kind ?? null,
+            command.scope?.id ?? null,
             requestHash,
             command.expected_frontier_hash,
             command.started_at,
@@ -489,6 +503,9 @@ export class OperationalRepository {
             )
             .run(command.started_at);
         } else {
+          if (command.principal_id === null || command.scope === null) {
+            throw new StorageError("CORRUPTION");
+          }
           const errorCode =
             command.repair_kind === "layered_projection"
               ? "OPERATIONAL_LAYERED_REPAIR_INTERRUPTED"
@@ -506,19 +523,18 @@ export class OperationalRepository {
           try {
             this.#database
               .prepare(
-                `UPDATE layered_projection_state
-                 SET status = 'rebuilding', updated_at = ?,
-                     error_code = ?
-                 WHERE singleton = 1`,
-              )
-              .run(command.started_at, errorCode);
-            this.#database
-              .prepare(
                 `UPDATE layered_projection_scope_state
                  SET status = 'rebuilding', updated_at = ?,
-                     error_code = ?`,
+                     error_code = ?
+                 WHERE principal_id = ? AND scope_kind = ? AND scope_id = ?`,
               )
-              .run(command.started_at, errorCode);
+              .run(
+                command.started_at,
+                errorCode,
+                command.principal_id,
+                command.scope.kind,
+                command.scope.id,
+              );
           } finally {
             this.#database
               .prepare(
@@ -560,14 +576,24 @@ export class OperationalRepository {
     if (existing.state === "completed") {
       return existing;
     }
+    const observed = this.#observeRepairResult(command);
+    if (
+      input.artifact_count !== observed.artifact_count ||
+      input.relation_count !== observed.relation_count ||
+      input.ledger_epoch !== observed.ledger_epoch
+    ) {
+      throw new StorageError("CONFLICT");
+    }
     const resultHash = canonicalSha256({
       operation_id: command.operation_id,
       repair_kind: command.repair_kind,
       source: command.source,
+      principal_id: command.principal_id,
+      scope: command.scope,
       source_frontier_hash: command.expected_frontier_hash,
-      artifact_count: input.artifact_count,
-      relation_count: input.relation_count,
-      ledger_epoch: input.ledger_epoch,
+      artifact_count: observed.artifact_count,
+      relation_count: observed.relation_count,
+      ledger_epoch: observed.ledger_epoch,
     });
     this.#database
       .prepare(
@@ -578,9 +604,9 @@ export class OperationalRepository {
          WHERE operation_id = ? AND state = 'rebuilding'`,
       )
       .run(
-        input.artifact_count,
-        input.relation_count,
-        input.ledger_epoch,
+        observed.artifact_count,
+        observed.relation_count,
+        observed.ledger_epoch,
         resultHash,
         command.completed_at,
         command.operation_id,
@@ -589,5 +615,118 @@ export class OperationalRepository {
       (() => {
         throw new StorageError("CORRUPTION");
       })();
+  }
+
+  #observeRepairResult(
+    command: ParsedOperationalRepairInput,
+  ): {
+    artifact_count: number;
+    relation_count: number;
+    ledger_epoch: number;
+  } {
+    const ledgerEpoch = Number(
+      (
+        this.#database
+          .prepare(
+            "SELECT ledger_epoch FROM ledger_state WHERE singleton = 1",
+          )
+          .get() as { ledger_epoch: number }
+      ).ledger_epoch,
+    );
+    if (command.repair_kind === "fts") {
+      const states = this.#database
+        .prepare(
+          `SELECT projection_name, status, last_epoch
+           FROM projection_state
+           WHERE projection_name IN ('fts', 'memory_fts')
+           ORDER BY projection_name`,
+        )
+        .all() as Array<{
+        projection_name: string;
+        status: string;
+        last_epoch: number;
+      }>;
+      if (
+        states.length !== 2 ||
+        states.some(
+          (state) =>
+            state.status !== "ready" ||
+            state.last_epoch !== ledgerEpoch,
+        )
+      ) {
+        throw new StorageError("CONFLICT");
+      }
+      return {
+        artifact_count: Number(
+          (
+            this.#database
+              .prepare(
+                "SELECT count(*) AS count FROM evidence_fts",
+              )
+              .get() as { count: number }
+          ).count,
+        ),
+        relation_count: 0,
+        ledger_epoch: ledgerEpoch,
+      };
+    }
+    if (command.principal_id === null || command.scope === null) {
+      throw new StorageError("CORRUPTION");
+    }
+    const layered = this.#database
+      .prepare(
+        `SELECT status, ledger_epoch
+         FROM layered_projection_scope_state
+         WHERE principal_id = ? AND scope_kind = ? AND scope_id = ?`,
+      )
+      .get(
+        command.principal_id,
+        command.scope.kind,
+        command.scope.id,
+      ) as { status: string; ledger_epoch: number } | undefined;
+    if (
+      layered === undefined ||
+      layered.status !== "ready" ||
+      layered.ledger_epoch !== ledgerEpoch
+    ) {
+      throw new StorageError("CONFLICT");
+    }
+    const relationCount = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count FROM relation_objects
+             WHERE principal_id = ? AND scope_kind = ? AND scope_id = ?
+               AND lifecycle = 'active'`,
+          )
+          .get(
+            command.principal_id,
+            command.scope.kind,
+            command.scope.id,
+          ) as { count: number }
+      ).count,
+    );
+    return {
+      artifact_count:
+        command.repair_kind === "sqlite_relations"
+          ? relationCount
+          : Number(
+              (
+                this.#database
+                  .prepare(
+                    `SELECT count(*) AS count FROM projection_objects
+                     WHERE principal_id = ? AND scope_kind = ? AND scope_id = ?
+                       AND lifecycle = 'active'`,
+                  )
+                  .get(
+                    command.principal_id,
+                    command.scope.kind,
+                    command.scope.id,
+                  ) as { count: number }
+              ).count,
+            ),
+      relation_count: relationCount,
+      ledger_epoch: ledgerEpoch,
+    };
   }
 }

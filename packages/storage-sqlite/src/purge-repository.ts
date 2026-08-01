@@ -24,8 +24,11 @@ import { invalidateLearningTargets } from "./learning-repository.js";
 import { suppressProjectionDescendants } from "./projection-effects.js";
 import {
   MemoryDeleteResultSchema,
+  PurgePhysicalMaintenanceSchema,
   type MemoryDeleteResult,
   type ParsedMemoryDeleteCommand,
+  type PurgePhysicalMaintenance,
+  type PurgePreparationResult,
   type PurgeCounts,
 } from "./protocol.js";
 
@@ -94,8 +97,33 @@ type OperatorPurgeAction = {
   expected_prior_receipt_id: string | null;
 };
 
+type PurgeCurrentPhysicalMaintenanceRow = {
+  source: "current_attempt";
+  purge_job_id: string;
+  attempt: number;
+  outcomes_hash: `sha256:${string}`;
+  state: "pending" | "completed";
+};
+
+type PurgeLegacyPhysicalMaintenanceRow = {
+  source: "legacy_upgrade";
+  purge_job_id: string;
+  attempt: number;
+  outcomes_hash: `sha256:${string}`;
+  receipt_id: string;
+  state: "pending" | "completed";
+};
+
+type PurgePhysicalMaintenanceRow =
+  | PurgeCurrentPhysicalMaintenanceRow
+  | PurgeLegacyPhysicalMaintenanceRow;
+
 const PURGE_STORES = PurgeStoreSchema.options;
 const REDACTED_MEDIA_TYPE = "application/x.memo-graph-redacted";
+
+export type PurgeFailurePoint =
+  | "after_blob_unlink"
+  | "before_physical_maintenance";
 
 function count(database: Database.Database, table: string): number {
   return Number(
@@ -118,10 +146,16 @@ function uniqueHashes(hashes: readonly string[]): Array<`sha256:${string}`> {
 export class PurgeRepository {
   readonly #database: Database.Database;
   readonly #blobStore: BlobStore;
+  readonly #fault: ((point: PurgeFailurePoint) => void) | undefined;
 
-  constructor(database: Database.Database, blobStore: BlobStore) {
+  constructor(
+    database: Database.Database,
+    blobStore: BlobStore,
+    options: { fault?: (point: PurgeFailurePoint) => void } = {},
+  ) {
     this.#database = database;
     this.#blobStore = blobStore;
+    this.#fault = options.fault;
   }
 
   tombstoneEpoch(): number {
@@ -309,36 +343,76 @@ export class PurgeRepository {
     });
   }
 
-  run(
+  prepare(
     purgeJobId: string,
     operatorAction?: OperatorPurgeAction,
-  ): PurgeReceipt {
+  ): PurgePreparationResult {
     if (operatorAction !== undefined) {
       const replay = this.#inspectOperatorReceipt(
         purgeJobId,
         operatorAction.operation_id,
       );
       if (replay !== null) {
-        return replay;
+        const legacyMaintenance =
+          this.#readLegacyPhysicalMaintenance(purgeJobId);
+        if (
+          legacyMaintenance !== null &&
+          legacyMaintenance.receipt_id === replay.receipt_id
+        ) {
+          return {
+            kind: "maintenance",
+            maintenance: this.#publicMaintenance(legacyMaintenance),
+          };
+        }
+        const replayJob = this.#readPurgeJob(purgeJobId);
+        const maintenance = this.#readPhysicalMaintenance({
+          purge_job_id: purgeJobId,
+          attempt: replayJob.attempts,
+          outcomes_hash: canonicalSha256(replay.store_outcomes),
+        });
+        if (
+          maintenance.source !== "current_attempt" ||
+          maintenance.state !== "completed"
+        ) {
+          throw new StorageError("CORRUPTION");
+        }
+        return {
+          kind: "maintenance",
+          maintenance: this.#publicMaintenance(maintenance),
+        };
       }
       const priorReceipt = this.inspectReceipt(purgeJobId);
       if (
-        priorReceipt?.receipt_id !==
+        (priorReceipt?.receipt_id ?? null) !==
         operatorAction.expected_prior_receipt_id
       ) {
         throw new StorageError("STALE_REVISION");
       }
     }
     const initial = this.#readPurgeJob(purgeJobId);
+    const pendingMaintenance =
+      this.#readAwaitingPhysicalMaintenance(purgeJobId);
+    if (pendingMaintenance !== null) {
+      return {
+        kind: "maintenance",
+        maintenance: this.#publicMaintenance(pendingMaintenance),
+      };
+    }
     if (initial.status === "completed") {
       if (operatorAction !== undefined) {
         throw new StorageError("INVALID_INPUT");
       }
-      return this.#latestPurgeReceipt(purgeJobId);
+      return {
+        kind: "receipt",
+        receipt: this.#latestPurgeReceipt(purgeJobId),
+      };
     }
     const job = this.#claim(initial);
     if (job.status === "completed") {
-      return this.#latestPurgeReceipt(job.purge_job_id);
+      return {
+        kind: "receipt",
+        receipt: this.#latestPurgeReceipt(job.purge_job_id),
+      };
     }
     const outcomes: PurgeStoreOutcome[] = [];
     let failed = false;
@@ -367,7 +441,135 @@ export class PurgeRepository {
         );
       }
     }
-    return this.#finalize(job, outcomes, operatorAction);
+    const maintenance = this.#preparePhysicalMaintenance(job, outcomes);
+    return {
+      kind: "maintenance",
+      maintenance: this.#publicMaintenance(maintenance),
+    };
+  }
+
+  finalizePhysicalMaintenance(
+    maintenance: PurgePhysicalMaintenance,
+    finalize: () => void,
+  ): void {
+    const row = this.#readPhysicalMaintenance(maintenance);
+    if (row.state === "completed") {
+      return;
+    }
+    const blobIntents = this.#database
+      .prepare(
+        `SELECT content_hash
+         FROM purge_blob_deletion_intents
+         WHERE purge_job_id = ? AND state = 'pending'
+         ORDER BY content_hash`,
+      )
+      .all(maintenance.purge_job_id) as Array<{
+      content_hash: `sha256:${string}`;
+    }>;
+    for (const intent of blobIntents) {
+      this.#completeBlobDeletionIntent(
+        maintenance.purge_job_id,
+        intent.content_hash,
+      );
+    }
+    this.#fault?.("before_physical_maintenance");
+    finalize();
+    const completedAt = new Date().toISOString();
+    const changed = row.source === "legacy_upgrade"
+      ? this.#database
+          .prepare(
+            `UPDATE purge_legacy_physical_maintenance
+             SET state = 'completed', completed_at = ?
+             WHERE purge_job_id = ? AND attempt = ?
+               AND state = 'pending' AND receipt_hash = ?
+               AND receipt_id = ?`,
+          )
+          .run(
+            completedAt,
+            row.purge_job_id,
+            row.attempt,
+            row.outcomes_hash,
+            row.receipt_id,
+          )
+      : this.#database
+          .prepare(
+            `UPDATE purge_physical_maintenance
+             SET state = 'completed', completed_at = ?
+             WHERE purge_job_id = ? AND attempt = ?
+               AND state = 'pending' AND outcomes_hash = ?`,
+          )
+          .run(
+            completedAt,
+            row.purge_job_id,
+            row.attempt,
+            row.outcomes_hash,
+          );
+    if (changed.changes !== 1) {
+      throw new StorageError("CORRUPTION");
+    }
+  }
+
+  complete(
+    purgeJobId: string,
+    maintenance: PurgePhysicalMaintenance,
+    operatorAction?: OperatorPurgeAction,
+  ): PurgeReceipt {
+    if (maintenance.purge_job_id !== purgeJobId) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    if (operatorAction !== undefined) {
+      const replay = this.#inspectOperatorReceipt(
+        purgeJobId,
+        operatorAction.operation_id,
+      );
+      if (replay !== null) {
+        return replay;
+      }
+      const priorReceipt = this.inspectReceipt(purgeJobId);
+      if (
+        (priorReceipt?.receipt_id ?? null) !==
+        operatorAction.expected_prior_receipt_id
+      ) {
+        throw new StorageError("STALE_REVISION");
+      }
+    }
+    const job = this.#readPurgeJob(purgeJobId);
+    const row = this.#readPhysicalMaintenance(maintenance);
+    if (job.status === "completed") {
+      if (row.state !== "completed") {
+        throw new StorageError("STALE_REVISION");
+      }
+      const receipt = this.#latestPurgeReceipt(purgeJobId);
+      if (operatorAction === undefined) {
+        return receipt;
+      }
+      if (
+        row.source !== "legacy_upgrade" ||
+        row.receipt_id !== receipt.receipt_id
+      ) {
+        throw new StorageError("INVALID_INPUT");
+      }
+      this.#recordOperatorPurgeAttempt(
+        job,
+        receipt,
+        operatorAction,
+        true,
+      );
+      return receipt;
+    }
+    if (
+      job.status !== "running" ||
+      row.source !== "current_attempt" ||
+      row.state !== "completed"
+    ) {
+      throw new StorageError("STALE_REVISION");
+    }
+    return this.#publishReceipt(
+      job,
+      row,
+      this.#readAttemptOutcomes(row),
+      operatorAction,
+    );
   }
 
   inspectReceipt(
@@ -403,21 +605,38 @@ export class PurgeRepository {
     purgeJobId: string,
     operatorOperationId: string,
   ): PurgeReceipt | null {
-    const row = this.#database
+    const rows = this.#database
       .prepare(
         `SELECT r.receipt_json
          FROM operator_purge_attempts AS a
          JOIN purge_receipts AS r ON r.receipt_id = a.receipt_id
          WHERE a.purge_job_id = ? AND a.operation_id = ?`,
       )
-      .get(purgeJobId, operatorOperationId) as
-      | { receipt_json: string }
-      | undefined;
-    if (row === undefined) {
+      .all(purgeJobId, operatorOperationId) as Array<{
+      receipt_json: string;
+    }>;
+    if (this.#tableExists("operator_legacy_purge_cleanup_attempts")) {
+      rows.push(
+        ...(this.#database
+          .prepare(
+            `SELECT r.receipt_json
+             FROM operator_legacy_purge_cleanup_attempts AS a
+             JOIN purge_receipts AS r ON r.receipt_id = a.receipt_id
+             WHERE a.purge_job_id = ? AND a.operation_id = ?`,
+          )
+          .all(purgeJobId, operatorOperationId) as Array<{
+          receipt_json: string;
+        }>),
+      );
+    }
+    if (rows.length === 0) {
       return null;
     }
+    if (rows.length !== 1) {
+      throw new StorageError("CORRUPTION");
+    }
     const receipt = PurgeReceiptSchema.parse(
-      JSON.parse(row.receipt_json) as unknown,
+      JSON.parse(rows[0]?.receipt_json ?? "null") as unknown,
     );
     if (
       receipt.purge_job_id !== purgeJobId ||
@@ -466,6 +685,9 @@ export class PurgeRepository {
     if (store === "projections") {
       return this.#purgeProjections(job);
     }
+    if (store === "blobs") {
+      return this.#purgeBlobs(job);
+    }
     return this.#database
       .transaction(() => {
         switch (store) {
@@ -481,8 +703,6 @@ export class PurgeRepository {
             return this.#purgeContext(job);
           case "exports":
             return this.#purgeExports(job);
-          case "blobs":
-            return this.#purgeBlobs(job);
           case "backups":
             return this.#verifyBackups(job);
         }
@@ -778,6 +998,7 @@ export class PurgeRepository {
   }
 
   #purgeBlobs(job: PurgeJobRow): Array<`sha256:${string}`> {
+    const residuals: Array<`sha256:${string}`> = [];
     const hashes = this.#database
       .prepare(
         `SELECT DISTINCT a.content_hash
@@ -803,33 +1024,110 @@ export class PurgeRepository {
       .all(job.memory_id, job.memory_id, job.memory_id) as Array<{
       content_hash: `sha256:${string}`;
     }>;
-    const residuals: Array<`sha256:${string}`> = [];
     for (const { content_hash: contentHash } of hashes) {
-      const references = Number(
-        (
-          this.#database
-            .prepare(
-              `SELECT
-                 (SELECT count(*) FROM evidence_events
-                  WHERE payload_blob_hash = ?) +
-                 (SELECT count(*) FROM memory_candidates
-                  WHERE content_blob_hash = ?) +
-                 (SELECT count(*) FROM memory_revisions
-                  WHERE content_blob_hash = ?) AS count`,
-            )
-            .get(contentHash, contentHash, contentHash) as { count: number }
-        ).count,
-      );
-      if (references > 0) {
+      if (this.#contentReferenceCount(contentHash) > 0) {
         residuals.push(contentHash);
         continue;
       }
-      this.#blobStore.purge(contentHash);
-      this.#database
-        .prepare("DELETE FROM artifacts WHERE content_hash = ?")
-        .run(contentHash);
+      const prepared = this.#database
+        .transaction(() => {
+          if (this.#contentReferenceCount(contentHash) > 0) {
+            return false;
+          }
+          const existing = this.#database
+            .prepare(
+              `SELECT state FROM purge_blob_deletion_intents
+               WHERE purge_job_id = ? AND content_hash = ?`,
+            )
+            .get(job.purge_job_id, contentHash) as
+            | { state: "pending" | "completed" }
+            | undefined;
+          if (existing === undefined) {
+            this.#database
+              .prepare(
+                `INSERT INTO purge_blob_deletion_intents (
+                   purge_job_id, content_hash, state, created_at,
+                   completed_at
+                 ) VALUES (?, ?, 'pending', ?, NULL)`,
+              )
+              .run(
+                job.purge_job_id,
+                contentHash,
+                new Date().toISOString(),
+              );
+          }
+          this.#database
+            .prepare("DELETE FROM artifacts WHERE content_hash = ?")
+            .run(contentHash);
+          return true;
+        })
+        .immediate();
+      if (!prepared) {
+        residuals.push(contentHash);
+      }
     }
     return uniqueHashes(residuals);
+  }
+
+  #completeBlobDeletionIntent(
+    purgeJobId: string,
+    contentHash: `sha256:${string}`,
+  ): void {
+    const state = this.#database
+      .prepare(
+        `SELECT state FROM purge_blob_deletion_intents
+         WHERE purge_job_id = ? AND content_hash = ?`,
+      )
+      .get(purgeJobId, contentHash) as
+      | { state: "pending" | "completed" }
+      | undefined;
+    if (state === undefined) {
+      throw new StorageError("CORRUPTION");
+    }
+    if (state.state === "completed") {
+      return;
+    }
+    this.#database
+      .transaction(() => {
+        if (this.#contentReferenceCount(contentHash) > 0) {
+          throw new StorageError("CORRUPTION");
+        }
+        this.#database
+          .prepare("DELETE FROM artifacts WHERE content_hash = ?")
+          .run(contentHash);
+      })
+      .immediate();
+    this.#blobStore.purge(contentHash);
+    this.#fault?.("after_blob_unlink");
+    const changed = this.#database
+      .prepare(
+        `UPDATE purge_blob_deletion_intents
+         SET state = 'completed', completed_at = ?
+         WHERE purge_job_id = ? AND content_hash = ?
+           AND state = 'pending'`,
+      )
+      .run(new Date().toISOString(), purgeJobId, contentHash);
+    if (changed.changes !== 1) {
+      throw new StorageError("CORRUPTION");
+    }
+  }
+
+  #contentReferenceCount(contentHash: string): number {
+    return Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT
+               (SELECT count(*) FROM evidence_events
+                WHERE payload_blob_hash = ?) +
+               (SELECT count(*) FROM memory_candidates
+                WHERE content_blob_hash = ?) +
+               (SELECT count(*) FROM memory_revisions
+                WHERE content_blob_hash = ?) AS count`,
+          )
+          .get(contentHash, contentHash, contentHash) as { count: number }
+      ).count,
+    );
   }
 
   #verifyBackups(job: PurgeJobRow): Array<`sha256:${string}`> {
@@ -1093,8 +1391,199 @@ export class PurgeRepository {
     return outcome;
   }
 
-  #finalize(
+  #preparePhysicalMaintenance(
     job: PurgeJobRow,
+    outcomes: PurgeStoreOutcome[],
+  ): PurgeCurrentPhysicalMaintenanceRow {
+    const outcomesHash = canonicalSha256(outcomes);
+    const requestedAt = new Date().toISOString();
+    this.#database
+      .prepare(
+        `INSERT INTO purge_physical_maintenance (
+           purge_job_id, attempt, state, outcomes_hash, requested_at,
+           completed_at
+         ) VALUES (?, ?, 'pending', ?, ?, NULL)`,
+      )
+      .run(
+        job.purge_job_id,
+        job.attempts,
+        outcomesHash,
+        requestedAt,
+      );
+    return {
+      source: "current_attempt",
+      purge_job_id: job.purge_job_id,
+      attempt: job.attempts,
+      outcomes_hash: outcomesHash,
+      state: "pending",
+    };
+  }
+
+  #readAwaitingPhysicalMaintenance(
+    purgeJobId: string,
+  ): PurgePhysicalMaintenanceRow | null {
+    const current = this.#database
+      .prepare(
+        `SELECT m.purge_job_id, m.attempt, m.outcomes_hash, m.state
+         FROM purge_physical_maintenance AS m
+         JOIN purge_jobs AS job ON job.purge_job_id = m.purge_job_id
+         WHERE m.purge_job_id = ? AND job.status = 'running'
+           AND m.state IN ('pending', 'completed')`,
+      )
+      .get(purgeJobId) as Omit<
+        PurgeCurrentPhysicalMaintenanceRow,
+        "source"
+      > | undefined;
+    if (current !== undefined) {
+      return { source: "current_attempt", ...current };
+    }
+    const legacy = this.#readLegacyPhysicalMaintenance(purgeJobId);
+    return legacy?.state === "pending" ? legacy : null;
+  }
+
+  #readPhysicalMaintenance(
+    maintenance: {
+      purge_job_id: string;
+      attempt: number;
+      outcomes_hash: string;
+    },
+  ): PurgePhysicalMaintenanceRow {
+    const current = this.#database
+      .prepare(
+        `SELECT purge_job_id, attempt, outcomes_hash, state
+         FROM purge_physical_maintenance
+         WHERE purge_job_id = ? AND attempt = ? AND outcomes_hash = ?`,
+      )
+      .get(
+        maintenance.purge_job_id,
+        maintenance.attempt,
+        maintenance.outcomes_hash,
+      ) as Omit<
+        PurgeCurrentPhysicalMaintenanceRow,
+        "source"
+      > | undefined;
+    const legacy = this.#readLegacyPhysicalMaintenance(
+      maintenance.purge_job_id,
+    );
+    const matchingLegacy =
+      legacy?.attempt === maintenance.attempt &&
+      legacy.outcomes_hash === maintenance.outcomes_hash
+        ? legacy
+        : undefined;
+    if (current !== undefined && matchingLegacy !== undefined) {
+      throw new StorageError("CORRUPTION");
+    }
+    if (current !== undefined) {
+      return { source: "current_attempt", ...current };
+    }
+    if (matchingLegacy !== undefined) {
+      return matchingLegacy;
+    }
+    throw new StorageError("STALE_REVISION");
+  }
+
+  #readLegacyPhysicalMaintenance(
+    purgeJobId: string,
+  ): PurgeLegacyPhysicalMaintenanceRow | null {
+    const row = this.#database
+      .prepare(
+        `SELECT legacy.purge_job_id, legacy.attempt,
+                legacy.receipt_hash AS outcomes_hash,
+                legacy.receipt_id, legacy.state,
+                receipt.receipt_hash AS current_receipt_hash,
+                receipt.purge_job_id AS receipt_purge_job_id
+         FROM purge_legacy_physical_maintenance AS legacy
+         LEFT JOIN purge_receipts AS receipt
+           ON receipt.receipt_id = legacy.receipt_id
+         WHERE legacy.purge_job_id = ?`,
+      )
+      .get(purgeJobId) as
+      | {
+          purge_job_id: string;
+          attempt: number;
+          outcomes_hash: `sha256:${string}`;
+          receipt_id: string;
+          state: "pending" | "completed";
+          current_receipt_hash: string | null;
+          receipt_purge_job_id: string | null;
+        }
+      | undefined;
+    if (row === undefined) {
+      return null;
+    }
+    if (
+      row.current_receipt_hash !== row.outcomes_hash ||
+      row.receipt_purge_job_id !== row.purge_job_id
+    ) {
+      throw new StorageError("CORRUPTION");
+    }
+    return {
+      source: "legacy_upgrade",
+      purge_job_id: row.purge_job_id,
+      attempt: row.attempt,
+      outcomes_hash: row.outcomes_hash,
+      receipt_id: row.receipt_id,
+      state: row.state,
+    };
+  }
+
+  #publicMaintenance(
+    maintenance: PurgePhysicalMaintenanceRow,
+  ): PurgePhysicalMaintenance {
+    return PurgePhysicalMaintenanceSchema.parse({
+      purge_job_id: maintenance.purge_job_id,
+      attempt: maintenance.attempt,
+      outcomes_hash: maintenance.outcomes_hash,
+    });
+  }
+
+  #readAttemptOutcomes(
+    maintenance: PurgeCurrentPhysicalMaintenanceRow,
+  ): PurgeStoreOutcome[] {
+    const rows = this.#database
+      .prepare(
+        `SELECT store, status, residual_hashes_json, error_code, checked_at
+         FROM purge_store_outcomes
+         WHERE purge_job_id = ? AND attempt = ?
+         ORDER BY store`,
+      )
+      .all(
+        maintenance.purge_job_id,
+        maintenance.attempt,
+      ) as Array<{
+      store: string;
+      status: string;
+      residual_hashes_json: string;
+      error_code: string | null;
+      checked_at: string;
+    }>;
+    const parsedByStore = new Map(
+      rows.map((row) => {
+        const outcome = PurgeStoreOutcomeSchema.parse({
+        store: row.store,
+        status: row.status,
+        residual_hashes: JSON.parse(row.residual_hashes_json) as unknown,
+        error_code: row.error_code,
+        checked_at: row.checked_at,
+        });
+        return [outcome.store, outcome] as const;
+      }),
+    );
+    const outcomes = PURGE_STORES.map((store) => parsedByStore.get(store));
+    if (
+      outcomes.some((outcome) => outcome === undefined) ||
+      parsedByStore.size !==
+        PURGE_STORES.length ||
+      canonicalSha256(outcomes) !== maintenance.outcomes_hash
+    ) {
+      throw new StorageError("CORRUPTION");
+    }
+    return outcomes as PurgeStoreOutcome[];
+  }
+
+  #publishReceipt(
+    job: PurgeJobRow,
+    maintenance: PurgeCurrentPhysicalMaintenanceRow,
     outcomes: PurgeStoreOutcome[],
     operatorAction?: OperatorPurgeAction,
   ): PurgeReceipt {
@@ -1134,6 +1623,14 @@ export class PurgeRepository {
     );
     this.#database
       .transaction(() => {
+        const currentMaintenance =
+          this.#readPhysicalMaintenance(maintenance);
+        if (
+          currentMaintenance.source !== "current_attempt" ||
+          currentMaintenance.state !== "completed"
+        ) {
+          throw new StorageError("CORRUPTION");
+        }
         this.#database
           .prepare(
             `INSERT INTO purge_receipts (
@@ -1189,24 +1686,82 @@ export class PurgeRepository {
           receipt.created_at,
         );
         if (operatorAction !== undefined) {
-          this.#database
-            .prepare(
-              `INSERT INTO operator_purge_attempts (
-                 operation_id, purge_job_id, expected_prior_receipt_id,
-                 receipt_id, created_at
-               ) VALUES (?, ?, ?, ?, ?)`,
-            )
-            .run(
-              operatorAction.operation_id,
-              job.purge_job_id,
-              operatorAction.expected_prior_receipt_id,
-              receipt.receipt_id,
-              receipt.created_at,
-            );
+          this.#recordOperatorPurgeAttempt(
+            job,
+            receipt,
+            operatorAction,
+          );
         }
       })
       .immediate();
     return receipt;
+  }
+
+  #recordOperatorPurgeAttempt(
+    job: PurgeJobRow,
+    receipt: PurgeReceipt,
+    operatorAction: OperatorPurgeAction,
+    legacyCleanup = false,
+  ): void {
+    if (legacyCleanup) {
+      const existing = this.#database
+        .prepare(
+          `SELECT operation_id FROM operator_legacy_purge_cleanup_attempts
+           WHERE purge_job_id = ? OR receipt_id = ?`,
+        )
+        .get(job.purge_job_id, receipt.receipt_id) as
+        | { operation_id: string }
+        | undefined;
+      if (existing !== undefined) {
+        if (existing.operation_id !== operatorAction.operation_id) {
+          throw new StorageError("CONFLICT");
+        }
+        return;
+      }
+      this.#database
+        .prepare(
+          `INSERT INTO operator_legacy_purge_cleanup_attempts (
+             operation_id, purge_job_id, expected_prior_receipt_id,
+             receipt_id, created_at
+           ) VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(
+          operatorAction.operation_id,
+          job.purge_job_id,
+          operatorAction.expected_prior_receipt_id,
+          receipt.receipt_id,
+          receipt.created_at,
+        );
+      return;
+    }
+    const prior = this.#database
+      .prepare(
+        `SELECT operation_id FROM operator_purge_attempts
+         WHERE receipt_id = ?`,
+      )
+      .get(receipt.receipt_id) as
+      | { operation_id: string }
+      | undefined;
+    if (prior !== undefined) {
+      if (prior.operation_id !== operatorAction.operation_id) {
+        throw new StorageError("CONFLICT");
+      }
+      return;
+    }
+    this.#database
+      .prepare(
+        `INSERT INTO operator_purge_attempts (
+           operation_id, purge_job_id, expected_prior_receipt_id,
+           receipt_id, created_at
+         ) VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        operatorAction.operation_id,
+        job.purge_job_id,
+        operatorAction.expected_prior_receipt_id,
+        receipt.receipt_id,
+        receipt.created_at,
+      );
   }
 
   #updateArtifactPurgeFrontiers(
@@ -1632,6 +2187,14 @@ export class PurgeRepository {
       )
       .run(createdAt);
     return jobId;
+  }
+
+  #tableExists(name: string): boolean {
+    return this.#database
+      .prepare(
+        "SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?",
+      )
+      .get(name) !== undefined;
   }
 
   #governedWrite<T>(operation: string, effect: () => T): T {

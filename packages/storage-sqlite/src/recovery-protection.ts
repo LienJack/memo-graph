@@ -45,6 +45,7 @@ const RECOVERY_OPERATION_BY_WORKER = {
   preview_memory_delete: null,
   inspect_purge_receipt: null,
   run_purge: "purge",
+  complete_purge: "purge",
   audit_purge_artifacts: null,
   append_operator_action_receipt: null,
   bind_operator_confirmation: null,

@@ -139,6 +139,8 @@ import {
   MemoryDeleteCommandSchema,
   MemoryDeleteReplayResultSchema,
   MemoryDeleteResultSchema,
+  PurgeCompletionInputSchema,
+  PurgePreparationResultSchema,
   PurgeRunInputSchema,
   PurgeRunResultSchema,
   OperationalRepairInputSchema,
@@ -321,7 +323,7 @@ import {
   type SecretAdmissionVerifier,
   type SecretIngress,
 } from "./secret-ingress.js";
-import { verifyExactG6ReleaseControl } from "./release-control.js";
+import { verifyPinnedG6ReleaseControl } from "./release-control.js";
 import {
   WriterQueue,
   WriterQueueMetricsSchema,
@@ -346,13 +348,13 @@ export type OperatorKeyRotationCapability = {
 };
 
 function privateDescriptorDigest(descriptor: number): `sha256:${string}` {
-  const stat = fstatSync(descriptor);
+  const before = fstatSync(descriptor, { bigint: true });
   const expectedOwner = process.getuid?.();
   if (
-    !stat.isFile() ||
-    stat.size !== 32 ||
-    (stat.mode & 0o077) !== 0 ||
-    (expectedOwner !== undefined && stat.uid !== expectedOwner)
+    !before.isFile() ||
+    before.size !== 32n ||
+    (before.mode & 0o077n) !== 0n ||
+    (expectedOwner !== undefined && before.uid !== BigInt(expectedOwner))
   ) {
     throw new StorageError("KEY_PROVIDER_INVALID");
   }
@@ -373,6 +375,18 @@ function privateDescriptorDigest(descriptor: number): `sha256:${string}` {
     offset += count;
   }
   try {
+    const after = fstatSync(descriptor, { bigint: true });
+    if (
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.size !== after.size ||
+      before.mode !== after.mode ||
+      before.uid !== after.uid ||
+      before.mtimeNs !== after.mtimeNs ||
+      before.ctimeNs !== after.ctimeNs
+    ) {
+      throw new StorageError("KEY_PROVIDER_INVALID");
+    }
     return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
   } finally {
     bytes.fill(0);
@@ -429,6 +443,9 @@ export type SqliteStorageClientOptions = {
       | "after_file_commit";
     operationalMigrationExitAt?: OperationalMigrationFailurePoint;
     operationalRepairExitAfterPrepareOnce?: boolean;
+    purgeExitAt?:
+      | "after_blob_unlink"
+      | "before_physical_maintenance";
   };
   onDiagnostic?: (diagnostic: StorageDiagnostic) => void;
   admission?: {
@@ -453,6 +470,41 @@ export type SqliteStorageClientOptions = {
     now?: () => string;
   };
 };
+
+export function recoveryProtectedIdempotencyKey(
+  workerOperation: WorkerOperation,
+  payload: unknown,
+): string | null {
+  const record =
+    typeof payload === "object" && payload !== null
+      ? payload as Record<string, unknown>
+      : {};
+  const nestedRecord = (value: unknown): Record<string, unknown> =>
+    typeof value === "object" && value !== null
+      ? value as Record<string, unknown>
+      : {};
+  const requestRecord = nestedRecord(record.request);
+  const identityCandidates = (
+    candidate: Record<string, unknown>,
+  ): unknown[] => [
+    candidate.idempotency_key,
+    candidate.idempotencyKey,
+    candidate.operation_id,
+    candidate.operationId,
+    candidate.request_id,
+    candidate.requestId,
+  ];
+  const suppliedIdentity = [
+    ...identityCandidates(record),
+    ...identityCandidates(nestedRecord(record.envelope)),
+    ...identityCandidates(nestedRecord(requestRecord.envelope)),
+    ...identityCandidates(nestedRecord(record.operator_action)),
+    ...identityCandidates(nestedRecord(record.command)),
+  ].find((value): value is string => typeof value === "string");
+  return suppliedIdentity === undefined
+    ? null
+    : `${workerOperation}:${suppliedIdentity}`;
+}
 
 export const RecoveryAuthorityHealthSchema = z
   .object({
@@ -533,6 +585,10 @@ export class SqliteStorageClient {
     | null = null;
   #operationalMigrationFaultOnNextWorker:
     | OperationalMigrationFailurePoint
+    | null = null;
+  #purgeFaultOnNextWorker:
+    | "after_blob_unlink"
+    | "before_physical_maintenance"
     | null = null;
   #operationalRepairFaultAfterPrepare = false;
   #checkpointCounters: CheckpointResult & { attempts: number } = {
@@ -779,12 +835,17 @@ export class SqliteStorageClient {
           requestHash: command.request_digest,
         });
       },
-      replayPurge: (input) =>
-        this.#request(
+      replayPurge: async (input) => {
+        const receipt = await this.#request(
           "replay_secret_purge",
           ReplaySecretPurgeCommandSchema.parse(input),
           ReplaySecretPurgeResultSchema,
-        ),
+        );
+        if (receipt !== null) {
+          await this.#request("finalize_secret_purge", null, NullSchema);
+        }
+        return receipt;
+      },
       purgeTarget: (owner) =>
         this.#request(
           "get_secret_purge_target",
@@ -811,6 +872,8 @@ export class SqliteStorageClient {
       options.testFaults?.encryptedArtifactExitAt ?? null;
     this.#operationalMigrationFaultOnNextWorker =
       options.testFaults?.operationalMigrationExitAt ?? null;
+    this.#purgeFaultOnNextWorker =
+      options.testFaults?.purgeExitAt ?? null;
     this.#operationalRepairFaultAfterPrepare =
       options.testFaults?.operationalRepairExitAfterPrepareOnce ?? false;
     this.#recoveryHeadProvider = options.recoveryHeadProvider ?? null;
@@ -829,6 +892,7 @@ export class SqliteStorageClient {
             );
       await client.health();
       await client.#initializeRecoveryAuthority();
+      await client.#request("finalize_secret_purge", null, NullSchema);
       return client;
     } catch (error) {
       await client.#abort();
@@ -997,6 +1061,12 @@ export class SqliteStorageClient {
       rotation_id: input.begin.rotation_id,
       max_items: input.resume.max_items ?? 100,
     };
+    const assertDescriptorsUnchanged = () => {
+      const current = operatorKeyRotationParameters(input);
+      if (canonicalSha256(current) !== canonicalSha256(parameters)) {
+        throw new StorageError("KEY_PROVIDER_INVALID");
+      }
+    };
     const capability = Object.freeze({
       purpose: "confirmed_operator_key_rotation" as const,
       begin: () =>
@@ -1004,7 +1074,10 @@ export class SqliteStorageClient {
           () =>
             this.#operatorAuthorization.run(
               "confirmed_key_rotation",
-              () => this.#secretIngress.beginRotation(input.begin),
+              () => {
+                assertDescriptorsUnchanged();
+                return this.#secretIngress.beginRotation(input.begin);
+              },
             ),
           "key_rotation",
         ),
@@ -1013,7 +1086,10 @@ export class SqliteStorageClient {
           () =>
             this.#operatorAuthorization.run(
               "confirmed_key_rotation",
-              () => this.#secretIngress.resumeRotation(resumeInput),
+              () => {
+                assertDescriptorsUnchanged();
+                return this.#secretIngress.resumeRotation(resumeInput);
+              },
             ),
           "key_rotation",
         ),
@@ -1072,7 +1148,7 @@ export class SqliteStorageClient {
     ) {
       throw new StorageError("ENCRYPTION_REQUIRED");
     }
-    verifyExactG6ReleaseControl({
+    verifyPinnedG6ReleaseControl({
       control: releaseControl,
       trust: releaseTrust.data,
       runtimeIdentity: currentIdentity,
@@ -1097,7 +1173,7 @@ export class SqliteStorageClient {
             ) {
               throw new StorageError("ENCRYPTION_REQUIRED");
             }
-            verifyExactG6ReleaseControl({
+            verifyPinnedG6ReleaseControl({
               control: releaseControl,
               trust: releaseTrust.data,
               runtimeIdentity: transactionIdentity,
@@ -1726,22 +1802,34 @@ export class SqliteStorageClient {
     );
   }
 
-  runPurge(input: PurgeRunInput): Promise<PurgeRunResult> {
+  async runPurge(input: PurgeRunInput): Promise<PurgeRunResult> {
     const request = PurgeRunInputSchema.parse(input);
-    return this.#protectedMutation(
+    const preparation = await this.#protectedMutation(
       "run_purge",
       request,
+      PurgePreparationResultSchema,
+      "purge",
+      "purge_retry",
+    );
+    if (preparation.kind === "receipt") {
+      return preparation.receipt;
+    }
+    await this.#request(
+      "finalize_purge_maintenance",
+      preparation.maintenance,
+      NullSchema,
+    );
+    const completion = PurgeCompletionInputSchema.parse({
+      ...request,
+      maintenance: preparation.maintenance,
+    });
+    return this.#protectedMutation(
+      "complete_purge",
+      completion,
       PurgeRunResultSchema,
       "purge",
       "purge_retry",
-    ).then(async (result) => {
-      await this.#request(
-        "finalize_purge_maintenance",
-        null,
-        NullSchema,
-      );
-      return result;
-    });
+    );
   }
 
   inspectPurgeReceipt(
@@ -2210,17 +2298,17 @@ export class SqliteStorageClient {
     if (provider === null) {
       throw new StorageError("RECOVERY_AUTHORITY_INVALID");
     }
-    const before = await this.#request(
-      "recovery_state",
-      null,
-      RecoveryStorageStateSchema,
-    );
+    const current = provider.readCurrent();
+    if (current === null) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
     const authorization = provider.reserve({
       operation: input.operation,
       idempotency_key: input.idempotencyKey,
       request_hash: input.requestHash,
-      prior_minimums: before.minimums,
-      prior_state_commitment_hash: before.state_commitment_hash,
+      prior_minimums: current.payload.minimums,
+      prior_state_commitment_hash:
+        current.payload.state_commitment_hash,
     });
     const protectedSchema = z
       .object({
@@ -2270,18 +2358,13 @@ export class SqliteStorageClient {
           effect,
         );
       }
-      const replayState = await this.#request(
-        "recovery_state",
-        null,
-        RecoveryStorageStateSchema,
-      );
       const replayAuthorization = provider.reserve({
         operation: input.operation,
         idempotency_key: input.idempotencyKey,
         request_hash: input.requestHash,
-        prior_minimums: replayState.minimums,
+        prior_minimums: effect.committed_minimums,
         prior_state_commitment_hash:
-          replayState.state_commitment_hash,
+          effect.committed_state_commitment_hash,
       });
       const replay = await this.#request(
         input.workerOperation,
@@ -2329,43 +2412,19 @@ export class SqliteStorageClient {
     const requestHash = CanonicalHashSchema.parse(
       recoveryContentHash(payload),
     );
-    const record =
-      typeof payload === "object" && payload !== null
-        ? payload as Record<string, unknown>
-        : {};
-    const nestedRecord = (
-      value: unknown,
-    ): Record<string, unknown> =>
-      typeof value === "object" && value !== null
-        ? value as Record<string, unknown>
-        : {};
-    const requestRecord = nestedRecord(record.request);
-    const envelope = nestedRecord(record.envelope);
-    const requestEnvelope = nestedRecord(requestRecord.envelope);
-    const identityCandidates = (
-      candidate: Record<string, unknown>,
-    ): unknown[] => [
-      candidate.idempotency_key,
-      candidate.idempotencyKey,
-      candidate.operation_id,
-      candidate.operationId,
-      candidate.request_id,
-      candidate.requestId,
-    ];
-    const suppliedIdentity = [
-      ...identityCandidates(record),
-      ...identityCandidates(envelope),
-      ...identityCandidates(requestEnvelope),
-    ].find((value): value is string => typeof value === "string");
+    const suppliedIdentity = recoveryProtectedIdempotencyKey(
+      workerOperation,
+      payload,
+    );
     const request = {
       workerOperation,
       payload,
       resultSchema,
       operation,
       idempotencyKey:
-        suppliedIdentity === undefined
+        suppliedIdentity === null
           ? `effect:${workerOperation}:${randomUUID()}`
-          : `${workerOperation}:${suppliedIdentity}`,
+          : suppliedIdentity,
       requestHash,
     };
     const inFlightKey =
@@ -2521,6 +2580,8 @@ export class SqliteStorageClient {
     const operationalMigrationFault =
       this.#operationalMigrationFaultOnNextWorker;
     this.#operationalMigrationFaultOnNextWorker = null;
+    const purgeFault = this.#purgeFaultOnNextWorker;
+    this.#purgeFaultOnNextWorker = null;
     const worker = new Worker(new URL("./storage-worker.js", import.meta.url), {
       workerData: {
         dataRoot: this.#options.dataRoot,
@@ -2534,6 +2595,7 @@ export class SqliteStorageClient {
         exitAfterCommitBeforeResponse: fault,
         encryptedArtifactExitAt: encryptedArtifactFault,
         operationalMigrationExitAt: operationalMigrationFault,
+        purgeExitAt: purgeFault,
         recoveryAuthorityKeyId:
           this.#recoveryHeadProvider?.authorityKeyId ?? null,
         recoveryAuthorityPublicKeyDer:

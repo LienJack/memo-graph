@@ -51,6 +51,27 @@ function repairResult(
   };
 }
 
+async function repairAlreadyOwnsStateDrift(input: {
+  storage: SqliteStorageClient;
+  intent: OperationIntent;
+  repairKind: "fts" | "layered_projection" | "sqlite_relations";
+  principalId: string | null;
+  scope: Scope | null;
+}): Promise<boolean> {
+  const existing = await input.storage.inspectOperationalRepair({
+    operation_id: input.intent.operation_id,
+  });
+  return (
+    existing?.state === "rebuilding" &&
+    existing.repair_kind === input.repairKind &&
+    existing.source === "canonical_sqlite" &&
+    existing.principal_id === input.principalId &&
+    canonicalSha256(existing.scope) === canonicalSha256(input.scope) &&
+    existing.source_frontier_hash ===
+      input.intent.expected_frontier_digest
+  );
+}
+
 export async function rebuildStateBindings(
   storage: SqliteStorageClient,
 ): Promise<
@@ -86,10 +107,56 @@ export async function rebuildStateBindings(
           ledger_epoch: health.ledger_epoch,
           tombstone_epoch: health.tombstone_epoch,
           latest_receipt_hash: health.latest_receipt_hash,
-          projection_state: health.projection_state,
-          projection_frontier: health.projection_frontier,
-          counts: health.counts,
-          recovery: health.recovery,
+          learning_frontier: health.learning_frontier,
+          canonical_counts: {
+            evidence_events: health.counts.evidence_events,
+            episodes: health.counts.episodes,
+            mutation_receipts: health.counts.mutation_receipts,
+            idempotency_keys: health.counts.idempotency_keys,
+            outbox_pending: health.counts.outbox_pending,
+            backup_manifests: health.counts.backup_manifests,
+            recall_requests: health.counts.recall_requests,
+            retrieval_receipts: health.counts.retrieval_receipts,
+            context_slices: health.counts.context_slices,
+            receipt_access_scopes: health.counts.receipt_access_scopes,
+            learning_traces: health.counts.learning_traces,
+            learning_candidates: health.counts.learning_candidates,
+            learning_transitions: health.counts.learning_transitions,
+            learning_evaluation_runs:
+              health.counts.learning_evaluation_runs,
+            learning_canary_runs: health.counts.learning_canary_runs,
+            learning_release_versions:
+              health.counts.learning_release_versions,
+            learning_release_pointers:
+              health.counts.learning_release_pointers,
+            learning_monitor_results:
+              health.counts.learning_monitor_results,
+            learning_control_rows: health.counts.learning_control_rows,
+            learning_receipts: health.counts.learning_receipts,
+            encryption_keys: health.counts.encryption_keys,
+            encrypted_contents: health.counts.encrypted_contents,
+            secret_nonce_reservations:
+              health.counts.secret_nonce_reservations,
+            key_rotations: health.counts.key_rotations,
+            encrypted_artifact_operations:
+              health.counts.encrypted_artifact_operations,
+            operational_receipts: health.counts.operational_receipts,
+            artifact_store_registry:
+              health.counts.artifact_store_registry,
+            memory_candidates: health.counts.memory_candidates,
+            memory_objects: health.counts.memory_objects,
+            memory_revisions: health.counts.memory_revisions,
+            admission_decisions: health.counts.admission_decisions,
+            conflict_groups: health.counts.conflict_groups,
+            status_events: health.counts.status_events,
+            pin_events: health.counts.pin_events,
+            usage_rules: health.counts.usage_rules,
+            memory_tombstones: health.counts.memory_tombstones,
+            purge_jobs: health.counts.purge_jobs,
+            purge_store_outcomes: health.counts.purge_store_outcomes,
+            purge_receipts: health.counts.purge_receipts,
+            approval_consumptions: health.counts.approval_consumptions,
+          },
         }),
       ),
     expected_frontier_digest:
@@ -133,14 +200,28 @@ export function runConfirmedFtsRebuild(input: {
     throw new Error("projection rebuild intent is invalid");
   }
   const validateCurrentState = async () => {
+    const ownsRepairDrift = await repairAlreadyOwnsStateDrift({
+        storage: input.storage,
+        intent: input.intent,
+        repairKind: "fts",
+        principalId: null,
+        scope: null,
+      });
     const current = await rebuildStateBindings(input.storage);
-    for (const key of [
-      "recovery_anchor_hash",
-      "configuration_digest",
-      "key_state_digest",
-      "expected_state_digest",
-      "expected_frontier_digest",
-    ] as const) {
+    const keys = ownsRepairDrift
+      ? ([
+          "configuration_digest",
+          "key_state_digest",
+          "expected_state_digest",
+        ] as const)
+      : ([
+          "recovery_anchor_hash",
+          "configuration_digest",
+          "key_state_digest",
+          "expected_state_digest",
+          "expected_frontier_digest",
+        ] as const);
+    for (const key of keys) {
       if (current[key] !== input.intent[key]) {
         throw new Error(`projection rebuild ${key} binding changed`);
       }
@@ -165,7 +246,12 @@ export function runConfirmedFtsRebuild(input: {
       const existing = await input.storage.inspectOperationalRepair({
         operation_id: input.intent.operation_id,
       });
-      return existing?.state === "completed"
+      return existing?.state === "completed" &&
+        existing.repair_kind === "fts" &&
+        existing.principal_id === null &&
+        existing.scope === null &&
+        existing.source_frontier_hash ===
+          input.intent.expected_frontier_digest
         ? repairResult(existing)
         : null;
     },
@@ -175,6 +261,8 @@ export function runConfirmedFtsRebuild(input: {
           operation_id: input.intent.operation_id,
           repair_kind: "fts",
           source: "canonical_sqlite",
+          principal_id: null,
+          scope: null,
           expected_frontier_hash:
             input.intent.expected_frontier_digest,
           started_at: input.intent.issued_at,
@@ -217,14 +305,28 @@ export function runConfirmedCanonicalProjectionRebuild(input: {
     throw new Error("canonical projection rebuild intent is invalid");
   }
   const validateCurrentState = async () => {
+    const ownsRepairDrift = await repairAlreadyOwnsStateDrift({
+        storage: input.storage,
+        intent: input.intent,
+        repairKind: input.repairKind,
+        principalId: input.principalId,
+        scope: input.scope,
+      });
     const current = await rebuildStateBindings(input.storage);
-    for (const key of [
-      "recovery_anchor_hash",
-      "configuration_digest",
-      "key_state_digest",
-      "expected_state_digest",
-      "expected_frontier_digest",
-    ] as const) {
+    const keys = ownsRepairDrift
+      ? ([
+          "configuration_digest",
+          "key_state_digest",
+          "expected_state_digest",
+        ] as const)
+      : ([
+          "recovery_anchor_hash",
+          "configuration_digest",
+          "key_state_digest",
+          "expected_state_digest",
+          "expected_frontier_digest",
+        ] as const);
+    for (const key of keys) {
       if (current[key] !== input.intent[key]) {
         throw new Error(`projection rebuild ${key} binding changed`);
       }
@@ -251,7 +353,12 @@ export function runConfirmedCanonicalProjectionRebuild(input: {
       const existing = await input.storage.inspectOperationalRepair({
         operation_id: input.intent.operation_id,
       });
-      return existing?.state === "completed"
+      return existing?.state === "completed" &&
+        existing.repair_kind === input.repairKind &&
+        existing.principal_id === input.principalId &&
+        canonicalSha256(existing.scope) === canonicalSha256(input.scope) &&
+        existing.source_frontier_hash ===
+          input.intent.expected_frontier_digest
         ? repairResult(existing)
         : null;
     },
@@ -260,6 +367,8 @@ export function runConfirmedCanonicalProjectionRebuild(input: {
         operation_id: input.intent.operation_id,
         repair_kind: input.repairKind,
         source: "canonical_sqlite" as const,
+        principal_id: input.principalId,
+        scope: input.scope,
         expected_frontier_hash:
           input.intent.expected_frontier_digest,
         started_at: input.intent.issued_at,

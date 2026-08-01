@@ -1,0 +1,257 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G6",
+  "prior_gates": [
+    {
+      "gate": "G3R",
+      "decision": "GO",
+      "commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+      "artifact_path": "docs/evaluations/g3r-h3-decision.md",
+      "artifact_sha256": "sha256:54cde9f9b85527a2c3bd4770a6b4f50ee34f66c3b91362502b19d5cbcb43416d"
+    },
+    {
+      "gate": "G4A",
+      "decision": "NO-GO",
+      "commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+      "artifact_path": "docs/evaluations/g4a-decision.md",
+      "artifact_sha256": "sha256:52dc230b6ad1831d070ea9f868e5754180fe903db6a385da2294750cab1f9c8c"
+    },
+    {
+      "gate": "G4B",
+      "decision": "NO-GO",
+      "commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+      "artifact_path": "docs/evaluations/g4b-decision.md",
+      "artifact_sha256": "sha256:8f638f8e685692397f5c309e27a592b703320b9c8c25da59b22e85af1d07f527"
+    },
+    {
+      "gate": "G5",
+      "decision": "GO",
+      "commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+      "artifact_path": "docs/evaluations/g5-decision.md",
+      "artifact_sha256": "sha256:b22b2aa54d32ed9e0dc644dffac14095fa34ef6e3671782e02db78a6cbae3da8"
+    }
+  ],
+  "acceptance_examples": [
+    {
+      "id": "M6_AE1",
+      "oracles": ["success", "failure"]
+    },
+    {
+      "id": "M6_AE2",
+      "oracles": ["success", "failure"]
+    },
+    {
+      "id": "M6_AE3",
+      "oracles": ["success", "failure"]
+    },
+    {
+      "id": "M6_AE4",
+      "oracles": ["success", "failure"]
+    },
+    {
+      "id": "M6_AE5",
+      "oracles": ["success", "failure"]
+    },
+    {
+      "id": "M6_AE6",
+      "oracles": ["success", "failure"]
+    },
+    {
+      "id": "M6_AE7",
+      "oracles": ["success", "failure"]
+    },
+    {
+      "id": "M6_AE8",
+      "oracles": ["success", "failure"]
+    }
+  ],
+  "evidence_families": [
+    "fault_recovery",
+    "encryption_secret",
+    "backup_restore_deletion",
+    "resource_pressure",
+    "learning_rollback",
+    "operator_runbooks",
+    "supply_chain",
+    "independent_review"
+  ],
+  "fault_points": [
+    "migration_table_copy",
+    "migration_table_swap",
+    "canonical_commit",
+    "canonical_receipt",
+    "worker_response",
+    "encrypted_temp_write",
+    "encrypted_fsync",
+    "encrypted_rename",
+    "encrypted_reference_commit",
+    "secret_nonce_seal",
+    "secret_input_seal",
+    "key_rotation_begin",
+    "key_rotation_item",
+    "key_rotation_completion",
+    "key_rotation_abort",
+    "key_compromise",
+    "recovery_anchor_pending",
+    "recovery_sqlite",
+    "recovery_cas",
+    "recovery_reconciliation",
+    "operator_confirmation",
+    "action_ledger_transition",
+    "root_fence_advance",
+    "root_heartbeat_advance",
+    "target_reservation",
+    "target_no_replace_publish",
+    "secret_approval",
+    "secret_ciphertext",
+    "secret_canonical_publication",
+    "backup_database",
+    "backup_artifact",
+    "backup_manifest",
+    "restore_copy",
+    "restore_verify",
+    "restore_migrate",
+    "restore_fsync",
+    "restore_publish",
+    "checkpoint_busy",
+    "checkpoint_retry",
+    "checkpoint_convergence",
+    "purge_store_outcome",
+    "projection_rebuild_publish",
+    "learning_pointer_rollback"
+  ],
+  "workloads": ["small", "expected"],
+  "runbook_steps": [
+    "inspect_readiness",
+    "inspect_backup",
+    "prepare_restore",
+    "execute_confirmed_restore",
+    "inspect_keys",
+    "prepare_key_rotation",
+    "audit_purge",
+    "prepare_rebuild",
+    "verify_learning_rollback",
+    "verify_g6_candidate"
+  ],
+  "hard_rule_order": [
+    "integrity",
+    "privacy",
+    "deletion",
+    "encryption",
+    "restore",
+    "rollback",
+    "supply_chain",
+    "binding"
+  ],
+  "critical_rule_groups": {
+    "integrity": ["fault_matrix", "canonical_frontier"],
+    "privacy": ["content_free_evidence", "secret_residual"],
+    "deletion": ["complete_purge", "no_resurrection"],
+    "encryption": ["wrong_key", "rotation", "qualified_secret"],
+    "restore": ["complete_restore", "external_anchor"],
+    "rollback": ["learning_pointer", "paused_state"],
+    "supply_chain": ["frozen_lock", "approved_builds", "audit"],
+    "binding": ["runtime_identity", "fixture_hashes", "exact_paths"],
+    "security": ["decision_authority", "release_control", "redaction"]
+  },
+  "configuration": {
+    "graph_enabled": false,
+    "vector_enabled": false,
+    "automatic_learning_publication": false,
+    "topology": "single-user-single-root-single-writer-stdio"
+  },
+  "partition_policy": {
+    "faults": "fixtures/g6/faults",
+    "recovery": "fixtures/g6/recovery",
+    "resources": "fixtures/g6/resources",
+    "runbooks": "fixtures/g6/runbooks",
+    "security": "fixtures/g6/security"
+  },
+  "supply_chain": {
+    "registry_unavailable": "blocked",
+    "lock_drift": "fail",
+    "unapproved_native_build": "fail",
+    "runtime_download": "fail",
+    "expired_waiver": "fail"
+  },
+  "allowed_paths": {
+    "evidence": [
+      "docs/evaluations/g6-code-review.md",
+      "docs/evaluations/g6-fault-report.json",
+      "docs/evaluations/g6-reproducibility-manifest.json",
+      "docs/evaluations/g6-resource-report.json",
+      "docs/evaluations/g6-runbook-report.json",
+      "docs/evaluations/g6-security-report.json",
+      "docs/evaluations/g6-supply-chain-report.json",
+      "docs/evaluations/g6-verification-report.json"
+    ],
+    "decision": [
+      ".trellis/tasks/07-30-agent-memory-runtime-m6/task.json",
+      "docs/evaluations/g6-decision.md",
+      "docs/evaluations/g6-handoff.md",
+      "docs/evaluations/g6-release-control.json"
+    ]
+  },
+  "fixture_bindings": [
+    {
+      "path": "fixtures/g6/thresholds.json",
+      "raw_hash": "sha256:060d76fd67a3dd33842c86aed3f23c3318741271dc9b9213b248f03501d1e4d0",
+      "canonical_hash": "sha256:dd2495238cbeea203de7330e48cf4f22c39f7648678eb0f5d53a4a2e8a5df62e"
+    },
+    {
+      "path": "fixtures/g6/release-control.json",
+      "raw_hash": "sha256:562fc891aad8a52a9985b9f3d379731be0aca31f52eed32d6d99c3219ecfb355",
+      "canonical_hash": "sha256:a6f34064e8ec5aeea54a8c982935872f68117ae8e253a9a9d31b7b8448ef7d91"
+    },
+    {
+      "path": "fixtures/g6/decision-authority.json",
+      "raw_hash": "sha256:67cbafc1e2115151cde8a8190b2c78616e4cc946b16e8da120782e5bd2320704",
+      "canonical_hash": "sha256:f65533f4302f906e13388b3fa2e3ae18918c016a0ee0fadd9aef01e2965caefb"
+    },
+    {
+      "path": "fixtures/g6/runtime-inputs.json",
+      "raw_hash": "sha256:f872596447828ceef3e378b0417fef5c3f64a78b7badb99e8accf7f6ea427cce",
+      "canonical_hash": "sha256:34c6d741538c6fc20c1962a45a0c231c59e18b7dc8e38f91ad711f763dd5a4ea"
+    },
+    {
+      "path": "fixtures/g6/operator-config.json",
+      "raw_hash": "sha256:2038168c30cabb2da8a4feebd3196507290d5079e929d52d3145cd9c2ac558a4",
+      "canonical_hash": "sha256:1b299e826306903edbf54f97b031401edb3e5e06a114b71ecf5247432301f5ed"
+    },
+    {
+      "path": "fixtures/g6/faults/fault-matrix.json",
+      "raw_hash": "sha256:bd0f2ebe21cee062871987a83e4c1fc7f01cdad9f127538ae62e5ba4237d9e87",
+      "canonical_hash": "sha256:be976a406aa77923178bc964474f7198ba743ef02813bd719816638fa9aa168e"
+    },
+    {
+      "path": "fixtures/g6/recovery/acceptance-examples.json",
+      "raw_hash": "sha256:57642a2eb21c474ac69d33c6ae709225fa26f6228dcdf619eaf92602570c2829",
+      "canonical_hash": "sha256:e820a618a9c3c532f404528a16703fc716ec90814b14fac84225f31d556b23c1"
+    },
+    {
+      "path": "fixtures/g6/resources/workloads.json",
+      "raw_hash": "sha256:4a6bceb3904c64d296f3fe3d4a0fd6eddbc71fef67faec128749dcd9494284ad",
+      "canonical_hash": "sha256:50867db7ce6083a7af5f4f4aa884ffa682fa5512a5fe303ebe67bf6dda964a0c"
+    },
+    {
+      "path": "fixtures/g6/runbooks/operator-runbooks.json",
+      "raw_hash": "sha256:26031abef2a1a34fd3a550ee15865d11762a21c701ceb00f6dab3b04f51b0800",
+      "canonical_hash": "sha256:110198664a4d8d206d20eff81543626a776f0dc8a7f8d21ef8e3d61564541653"
+    },
+    {
+      "path": "fixtures/g6/security/evidence-policy.json",
+      "raw_hash": "sha256:d107bf558b1d80510698be9ddbe731f04f9146324825e04b1dbd182b4b307e13",
+      "canonical_hash": "sha256:e7076f5d27e88f5bb97b443dfcb653c79bb9cd75120258b36ad9dbdfa7cd3a5b"
+    },
+    {
+      "path": "fixtures/g6/security/supply-chain-policy.json",
+      "raw_hash": "sha256:d4ff86e97809b66803e5952e8116f6cbf9dcf2fb8067d91b7876157df401a3e8",
+      "canonical_hash": "sha256:b0610c2efac4d430ba3aac221a7b6629aeb2f3b2f13fc1d20e2d87c2a7d9512a"
+    },
+    {
+      "path": "fixtures/g6/security/provenance.json",
+      "raw_hash": "sha256:4c0dcfc0ebbdcf9923d372ee288ebf267cbf7bdd799eaeb99cc14854d7265cf9",
+      "canonical_hash": "sha256:d78d2032516c7cfa1e7e07834aa6bf962e076370ab1fce0da6b001e05a221dd8"
+    }
+  ]
+}

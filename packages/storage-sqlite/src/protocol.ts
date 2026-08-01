@@ -1167,6 +1167,33 @@ export const PurgeRunInputSchema = z
 
 export const PurgeRunResultSchema = PurgeReceiptSchema;
 
+export const PurgePhysicalMaintenanceSchema = z
+  .object({
+    purge_job_id: IdentifierSchema,
+    attempt: z.number().int().positive(),
+    outcomes_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const PurgePreparationResultSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("receipt"),
+      receipt: PurgeReceiptSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("maintenance"),
+      maintenance: PurgePhysicalMaintenanceSchema,
+    })
+    .strict(),
+]);
+
+export const PurgeCompletionInputSchema = PurgeRunInputSchema.extend({
+  maintenance: PurgePhysicalMaintenanceSchema,
+}).strict();
+
 export const InspectPurgeReceiptInputSchema = z
   .object({
     purge_job_id: IdentifierSchema,
@@ -1399,11 +1426,26 @@ export const OperationalRepairInputSchema = z
       "sqlite_relations",
     ]),
     source: z.literal("canonical_sqlite"),
+    principal_id: IdentifierSchema.nullable().default(null),
+    scope: ScopeSchema.nullable().default(null),
     expected_frontier_hash: CanonicalHashSchema,
     started_at: UtcTimestampSchema,
     completed_at: UtcTimestampSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const scoped = value.repair_kind !== "fts";
+    if (
+      ((value.principal_id !== null) !== scoped ||
+        (value.scope !== null) !== scoped)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["scope"],
+        message: "canonical projection repairs require one exact scope",
+      });
+    }
+  });
 
 export const OperationalRepairResultSchema = z
   .object({
@@ -1411,6 +1453,8 @@ export const OperationalRepairResultSchema = z
     operation_id: IdentifierSchema,
     repair_kind: OperationalRepairInputSchema.shape.repair_kind,
     source: z.literal("canonical_sqlite"),
+    principal_id: IdentifierSchema.nullable(),
+    scope: ScopeSchema.nullable(),
     state: z.enum(["rebuilding", "completed", "blocked"]),
     source_frontier_hash: CanonicalHashSchema,
     artifact_count: z.number().int().nonnegative().nullable(),
@@ -1421,6 +1465,23 @@ export const OperationalRepairResultSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    const scoped = value.repair_kind !== "fts";
+    const legacyUnscoped =
+      scoped &&
+      value.state !== "rebuilding" &&
+      value.principal_id === null &&
+      value.scope === null;
+    if (
+      !legacyUnscoped &&
+      ((value.principal_id !== null) !== scoped ||
+        (value.scope !== null) !== scoped)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["scope"],
+        message: "repair result scope does not match repair kind",
+      });
+    }
     const complete = value.state !== "rebuilding";
     if (
       (value.artifact_count !== null) !== complete ||
@@ -2553,6 +2614,7 @@ export const WorkerOperationSchema = z.enum([
   "preview_memory_delete",
   "inspect_purge_receipt",
   "run_purge",
+  "complete_purge",
   "audit_purge_artifacts",
   "append_operator_action_receipt",
   "bind_operator_confirmation",
@@ -3038,6 +3100,15 @@ export type MemoryDeleteResult = z.infer<
 >;
 export type PurgeRunInput = z.input<typeof PurgeRunInputSchema>;
 export type PurgeRunResult = z.infer<typeof PurgeRunResultSchema>;
+export type PurgePhysicalMaintenance = z.infer<
+  typeof PurgePhysicalMaintenanceSchema
+>;
+export type PurgePreparationResult = z.infer<
+  typeof PurgePreparationResultSchema
+>;
+export type PurgeCompletionInput = z.infer<
+  typeof PurgeCompletionInputSchema
+>;
 export type InspectPurgeReceiptInput = z.input<
   typeof InspectPurgeReceiptInputSchema
 >;
@@ -3085,6 +3156,9 @@ export type ParsedRecordRecallCommand = z.output<
 export type RecordRecallResult = z.infer<typeof RecordRecallResultSchema>;
 export type RebuildFtsResult = z.infer<typeof RebuildFtsResultSchema>;
 export type OperationalRepairInput = z.input<
+  typeof OperationalRepairInputSchema
+>;
+export type ParsedOperationalRepairInput = z.output<
   typeof OperationalRepairInputSchema
 >;
 export type OperationalRepairResult = z.infer<

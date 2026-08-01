@@ -6,6 +6,7 @@ import {
   fsyncSync,
   lstatSync,
   openSync,
+  readSync,
   readFileSync,
   readdirSync,
   realpathSync,
@@ -63,7 +64,27 @@ export const ACCEPTED_RECOVERY_DECISION_SOURCES = {
 } as const;
 
 export function rawFileHash(path: string): `sha256:${string}` {
-  return `sha256:${createHash("sha256").update(readFileSync(path)).digest("hex")}`;
+  const hash = createHash("sha256");
+  const descriptor = openSync(path, "r");
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let bytesRead: number;
+    do {
+      bytesRead = readSync(
+        descriptor,
+        buffer,
+        0,
+        buffer.byteLength,
+        null,
+      );
+      if (bytesRead > 0) {
+        hash.update(buffer.subarray(0, bytesRead));
+      }
+    } while (bytesRead > 0);
+  } finally {
+    closeSync(descriptor);
+  }
+  return `sha256:${hash.digest("hex")}`;
 }
 
 export function backupDatabaseLogicalHash(
@@ -77,7 +98,9 @@ export function backupDatabaseLogicalHash(
          ORDER BY name`,
       )
       .all() as Array<{ name: string }>;
-    const logicalTables = tables.map(({ name }) => {
+    const hash = createHash("sha256");
+    hash.update("[");
+    tables.forEach(({ name }, tableIndex) => {
       const columns = database
         .prepare(`PRAGMA table_info("${name.replaceAll('"', '""')}")`)
         .all() as Array<{
@@ -96,32 +119,42 @@ export function backupDatabaseLogicalHash(
       const order = orderedColumns
         .map(({ name: column }) => `"${column.replaceAll('"', '""')}"`)
         .join(", ");
+      if (tableIndex > 0) hash.update(",");
+      hash.update(
+        `{"columns":${canonicalJson(
+          columns.map(({ name: column }) => column),
+        )},"rows":[`,
+      );
       const rows = database
         .prepare(
           `SELECT * FROM "${name.replaceAll('"', '""')}"${
             order.length === 0 ? "" : ` ORDER BY ${order}`
           }`,
         )
-        .all()
-        .map((row) =>
-          Object.fromEntries(
-            Object.entries(row as Record<string, unknown>).map(
-              ([column, value]) => [
-                column,
-                Buffer.isBuffer(value)
-                  ? { bytes_base64url: value.toString("base64url") }
-                  : value,
-              ],
+        .iterate();
+      let rowIndex = 0;
+      for (const row of rows) {
+        if (rowIndex > 0) hash.update(",");
+        hash.update(
+          canonicalJson(
+            Object.fromEntries(
+              Object.entries(row as Record<string, unknown>).map(
+                ([column, value]) => [
+                  column,
+                  Buffer.isBuffer(value)
+                    ? { bytes_base64url: value.toString("base64url") }
+                    : value,
+                ],
+              ),
             ),
           ),
         );
-      return {
-        table: name,
-        columns: columns.map(({ name: column }) => column),
-        rows,
-      };
+        rowIndex += 1;
+      }
+      hash.update(`],"table":${canonicalJson(name)}}`);
     });
-    return canonicalSha256(logicalTables);
+    hash.update("]");
+    return `sha256:${hash.digest("hex")}` as const;
   });
 }
 
@@ -425,6 +458,47 @@ export function verifyManifestDatabaseFacts(input: {
         ["frontier_hash"],
       ),
     };
+    const hasRecoveryFrontier = database
+      .prepare(
+        `SELECT 1 FROM sqlite_schema
+         WHERE type = 'table' AND name = 'recovery_frontier_cache'`,
+      )
+      .get() !== undefined;
+    const recoveryFrontierRow = hasRecoveryFrontier
+      ? (database
+          .prepare(
+            `SELECT minimums_json, metadata_json
+             FROM recovery_frontier_cache WHERE singleton = 1`,
+          )
+          .get() as
+          | { minimums_json: string | null; metadata_json: string | null }
+          | undefined)
+      : undefined;
+    const cachedMinimums =
+      recoveryFrontierRow?.minimums_json === null ||
+      recoveryFrontierRow?.minimums_json === undefined
+        ? null
+        : RecoveryMinimumsSchema.parse(
+            JSON.parse(recoveryFrontierRow.minimums_json) as unknown,
+          );
+    const cachedComponentHashes =
+      recoveryFrontierRow?.metadata_json === null ||
+      recoveryFrontierRow?.metadata_json === undefined
+        ? null
+        : ((JSON.parse(recoveryFrontierRow.metadata_json) as {
+            component_hashes?: Record<string, unknown>;
+          }).component_hashes ?? null);
+    const cachedHash = (name: string): string | null => {
+      const value = cachedComponentHashes?.[name];
+      if (
+        value !== undefined &&
+        (typeof value !== "string" ||
+          !/^sha256:[0-9a-f]{64}$/u.test(value))
+      ) {
+        throw new StorageError("CORRUPTION");
+      }
+      return typeof value === "string" ? value : null;
+    };
     const monitors = database
       .prepare(
         `SELECT monitor_id, monitor_hash
@@ -590,35 +664,44 @@ export function verifyManifestDatabaseFacts(input: {
         "SELECT tombstone_epoch FROM tombstone_state WHERE singleton = 1",
         "tombstone_epoch",
       ),
-      purge_frontier_hash: canonicalSha256(purgeRows),
+      purge_frontier_hash:
+        cachedHash("purge") ?? canonicalSha256(purgeRows),
       purge_debt_count: scalar(
         `SELECT coalesce(sum(debt_count), 0) AS value
          FROM artifact_purge_frontiers`,
         "value",
       ),
       fts_frontier_hash: canonicalSha256(ftsState),
-      fts_logical_frontier_hash: canonicalSha256({
-        last_epoch: Number(
-          (ftsState as { last_epoch: number }).last_epoch,
-        ),
-      }),
-      layered_frontier_hash: canonicalSha256(layeredFrontier),
-      relation_frontier_hash: canonicalSha256(relationRows),
-      context_frontier_hash: canonicalSha256(contextRows),
+      fts_logical_frontier_hash:
+        cachedHash("fts") ??
+        canonicalSha256({
+          last_epoch: Number(
+            (ftsState as { last_epoch: number }).last_epoch,
+          ),
+        }),
+      layered_frontier_hash:
+        cachedHash("layered") ?? canonicalSha256(layeredFrontier),
+      relation_frontier_hash:
+        cachedHash("relation") ?? canonicalSha256(relationRows),
+      context_frontier_hash:
+        cachedHash("context") ?? canonicalSha256(contextRows),
       learning_control_epoch: learningFrontier.control_epoch,
       learning_release_revision: learningFrontier.release_revision,
-      learning_frontier_hash: learningFrontier.frontier_hash,
+      learning_frontier_hash:
+        cachedHash("learning") ?? learningFrontier.frontier_hash,
       learning_pointer_hash: canonicalSha256(pointers),
       learning_monitor_hash:
         monitors.length === 0 ? null : canonicalSha256(monitors),
       learning_rollback_hash:
         rollbacks.length === 0 ? null : canonicalSha256(rollbacks),
-      encryption_frontier_hash: canonicalSha256({
-        keys: keyStateRows,
-        rotations: rotationRows,
-        receipts: keyReceipts,
-        live_ciphertexts: keyLiveCiphertexts,
-      }),
+      encryption_frontier_hash:
+        cachedHash("encryption") ??
+        canonicalSha256({
+          keys: keyStateRows,
+          rotations: rotationRows,
+          receipts: keyReceipts,
+          live_ciphertexts: keyLiveCiphertexts,
+        }),
       g6_release_control_hash: g6?.control_hash ?? null,
     };
     if (
@@ -639,6 +722,22 @@ export function verifyManifestDatabaseFacts(input: {
       throw new StorageError("MIGRATION_DRIFT");
     }
     if (
+      (cachedMinimums !== null &&
+        (cachedMinimums.ledger_epoch !== expectedFrontiers.ledger_epoch ||
+          cachedMinimums.latest_receipt_hash !==
+            expectedFrontiers.latest_receipt_hash ||
+          cachedMinimums.tombstone_epoch !==
+            expectedFrontiers.tombstone_epoch ||
+          cachedMinimums.learning_control_epoch !==
+            expectedFrontiers.learning_control_epoch ||
+          cachedMinimums.learning_release_revision !==
+            expectedFrontiers.learning_release_revision ||
+          canonicalJson(cachedMinimums.required_keys) !==
+            canonicalJson(requiredKeys) ||
+          canonicalJson(cachedMinimums.key_live_ciphertexts) !==
+            canonicalJson(keyLiveCiphertexts) ||
+          cachedMinimums.g6_release_control_hash !==
+            expectedFrontiers.g6_release_control_hash)) ||
       canonicalJson(expectedFrontiers) !==
       canonicalJson(manifest.frontiers)
     ) {

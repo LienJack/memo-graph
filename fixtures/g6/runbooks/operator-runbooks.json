@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "steps": [
+    {
+      "id": "inspect_readiness",
+      "automation": "doctor --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "parses a private config and creates no operator mutation"
+      }
+    },
+    {
+      "id": "inspect_backup",
+      "automation": "backup inspect --backup-ref <backup-ref> --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "inspects a bound bundle without leaking paths and requires confirmed restore publication"
+      }
+    },
+    {
+      "id": "prepare_restore",
+      "automation": "restore --dry-run --backup-ref <backup-ref> --target-ref <target-ref> --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "inspects a bound bundle without leaking paths and requires confirmed restore publication"
+      }
+    },
+    {
+      "id": "execute_confirmed_restore",
+      "automation": "operator execute --confirmation-ref <restore-grant> --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-destructive-confirmation.integration.test.ts",
+        "test_name": "pins Ed25519 authority and executes a confirmed restore exactly once"
+      }
+    },
+    {
+      "id": "inspect_keys",
+      "automation": "key inspect --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "registers content-free key inspection and disabled rotation/admission dry-runs"
+      }
+    },
+    {
+      "id": "prepare_key_rotation",
+      "automation": "key rotate --dry-run --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "registers content-free key inspection and disabled rotation/admission dry-runs"
+      }
+    },
+    {
+      "id": "audit_purge",
+      "automation": "purge audit --audit-id <audit-id> --tombstone-epoch 0 --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "executes the frozen JSON purge audit command against registered artifact roots"
+      }
+    },
+    {
+      "id": "prepare_rebuild",
+      "automation": "rebuild --dry-run --repair-kind fts --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "registers content-free key inspection and disabled rotation/admission dry-runs"
+      }
+    },
+    {
+      "id": "verify_learning_rollback",
+      "automation": "rollback verify --release-ref <release-ref> --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "registers content-free key inspection and disabled rotation/admission dry-runs"
+      }
+    },
+    {
+      "id": "verify_g6_candidate",
+      "automation": "g6 verify --evidence-ref <verification-report> --config <operator-config> --format json",
+      "proof": {
+        "test_file": "tests/integration/operator-cli.integration.test.ts",
+        "test_name": "registers content-free key inspection and disabled rotation/admission dry-runs"
+      }
+    }
+  ]
+}

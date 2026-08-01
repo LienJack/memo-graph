@@ -65,6 +65,8 @@ import {
   LearningLedgerWriteCommandSchema,
   MemoryEligibilityInputSchema,
   MemoryCorrectionBasisInputSchema,
+  PurgeCompletionInputSchema,
+  PurgePhysicalMaintenanceSchema,
   PurgeRunInputSchema,
   KeyRotationInputSchema,
   ProjectionPageQuerySchema,
@@ -121,6 +123,12 @@ const WorkerOptionsSchema = z
         "commit",
       ])
       .nullable(),
+    purgeExitAt: z
+      .enum([
+        "after_blob_unlink",
+        "before_physical_maintenance",
+      ])
+      .nullable(),
     inspectionOnly: z.boolean(),
     recoveryAuthorityKeyId: z.string().nullable(),
     recoveryAuthorityPublicKeyDer: z.string().nullable(),
@@ -138,6 +146,7 @@ let exitAfterCommitBeforeResponse =
 let encryptedArtifactExitAt = options.encryptedArtifactExitAt;
 let operationalMigrationExitAt =
   options.operationalMigrationExitAt;
+let purgeExitAt = options.purgeExitAt;
 
 const ENCRYPTION_COMMIT_OPERATIONS = new Set([
   "install_encryption_key",
@@ -174,6 +183,12 @@ try {
       if (operationalMigrationExitAt === point) {
         operationalMigrationExitAt = null;
         process.exit(93);
+      }
+    },
+    purgeFault: (point) => {
+      if (purgeExitAt === point) {
+        purgeExitAt = null;
+        process.exit(94);
       }
     },
     admissionTrust: options.secretAdmissionTrust,
@@ -460,14 +475,13 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "finalize_secret_purge":
-          if (!options.testOperations) {
-            throw new StorageError("ENCRYPTION_REQUIRED");
-          }
           database.finalizeSecretPurgeMaintenance();
           result = null;
           break;
         case "finalize_purge_maintenance":
-          database.finalizePurgeMaintenance();
+          database.finalizePurgeJobMaintenance(
+            PurgePhysicalMaintenanceSchema.parse(request.payload),
+          );
           result = null;
           break;
         case "governance_status":
@@ -723,8 +737,13 @@ port.on("message", (message: unknown) => {
           );
           break;
         case "run_purge":
-          result = database.runPurge(
+          result = database.preparePurge(
             PurgeRunInputSchema.parse(request.payload),
+          );
+          break;
+        case "complete_purge":
+          result = database.completePurge(
+            PurgeCompletionInputSchema.parse(request.payload),
           );
           break;
         case "inspect_purge_receipt":

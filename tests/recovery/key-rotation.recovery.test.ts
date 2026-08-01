@@ -1083,6 +1083,9 @@ describe("key rotation crash recovery", () => {
       ],
     });
     expect(purgeReceipt.ciphertext_ids).toHaveLength(2);
+    await expect(storage.createBackup()).resolves.toMatchObject({
+      integrity_check: "ok",
+    });
     await storage.close();
 
     database = new DatabaseSync(

@@ -43,6 +43,7 @@ import {
   loadRecoveryHeadProvider,
 } from "../../apps/operator-cli/src/config.js";
 import {
+  runConfirmedRestore,
   restoreStateBindings,
 } from "../../apps/operator-cli/src/commands/restore.js";
 
@@ -557,6 +558,7 @@ describe("confirmed destructive operator actions", () => {
       const bindings = restoreStateBindings({
         backup,
         target,
+        targetRef: "recovery_target",
         recoveryHeadProvider,
       });
       const issued = new Date(Date.now() - 10_000).toISOString();
@@ -765,6 +767,144 @@ describe("confirmed destructive operator actions", () => {
       intent_hash: intent.intent_hash,
       confirmation_id: confirmation.confirmation_id,
     });
+  });
+
+  it("reconciles a real restore publication after response loss and confirmation expiry", async () => {
+    const dataRoot = join(temporaryRoot("operator-restore-response-source"), "data");
+    const target = join(temporaryRoot("operator-restore-response-target"), "data");
+    const providerDirectory = join(
+      temporaryRoot("operator-restore-response-provider"),
+      "head",
+    );
+    const recoveryKeys = generateKeyPairSync("ed25519");
+    const recoveryHeadProvider = new FileRecoveryHeadProvider({
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:operator-response-loss",
+      trustRootVersion: 1,
+      privateKey: recoveryKeys.privateKey,
+      publicKey: recoveryKeys.publicKey,
+      create: true,
+    });
+    const source = await SqliteStorageClient.open({
+      dataRoot,
+      secretPrincipalId: "user_local",
+      recoveryHeadProvider,
+    });
+    const backup = await source.createBackup();
+    await source.close();
+
+    const bindings = restoreStateBindings({
+      backup,
+      target,
+      targetRef: "restore_target",
+      recoveryHeadProvider,
+    });
+    const issuedAt = "2026-07-30T10:00:00.000Z";
+    const expiresAt = "2026-07-30T10:01:00.000Z";
+    const body = {
+      schema_version: "1.0.0",
+      operation_id: "restore_response_loss_operation",
+      command: "restore",
+      principal_id: "user_local",
+      root_ref: "root_primary",
+      source_ref: "backup_current",
+      target_ref: "restore_target",
+      ...bindings,
+      parameters_digest: canonicalSha256({
+        backup_ref: "backup_current",
+        backup_id: backup.backup_id,
+        manifest_hash: backup.manifest.manifest_hash,
+        target_ref: "restore_target",
+        required_keys: [],
+      }),
+      nonce: "restore_response_loss_nonce",
+      issued_at: issuedAt,
+      expires_at: expiresAt,
+    };
+    const intent = OperationIntentSchema.parse({
+      ...body,
+      intent_hash: canonicalSha256(body),
+    });
+    const authority = authorityFixture(
+      temporaryRoot("operator-restore-response-confirmation"),
+    );
+    const descriptor = openSync(authority.privatePath, "r");
+    const confirmation = signOperatorConfirmationFromDescriptor({
+      descriptor,
+      intent,
+      trust: authority.trust,
+      confirmationId: "restore_response_loss_confirmation",
+      issuedAt,
+      expiresAt,
+    });
+    closeSync(descriptor);
+    const ledger = new OperatorActionLedger(
+      join(temporaryRoot("operator-restore-response-ledger"), "ledger"),
+    );
+    let receiptWrites = 0;
+    const recordReceipt = async (receipt: OperatorActionReceipt) => {
+      receiptWrites += 1;
+      const restored = await SqliteStorageClient.open({
+        dataRoot: target,
+        secretPrincipalId: "user_local",
+        recoveryHeadProvider,
+      });
+      try {
+        return await restored.appendOperatorActionReceipt(receipt);
+      } finally {
+        await restored.close();
+      }
+    };
+    const base = {
+      backup,
+      backupRef: "backup_current",
+      target,
+      targetRef: "restore_target",
+      recoveryHeadProvider,
+      intent,
+      confirmation,
+      trust: authority.trust,
+      ledger,
+      recordReceipt,
+    };
+
+    const remappedTarget = join(
+      temporaryRoot("operator-restore-remapped-target"),
+      "data",
+    );
+    await expect(
+      runConfirmedRestore({
+        ...base,
+        target: remappedTarget,
+        now: "2026-07-30T10:00:20.000Z",
+      }),
+    ).rejects.toThrow("restore configuration_digest binding changed");
+    expect(existsSync(remappedTarget)).toBe(false);
+    expect(ledger.read(intent.operation_id)?.state).toBe("authorized");
+
+    await expect(
+      runConfirmedRestore({
+        ...base,
+        now: "2026-07-30T10:00:30.000Z",
+        testFaultAfter: "external_effect",
+      }),
+    ).rejects.toThrow("injected operator action fault");
+    expect(existsSync(target)).toBe(true);
+    expect(ledger.read(intent.operation_id)?.state).toBe("effect_prepared");
+
+    await expect(
+      runConfirmedRestore({
+        ...base,
+        now: "2026-07-30T10:02:00.000Z",
+      }),
+    ).resolves.toMatchObject({
+      status: "published",
+      publication: "reconciled",
+      operation_id: intent.operation_id,
+      backup_id: backup.backup_id,
+    });
+    expect(receiptWrites).toBe(1);
+    expect(ledger.read(intent.operation_id)?.state).toBe("responded");
   });
 
   it.each([
@@ -1347,17 +1487,29 @@ describe("confirmed destructive operator actions", () => {
         resume,
       }),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
-    await expect(
-      storage.authorizeOperatorKeyRotation({
+    const capability = await storage.authorizeOperatorKeyRotation({
         intent,
         confirmation,
         trust,
         now: "2026-07-30T10:02:00.000Z",
         begin,
         resume,
-      }),
-    ).resolves.toMatchObject({
+      });
+    expect(capability).toMatchObject({
       purpose: "confirmed_operator_key_rotation",
+    });
+    const mutableDescriptorPath = descriptorPaths[1];
+    if (mutableDescriptorPath === undefined) {
+      throw new Error("key rotation fixture requires a mutable descriptor");
+    }
+    writeFileSync(mutableDescriptorPath, Buffer.alloc(32, 0x7f), {
+      mode: 0o600,
+    });
+    await expect(capability.begin()).rejects.toMatchObject({
+      code: "KEY_PROVIDER_INVALID",
+    });
+    writeFileSync(mutableDescriptorPath, Buffer.alloc(32, 2), {
+      mode: 0o600,
     });
     await storage.close();
     storage = await SqliteStorageClient.open({ dataRoot });

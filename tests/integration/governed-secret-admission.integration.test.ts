@@ -129,34 +129,6 @@ function reissueApproval(
   });
 }
 
-function reissueReleaseControl(
-  control: G6ReleaseControl,
-  changes: Partial<G6ReleaseControl>,
-  privateKey: ReturnType<typeof rawPrivateKey>,
-): G6ReleaseControl {
-  const unsigned = {
-    ...control,
-    ...changes,
-    control_hash: HASH_A,
-    signature: Buffer.alloc(64).toString("base64url"),
-  };
-  const controlHash = CanonicalHashSchema.parse(
-    canonicalSha256Omitting(unsigned, ["control_hash", "signature"]),
-  );
-  return G6ReleaseControlSchema.parse({
-    ...unsigned,
-    control_hash: controlHash,
-    signature: sign(
-      null,
-      Buffer.from(
-        g6ReleaseControlSigningPayload({ control_hash: controlHash }),
-        "utf8",
-      ),
-      privateKey,
-    ).toString("base64url"),
-  });
-}
-
 function secretEffectCounts(dataRoot: string) {
   const database = new DatabaseSync(join(dataRoot, "ledger", "memory.db"), {
     readOnly: true,
@@ -407,6 +379,20 @@ describe("governed secret admission", () => {
   });
 
   it("accepts only a purpose-bound exact-runtime synthetic G6 GO control", async () => {
+    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+    const trust = G6ReleaseControlTrustSchema.parse({
+      schema_version: "1.0.0",
+      purpose: "g6_release_control" as const,
+      authority_key_id: "g6-authority:synthetic-u9",
+      authority_key_generation: 1,
+      public_key_spki_base64url: publicKey
+        .export({ format: "der", type: "spki" })
+        .toString("base64url"),
+      valid_from: "2026-07-29T00:00:00.000Z",
+      expires_at: "2026-08-01T00:00:00.000Z",
+      revoked_at: null,
+      maximum_control_ttl_seconds: 600,
+    });
     const identityBase = {
       schema_version: "1.0.0",
       tested_implementation_digest: HASH_A,
@@ -421,12 +407,12 @@ describe("governed secret admission", () => {
         filesystem: "apfs",
       },
       configuration_digest: HASH_A,
+      decision_authority_hash: canonicalSha256(trust),
     };
     const identity = RuntimeIdentitySchema.parse({
       ...identityBase,
       runtime_identity_hash: canonicalSha256(identityBase),
     });
-    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
     const controlBase = {
       schema_version: "1.0.0",
       control_id: "g6-control:synthetic-u9",
@@ -465,20 +451,6 @@ describe("governed secret admission", () => {
         privateKey,
       ).toString("base64url"),
     });
-    const trust = G6ReleaseControlTrustSchema.parse({
-      schema_version: "1.0.0",
-      purpose: "g6_release_control" as const,
-      authority_key_id: control.authority_key_id,
-      authority_key_generation: 1,
-      public_key_spki_base64url: publicKey
-        .export({ format: "der", type: "spki" })
-        .toString("base64url"),
-      valid_from: "2026-07-29T00:00:00.000Z",
-      expires_at: "2026-08-01T00:00:00.000Z",
-      revoked_at: null,
-      maximum_control_ttl_seconds: 600,
-    });
-
     await expect(
       verifyG6ReleaseControl({
         control,
@@ -533,68 +505,27 @@ describe("governed secret admission", () => {
       "secret.txt",
       Buffer.from(secretMarker, "utf8"),
     );
-    const identityBase = {
-      schema_version: "1.0.0",
-      tested_implementation_digest: HASH_A,
-      tested_envelope_digest: HASH_B,
-      dependency_lock_digest: HASH_A,
-      migration_set_digest: HASH_B,
-      platform: {
-        node: "24.18.0",
-        os: "darwin",
-        architecture: "arm64",
-        sqlite: "3.50.4",
-        filesystem: "apfs",
-      },
-      configuration_digest: HASH_A,
-    };
-    const identity = RuntimeIdentitySchema.parse({
-      ...identityBase,
-      runtime_identity_hash: canonicalSha256(identityBase),
-    });
-    const g6Keys = generateKeyPairSync("ed25519");
-    const unsignedControl = {
-      schema_version: "1.0.0",
-      control_id: "g6-control:synthetic-u9-storage",
-      purpose: "g6_release_control" as const,
-      decision: "GO" as const,
-      runtime_identity_hash: identity.runtime_identity_hash,
-      tested_envelope_digest: identity.tested_envelope_digest,
-      secret_admission_allowed: true,
-      authority_key_id: "g6-authority:synthetic-u9-storage",
-      authority_key_generation: 1,
-      signature_algorithm: "Ed25519" as const,
-      issued_at: "2026-07-30T00:00:00.000Z",
-      expires_at: "2026-07-30T23:00:00.000Z",
-    };
-    const controlHash = CanonicalHashSchema.parse(
-      canonicalSha256(unsignedControl),
-    );
-    const control = G6ReleaseControlSchema.parse({
-      ...unsignedControl,
-      control_hash: controlHash,
-      signature: sign(
-        null,
-        Buffer.from(
-          g6ReleaseControlSigningPayload({ control_hash: controlHash }),
-          "utf8",
+    const pinnedFixture = JSON.parse(
+      readFileSync(
+        join(
+          process.cwd(),
+          "tests/fixtures/g6-pinned-secret-admission.json",
         ),
-        g6Keys.privateKey,
-      ).toString("base64url"),
-    });
-    const releaseTrust = G6ReleaseControlTrustSchema.parse({
-      schema_version: "1.0.0",
-      purpose: "g6_release_control" as const,
-      authority_key_id: control.authority_key_id,
-      authority_key_generation: 1,
-      public_key_spki_base64url: g6Keys.publicKey
-        .export({ format: "der", type: "spki" })
-        .toString("base64url"),
-      valid_from: "2026-07-29T00:00:00.000Z",
-      expires_at: "2026-08-01T00:00:00.000Z",
-      revoked_at: null,
-      maximum_control_ttl_seconds: 86_400,
-    });
+        "utf8",
+      ),
+    ) as {
+      runtime_identity: unknown;
+      release_artifact: { control: unknown; trust: unknown };
+    };
+    const releaseTrust = G6ReleaseControlTrustSchema.parse(
+      pinnedFixture.release_artifact.trust,
+    );
+    const identity = RuntimeIdentitySchema.parse(
+      pinnedFixture.runtime_identity,
+    );
+    const control = G6ReleaseControlSchema.parse(
+      pinnedFixture.release_artifact.control,
+    );
     const admissionPrivateKey = rawPrivateKey(admissionSigningSeed);
     const admissionTrust = SecretAdmissionTrustSchema.parse({
       schema_version: "1.0.0",
@@ -656,6 +587,7 @@ describe("governed secret admission", () => {
       migrationsDir: join(process.cwd(), "migrations"),
       busyTimeoutMs: 5_000,
       testOperations: true,
+      secretPrincipalId: "principal:u9",
     });
     expect(() =>
       providerVerifier.verifyEncryptionKey({
@@ -917,17 +849,14 @@ describe("governed secret admission", () => {
     await expect(
       storage.governedAdmitSecret(governedInput),
     ).rejects.toMatchObject({ code: "ENCRYPTION_REQUIRED" });
-    secretAdmission.releaseControl = reissueReleaseControl(
-      control,
-      {
-        control_id: IdentifierSchema.parse(
-          "g6-control:synthetic-u9-no-go",
-        ),
-        decision: "NO-GO",
-        secret_admission_allowed: false,
-      },
-      g6Keys.privateKey,
-    );
+    secretAdmission.releaseControl = {
+      ...control,
+      control_id: IdentifierSchema.parse(
+        "g6-control:synthetic-u9-no-go",
+      ),
+      decision: "NO-GO",
+      secret_admission_allowed: false,
+    };
     await expect(
       storage.governedAdmitSecret(governedInput),
     ).rejects.toMatchObject({ code: "ENCRYPTION_REQUIRED" });

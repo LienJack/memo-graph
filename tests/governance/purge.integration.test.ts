@@ -304,7 +304,7 @@ describe("tombstone and purge saga", () => {
       residual_hashes: [],
     });
     expect(recoveryProvider.readCurrent()?.payload.generation).toBe(
-      (generationBeforeRetry ?? 0) + 1,
+      (generationBeforeRetry ?? 0) + 2,
     );
     await storage.close();
   });

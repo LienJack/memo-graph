@@ -3,7 +3,10 @@ import { verify } from "node:crypto";
 import {
   G6ReleaseControlSchema,
   G6ReleaseControlTrustSchema,
+  PINNED_G6_RELEASE_CONTROL_TRUST,
   RuntimeIdentitySchema,
+  canonicalJson,
+  g6ReleaseControlTrustHash,
   g6ReleaseControlSigningPayload,
   type G6ReleaseControl,
   type G6ReleaseControlTrust,
@@ -74,9 +77,33 @@ export function verifyExactG6ReleaseControl(input: {
     control.runtime_identity_hash !== runtimeIdentity.runtime_identity_hash ||
     control.tested_envelope_digest !==
       runtimeIdentity.tested_envelope_digest ||
+    g6ReleaseControlTrustHash(trust) !==
+      runtimeIdentity.decision_authority_hash ||
     !validSignature
   ) {
     throw new StorageError("ENCRYPTION_REQUIRED");
   }
   return control;
+}
+
+export function verifyPinnedG6ReleaseControl(input: {
+  control: unknown;
+  trust: G6ReleaseControlTrust;
+  runtimeIdentity: RuntimeIdentity;
+  now: string;
+}): G6ReleaseControl {
+  const parsedTrust = G6ReleaseControlTrustSchema.safeParse(input.trust);
+  if (
+    !parsedTrust.success ||
+    canonicalJson(parsedTrust.data) !==
+      canonicalJson(PINNED_G6_RELEASE_CONTROL_TRUST) ||
+    input.runtimeIdentity.decision_authority_hash !==
+      g6ReleaseControlTrustHash(PINNED_G6_RELEASE_CONTROL_TRUST)
+  ) {
+    throw new StorageError("ENCRYPTION_REQUIRED");
+  }
+  return verifyExactG6ReleaseControl({
+    ...input,
+    trust: PINNED_G6_RELEASE_CONTROL_TRUST,
+  });
 }

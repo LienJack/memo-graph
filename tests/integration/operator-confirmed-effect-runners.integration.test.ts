@@ -53,6 +53,7 @@ import {
   TestReleaseApprovalRegistry,
 } from "../helpers/g5-release.js";
 import { learningCandidate } from "../helpers/learning-examples.js";
+import { inlineEpisode } from "../helpers/storage-examples.js";
 
 const cleanupPaths: string[] = [];
 const EXECUTED_AT = "2026-07-30T10:02:00.000Z";
@@ -246,6 +247,117 @@ describe("confirmed operator effect runners", () => {
       ).resolves.toMatchObject({ state: "completed" });
       expect(ledger.read(plan.intent.operation_id)?.state).toBe("responded");
       expect(operatorTableCount(dataRoot, "operator_action_receipts")).toBe(1);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("resumes the exact confirmed FTS repair after prepare interruption", async () => {
+    const root = temporaryRoot("confirmed-fts-resume");
+    const dataRoot = join(root, "data");
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider: recoveryProvider(root),
+      testFaults: {
+        operationalRepairExitAfterPrepareOnce: true,
+      },
+    });
+    try {
+      const bindings = await rebuildStateBindings(storage);
+      const plan = signedIntent({
+        root,
+        operationId: "confirmed_fts_repair_resume_1",
+        command: "rebuild_fts",
+        principalId: "user_local",
+        sourceRef: "canonical_sqlite",
+        targetRef: "fts",
+        parameters: {
+          repair_kind: "fts",
+          source: "canonical_sqlite",
+          target: "fts",
+        },
+        bindings,
+      });
+      const ledger = new OperatorActionLedger(join(root, "action-ledger"));
+      const execute = () =>
+        runConfirmedFtsRebuild({
+          storage,
+          ...plan,
+          now: EXECUTED_AT,
+          ledger,
+        });
+      await expect(execute()).rejects.toMatchObject({
+        code: "STORAGE_UNAVAILABLE",
+      });
+      await expect(
+        storage.inspectOperationalRepair({
+          operation_id: plan.intent.operation_id,
+        }),
+      ).resolves.toMatchObject({ state: "rebuilding" });
+      await expect(execute()).resolves.toMatchObject({
+        status: "completed",
+        repair_kind: "fts",
+      });
+      expect(ledger.read(plan.intent.operation_id)?.state).toBe(
+        "responded",
+      );
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects a prepared FTS repair when canonical authority drifts", async () => {
+    const root = temporaryRoot("confirmed-fts-drift");
+    const storage = await SqliteStorageClient.open({
+      dataRoot: join(root, "data"),
+      recoveryHeadProvider: recoveryProvider(root),
+      testFaults: {
+        operationalRepairExitAfterPrepareOnce: true,
+      },
+    });
+    try {
+      const bindings = await rebuildStateBindings(storage);
+      const plan = signedIntent({
+        root,
+        operationId: "confirmed_fts_repair_drift_1",
+        command: "rebuild_fts",
+        principalId: "user_local",
+        sourceRef: "canonical_sqlite",
+        targetRef: "fts",
+        parameters: {
+          repair_kind: "fts",
+          source: "canonical_sqlite",
+          target: "fts",
+        },
+        bindings,
+      });
+      const ledger = new OperatorActionLedger(join(root, "action-ledger"));
+      const execute = () =>
+        runConfirmedFtsRebuild({
+          storage,
+          ...plan,
+          now: EXECUTED_AT,
+          ledger,
+        });
+      await expect(execute()).rejects.toMatchObject({
+        code: "STORAGE_UNAVAILABLE",
+      });
+      await storage.commitEpisode(
+        inlineEpisode({
+          episodeId: "episode_rebuild_authority_drift",
+          evidenceId: "evidence_rebuild_authority_drift",
+          idempotencyKey: "rebuild-authority-drift",
+          text: "A canonical write after confirmation invalidates repair resume.",
+        }),
+      );
+      await expect(execute()).rejects.toThrow(
+        "projection rebuild expected_state_digest binding changed",
+      );
+      await expect(
+        storage.inspectOperationalRepair({
+          operation_id: plan.intent.operation_id,
+        }),
+      ).resolves.toMatchObject({ state: "rebuilding" });
     } finally {
       await storage.close();
     }

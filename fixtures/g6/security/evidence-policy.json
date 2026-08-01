@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0.0",
+  "content_free": true,
+  "repository_source_hashes_only": true,
+  "forbidden_claims": [
+    "production_slo",
+    "fleet",
+    "multi_platform",
+    "cross_bundle_linkability"
+  ],
+  "forbidden_payloads": [
+    "plaintext",
+    "ciphertext",
+    "key_material",
+    "raw_or_absolute_path",
+    "plaintext_derived_hash"
+  ],
+  "proofs": [
+    {
+      "id": "content_free_evidence",
+      "obligation": "content_free_evidence",
+      "test_file": "tests/security/g6-evidence-redaction.test.ts",
+      "test_name": "rejects secret-bearing string values and sensitive command arguments"
+    },
+    {
+      "id": "encryption_at_rest",
+      "obligation": "encryption_at_rest",
+      "test_file": "tests/security/secret-at-rest.test.ts",
+      "test_name": "keeps plaintext and key bytes out of SQLite, WAL, backup, diagnostics, and receipts"
+    },
+    {
+      "id": "key_lifecycle",
+      "obligation": "key_lifecycle",
+      "test_file": "tests/recovery/key-rotation.recovery.test.ts",
+      "test_name": "resumes item-by-item with one durable use authority per decrypt"
+    },
+    {
+      "id": "wrong_key_rejection",
+      "obligation": "wrong_key_rejection",
+      "test_file": "tests/integration/governed-secret-admission.integration.test.ts",
+      "test_name": "accepts only a purpose-bound exact-runtime synthetic G6 GO control"
+    },
+    {
+      "id": "secret_residual_absence",
+      "obligation": "secret_residual_absence",
+      "test_file": "tests/security/secret-content-residual.test.ts",
+      "test_name": "keeps plaintext and both raw keys absent from every persisted artifact before and after restart"
+    },
+    {
+      "id": "release_control_default_off",
+      "obligation": "release_control_default_off",
+      "test_file": "tests/storage/encryption-key-lifecycle.integration.test.ts",
+      "test_name": "keeps public secret admission fail-closed after dark launch"
+    }
+  ]
+}

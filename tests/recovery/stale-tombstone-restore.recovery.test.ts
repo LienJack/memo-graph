@@ -14,7 +14,6 @@ import {
   ConsolidationService,
   MemoryRuntime,
 } from "../../packages/memory-kernel/src/index.js";
-import { canonicalSha256 } from "../../packages/contracts/src/index.js";
 import {
   SqliteStorageClient,
   restoreBackupToEmptyDataRoot,
@@ -153,7 +152,10 @@ describe("restore tombstone frontier", () => {
     ).toBe(true);
     expect(
       currentBackup.manifest.frontiers.purge_frontier_hash,
-    ).toBe(canonicalSha256(purgeRows));
+    ).toBe(
+      currentBackup.recovery_anchor.payload.minimums
+        .purge_frontier_hash,
+    );
 
     await expect(
       restoreBackupToEmptyDataRoot({

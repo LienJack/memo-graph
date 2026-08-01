@@ -3,6 +3,7 @@
   "environment": {
     "runtime": "node-24.18.0",
     "platform": "darwin-arm64",
+    "filesystem": "apfs",
     "topology": "single-user-single-root-single-writer-stdio",
     "workload": "g6-small-expected-v1"
   },

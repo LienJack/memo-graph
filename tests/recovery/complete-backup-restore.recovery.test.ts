@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  cpSync,
   copyFileSync,
   existsSync,
   lstatSync,
@@ -11,10 +12,19 @@ import {
   readFileSync,
   statSync,
   symlinkSync,
+  truncateSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { generateKeyPairSync } from "node:crypto";
+import {
+  generateKeyPairSync,
+  type KeyObject,
+} from "node:crypto";
+import {
+  spawn,
+  type ChildProcessWithoutNullStreams,
+} from "node:child_process";
+import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolve } from "node:path";
@@ -23,7 +33,10 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  CanonicalHashSchema,
+  RecoveryMinimumsSchema,
   canonicalJson,
+  canonicalSha256,
   canonicalSha256Omitting,
 } from "../../packages/contracts/src/index.js";
 import {
@@ -35,8 +48,10 @@ import {
   SqliteStorageClient,
   TargetNameReservation,
   rawFileHash,
+  recoveryStateCommitment,
   restoreBackupToEmptyDataRoot,
   verifyCompleteBackupBundle,
+  type RecoveryHeadProvider,
 } from "@memo-graph/storage-sqlite";
 
 import { testRecoveryHeadProvider } from "../helpers/recovery.js";
@@ -53,6 +68,195 @@ function temporaryRoot(label: string): string {
   );
   cleanup.push(path);
   return path;
+}
+
+function writeRecoveryKeys(
+  parent: string,
+  keys: { privateKey: KeyObject; publicKey: KeyObject },
+): { privateKeyPath: string; publicKeyPath: string } {
+  const privateKeyPath = join(parent, "recovery-private.pem");
+  const publicKeyPath = join(parent, "recovery-public.pem");
+  writeFileSync(
+    privateKeyPath,
+    keys.privateKey.export({ format: "pem", type: "pkcs8" }),
+    { mode: 0o600 },
+  );
+  writeFileSync(
+    publicKeyPath,
+    keys.publicKey.export({ format: "pem", type: "spki" }),
+    { mode: 0o600 },
+  );
+  return { privateKeyPath, publicKeyPath };
+}
+
+function spawnRecoveryLockHolder(input: {
+  providerDirectory: string;
+  privateKeyPath: string;
+  publicKeyPath: string;
+  mode:
+    | "after_lock_publish"
+    | "after_journal_fsync"
+    | "after_terminal_record_fsync"
+    | "after_terminal_index_fsync";
+  pendingId?: string;
+}): ChildProcessWithoutNullStreams {
+  return spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      [
+        'import { createPrivateKey, createPublicKey } from "node:crypto";',
+        'import { readFileSync } from "node:fs";',
+        'import { FileRecoveryHeadProvider } from "@memo-graph/storage-sqlite";',
+        "const providerDirectory = process.argv[1];",
+        "const privateKeyPath = process.argv[2];",
+        "const publicKeyPath = process.argv[3];",
+        "const mode = process.argv[4];",
+        "const pendingId = process.argv[5];",
+        "const block = () => {",
+        '  process.stdout.write("locked\\n");',
+        "  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);",
+        "};",
+        "const provider = new FileRecoveryHeadProvider({",
+        "  directory: providerDirectory,",
+        '  authorityKeyId: "recovery_authority:crash-lock",',
+        "  trustRootVersion: 1,",
+        "  privateKey: createPrivateKey(readFileSync(privateKeyPath)),",
+        "  publicKey: createPublicKey(readFileSync(publicKeyPath)),",
+        "  testHooks:",
+        '    mode === "after_lock_publish"',
+        "      ? { afterLockPublished: block }",
+        '      : mode === "after_journal_fsync"',
+        "        ? { afterJournalFsync: block }",
+        '        : mode === "after_terminal_record_fsync"',
+        "          ? { afterTerminalRecordFsync: block }",
+        "          : { afterTerminalIndexFsync: block },",
+        "});",
+        'if (mode === "after_journal_fsync") {',
+        "  const current = provider.readCurrent();",
+        '  if (current === null) throw new Error("missing recovery head");',
+        "  provider.reserve({",
+        '    operation: "canonical",',
+        '    idempotency_key: "recovery:crash-after-journal",',
+        `    request_hash: "sha256:${"a".repeat(64)}",`,
+        "    prior_minimums: current.payload.minimums,",
+        "    prior_state_commitment_hash: current.payload.state_commitment_hash,",
+        "  });",
+        "}",
+        'if (mode.startsWith("after_terminal_")) {',
+        '  if (!pendingId) throw new Error("missing pending id");',
+        "  provider.reconcile(pendingId);",
+        "}",
+      ].join("\n"),
+      input.providerDirectory,
+      input.privateKeyPath,
+      input.publicKeyPath,
+      input.mode,
+      input.pendingId ?? "",
+    ],
+    { stdio: ["pipe", "pipe", "pipe"] },
+  );
+}
+
+function commitProviderEffect(
+  provider: RecoveryHeadProvider,
+  input: {
+    idempotencyKey: string;
+    requestHash: ReturnType<typeof CanonicalHashSchema.parse>;
+  },
+) {
+  const current = provider.readCurrent();
+  if (current === null) {
+    throw new Error("missing recovery head");
+  }
+  const authorization = provider.reserve({
+    operation: "canonical",
+    idempotency_key: input.idempotencyKey,
+    request_hash: input.requestHash,
+    prior_minimums: current.payload.minimums,
+    prior_state_commitment_hash:
+      current.payload.state_commitment_hash,
+  });
+  provider.commit({
+    pending_id: authorization.reservation.pending_id,
+    backup_manifest_hash: null,
+    state_commitment_hash: current.payload.state_commitment_hash,
+    root_id: current.payload.root_id,
+    principal_id: current.payload.principal_id,
+    committed_minimums: current.payload.minimums,
+  });
+  return { authorization, current };
+}
+
+function bootstrapProvider(provider: RecoveryHeadProvider): void {
+  const zeroHash = CanonicalHashSchema.parse(
+    canonicalSha256({ recovery_fixture: "zero" }),
+  );
+  const minimums = RecoveryMinimumsSchema.parse({
+    ledger_epoch: 0,
+    latest_receipt_hash: null,
+    tombstone_epoch: 0,
+    purge_frontier_hash: zeroHash,
+    projection_frontier_hash: zeroHash,
+    context_frontier_hash: zeroHash,
+    learning_control_epoch: 0,
+    learning_release_revision: 0,
+    learning_frontier_hash: zeroHash,
+    required_keys: [],
+    encryption_frontier_hash: zeroHash,
+    key_live_ciphertexts: [],
+    g6_release_control_hash: null,
+  });
+  const rootId = "root_recovery_fixture";
+  const principalId = "principal_recovery_fixture";
+  provider.bootstrap({
+    root_id: rootId,
+    principal_id: principalId,
+    minimums,
+    state_commitment_hash: recoveryStateCommitment({
+      root_id: rootId,
+      principal_id: principalId,
+      minimums,
+    }),
+  });
+}
+
+async function waitForLockHolder(
+  child: ChildProcessWithoutNullStreams,
+): Promise<void> {
+  let timeout: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      once(child.stdout, "data").then(([chunk]) => {
+        expect(String(chunk)).toContain("locked");
+      }),
+      once(child, "exit").then(([code, signal]) => {
+        throw new Error(
+          `recovery lock holder exited before readiness (${String(code)}:${String(signal)})`,
+        );
+      }),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("recovery lock holder timed out")),
+          3_000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+async function killLockHolder(
+  child: ChildProcessWithoutNullStreams,
+): Promise<void> {
+  child.kill("SIGKILL");
+  if (child.exitCode === null && child.signalCode === null) {
+    await once(child, "exit");
+  }
 }
 
 afterEach(() => {
@@ -234,6 +438,123 @@ describe("complete backup publication", () => {
     ).rejects.toMatchObject({ code: "STALE_RECOVERY_HEAD" });
   });
 
+  it("rejects rollback of an internally valid provider behind the SQLite checkpoint", async () => {
+    const root = temporaryRoot("provider-rollback");
+    const dataRoot = join(root, "data");
+    const providerDirectory = join(root, "provider");
+    const providerSnapshot = join(root, "provider-snapshot");
+    const keys = generateKeyPairSync("ed25519");
+    let provider = new FileRecoveryHeadProvider({
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:provider-rollback",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+      create: true,
+    });
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider: provider,
+    });
+    cpSync(providerDirectory, providerSnapshot, { recursive: true });
+    chmodSync(providerSnapshot, 0o700);
+    await storage.commitEpisode(
+      inlineEpisode({
+        episodeId: "episode_provider_rollback_advance",
+        evidenceId: "evidence_provider_rollback_advance",
+        idempotencyKey: "provider-rollback-advance",
+      }),
+    );
+    await storage.close();
+    rmSync(providerDirectory, { recursive: true });
+    cpSync(providerSnapshot, providerDirectory, { recursive: true });
+    for (const directory of [
+      providerDirectory,
+      join(providerDirectory, "terminal"),
+      join(providerDirectory, "terminal", "records"),
+      join(providerDirectory, "terminal", "index"),
+      join(providerDirectory, "terminal", "sequence"),
+    ]) {
+      chmodSync(directory, 0o700);
+    }
+    provider = new FileRecoveryHeadProvider({
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:provider-rollback",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    });
+
+    await expect(
+      SqliteStorageClient.open({
+        dataRoot,
+        recoveryHeadProvider: provider,
+      }),
+    ).rejects.toMatchObject({ code: "STALE_RECOVERY_HEAD" });
+  });
+
+  it("rejects rolled-back provider state when a newer immutable sequence witness remains", async () => {
+    const root = temporaryRoot("provider-state-rollback");
+    const dataRoot = join(root, "data");
+    const providerDirectory = join(root, "provider");
+    const oldHead = join(root, "old-head.json");
+    const oldJournal = join(root, "old-journal.jsonl");
+    const keys = generateKeyPairSync("ed25519");
+    const providerInput = {
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:state-rollback",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    };
+    const provider = new FileRecoveryHeadProvider({
+      ...providerInput,
+      create: true,
+    });
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      recoveryHeadProvider: provider,
+    });
+    await storage.commitEpisode(
+      inlineEpisode({
+        episodeId: "episode_provider_state_rollback_1",
+        evidenceId: "evidence_provider_state_rollback_1",
+        idempotencyKey: "provider-state-rollback-advance-1",
+      }),
+    );
+    copyFileSync(join(providerDirectory, "head.json"), oldHead);
+    copyFileSync(join(providerDirectory, "journal.jsonl"), oldJournal);
+    for (const sequence of [2, 3]) {
+      await storage.commitEpisode(
+        inlineEpisode({
+          episodeId: `episode_provider_state_rollback_${sequence}`,
+          evidenceId: `evidence_provider_state_rollback_${sequence}`,
+          idempotencyKey: `provider-state-rollback-advance-${sequence}`,
+        }),
+      );
+    }
+    await storage.close();
+    const sequenceDirectory = join(
+      providerDirectory,
+      "terminal",
+      "sequence",
+    );
+    for (const entry of readdirSync(sequenceDirectory)) {
+      unlinkSync(join(sequenceDirectory, entry));
+    }
+    expect(readdirSync(sequenceDirectory)).toHaveLength(0);
+    expect(() => new FileRecoveryHeadProvider(providerInput)).not.toThrow();
+    expect(readdirSync(sequenceDirectory)).toHaveLength(1);
+
+    copyFileSync(oldHead, join(providerDirectory, "head.json"));
+    copyFileSync(oldJournal, join(providerDirectory, "journal.jsonl"));
+    expect(
+      () => new FileRecoveryHeadProvider(providerInput),
+    ).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+  });
+
   it("rejects absent, forged, and wrong-authority anchors", async () => {
     const { backup, recoveryHeadProvider } =
       await completeBackup("forged_anchor");
@@ -397,6 +718,42 @@ describe("complete backup publication", () => {
     }
   });
 
+  it("recovers only an exact dead-process target reservation", () => {
+    const parent = temporaryRoot("stale-target-reservation");
+    const target = join(parent, "reserved-target");
+    const alias = canonicalSha256({
+      target_name: "reserved-target",
+    }).slice("sha256:".length, "sha256:".length + 32);
+    const reservationPath = join(
+      parent,
+      `.memo-restore-${alias}.reservation`,
+    );
+    writeFileSync(
+      reservationPath,
+      `${canonicalJson({
+        schema_version: "1.0.0",
+        reservation_id: alias,
+        operation_id: "restore:stale-reservation",
+        process_id: 2_147_483_647,
+      })}\n`,
+      { mode: 0o600 },
+    );
+    expect(() =>
+      TargetNameReservation.acquire(
+        target,
+        "restore:wrong-reservation",
+      ),
+    ).toThrowError(
+      expect.objectContaining({ code: "TARGET_EXISTS" }),
+    );
+    const recovered = TargetNameReservation.acquire(
+      target,
+      "restore:stale-reservation",
+    );
+    recovered.release();
+    expect(existsSync(reservationPath)).toBe(false);
+  });
+
   it("fails closed on parent identity drift and an unavailable no-replace helper", () => {
     const parent = temporaryRoot("publish-identity-parent");
     const source = join(parent, "source");
@@ -410,14 +767,15 @@ describe("complete backup publication", () => {
         targetParentIdentity: {
           dev: parentStat.dev,
           ino: parentStat.ino + 1n,
+          uid: parentStat.uid,
+          mode: parentStat.mode,
         },
       }),
     ).toThrowError(
       expect.objectContaining({
-        code:
-          process.platform === "darwin"
-            ? "TARGET_EXISTS"
-            : "NO_REPLACE_UNSUPPORTED",
+        code: process.platform === "darwin"
+          ? "INVALID_DATA_ROOT"
+          : "NO_REPLACE_UNSUPPORTED",
       }),
     );
     expect(existsSync(source)).toBe(true);
@@ -430,6 +788,8 @@ describe("complete backup publication", () => {
         targetParentIdentity: {
           dev: parentStat.dev,
           ino: parentStat.ino,
+          uid: parentStat.uid,
+          mode: parentStat.mode,
         },
         helperPath: join(parent, "missing-helper"),
       }),
@@ -440,7 +800,7 @@ describe("complete backup publication", () => {
     expect(existsSync(target)).toBe(false);
   });
 
-  it("blocks journal/head tears and an unresolved provider lock", async () => {
+  it("repairs a journal-ahead head tear and blocks an unresolved lock", async () => {
     const keys = generateKeyPairSync("ed25519");
     const providerDirectory = join(temporaryRoot("provider-parent"), "head");
     const provider = new FileRecoveryHeadProvider({
@@ -463,30 +823,6 @@ describe("complete backup publication", () => {
     writeFileSync(join(providerDirectory, "head.json"), oldHead, {
       mode: 0o600,
     });
-    expect(
-      () =>
-        new FileRecoveryHeadProvider({
-          directory: providerDirectory,
-          authorityKeyId: "recovery_authority:file",
-          trustRootVersion: 1,
-          privateKey: keys.privateKey,
-          publicKey: keys.publicKey,
-        }),
-    ).toThrowError(
-      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
-    );
-
-    const terminal = JSON.parse(
-      readFileSync(join(providerDirectory, "journal.jsonl"), "utf8")
-        .trim()
-        .split("\n")
-        .at(-1) ?? "",
-    ) as { state: unknown };
-    writeFileSync(
-      join(providerDirectory, "head.json"),
-      `${JSON.stringify(terminal.state)}\n`,
-      { mode: 0o600 },
-    );
     const recovered = new FileRecoveryHeadProvider({
       directory: providerDirectory,
       authorityKeyId: "recovery_authority:file",
@@ -495,6 +831,12 @@ describe("complete backup publication", () => {
       publicKey: keys.publicKey,
     });
     expect(recovered.readCurrent()?.anchor_hash).toBe(
+      backup.recovery_anchor.anchor_hash,
+    );
+    const repairedHead = JSON.parse(
+      readFileSync(join(providerDirectory, "head.json"), "utf8"),
+    ) as { current: { anchor_hash: string } };
+    expect(repairedHead.current.anchor_hash).toBe(
       backup.recovery_anchor.anchor_hash,
     );
     const lockPath = join(providerDirectory, ".head.lock");
@@ -507,7 +849,211 @@ describe("complete backup publication", () => {
     );
   });
 
-  it("rejects duplicate terminal recovery bindings in authenticated state", async () => {
+  it("recovers a signed recovery-head lock only after its owner is proven dead", async () => {
+    const keys = generateKeyPairSync("ed25519");
+    const parent = temporaryRoot("crash-lock-provider-parent");
+    const providerDirectory = join(parent, "head");
+    const providerInput = {
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:crash-lock",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    };
+    const provider = new FileRecoveryHeadProvider({
+      ...providerInput,
+      create: true,
+    });
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("crash-lock-source"),
+      recoveryHeadProvider: provider,
+    });
+    const expectedAnchor = provider.readCurrent();
+    await storage.close();
+    const keyPaths = writeRecoveryKeys(parent, keys);
+
+    for (const mode of [
+      "after_lock_publish",
+      "after_journal_fsync",
+    ] as const) {
+      const child = spawnRecoveryLockHolder({
+        providerDirectory,
+        ...keyPaths,
+        mode,
+      });
+      try {
+        await waitForLockHolder(child);
+        const lock = JSON.parse(
+          readFileSync(join(providerDirectory, ".head.lock"), "utf8"),
+        ) as { payload?: { process_id?: unknown } };
+        expect(lock.payload?.process_id).toBe(child.pid);
+        expect(
+          () => new FileRecoveryHeadProvider(providerInput),
+        ).toThrowError(
+          expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+        );
+      } finally {
+        await killLockHolder(child);
+      }
+
+      const recovered = new FileRecoveryHeadProvider(providerInput);
+      expect(recovered.readCurrent()?.anchor_hash).toBe(
+        expectedAnchor?.anchor_hash,
+      );
+      if (mode === "after_journal_fsync") {
+        const [pending] = recovered.unresolvedPending();
+        expect(pending).toMatchObject({
+          idempotency_key: "recovery:crash-after-journal",
+          state: "pending",
+        });
+        recovered.abort({
+          pending_id: pending?.pending_id ?? "missing",
+          effect_provably_absent: true,
+        });
+      }
+      expect(existsSync(join(providerDirectory, ".head.lock"))).toBe(false);
+    }
+  });
+
+  it("recovers terminal replay identity across both durable crash windows", async () => {
+    const keys = generateKeyPairSync("ed25519");
+    const parent = temporaryRoot("terminal-crash-provider-parent");
+    const providerDirectory = join(parent, "head");
+    const providerInput = {
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:crash-lock",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    };
+    let provider = new FileRecoveryHeadProvider({
+      ...providerInput,
+      create: true,
+    });
+    bootstrapProvider(provider);
+    const keyPaths = writeRecoveryKeys(parent, keys);
+
+    for (const [index, mode] of (
+      [
+        "after_terminal_record_fsync",
+        "after_terminal_index_fsync",
+      ] as const
+    ).entries()) {
+      const idempotencyKey = `recovery:terminal-crash:${index}`;
+      const requestHash = CanonicalHashSchema.parse(
+        canonicalSha256({ terminal_crash: index }),
+      );
+      const { authorization } = commitProviderEffect(provider, {
+        idempotencyKey,
+        requestHash,
+      });
+      const child = spawnRecoveryLockHolder({
+        providerDirectory,
+        ...keyPaths,
+        mode,
+        pendingId: authorization.reservation.pending_id,
+      });
+      try {
+        await waitForLockHolder(child);
+        expect(
+          () => new FileRecoveryHeadProvider(providerInput),
+        ).toThrowError(
+          expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+        );
+      } finally {
+        await killLockHolder(child);
+      }
+
+      provider = new FileRecoveryHeadProvider(providerInput);
+      const current = provider.readCurrent();
+      expect(provider.unresolvedPending()).toHaveLength(0);
+      if (current === null) {
+        throw new Error("missing recovered head");
+      }
+      const replay = provider.reserve({
+        operation: "canonical",
+        idempotency_key: idempotencyKey,
+        request_hash: requestHash,
+        prior_minimums: current.payload.minimums,
+        prior_state_commitment_hash:
+          current.payload.state_commitment_hash,
+      });
+      expect(replay.reservation).toMatchObject({
+        pending_id: authorization.reservation.pending_id,
+        idempotency_key: idempotencyKey,
+        request_hash: requestHash,
+        state: "reconciled",
+      });
+    }
+
+    expect(
+      readdirSync(join(providerDirectory, "terminal", "records")),
+    ).toHaveLength(2);
+    expect(
+      readdirSync(join(providerDirectory, "terminal", "index")),
+    ).toHaveLength(2);
+  });
+
+  it("rejects forged or unsafe recovery-head lock metadata", async () => {
+    const keys = generateKeyPairSync("ed25519");
+    const parent = temporaryRoot("unsafe-lock-provider-parent");
+    const providerDirectory = join(parent, "head");
+    const providerInput = {
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:crash-lock",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    };
+    new FileRecoveryHeadProvider({ ...providerInput, create: true });
+    writeFileSync(
+      join(providerDirectory, ".head-lock-interrupted.tmp"),
+      '{"partial":',
+      { mode: 0o600 },
+    );
+    expect(() => new FileRecoveryHeadProvider(providerInput)).not.toThrow();
+
+    const keyPaths = writeRecoveryKeys(parent, keys);
+    const child = spawnRecoveryLockHolder({
+      providerDirectory,
+      ...keyPaths,
+      mode: "after_lock_publish",
+    });
+    const lockPath = join(providerDirectory, ".head.lock");
+    const signedLock = await (async () => {
+      try {
+        await waitForLockHolder(child);
+        return readFileSync(lockPath, "utf8");
+      } finally {
+        await killLockHolder(child);
+      }
+    })();
+
+    chmodSync(lockPath, 0o640);
+    expect(() => new FileRecoveryHeadProvider(providerInput)).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+    chmodSync(lockPath, 0o600);
+
+    const forged = JSON.parse(signedLock) as {
+      payload: { process_id: number };
+    };
+    forged.payload.process_id = 2_147_483_647;
+    writeFileSync(lockPath, `${canonicalJson(forged)}\n`, { mode: 0o600 });
+    expect(() => new FileRecoveryHeadProvider(providerInput)).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+
+    const symlinkTarget = join(parent, "signed-lock-copy.json");
+    writeFileSync(symlinkTarget, signedLock, { mode: 0o600 });
+    unlinkSync(lockPath);
+    symlinkSync(symlinkTarget, lockPath);
+    expect(() => new FileRecoveryHeadProvider(providerInput)).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+  });
+
+  it("rejects duplicate active recovery bindings in authenticated state", async () => {
     const keys = generateKeyPairSync("ed25519");
     const providerDirectory = join(
       temporaryRoot("duplicate-terminal-provider-parent"),
@@ -521,18 +1067,21 @@ describe("complete backup publication", () => {
       publicKey: keys.publicKey,
       create: true,
     });
-    const storage = await SqliteStorageClient.open({
-      dataRoot: temporaryRoot("duplicate-terminal-source"),
-      recoveryHeadProvider: provider,
+    bootstrapProvider(provider);
+    const current = provider.readCurrent();
+    if (current === null) {
+      throw new Error("missing recovery head");
+    }
+    provider.reserve({
+      operation: "canonical",
+      idempotency_key: "commit:duplicate-active:0001",
+      request_hash: CanonicalHashSchema.parse(
+        canonicalSha256({ duplicate: "active" }),
+      ),
+      prior_minimums: current.payload.minimums,
+      prior_state_commitment_hash:
+        current.payload.state_commitment_hash,
     });
-    await storage.commitEpisode(
-      inlineEpisode({
-        episodeId: "episode_duplicate_terminal",
-        evidenceId: "evidence_duplicate_terminal",
-        idempotencyKey: "commit:duplicate-terminal:0001",
-      }),
-    );
-    await storage.close();
 
     const headPath = join(providerDirectory, "head.json");
     const journalPath = join(providerDirectory, "journal.jsonl");
@@ -637,6 +1186,157 @@ describe("complete backup publication", () => {
     );
   });
 
+  it("fails closed on terminal replay tampering and unsafe terminal metadata", async () => {
+    const keys = generateKeyPairSync("ed25519");
+    const providerDirectory = join(
+      temporaryRoot("terminal-security-parent"),
+      "head",
+    );
+    const providerInput = {
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:terminal-security",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    };
+    const provider = new FileRecoveryHeadProvider({
+      ...providerInput,
+      create: true,
+    });
+    bootstrapProvider(provider);
+    const idempotencyKey = "recovery:terminal-security:0001";
+    const requestHash = CanonicalHashSchema.parse(
+      canonicalSha256({ terminal_security: true }),
+    );
+    const { authorization } = commitProviderEffect(provider, {
+      idempotencyKey,
+      requestHash,
+    });
+    provider.reconcile(authorization.reservation.pending_id);
+
+    const terminalDirectory = join(providerDirectory, "terminal");
+    const recordsDirectory = join(terminalDirectory, "records");
+    const indexDirectory = join(terminalDirectory, "index");
+    const recordPath = join(
+      recordsDirectory,
+      readdirSync(recordsDirectory)[0] ?? "missing",
+    );
+    const indexPath = join(
+      indexDirectory,
+      readdirSync(indexDirectory)[0] ?? "missing",
+    );
+    for (const directory of [
+      terminalDirectory,
+      recordsDirectory,
+      indexDirectory,
+    ]) {
+      expect(statSync(directory).mode & 0o777).toBe(0o700);
+    }
+    expect(statSync(recordPath).mode & 0o777).toBe(0o600);
+    expect(statSync(indexPath).mode & 0o777).toBe(0o600);
+
+    const recordRaw = readFileSync(recordPath, "utf8");
+    const record = JSON.parse(recordRaw) as {
+      payload: {
+        pending: { reservation: { request_hash: string } };
+      };
+    };
+    record.payload.pending.reservation.request_hash =
+      `sha256:${"f".repeat(64)}`;
+    writeFileSync(recordPath, `${canonicalJson(record)}\n`, { mode: 0o600 });
+    expect(
+      () => new FileRecoveryHeadProvider(providerInput).readCurrent(),
+    ).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+    writeFileSync(recordPath, recordRaw, { mode: 0o600 });
+
+    const reopened = new FileRecoveryHeadProvider(providerInput);
+    const indexRaw = readFileSync(indexPath, "utf8");
+    const indexRecord = JSON.parse(indexRaw) as {
+      payload: { record_hash: string };
+    };
+    indexRecord.payload.record_hash = `sha256:${"e".repeat(64)}`;
+    writeFileSync(indexPath, `${canonicalJson(indexRecord)}\n`, {
+      mode: 0o600,
+    });
+    const current = reopened.readCurrent();
+    if (current === null) {
+      throw new Error("missing recovery head");
+    }
+    expect(() =>
+      reopened.reserve({
+        operation: "canonical",
+        idempotency_key: idempotencyKey,
+        request_hash: requestHash,
+        prior_minimums: current.payload.minimums,
+        prior_state_commitment_hash:
+          current.payload.state_commitment_hash,
+      }),
+    ).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+
+    writeFileSync(indexPath, indexRaw, { mode: 0o600 });
+    unlinkSync(indexPath);
+    symlinkSync(join(indexDirectory, "missing.json"), indexPath);
+    expect(() =>
+      reopened.reserve({
+        operation: "canonical",
+        idempotency_key: idempotencyKey,
+        request_hash: requestHash,
+        prior_minimums: current.payload.minimums,
+        prior_state_commitment_hash:
+          current.payload.state_commitment_hash,
+      }),
+    ).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+
+    unlinkSync(indexPath);
+    writeFileSync(indexPath, indexRaw, { mode: 0o600 });
+    const headPath = join(providerDirectory, "head.json");
+    const journalPath = join(providerDirectory, "journal.jsonl");
+    const head = JSON.parse(readFileSync(headPath, "utf8")) as {
+      state_hash: string;
+      terminal_frontier: {
+        record_count: number;
+        head_record_hash: string;
+      };
+    };
+    const tamperedHeadBody = {
+      ...head,
+      terminal_frontier: {
+        ...head.terminal_frontier,
+        head_record_hash: `sha256:${"d".repeat(64)}`,
+      },
+    };
+    const tamperedHead = {
+      ...tamperedHeadBody,
+      state_hash: canonicalSha256Omitting(tamperedHeadBody, [
+        "state_hash",
+      ]),
+    };
+    writeFileSync(
+      journalPath,
+      `${readFileSync(journalPath, "utf8")}${canonicalJson({
+        kind: "terminal_frontier_tamper",
+        previous_state_hash: head.state_hash,
+        state: tamperedHead,
+        state_hash: tamperedHead.state_hash,
+      })}\n`,
+      { mode: 0o600 },
+    );
+    writeFileSync(headPath, `${canonicalJson(tamperedHead)}\n`, {
+      mode: 0o600,
+    });
+    expect(
+      () => new FileRecoveryHeadProvider(providerInput).readCurrent(),
+    ).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+  });
+
   it("rejects a mismatched recovery key pair before creating provider state", () => {
     const privateKeys = generateKeyPairSync("ed25519");
     const unrelatedKeys = generateKeyPairSync("ed25519");
@@ -729,13 +1429,344 @@ describe("complete backup publication", () => {
           record.pending?.reservation.state === "reconciled" &&
           record.state.pending.every(
             ({ reservation }) =>
-              reservation.state === "reconciled",
+              reservation.state === "pending" ||
+              reservation.state === "committed",
           ),
       ),
     ).toBe(true);
     expect(recoveryHeadProvider.unresolvedPending()).toHaveLength(0);
     expect(recoveryHeadProvider.readCurrent()?.payload.generation).toBe(
       (before?.payload.generation ?? 0) + 8,
+    );
+  });
+
+  it("keeps file-provider active state bounded while retaining exact replay", async () => {
+    const keys = generateKeyPairSync("ed25519");
+    const providerDirectory = join(
+      temporaryRoot("bounded-terminal-provider-parent"),
+      "head",
+    );
+    const providerInput = {
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:bounded-terminal",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    };
+    const provider = new FileRecoveryHeadProvider({
+      ...providerInput,
+      create: true,
+    });
+    bootstrapProvider(provider);
+    const operationCount = 64;
+    let first:
+      | {
+          idempotencyKey: string;
+          requestHash: ReturnType<typeof CanonicalHashSchema.parse>;
+          pendingId: string;
+        }
+      | undefined;
+    let oneOperationHeadBytes = 0;
+    for (let index = 0; index < operationCount; index += 1) {
+      const idempotencyKey = `recovery:bounded-terminal:${String(index).padStart(4, "0")}`;
+      const requestHash = CanonicalHashSchema.parse(
+        canonicalSha256({ bounded_terminal: index }),
+      );
+      const { authorization } = commitProviderEffect(provider, {
+        idempotencyKey,
+        requestHash,
+      });
+      provider.reconcile(authorization.reservation.pending_id);
+      if (index === 0) {
+        first = {
+          idempotencyKey,
+          requestHash,
+          pendingId: authorization.reservation.pending_id,
+        };
+        oneOperationHeadBytes = statSync(
+          join(providerDirectory, "head.json"),
+        ).size;
+      }
+    }
+
+    const headPath = join(providerDirectory, "head.json");
+    const headRaw = readFileSync(headPath, "utf8");
+    const head = JSON.parse(headRaw) as {
+      pending: unknown[];
+      terminal_frontier: {
+        record_count: number;
+        head_record_hash: string;
+      };
+    };
+    expect(head.pending).toEqual([]);
+    expect(head.terminal_frontier.record_count).toBe(operationCount);
+    expect(head.terminal_frontier.head_record_hash).toMatch(
+      /^sha256:[a-f0-9]{64}$/,
+    );
+    expect(Buffer.byteLength(headRaw) - oneOperationHeadBytes).toBeLessThan(
+      256,
+    );
+    expect(
+      readdirSync(join(providerDirectory, "terminal", "records")),
+    ).toHaveLength(operationCount);
+    expect(
+      readdirSync(join(providerDirectory, "terminal", "index")),
+    ).toHaveLength(operationCount);
+
+    const terminalReads: Array<"index" | "record"> = [];
+    const reopened = new FileRecoveryHeadProvider({
+      ...providerInput,
+      testHooks: {
+        onTerminalRead: (kind) => terminalReads.push(kind),
+      },
+    });
+    expect(reopened.unresolvedPending()).toHaveLength(0);
+    const current = reopened.readCurrent();
+    if (current === null || first === undefined) {
+      throw new Error("missing replay fixture");
+    }
+    terminalReads.length = 0;
+    const replay = reopened.reserve({
+      operation: "canonical",
+      idempotency_key: first.idempotencyKey,
+      request_hash: first.requestHash,
+      prior_minimums: current.payload.minimums,
+      prior_state_commitment_hash:
+        current.payload.state_commitment_hash,
+    });
+    expect(replay.reservation).toMatchObject({
+      pending_id: first.pendingId,
+      state: "reconciled",
+    });
+    expect(terminalReads).toEqual(["record", "index", "record"]);
+    expect(() =>
+      reopened.reserve({
+        operation: "canonical",
+        idempotency_key: first.idempotencyKey,
+        request_hash: CanonicalHashSchema.parse(
+          canonicalSha256({ changed_request: true }),
+        ),
+        prior_minimums: current.payload.minimums,
+        prior_state_commitment_hash:
+          current.payload.state_commitment_hash,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "CONFLICT" }));
+  }, 30_000);
+
+  it("rejects oversized provider state and journal files before reading them", () => {
+    const keys = generateKeyPairSync("ed25519");
+    const providerDirectory = join(
+      temporaryRoot("bounded-provider-files-parent"),
+      "head",
+    );
+    const providerInput = {
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:bounded-provider-files",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    };
+    new FileRecoveryHeadProvider({
+      ...providerInput,
+      create: true,
+    });
+    const headPath = join(providerDirectory, "head.json");
+    const journalPath = join(providerDirectory, "journal.jsonl");
+    const headRaw = readFileSync(headPath);
+    const journalRaw = readFileSync(journalPath);
+
+    truncateSync(headPath, 1_048_577);
+    expect(() => new FileRecoveryHeadProvider(providerInput)).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+    writeFileSync(headPath, headRaw, { mode: 0o600 });
+
+    truncateSync(journalPath, 100_000_000);
+    expect(() => new FileRecoveryHeadProvider(providerInput)).toThrowError(
+      expect.objectContaining({ code: "RECOVERY_AUTHORITY_INVALID" }),
+    );
+    writeFileSync(journalPath, journalRaw, { mode: 0o600 });
+    expect(() => new FileRecoveryHeadProvider(providerInput)).not.toThrow();
+  });
+
+  it("gives the memory provider equivalent bounded replay behavior", async () => {
+    const provider = testRecoveryHeadProvider(
+      "recovery_authority:bounded-memory",
+    );
+    bootstrapProvider(provider);
+    const before = provider.readCurrent();
+    const operationCount = 256;
+    let first:
+      | {
+          idempotencyKey: string;
+          requestHash: ReturnType<typeof CanonicalHashSchema.parse>;
+          pendingId: string;
+        }
+      | undefined;
+    for (let index = 0; index < operationCount; index += 1) {
+      const idempotencyKey = `recovery:bounded-memory:${String(index).padStart(4, "0")}`;
+      const requestHash = CanonicalHashSchema.parse(
+        canonicalSha256({ bounded_memory: index }),
+      );
+      const { authorization } = commitProviderEffect(provider, {
+        idempotencyKey,
+        requestHash,
+      });
+      provider.reconcile(authorization.reservation.pending_id);
+      first ??= {
+        idempotencyKey,
+        requestHash,
+        pendingId: authorization.reservation.pending_id,
+      };
+      expect(provider.unresolvedPending()).toHaveLength(0);
+    }
+    expect(provider.readCurrent()?.payload.generation).toBe(
+      (before?.payload.generation ?? 0) + operationCount,
+    );
+    const current = provider.readCurrent();
+    if (current === null || first === undefined) {
+      throw new Error("missing memory replay fixture");
+    }
+    expect(
+      provider.reserve({
+        operation: "canonical",
+        idempotency_key: first.idempotencyKey,
+        request_hash: first.requestHash,
+        prior_minimums: current.payload.minimums,
+        prior_state_commitment_hash:
+          current.payload.state_commitment_hash,
+      }).reservation,
+    ).toMatchObject({
+      pending_id: first.pendingId,
+      state: "reconciled",
+    });
+  });
+
+  it("caps active recovery reservations without blocking an exact retry", () => {
+    const provider = testRecoveryHeadProvider(
+      "recovery_authority:active-capacity",
+    );
+    bootstrapProvider(provider);
+    const current = provider.readCurrent();
+    if (current === null) {
+      throw new Error("missing recovery head");
+    }
+    let first:
+      | {
+          idempotencyKey: string;
+          requestHash: ReturnType<typeof CanonicalHashSchema.parse>;
+          pendingId: string;
+        }
+      | undefined;
+    for (let index = 0; index < 64; index += 1) {
+      const idempotencyKey = `recovery:active-capacity:${String(index).padStart(4, "0")}`;
+      const requestHash = CanonicalHashSchema.parse(
+        canonicalSha256({ active_capacity: index }),
+      );
+      const authorization = provider.reserve({
+        operation: "canonical",
+        idempotency_key: idempotencyKey,
+        request_hash: requestHash,
+        prior_minimums: current.payload.minimums,
+        prior_state_commitment_hash:
+          current.payload.state_commitment_hash,
+      });
+      first ??= {
+        idempotencyKey,
+        requestHash,
+        pendingId: authorization.reservation.pending_id,
+      };
+    }
+    expect(provider.unresolvedPending()).toHaveLength(64);
+    expect(() =>
+      provider.reserve({
+        operation: "canonical",
+        idempotency_key: "recovery:active-capacity:overflow",
+        request_hash: CanonicalHashSchema.parse(
+          canonicalSha256({ active_capacity: "overflow" }),
+        ),
+        prior_minimums: current.payload.minimums,
+        prior_state_commitment_hash:
+          current.payload.state_commitment_hash,
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "STORAGE_UNAVAILABLE",
+        retryable: true,
+      }),
+    );
+    if (first === undefined) {
+      throw new Error("missing active retry fixture");
+    }
+    expect(
+      provider.reserve({
+        operation: "canonical",
+        idempotency_key: first.idempotencyKey,
+        request_hash: first.requestHash,
+        prior_minimums: current.payload.minimums,
+        prior_state_commitment_hash:
+          current.payload.state_commitment_hash,
+      }).reservation.pending_id,
+    ).toBe(first.pendingId);
+  });
+
+  it("compacts the authenticated journal to a bounded snapshot", async () => {
+    const keys = generateKeyPairSync("ed25519");
+    const providerDirectory = join(
+      temporaryRoot("bounded-provider-parent"),
+      "head",
+    );
+    const recoveryHeadProvider = new FileRecoveryHeadProvider({
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:bounded",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+      create: true,
+    });
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("bounded-provider-source"),
+      recoveryHeadProvider,
+    });
+    const generationBefore =
+      recoveryHeadProvider.readCurrent()?.payload.generation ?? 0;
+    for (let index = 0; index < 24; index += 1) {
+      await storage.commitEpisode(
+        inlineEpisode({
+          episodeId: `episode_bounded_journal_${index}`,
+          evidenceId: `evidence_bounded_journal_${index}`,
+          idempotencyKey: `commit:bounded-journal:${String(index).padStart(4, "0")}`,
+        }),
+      );
+    }
+    await storage.close();
+
+    const records = readFileSync(
+      join(providerDirectory, "journal.jsonl"),
+      "utf8",
+    )
+      .trim()
+      .split("\n")
+      .map(
+        (line) =>
+          JSON.parse(line) as {
+            kind: string;
+            previous_state_hash: string | null;
+          },
+      );
+    expect(records.length).toBeLessThanOrEqual(64);
+    expect(records.some(({ kind }) => kind === "snapshot")).toBe(true);
+    expect(records[0]?.previous_state_hash).toBeNull();
+    const reopened = new FileRecoveryHeadProvider({
+      directory: providerDirectory,
+      authorityKeyId: "recovery_authority:bounded",
+      trustRootVersion: 1,
+      privateKey: keys.privateKey,
+      publicKey: keys.publicKey,
+    });
+    expect(reopened.unresolvedPending()).toHaveLength(0);
+    expect(reopened.readCurrent()?.payload.generation).toBe(
+      generationBefore + 24,
     );
   });
 });

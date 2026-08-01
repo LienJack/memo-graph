@@ -53,8 +53,8 @@ describe("versioned L1 governance schema", () => {
     const governance = await storage.governanceStatus();
     await storage.close();
 
-    expect(health.schema_version).toBe("0017");
-    expect(health.migrations).toHaveLength(17);
+    expect(health.schema_version).toBe("0019");
+    expect(health.migrations).toHaveLength(19);
     expect(health.tombstone_epoch).toBe(0);
     expect(health.secure_delete).toBe(true);
     expect(health.counts).toMatchObject({
@@ -118,6 +118,9 @@ describe("versioned L1 governance schema", () => {
         "purge_jobs",
         "purge_store_outcomes",
         "purge_receipts",
+        "purge_blob_deletion_intents",
+        "purge_physical_maintenance",
+        "secret_purge_physical_maintenance",
         "approval_consumptions",
         "governance_mutation_results",
       ]),

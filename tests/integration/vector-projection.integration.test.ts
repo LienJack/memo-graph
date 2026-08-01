@@ -49,7 +49,7 @@ describe("vector projection canonical delivery state", () => {
   it("keeps disabled mutations quiet, then registers, rebuilds, leases, and publishes", async () => {
     const client = await storage();
     try {
-      expect((await client.health()).schema_version).toBe("0017");
+      expect((await client.health()).schema_version).toBe("0019");
       await seedProjectionSources(client);
       expect(await client.vectorProjectionStatus()).toMatchObject({
         mode: "disabled",

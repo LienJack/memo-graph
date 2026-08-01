@@ -26,6 +26,7 @@ describe("G6 release control contract", () => {
         filesystem: "apfs",
       },
       configuration_digest: HASH_B,
+      decision_authority_hash: HASH_A,
       runtime_identity_hash: canonicalSha256({
         schema_version: "1.0.0",
         tested_implementation_digest: HASH_A,
@@ -40,6 +41,7 @@ describe("G6 release control contract", () => {
           filesystem: "apfs",
         },
         configuration_digest: HASH_B,
+        decision_authority_hash: HASH_A,
       }),
     });
     const base = {

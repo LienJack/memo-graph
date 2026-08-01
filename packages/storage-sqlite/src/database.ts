@@ -19,6 +19,7 @@ import { basename, join } from "node:path";
 
 import {
   CandidateChangeSchema,
+  CanonicalHashSchema,
   ContextSliceSchema,
   EpisodeSchema,
   EvidenceRecordSchema,
@@ -27,6 +28,7 @@ import {
   LearningControlSchema,
   LearningReleaseVersionSchema,
   LearningTraceSchema,
+  IdentifierSchema,
   ProjectionRevisionSchema,
   RecallRequestSchema,
   ReceiptSchema,
@@ -85,7 +87,10 @@ import {
   verifyAppliedMigrations,
 } from "./migrations.js";
 import { ProjectionRepository } from "./projection-repository.js";
-import { PurgeRepository } from "./purge-repository.js";
+import {
+  PurgeRepository,
+  type PurgeFailurePoint,
+} from "./purge-repository.js";
 import { recoveryContentHash } from "./recovery-hash.js";
 import { OperationalRepository } from "./operational-repository.js";
 import { RelationRepository } from "./relation-repository.js";
@@ -137,6 +142,8 @@ import {
   RunVectorTemporalSweepInputSchema,
   StaleVectorProjectionJobCommandSchema,
   VectorProjectionScopeInputSchema,
+  PurgeCompletionInputSchema,
+  PurgePhysicalMaintenanceSchema,
   PurgeRunInputSchema,
   RecordRecallCommandSchema,
   RelationTraversalInputSchema,
@@ -176,6 +183,7 @@ import {
   type MemoryCorrectionBasis,
   type MemoryDeleteResult,
   type PurgeRunResult,
+  type PurgePreparationResult,
   type ProjectionBatchResult,
   type ProjectionJobMutationResult,
   type ProjectionPageResult,
@@ -199,6 +207,7 @@ import type {
   EncryptionReceipt,
   CanonicalHash,
   RecoveryAnchor,
+  RecoveryMinimums,
   RecoveryPendingAuthorization,
 } from "@memo-graph/contracts";
 
@@ -215,6 +224,69 @@ type CommitResult = {
 type LatestReceipt = {
   receipt_hash: string;
 } | undefined;
+
+type RecoveryFrontierComponent =
+  | "ledger"
+  | "receipt"
+  | "tombstone"
+  | "purge"
+  | "maintenance"
+  | "fts"
+  | "layered"
+  | "relation"
+  | "context"
+  | "learning"
+  | "encryption"
+  | "release_control";
+
+type RecoveryFrontierChange = {
+  change_id: number;
+  component: RecoveryFrontierComponent;
+  table_name: string;
+  row_key: string;
+  operation: "insert" | "update" | "delete";
+  old_row_json: string | null;
+  new_row_json: string | null;
+};
+
+type RecoveryFrontierMetadata = {
+  schema_version: "1.0.0";
+  component_hashes: {
+    purge: CanonicalHash;
+    fts: CanonicalHash;
+    layered: CanonicalHash;
+    relation: CanonicalHash;
+    context: CanonicalHash;
+    learning: CanonicalHash;
+    encryption: CanonicalHash;
+  };
+  latest_receipt: {
+    resulting_epoch: number;
+    receipt_id: string;
+    receipt_hash: CanonicalHash;
+  } | null;
+  keys: Record<
+    string,
+    {
+      key_id: RecoveryMinimums["required_keys"][number]["key_id"];
+      key_generation: number;
+      state: EncryptionKeyInventory["keys"][number]["state"];
+    }
+  >;
+};
+
+type RecoveryFrontierCache = {
+  minimums: RecoveryMinimums;
+  metadata: RecoveryFrontierMetadata;
+  state_commitment_hash: CanonicalHash;
+  last_change_id: number;
+  initialized_at: string;
+  updated_at: string;
+  full_scan_count: number;
+};
+
+const MAX_RECOVERY_FRONTIER_CHANGES_PER_EFFECT = 20_000;
+const MAX_RECOVERY_FRONTIER_HISTORY = 4_096;
 
 type EvidenceRow = {
   evidence_id: string;
@@ -344,6 +416,7 @@ export class StorageDatabase {
   readonly #encryptedArtifacts: EncryptedArtifactStore;
   readonly #journalMode: string;
   readonly #inspectionOnly: boolean;
+  readonly #testOperations: boolean;
   readonly #busyTimeoutMs: number;
   readonly #principalId: string;
 
@@ -361,6 +434,7 @@ export class StorageDatabase {
     operationalMigrationFault?: (
       point: OperationalMigrationFailurePoint,
     ) => void;
+    purgeFault?: (point: PurgeFailurePoint) => void;
     admissionTrust?: SecretAdmissionTrust | null;
     releaseVerification?: {
       trust: G6ReleaseControlTrust;
@@ -370,6 +444,7 @@ export class StorageDatabase {
     this.#layout = options.layout;
     this.#principalId = options.secretPrincipalId ?? "principal_local_default";
     this.#inspectionOnly = options.inspectionOnly ?? false;
+    this.#testOperations = options.testOperations ?? false;
     this.#busyTimeoutMs = options.busyTimeoutMs;
     const persistedBytes = this.#inspectionOnly
       ? readFileSync(options.layout.database)
@@ -427,7 +502,13 @@ export class StorageDatabase {
     this.#governance = new GovernanceRepository(this.#database);
     this.#governedMemory = new GovernedMemoryReader(this.#database);
     this.#control = new ControlRepository(this.#database);
-    this.#purge = new PurgeRepository(this.#database, this.#blobStore);
+    this.#purge = new PurgeRepository(
+      this.#database,
+      this.#blobStore,
+      options.purgeFault === undefined
+        ? {}
+        : { fault: options.purgeFault },
+    );
     this.#graph = new GraphProjectionRepository(this.#database);
     this.#vector = new VectorProjectionRepository(this.#database);
     this.#projections = new ProjectionRepository(
@@ -467,6 +548,9 @@ export class StorageDatabase {
     ) {
       this.#reconcileBackupPurgeIntents();
       this.#encryptedArtifacts.reconcile();
+    }
+    if (this.#tableExists("recovery_frontier_cache")) {
+      this.#initializeRecoveryFrontier();
     }
   }
 
@@ -613,9 +697,37 @@ export class StorageDatabase {
   }
 
   finalizeSecretPurgeMaintenance(): void {
+    if (!this.#tableExists("secret_purge_physical_maintenance")) {
+      return;
+    }
+    const pending = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count
+             FROM secret_purge_physical_maintenance
+             WHERE state = 'pending'`,
+          )
+          .get() as { count: number }
+      ).count,
+    );
+    if (pending === 0) {
+      return;
+    }
     this.#reconcileBackupPurgeIntents();
     this.#encryptedArtifacts.finalizeRetired();
     this.finalizePurgeMaintenance();
+    const completedAt = new Date().toISOString();
+    const completed = this.#database
+      .prepare(
+        `UPDATE secret_purge_physical_maintenance
+         SET state = 'completed', completed_at = ?
+         WHERE state = 'pending'`,
+      )
+      .run(completedAt).changes;
+    if (completed !== pending) {
+      throw new StorageError("CORRUPTION");
+    }
   }
 
   finalizePurgeMaintenance(): void {
@@ -624,6 +736,16 @@ export class StorageDatabase {
   }
 
   recoveryState(): RecoveryStorageState {
+    if (!this.#tableExists("recovery_frontier_cache")) {
+      return this.#legacyRecoveryState();
+    }
+    if (!this.#inspectionOnly) {
+      this.#advanceRecoveryFrontier();
+    }
+    return this.#recoveryStateFromCache();
+  }
+
+  #legacyRecoveryState(): RecoveryStorageState {
     const identity = this.#recoveryRootIdentity();
     const purgeRows = this.#database
       .prepare(
@@ -744,7 +866,1129 @@ export class StorageDatabase {
     });
   }
 
+  #initializeRecoveryFrontier(): void {
+    const row = this.#database
+      .prepare(
+        `SELECT minimums_json FROM recovery_frontier_cache
+         WHERE singleton = 1`,
+      )
+      .get() as { minimums_json: string | null } | undefined;
+    if (row === undefined) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    if (row.minimums_json !== null) {
+      const cache = this.#readRecoveryFrontierCache();
+      const latestChangeId = this.#latestRecoveryFrontierChangeId();
+      if (this.#inspectionOnly && latestChangeId !== cache.last_change_id) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      if (!this.#inspectionOnly) {
+        this.#advanceRecoveryFrontier();
+      }
+      return;
+    }
+    if (this.#inspectionOnly) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+
+    this.#database
+      .transaction(() => {
+        const state = this.#legacyRecoveryState();
+        const fts = this.#fts.state();
+        const relationRows = this.#database
+          .prepare(
+            `SELECT relation_id, current_relation_revision_id, lifecycle
+             FROM relation_objects ORDER BY relation_id`,
+          )
+          .all();
+        const inventory = this.#keys.inventory();
+        const metadata: RecoveryFrontierMetadata = {
+          schema_version: "1.0.0",
+          component_hashes: {
+            purge: state.minimums.purge_frontier_hash,
+            fts: CanonicalHashSchema.parse(
+              canonicalSha256({ last_epoch: Number(fts.last_epoch) }),
+            ),
+            layered: CanonicalHashSchema.parse(
+              canonicalSha256(this.#projections.frontier()),
+            ),
+            relation: CanonicalHashSchema.parse(
+              canonicalSha256(relationRows),
+            ),
+            context: state.minimums.context_frontier_hash,
+            learning: state.minimums.learning_frontier_hash,
+            encryption: state.minimums.encryption_frontier_hash,
+          },
+          latest_receipt: this.#latestRecoveryReceiptCursor(),
+          keys: Object.fromEntries(
+            inventory.keys.map(({ key_id, generation, state: keyState }) => [
+              key_id,
+              {
+                key_id,
+                key_generation: generation,
+                state: keyState,
+              },
+            ]),
+          ),
+        };
+        const timestamp = now();
+        const lastChangeId = this.#latestRecoveryFrontierChangeId();
+        const cache: RecoveryFrontierCache = {
+          minimums: state.minimums,
+          metadata,
+          state_commitment_hash: state.state_commitment_hash,
+          last_change_id: lastChangeId,
+          initialized_at: timestamp,
+          updated_at: timestamp,
+          full_scan_count: 1,
+        };
+        const sourceRows = this.#recoveryFrontierSourceRows();
+        const rowsHash = this.#recoveryFrontierRowsHash(sourceRows);
+
+        this.#withRecoveryFrontierGuard(() => {
+          const insertRow = this.#database.prepare(
+            `INSERT INTO recovery_frontier_rows (
+               component, table_name, row_key, row_json, row_hash
+             ) VALUES (?, ?, ?, ?, ?)`,
+          );
+          for (const source of sourceRows) {
+            insertRow.run(
+              source.component,
+              source.table_name,
+              source.row_key,
+              source.row_json,
+              canonicalSha256(JSON.parse(source.row_json) as unknown),
+            );
+          }
+          const seedHash = canonicalSha256({
+            schema_version: "1.0.0",
+            minimums: cache.minimums,
+            metadata: cache.metadata,
+            state_commitment_hash: cache.state_commitment_hash,
+            last_change_id: cache.last_change_id,
+            rows_hash: rowsHash,
+            seeded_at: timestamp,
+          });
+          this.#database
+            .prepare(
+              `INSERT INTO recovery_frontier_seed (
+                 singleton, minimums_json, metadata_json,
+                 state_commitment_hash, last_change_id, rows_hash,
+                 seed_hash, seeded_at
+               ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)`,
+            )
+            .run(
+              canonicalJson(cache.minimums),
+              canonicalJson(cache.metadata),
+              cache.state_commitment_hash,
+              cache.last_change_id,
+              rowsHash,
+              seedHash,
+              timestamp,
+            );
+          this.#writeRecoveryFrontierCache(cache);
+          this.#compactRecoveryFrontierHistory(cache);
+        });
+      })
+      .immediate();
+  }
+
+  #recoveryStateFromCache(): RecoveryStorageState {
+    const cache = this.#readRecoveryFrontierCache();
+    const identity = this.#recoveryRootIdentity();
+    return RecoveryStorageStateSchema.parse({
+      ...identity,
+      minimums: cache.minimums,
+      state_commitment_hash: cache.state_commitment_hash,
+    });
+  }
+
+  #readRecoveryFrontierCache(): RecoveryFrontierCache {
+    const row = this.#database
+      .prepare(
+        `SELECT schema_version, minimums_json, metadata_json,
+                state_commitment_hash, last_change_id, cache_hash,
+                initialized_at, updated_at, full_scan_count
+         FROM recovery_frontier_cache WHERE singleton = 1`,
+      )
+      .get() as
+      | {
+          schema_version: string;
+          minimums_json: string | null;
+          metadata_json: string | null;
+          state_commitment_hash: CanonicalHash | null;
+          last_change_id: number;
+          cache_hash: CanonicalHash | null;
+          initialized_at: string | null;
+          updated_at: string | null;
+          full_scan_count: number;
+        }
+      | undefined;
+    try {
+      if (
+        row === undefined ||
+        row.schema_version !== "1.0.0" ||
+        row.minimums_json === null ||
+        row.metadata_json === null ||
+        row.state_commitment_hash === null ||
+        row.cache_hash === null ||
+        row.initialized_at === null ||
+        row.updated_at === null
+      ) {
+        throw new Error("uninitialized recovery frontier");
+      }
+      const minimums = RecoveryMinimumsSchema.parse(
+        JSON.parse(row.minimums_json) as unknown,
+      );
+      const metadata = this.#parseRecoveryFrontierMetadata(
+        JSON.parse(row.metadata_json) as unknown,
+      );
+      const cache: RecoveryFrontierCache = {
+        minimums,
+        metadata,
+        state_commitment_hash: row.state_commitment_hash,
+        last_change_id: Number(row.last_change_id),
+        initialized_at: row.initialized_at,
+        updated_at: row.updated_at,
+        full_scan_count: Number(row.full_scan_count),
+      };
+      const identity = this.#recoveryRootIdentity();
+      if (
+        cache.state_commitment_hash !==
+          recoveryStateCommitment({ ...identity, minimums }) ||
+        row.cache_hash !== this.#recoveryFrontierCacheHash(cache) ||
+        minimums.purge_frontier_hash !==
+          metadata.component_hashes.purge ||
+        minimums.context_frontier_hash !==
+          metadata.component_hashes.context ||
+        minimums.learning_frontier_hash !==
+          metadata.component_hashes.learning ||
+        minimums.encryption_frontier_hash !==
+          metadata.component_hashes.encryption ||
+        minimums.projection_frontier_hash !==
+          this.#projectionRecoveryFrontierHash(metadata) ||
+        minimums.latest_receipt_hash !==
+          (metadata.latest_receipt?.receipt_hash ?? null)
+      ) {
+        throw new Error("recovery frontier seal mismatch");
+      }
+      return cache;
+    } catch {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+  }
+
+  #parseRecoveryFrontierMetadata(input: unknown): RecoveryFrontierMetadata {
+    if (
+      typeof input !== "object" ||
+      input === null ||
+      !("schema_version" in input) ||
+      input.schema_version !== "1.0.0" ||
+      !("component_hashes" in input) ||
+      typeof input.component_hashes !== "object" ||
+      input.component_hashes === null ||
+      !("keys" in input) ||
+      typeof input.keys !== "object" ||
+      input.keys === null ||
+      !("latest_receipt" in input)
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const metadata = input as RecoveryFrontierMetadata;
+    const hashes = Object.values(metadata.component_hashes);
+    if (
+      hashes.length !== 7 ||
+      hashes.some((hash) => !/^sha256:[0-9a-f]{64}$/u.test(hash)) ||
+      (metadata.latest_receipt !== null &&
+        (!Number.isSafeInteger(metadata.latest_receipt.resulting_epoch) ||
+          metadata.latest_receipt.resulting_epoch < 0 ||
+          !/^sha256:[0-9a-f]{64}$/u.test(
+            metadata.latest_receipt.receipt_hash,
+          )))
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    return metadata;
+  }
+
+  #recoveryFrontierCacheHash(
+    cache: RecoveryFrontierCache,
+  ): CanonicalHash {
+    return CanonicalHashSchema.parse(canonicalSha256({
+      schema_version: "1.0.0",
+      minimums: cache.minimums,
+      metadata: cache.metadata,
+      state_commitment_hash: cache.state_commitment_hash,
+      last_change_id: cache.last_change_id,
+      initialized_at: cache.initialized_at,
+      updated_at: cache.updated_at,
+      full_scan_count: cache.full_scan_count,
+    }));
+  }
+
+  #writeRecoveryFrontierCache(cache: RecoveryFrontierCache): void {
+    const changed = this.#database
+      .prepare(
+        `UPDATE recovery_frontier_cache
+         SET minimums_json = ?, metadata_json = ?,
+             state_commitment_hash = ?, last_change_id = ?, cache_hash = ?,
+             initialized_at = ?, updated_at = ?, full_scan_count = ?
+         WHERE singleton = 1`,
+      )
+      .run(
+        canonicalJson(cache.minimums),
+        canonicalJson(cache.metadata),
+        cache.state_commitment_hash,
+        cache.last_change_id,
+        this.#recoveryFrontierCacheHash(cache),
+        cache.initialized_at,
+        cache.updated_at,
+        cache.full_scan_count,
+      ).changes;
+    if (changed !== 1) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+  }
+
+  #withRecoveryFrontierGuard<T>(effect: () => T): T {
+    return this.#database
+      .transaction(() => {
+        const inserted = this.#database
+          .prepare(
+            `INSERT INTO recovery_frontier_write_guard (singleton, opened_at)
+             VALUES (1, ?)`,
+          )
+          .run(now()).changes;
+        if (inserted !== 1) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        const result = effect();
+        const deleted = this.#database
+          .prepare(
+            `DELETE FROM recovery_frontier_write_guard
+             WHERE singleton = 1`,
+          )
+          .run().changes;
+        if (deleted !== 1) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        return result;
+      })
+      .immediate();
+  }
+
+  #assertNoPendingPurgeMaintenance(): void {
+    const pending = [
+      "purge_physical_maintenance",
+      "purge_legacy_physical_maintenance",
+      "secret_purge_physical_maintenance",
+    ].reduce((count, table) => {
+      if (!this.#tableExists(table)) {
+        return count;
+      }
+      return count + Number(
+        (
+          this.#database
+            .prepare(
+              `SELECT count(*) AS count FROM ${table}
+               WHERE state = 'pending'`,
+            )
+            .get() as { count: number }
+        ).count,
+      );
+    }, 0);
+    if (pending !== 0) {
+      throw new StorageError("INCOMPLETE_PURGE");
+    }
+  }
+
+  #latestRecoveryFrontierChangeId(): number {
+    return Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT max(value) AS value FROM (
+               SELECT coalesce(max(change_id), 0) AS value
+               FROM recovery_frontier_changes
+               UNION ALL
+               SELECT coalesce(last_change_id, 0) AS value
+               FROM recovery_frontier_seed WHERE singleton = 1
+             )`,
+          )
+          .get() as { value: number }
+      ).value,
+    );
+  }
+
+  #recoveryFrontierSourceRows(): Array<{
+    component: RecoveryFrontierComponent;
+    table_name: string;
+    row_key: string;
+    row_json: string;
+  }> {
+    return this.#database
+      .prepare(
+        `SELECT component, table_name, row_key, row_json
+         FROM recovery_frontier_source_rows
+         ORDER BY component, table_name, row_key`,
+      )
+      .all() as Array<{
+      component: RecoveryFrontierComponent;
+      table_name: string;
+      row_key: string;
+      row_json: string;
+    }>;
+  }
+
+  #recoveryFrontierRowsHash(
+    rows: ReadonlyArray<{
+      component: RecoveryFrontierComponent;
+      table_name: string;
+      row_key: string;
+      row_json: string;
+    }>,
+  ): CanonicalHash {
+    return CanonicalHashSchema.parse(
+      canonicalSha256(
+        rows
+          .map((row) => ({
+            component: row.component,
+            table_name: row.table_name,
+            row_key: row.row_key,
+            row: JSON.parse(row.row_json) as unknown,
+          }))
+          .sort(
+            (left, right) =>
+              left.component.localeCompare(right.component) ||
+              left.table_name.localeCompare(right.table_name) ||
+              left.row_key.localeCompare(right.row_key),
+          ),
+      ),
+    );
+  }
+
+  #advanceRecoveryFrontier(): void {
+    const cache = this.#readRecoveryFrontierCache();
+    const changes = this.#database
+      .prepare(
+        `SELECT change_id, component, table_name, row_key, operation,
+                old_row_json, new_row_json
+         FROM recovery_frontier_changes
+         WHERE change_id > ?
+         ORDER BY change_id
+         LIMIT ?`,
+      )
+      .all(
+        cache.last_change_id,
+        MAX_RECOVERY_FRONTIER_CHANGES_PER_EFFECT + 1,
+      ) as RecoveryFrontierChange[];
+    if (changes.length === 0) {
+      return;
+    }
+    if (changes.length > MAX_RECOVERY_FRONTIER_CHANGES_PER_EFFECT) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+
+    this.#withRecoveryFrontierGuard(() => {
+      for (const change of changes) {
+        this.#applyRecoveryFrontierRowChange(change);
+        this.#applyRecoveryFrontierMinimumChange(cache, change);
+        cache.last_change_id = Number(change.change_id);
+      }
+      const identity = this.#recoveryRootIdentity();
+      cache.minimums = RecoveryMinimumsSchema.parse(cache.minimums);
+      cache.state_commitment_hash = recoveryStateCommitment({
+        ...identity,
+        minimums: cache.minimums,
+      });
+      cache.updated_at = now();
+      this.#writeRecoveryFrontierCache(cache);
+      this.#compactRecoveryFrontierHistory(cache);
+    });
+  }
+
+  #compactRecoveryFrontierHistory(cache: RecoveryFrontierCache): void {
+    const historyCount = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS value FROM recovery_frontier_changes
+             WHERE change_id <= ?`,
+          )
+          .get(cache.last_change_id) as { value: number }
+      ).value,
+    );
+    if (historyCount <= MAX_RECOVERY_FRONTIER_HISTORY) {
+      return;
+    }
+    const rows = this.#database
+      .prepare(
+        `SELECT component, table_name, row_key, row_json
+         FROM recovery_frontier_rows
+         ORDER BY component, table_name, row_key`,
+      )
+      .all() as Array<{
+      component: RecoveryFrontierComponent;
+      table_name: string;
+      row_key: string;
+      row_json: string;
+    }>;
+    const sourceRows = this.#recoveryFrontierSourceRows();
+    const rowsHash = this.#recoveryFrontierRowsHash(rows);
+    if (rowsHash !== this.#recoveryFrontierRowsHash(sourceRows)) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const seededAt = now();
+    const seedHash = canonicalSha256({
+      schema_version: "1.0.0",
+      minimums: cache.minimums,
+      metadata: cache.metadata,
+      state_commitment_hash: cache.state_commitment_hash,
+      last_change_id: cache.last_change_id,
+      rows_hash: rowsHash,
+      seeded_at: seededAt,
+    });
+    const updated = this.#database
+      .prepare(
+        `UPDATE recovery_frontier_seed SET
+           minimums_json = ?, metadata_json = ?, state_commitment_hash = ?,
+           last_change_id = ?, rows_hash = ?, seed_hash = ?, seeded_at = ?
+         WHERE singleton = 1`,
+      )
+      .run(
+        canonicalJson(cache.minimums),
+        canonicalJson(cache.metadata),
+        cache.state_commitment_hash,
+        cache.last_change_id,
+        rowsHash,
+        seedHash,
+        seededAt,
+      ).changes;
+    if (updated !== 1) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    this.#database
+      .prepare(
+        `DELETE FROM recovery_frontier_changes WHERE change_id <= ?`,
+      )
+      .run(cache.last_change_id);
+  }
+
+  #applyRecoveryFrontierRowChange(change: RecoveryFrontierChange): void {
+    const existing = this.#database
+      .prepare(
+        `SELECT row_json, row_hash FROM recovery_frontier_rows
+         WHERE component = ? AND table_name = ? AND row_key = ?`,
+      )
+      .get(change.component, change.table_name, change.row_key) as
+      | { row_json: string; row_hash: string }
+      | undefined;
+    const oldRow =
+      change.old_row_json === null
+        ? null
+        : (JSON.parse(change.old_row_json) as unknown);
+    const newRow =
+      change.new_row_json === null
+        ? null
+        : (JSON.parse(change.new_row_json) as unknown);
+    if (
+      (oldRow === null && existing !== undefined) ||
+      (oldRow !== null &&
+        (existing === undefined ||
+          existing.row_hash !== canonicalSha256(oldRow) ||
+          canonicalJson(JSON.parse(existing.row_json) as unknown) !==
+            canonicalJson(oldRow)))
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    if (newRow === null) {
+      const deleted = this.#database
+        .prepare(
+          `DELETE FROM recovery_frontier_rows
+           WHERE component = ? AND table_name = ? AND row_key = ?`,
+        )
+        .run(change.component, change.table_name, change.row_key).changes;
+      if (deleted !== 1) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      return;
+    }
+    this.#database
+      .prepare(
+        `INSERT INTO recovery_frontier_rows (
+           component, table_name, row_key, row_json, row_hash
+         ) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(component, table_name, row_key) DO UPDATE SET
+           row_json = excluded.row_json,
+           row_hash = excluded.row_hash`,
+      )
+      .run(
+        change.component,
+        change.table_name,
+        change.row_key,
+        canonicalJson(newRow),
+        canonicalSha256(newRow),
+      );
+  }
+
+  #applyRecoveryFrontierMinimumChange(
+    cache: RecoveryFrontierCache,
+    change: RecoveryFrontierChange,
+  ): void {
+    const oldRow =
+      change.old_row_json === null
+        ? null
+        : (JSON.parse(change.old_row_json) as Record<string, unknown>);
+    const newRow =
+      change.new_row_json === null
+        ? null
+        : (JSON.parse(change.new_row_json) as Record<string, unknown>);
+    const hashKey =
+      change.component === "purge" ||
+      change.component === "fts" ||
+      change.component === "layered" ||
+      change.component === "relation" ||
+      change.component === "context" ||
+      change.component === "encryption"
+        ? change.component
+        : null;
+    if (hashKey !== null) {
+      cache.metadata.component_hashes[hashKey] = CanonicalHashSchema.parse(canonicalSha256({
+        schema_version: "1.0.0",
+        previous_hash: cache.metadata.component_hashes[hashKey],
+        change: {
+          change_id: Number(change.change_id),
+          table_name: change.table_name,
+          row_key: change.row_key,
+          operation: change.operation,
+          old_row_hash: oldRow === null ? null : canonicalSha256(oldRow),
+          new_row_hash: newRow === null ? null : canonicalSha256(newRow),
+        },
+      }));
+    }
+
+    switch (change.component) {
+      case "ledger": {
+        if (newRow === null) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        cache.minimums.ledger_epoch = Number(newRow.ledger_epoch);
+        break;
+      }
+      case "receipt": {
+        if (newRow === null) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        const receiptJson = JSON.parse(String(newRow.receipt_json)) as {
+          warnings?: unknown;
+        };
+        const warnings = Array.isArray(receiptJson.warnings)
+          ? receiptJson.warnings
+          : [];
+        if (!warnings.includes("DRY_RUN")) {
+          const candidate = {
+            resulting_epoch: Number(newRow.resulting_epoch),
+            receipt_id: String(newRow.receipt_id),
+            receipt_hash: CanonicalHashSchema.parse(newRow.receipt_hash),
+          };
+          const previous = cache.metadata.latest_receipt;
+          if (
+            previous === null ||
+            candidate.resulting_epoch > previous.resulting_epoch ||
+            (candidate.resulting_epoch === previous.resulting_epoch &&
+              candidate.receipt_id > previous.receipt_id)
+          ) {
+            cache.metadata.latest_receipt = candidate;
+            cache.minimums.latest_receipt_hash = candidate.receipt_hash;
+          }
+        }
+        break;
+      }
+      case "tombstone": {
+        if (newRow === null) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        cache.minimums.tombstone_epoch = Number(
+          newRow.tombstone_epoch,
+        );
+        break;
+      }
+      case "purge":
+        cache.minimums.purge_frontier_hash =
+          cache.metadata.component_hashes.purge;
+        break;
+      case "fts":
+      case "layered":
+      case "relation":
+        cache.minimums.projection_frontier_hash =
+          this.#projectionRecoveryFrontierHash(cache.metadata);
+        break;
+      case "context":
+        cache.minimums.context_frontier_hash =
+          cache.metadata.component_hashes.context;
+        break;
+      case "learning": {
+        const learning = this.#learning.frontier();
+        cache.minimums.learning_control_epoch = learning.control_epoch;
+        cache.minimums.learning_release_revision =
+          learning.release_revision;
+        cache.metadata.component_hashes.learning =
+          learning.frontier_hash;
+        cache.minimums.learning_frontier_hash =
+          learning.frontier_hash;
+        break;
+      }
+      case "encryption":
+        this.#applyEncryptionRecoveryMinimumChange(cache, change, oldRow, newRow);
+        cache.minimums.encryption_frontier_hash =
+          cache.metadata.component_hashes.encryption;
+        break;
+      case "release_control":
+        cache.minimums.g6_release_control_hash =
+          newRow === null
+            ? null
+            : CanonicalHashSchema.parse(newRow.control_hash);
+        break;
+    }
+  }
+
+  #applyEncryptionRecoveryMinimumChange(
+    cache: RecoveryFrontierCache,
+    change: RecoveryFrontierChange,
+    oldRow: Record<string, unknown> | null,
+    newRow: Record<string, unknown> | null,
+  ): void {
+    if (change.table_name === "encryption_keys") {
+      if (newRow === null) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      const keyId = IdentifierSchema.parse(newRow.key_id);
+      cache.metadata.keys[keyId] = {
+        key_id: keyId,
+        key_generation: Number(newRow.key_generation),
+        state: String(newRow.state) as EncryptionKeyInventory["keys"][number]["state"],
+      };
+      if (
+        !cache.minimums.key_live_ciphertexts.some(
+          ({ key_id }) => key_id === keyId,
+        )
+      ) {
+        cache.minimums.key_live_ciphertexts.push({
+          key_id: keyId,
+          live_ciphertext_count: 0,
+        });
+      }
+    }
+    if (change.table_name === "encrypted_content_owners") {
+      const live = new Map(
+        cache.minimums.key_live_ciphertexts.map((entry) => [
+          entry.key_id,
+          entry.live_ciphertext_count,
+        ]),
+      );
+      const adjust = (
+        row: Record<string, unknown> | null,
+        direction: -1 | 1,
+      ): void => {
+        if (row === null || Number(row.active) !== 1) {
+          return;
+        }
+        const keyId = IdentifierSchema.parse(row.key_id);
+        const next = (live.get(keyId) ?? 0) + direction;
+        if (next < 0 || !(keyId in cache.metadata.keys)) {
+          throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+        }
+        live.set(keyId, next);
+      };
+      adjust(oldRow, -1);
+      adjust(newRow, 1);
+      cache.minimums.key_live_ciphertexts = this.#orderedRecoveryKeys(
+        cache.metadata,
+      ).map(({ key_id }) => ({
+        key_id,
+        live_ciphertext_count: live.get(key_id) ?? 0,
+      }));
+    }
+    const live = new Map(
+      cache.minimums.key_live_ciphertexts.map((entry) => [
+        entry.key_id,
+        entry.live_ciphertext_count,
+      ]),
+    );
+    const orderedKeys = this.#orderedRecoveryKeys(cache.metadata);
+    cache.minimums.key_live_ciphertexts = orderedKeys.map(({ key_id }) => ({
+      key_id,
+      live_ciphertext_count: live.get(key_id) ?? 0,
+    }));
+    cache.minimums.required_keys = orderedKeys
+      .filter(
+        ({ key_id, state }) =>
+          state === "current" ||
+          state === "rotating_to" ||
+          state === "retired" ||
+          (state === "revoked_or_compromised" &&
+            (live.get(key_id) ?? 0) > 0),
+      )
+      .map(({ key_id, key_generation, state }) => ({
+        key_id,
+        key_generation,
+        state,
+      }));
+  }
+
+  #orderedRecoveryKeys(
+    metadata: RecoveryFrontierMetadata,
+  ): Array<RecoveryFrontierMetadata["keys"][string]> {
+    return Object.values(metadata.keys).sort(
+      (left, right) =>
+        left.key_generation - right.key_generation ||
+        left.key_id.localeCompare(right.key_id),
+    );
+  }
+
+  #projectionRecoveryFrontierHash(
+    metadata: RecoveryFrontierMetadata,
+  ): CanonicalHash {
+    return CanonicalHashSchema.parse(canonicalSha256({
+      fts: metadata.component_hashes.fts,
+      layered: metadata.component_hashes.layered,
+      relation: metadata.component_hashes.relation,
+    }));
+  }
+
+  #latestRecoveryReceiptCursor(): RecoveryFrontierMetadata["latest_receipt"] {
+    const row = this.#database
+      .prepare(
+        `SELECT receipt.resulting_epoch, receipt.receipt_id,
+                receipt.receipt_hash
+         FROM mutation_receipts AS receipt
+         WHERE NOT EXISTS (
+           SELECT 1 FROM json_each(receipt.receipt_json, '$.warnings')
+           WHERE value = 'DRY_RUN'
+         )
+         ORDER BY receipt.resulting_epoch DESC, receipt.receipt_id DESC
+         LIMIT 1`,
+      )
+      .get() as
+      | {
+          resulting_epoch: number;
+          receipt_id: string;
+          receipt_hash: CanonicalHash;
+        }
+      | undefined;
+    return row === undefined
+      ? null
+      : {
+          resulting_epoch: Number(row.resulting_epoch),
+          receipt_id: row.receipt_id,
+          receipt_hash: row.receipt_hash,
+        };
+  }
+
+  #replayRecoveryFrontierFromSeed(): {
+    cache: RecoveryFrontierCache;
+    seed_rows_hash: CanonicalHash;
+    changes: RecoveryFrontierChange[];
+  } {
+    const row = this.#database
+      .prepare(
+        `SELECT minimums_json, metadata_json, state_commitment_hash,
+                last_change_id, rows_hash, seed_hash, seeded_at
+         FROM recovery_frontier_seed WHERE singleton = 1`,
+      )
+      .get() as
+      | {
+          minimums_json: string;
+          metadata_json: string;
+          state_commitment_hash: CanonicalHash;
+          last_change_id: number;
+          rows_hash: CanonicalHash;
+          seed_hash: CanonicalHash;
+          seeded_at: string;
+        }
+      | undefined;
+    if (row === undefined) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const minimums = RecoveryMinimumsSchema.parse(
+      JSON.parse(row.minimums_json) as unknown,
+    );
+    const metadata = this.#parseRecoveryFrontierMetadata(
+      JSON.parse(row.metadata_json) as unknown,
+    );
+    const lastChangeId = Number(row.last_change_id);
+    if (
+      row.seed_hash !==
+        canonicalSha256({
+          schema_version: "1.0.0",
+          minimums,
+          metadata,
+          state_commitment_hash: row.state_commitment_hash,
+          last_change_id: lastChangeId,
+          rows_hash: row.rows_hash,
+          seeded_at: row.seeded_at,
+        }) ||
+      row.state_commitment_hash !==
+        recoveryStateCommitment({
+          ...this.#recoveryRootIdentity(),
+          minimums,
+        })
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const cache: RecoveryFrontierCache = {
+      minimums,
+      metadata,
+      state_commitment_hash: row.state_commitment_hash,
+      last_change_id: lastChangeId,
+      initialized_at: row.seeded_at,
+      updated_at: row.seeded_at,
+      full_scan_count: 0,
+    };
+    const changes = this.#database
+      .prepare(
+        `SELECT change_id, component, table_name, row_key, operation,
+                old_row_json, new_row_json
+         FROM recovery_frontier_changes
+         WHERE change_id > ?
+         ORDER BY change_id
+         LIMIT ?`,
+      )
+      .all(
+        lastChangeId,
+        MAX_RECOVERY_FRONTIER_CHANGES_PER_EFFECT + 1,
+      ) as RecoveryFrontierChange[];
+    if (changes.length > MAX_RECOVERY_FRONTIER_CHANGES_PER_EFFECT) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    for (const change of changes) {
+      this.#applyRecoveryFrontierMinimumChange(cache, change);
+      cache.last_change_id = Number(change.change_id);
+    }
+    cache.minimums = RecoveryMinimumsSchema.parse(cache.minimums);
+    cache.state_commitment_hash = recoveryStateCommitment({
+      ...this.#recoveryRootIdentity(),
+      minimums: cache.minimums,
+    });
+    return {
+      cache,
+      seed_rows_hash: row.rows_hash,
+      changes,
+    };
+  }
+
+  #verifyRecoveryFrontierFull(): void {
+    const cache = this.#readRecoveryFrontierCache();
+    if (this.#latestRecoveryFrontierChangeId() !== cache.last_change_id) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const sourceRows = this.#recoveryFrontierSourceRows();
+    const cachedRows = this.#database
+      .prepare(
+        `SELECT component, table_name, row_key, row_json, row_hash
+         FROM recovery_frontier_rows
+         ORDER BY component, table_name, row_key`,
+      )
+      .all() as Array<{
+      component: RecoveryFrontierComponent;
+      table_name: string;
+      row_key: string;
+      row_json: string;
+      row_hash: CanonicalHash;
+    }>;
+    if (sourceRows.length !== cachedRows.length) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    for (let index = 0; index < sourceRows.length; index += 1) {
+      const source = sourceRows[index];
+      const cached = cachedRows[index];
+      if (
+        source === undefined ||
+        cached === undefined ||
+        source.component !== cached.component ||
+        source.table_name !== cached.table_name ||
+        source.row_key !== cached.row_key ||
+        canonicalJson(JSON.parse(source.row_json) as unknown) !==
+          canonicalJson(JSON.parse(cached.row_json) as unknown) ||
+        cached.row_hash !==
+          canonicalSha256(JSON.parse(source.row_json) as unknown)
+      ) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+    }
+    const replay = this.#replayRecoveryFrontierFromSeed();
+    if (
+      replay.cache.last_change_id !== cache.last_change_id ||
+      replay.cache.state_commitment_hash !==
+        cache.state_commitment_hash ||
+      canonicalJson(replay.cache.minimums) !==
+        canonicalJson(cache.minimums) ||
+      canonicalJson(replay.cache.metadata) !==
+        canonicalJson(cache.metadata)
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const replayRows = new Map(
+      cachedRows.map((row) => [
+        `${row.component}\u001f${row.table_name}\u001f${row.row_key}`,
+        {
+          component: row.component,
+          table_name: row.table_name,
+          row_key: row.row_key,
+          row_json: row.row_json,
+        },
+      ]),
+    );
+    for (const change of [...replay.changes].reverse()) {
+      const key =
+        `${change.component}\u001f${change.table_name}\u001f${change.row_key}`;
+      const current = replayRows.get(key);
+      if (
+        (change.new_row_json === null && current !== undefined) ||
+        (change.new_row_json !== null &&
+          (current === undefined ||
+            canonicalJson(JSON.parse(current.row_json) as unknown) !==
+              canonicalJson(
+                JSON.parse(change.new_row_json) as unknown,
+              )))
+      ) {
+        throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+      }
+      if (change.old_row_json === null) {
+        replayRows.delete(key);
+      } else {
+        replayRows.set(key, {
+          component: change.component,
+          table_name: change.table_name,
+          row_key: change.row_key,
+          row_json: change.old_row_json,
+        });
+      }
+    }
+    if (
+      this.#recoveryFrontierRowsHash([...replayRows.values()]) !==
+      replay.seed_rows_hash
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    const legacyLatest = this.#latestRecoveryReceiptCursor();
+    const liveCounts = new Map<string, number>();
+    const sourceKeys: RecoveryFrontierMetadata["keys"] = {};
+    let ledgerEpoch = 0;
+    let tombstoneEpoch = 0;
+    let learningControlEpoch = 0;
+    let learningReleaseRevision = 0;
+    let releaseControlHash: CanonicalHash | null = null;
+    for (const source of sourceRows) {
+      const row = JSON.parse(source.row_json) as Record<string, unknown>;
+      if (source.table_name === "ledger_state") {
+        ledgerEpoch = Number(row.ledger_epoch);
+      } else if (source.table_name === "tombstone_state") {
+        tombstoneEpoch = Number(row.tombstone_epoch);
+      } else if (source.table_name === "learning_control_state") {
+        learningControlEpoch = Math.max(
+          learningControlEpoch,
+          Number(row.control_epoch),
+        );
+      } else if (source.table_name === "learning_release_pointers") {
+        learningReleaseRevision = Math.max(
+          learningReleaseRevision,
+          Number(row.pointer_revision),
+        );
+      } else if (source.table_name === "encryption_keys") {
+        const keyId = IdentifierSchema.parse(row.key_id);
+        sourceKeys[keyId] = {
+          key_id: keyId,
+          key_generation: Number(row.key_generation),
+          state: String(row.state) as EncryptionKeyInventory["keys"][number]["state"],
+        };
+        if (!liveCounts.has(keyId)) {
+          liveCounts.set(keyId, 0);
+        }
+      } else if (
+        source.table_name === "encrypted_content_owners" &&
+        Number(row.active) === 1
+      ) {
+        const keyId = IdentifierSchema.parse(row.key_id);
+        liveCounts.set(keyId, (liveCounts.get(keyId) ?? 0) + 1);
+      } else if (source.table_name === "g6_release_controls") {
+        releaseControlHash = CanonicalHashSchema.parse(row.control_hash);
+      }
+    }
+    const expectedKeyCounts = Object.values(sourceKeys)
+      .sort(
+        (left, right) =>
+          left.key_generation - right.key_generation ||
+          left.key_id.localeCompare(right.key_id),
+      )
+      .map(({ key_id }) => ({
+        key_id,
+        live_ciphertext_count: liveCounts.get(key_id) ?? 0,
+      }));
+    const expectedRequiredKeys = Object.values(sourceKeys)
+      .sort(
+        (left, right) =>
+          left.key_generation - right.key_generation ||
+          left.key_id.localeCompare(right.key_id),
+      )
+      .filter(
+        ({ key_id, state }) =>
+          state === "current" ||
+          state === "rotating_to" ||
+          state === "retired" ||
+          (state === "revoked_or_compromised" &&
+            (liveCounts.get(key_id) ?? 0) > 0),
+      )
+      .map(({ key_id, key_generation, state }) => ({
+        key_id,
+        key_generation,
+        state,
+      }));
+    if (
+      canonicalJson(sourceKeys) !== canonicalJson(cache.metadata.keys) ||
+      ledgerEpoch !== cache.minimums.ledger_epoch ||
+      tombstoneEpoch !== cache.minimums.tombstone_epoch ||
+      learningControlEpoch !== cache.minimums.learning_control_epoch ||
+      learningReleaseRevision !==
+        cache.minimums.learning_release_revision ||
+      releaseControlHash !== cache.minimums.g6_release_control_hash ||
+      canonicalJson(legacyLatest) !==
+        canonicalJson(cache.metadata.latest_receipt) ||
+      canonicalJson(expectedKeyCounts) !==
+        canonicalJson(cache.minimums.key_live_ciphertexts) ||
+      canonicalJson(expectedRequiredKeys) !==
+        canonicalJson(cache.minimums.required_keys)
+    ) {
+      throw new StorageError("RECOVERY_AUTHORITY_INVALID");
+    }
+    if (!this.#inspectionOnly) {
+      cache.full_scan_count += 1;
+      cache.updated_at = now();
+      this.#withRecoveryFrontierGuard(() => {
+        this.#writeRecoveryFrontierCache(cache);
+      });
+    }
+  }
+
   installRecoveryCheckpoint(anchor: RecoveryAnchor): void {
+    const checkpoint = this.#database
+      .prepare(
+        `SELECT anchor_hash, state_commitment_hash, generation
+         FROM recovery_anchor_checkpoint WHERE singleton = 1`,
+      )
+      .get() as {
+      anchor_hash: string | null;
+      state_commitment_hash: string | null;
+      generation: number;
+    };
+    if (
+      checkpoint.anchor_hash !== null &&
+      (anchor.payload.generation < Number(checkpoint.generation) ||
+        (anchor.payload.generation === Number(checkpoint.generation) &&
+          anchor.anchor_hash !== checkpoint.anchor_hash))
+    ) {
+      throw new StorageError("STALE_RECOVERY_HEAD");
+    }
     const state = this.recoveryState();
     if (
       anchor.payload.root_id !== state.root_id ||
@@ -756,16 +2000,6 @@ export class StorageDatabase {
     ) {
       throw new StorageError("RECOVERY_AUTHORITY_INVALID");
     }
-    const checkpoint = this.#database
-      .prepare(
-        `SELECT anchor_hash, state_commitment_hash, generation
-         FROM recovery_anchor_checkpoint WHERE singleton = 1`,
-      )
-      .get() as {
-      anchor_hash: string | null;
-      state_commitment_hash: string | null;
-      generation: number;
-    };
     if (
       checkpoint.anchor_hash === anchor.anchor_hash &&
       checkpoint.state_commitment_hash ===
@@ -1448,10 +2682,27 @@ export class StorageDatabase {
     );
   }
 
-  runPurge(input: unknown): PurgeRunResult {
+  preparePurge(input: unknown): PurgePreparationResult {
     const request = PurgeRunInputSchema.parse(input);
-    return this.#purge.run(
+    return this.#purge.prepare(
       request.purge_job_id,
+      request.operator_action,
+    );
+  }
+
+  finalizePurgeJobMaintenance(input: unknown): void {
+    const maintenance = PurgePhysicalMaintenanceSchema.parse(input);
+    this.#purge.finalizePhysicalMaintenance(
+      maintenance,
+      () => this.finalizePurgeMaintenance(),
+    );
+  }
+
+  completePurge(input: unknown): PurgeRunResult {
+    const request = PurgeCompletionInputSchema.parse(input);
+    return this.#purge.complete(
+      request.purge_job_id,
+      request.maintenance,
       request.operator_action,
     );
   }
@@ -1644,7 +2895,10 @@ export class StorageDatabase {
   }
 
   async createBackup(): Promise<BackupDraftResult> {
+    this.#assertNoPendingPurgeMaintenance();
     const recoveryState = this.recoveryState();
+    this.#verifyRecoveryFrontierFull();
+    const recoveryFrontier = this.#readRecoveryFrontierCache();
     const epoch = this.#ledgerEpoch();
     const tombstoneEpoch = this.#purge.tombstoneEpoch();
     const learningFrontier = this.#learning.frontier();
@@ -1831,13 +3085,6 @@ export class StorageDatabase {
     );
 
     const sizeBytes = statSync(path).size;
-    const purgeRows = this.#database
-      .prepare(
-        `SELECT store_id, tombstone_epoch, debt_count, frontier_hash,
-                source_purge_job_id
-         FROM artifact_purge_frontiers ORDER BY store_id`,
-      )
-      .all();
     const purgeDebtCount = Number(
       (
         this.#database
@@ -1848,18 +3095,6 @@ export class StorageDatabase {
           .get() as { value: number }
       ).value,
     );
-    const relationRows = this.#database
-      .prepare(
-        `SELECT relation_id, current_relation_revision_id, lifecycle
-         FROM relation_objects ORDER BY relation_id`,
-      )
-      .all();
-    const contextRows = this.#database
-      .prepare(
-        `SELECT context_slice_id, frozen_hash
-         FROM context_slices ORDER BY context_slice_id`,
-      )
-      .all();
     const pointerRows = this.#database
       .prepare(
         `SELECT release_slot_hash, active_release_id, pointer_revision,
@@ -1887,7 +3122,6 @@ export class StorageDatabase {
       )
       .get() as { control_hash: string } | undefined;
     const ftsState = this.#fts.state();
-    const projectionFrontier = this.#projections.frontier();
     const keyInventory = this.#keys.inventory();
     const artifactDescriptors = [
       ...artifacts.map((artifact) => ({
@@ -1937,18 +3171,22 @@ export class StorageDatabase {
         ledger_epoch: epoch,
         latest_receipt_hash: latestReceipt?.receipt_hash ?? null,
         tombstone_epoch: tombstoneEpoch,
-        purge_frontier_hash: canonicalSha256(purgeRows),
+        purge_frontier_hash:
+          recoveryFrontier.metadata.component_hashes.purge,
         purge_debt_count: purgeDebtCount,
         fts_frontier_hash: canonicalSha256(ftsState),
-        fts_logical_frontier_hash: canonicalSha256({
-          last_epoch: Number(ftsState.last_epoch),
-        }),
-        layered_frontier_hash: canonicalSha256(projectionFrontier),
-        relation_frontier_hash: canonicalSha256(relationRows),
-        context_frontier_hash: canonicalSha256(contextRows),
+        fts_logical_frontier_hash:
+          recoveryFrontier.metadata.component_hashes.fts,
+        layered_frontier_hash:
+          recoveryFrontier.metadata.component_hashes.layered,
+        relation_frontier_hash:
+          recoveryFrontier.metadata.component_hashes.relation,
+        context_frontier_hash:
+          recoveryFrontier.metadata.component_hashes.context,
         learning_control_epoch: learningFrontier.control_epoch,
         learning_release_revision: learningFrontier.release_revision,
-        learning_frontier_hash: learningFrontier.frontier_hash,
+        learning_frontier_hash:
+          recoveryFrontier.metadata.component_hashes.learning,
         learning_pointer_hash: canonicalSha256(pointerRows),
         learning_monitor_hash:
           monitorRows.length === 0 ? null : canonicalSha256(monitorRows),
@@ -2070,7 +3308,8 @@ export class StorageDatabase {
       tombstone_epoch: tombstoneEpoch,
       learning_control_epoch: learningFrontier.control_epoch,
       learning_release_revision: learningFrontier.release_revision,
-      learning_frontier_hash: learningFrontier.frontier_hash,
+      learning_frontier_hash:
+        manifest.frontiers.learning_frontier_hash,
       latest_receipt_hash: latestReceipt?.receipt_hash ?? null,
       blob_hashes: artifacts.map((artifact) => artifact.content_hash),
       integrity_check: "ok",
@@ -2114,6 +3353,7 @@ export class StorageDatabase {
   }
 
   #verifyRestoreCandidate(): RestoreVerificationResult {
+    this.#assertNoPendingPurgeMaintenance();
     const integrityRows = this.#database.pragma(
       "integrity_check",
     ) as Array<Record<string, unknown>>;
@@ -2129,6 +3369,8 @@ export class StorageDatabase {
     if (foreignKeyViolations !== 0) {
       throw new StorageError("CORRUPTION");
     }
+
+    this.#verifyRecoveryFrontierFull();
 
     const artifacts = this.verifyArtifacts();
     const encryptedContents = this.#tableExists("encrypted_contents")
@@ -2924,6 +4166,27 @@ export class StorageDatabase {
       0,
       milliseconds,
     );
+  }
+
+  generateRecoveryFrontierChangesForTest(count: number): void {
+    if (
+      !this.#testOperations ||
+      !Number.isSafeInteger(count) ||
+      count < 1 ||
+      count > MAX_RECOVERY_FRONTIER_CHANGES_PER_EFFECT + 1
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    const update = this.#database.prepare(
+      `UPDATE projection_state
+       SET last_epoch = last_epoch + 1
+       WHERE projection_name = 'fts'`,
+    );
+    for (let index = 0; index < count; index += 1) {
+      if (update.run().changes !== 1) {
+        throw new StorageError("CORRUPTION");
+      }
+    }
   }
 
   holdWriteLockForTest(milliseconds: number): void {

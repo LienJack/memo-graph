@@ -30,9 +30,12 @@ import {
   ReleaseQualificationSchema,
   G6ReleaseControlSchema,
   G6ReleaseControlTrustSchema,
+  PINNED_G6_RELEASE_CONTROL_TRUST,
   RuntimeIdentitySchema,
   SecretAdmissionApprovalSchema,
   SecretAdmissionTrustSchema,
+  UtcTimestampSchema,
+  canonicalSha256,
 } from "@memo-graph/contracts";
 import { z } from "zod";
 import {
@@ -40,6 +43,20 @@ import {
 } from "@memo-graph/storage-sqlite";
 
 const MAX_CONFIG_BYTES = 256 * 1024;
+
+export const G6ReleaseControlArtifactSchema = z
+  .object({
+    control: G6ReleaseControlSchema,
+    trust: G6ReleaseControlTrustSchema,
+    evidence_binding: z
+      .object({
+        evidence_bundle_hash: CanonicalHashSchema,
+        release_binding_hash: CanonicalHashSchema,
+      })
+      .strict(),
+    verification_time: UtcTimestampSchema,
+  })
+  .strict();
 
 export const OperatorConfigSchema = z
   .object({
@@ -538,13 +555,36 @@ export function loadSecretAdmissionArtifacts(
               })(),
           ),
         );
+  const releaseArtifact = G6ReleaseControlArtifactSchema.parse(
+    readPrivateOperatorJson(admission.release_control_path),
+  );
+  const evidenceBundleTag =
+    releaseArtifact.evidence_binding.evidence_bundle_hash.slice(
+      "sha256:".length,
+    );
+  if (
+    canonicalSha256(admission.release_trust) !==
+      canonicalSha256(PINNED_G6_RELEASE_CONTROL_TRUST) ||
+    canonicalSha256(releaseArtifact.trust) !==
+      canonicalSha256(admission.release_trust) ||
+    !releaseArtifact.control.control_id.endsWith(
+      `:${evidenceBundleTag}`,
+    ) ||
+    releaseArtifact.evidence_binding.release_binding_hash !==
+      canonicalSha256({
+        control_hash: releaseArtifact.control.control_hash,
+        evidence_bundle_hash:
+          releaseArtifact.evidence_binding.evidence_bundle_hash,
+      })
+  ) {
+    throw new OperatorConfigError();
+  }
   return {
     admission,
     request,
     approval,
-    control: G6ReleaseControlSchema.parse(
-      readPrivateOperatorJson(admission.release_control_path),
-    ),
+    control: releaseArtifact.control,
+    releaseArtifact,
     runtimeIdentity: RuntimeIdentitySchema.parse(
       readPrivateOperatorJson(admission.runtime_identity_path),
     ),

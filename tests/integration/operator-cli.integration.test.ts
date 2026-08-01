@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   openSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
@@ -15,7 +16,6 @@ import {
   createPrivateKey,
   createPublicKey,
   generateKeyPairSync,
-  sign,
 } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,16 +24,18 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  CanonicalHashSchema,
-  G6ReleaseControlSchema,
   OperationalStatusSchema,
   RuntimeIdentitySchema,
   SecretAdmissionApprovalSchema,
   canonicalSha256,
-  g6ReleaseControlSigningPayload,
   type OperationalStatus,
 } from "../../packages/contracts/src/index.js";
 import { runOperatorCli } from "../../apps/operator-cli/src/cli.js";
+import {
+  loadSecretAdmissionArtifacts,
+  loadOperatorConfig,
+  loadRecoveryHeadProvider,
+} from "../../apps/operator-cli/src/config.js";
 import { runDoctor } from "../../apps/operator-cli/src/commands/doctor.js";
 import { operatorExitCode } from "../../apps/operator-cli/src/exit-codes.js";
 import { renderOperationalStatus } from "../../apps/operator-cli/src/render.js";
@@ -52,6 +54,14 @@ function temporaryRoot(prefix: string): string {
   );
   cleanupPaths.push(root);
   return root;
+}
+
+function canonicalG6Root(): string {
+  const root = "/private/tmp/memo-graph-g6-canonical";
+  rmSync(root, { recursive: true, force: true });
+  mkdirSync(root, { recursive: true, mode: 0o700 });
+  cleanupPaths.push(root);
+  return realpathSync(root);
 }
 
 afterEach(() => {
@@ -182,6 +192,44 @@ describe("operator CLI doctor", () => {
       JSON.stringify({ data_root: dataRoot }),
       { mode: 0o600 },
     );
+    const g6Hash = canonicalSha256("operator-cli-g6-report");
+    const g6ReportPath = join(root, "g6-verification-report.json");
+    writeFileSync(
+      g6ReportPath,
+      JSON.stringify({
+        schema_version: "1.0.0",
+        gate: "G6",
+        state: "pass",
+        eligible: true,
+        first_non_pass: null,
+        decision_recorded: false,
+        current_control_verified: false,
+        evidence_bundle_hash: g6Hash,
+        runtime_identity_hash: g6Hash,
+        tested_implementation_digest: g6Hash,
+        hard_rules: {
+          integrity: true,
+          privacy: true,
+          deletion: true,
+          encryption: true,
+          restore: true,
+          rollback: true,
+          supply_chain: true,
+          binding: true,
+        },
+        report_states: {
+          fault: "pass",
+          resource: "pass",
+          runbook: "pass",
+          security: "pass",
+          supply_chain: "pass",
+        },
+        exact_environment: { runtime: "node-24.18.0" },
+        topology: "single-user-single-root-single-writer-stdio",
+        source_bindings: [{}],
+      }),
+      { mode: 0o600 },
+    );
     const before = durableSnapshot(dataRoot);
     const invoke = async (argv: string[]) => {
       let stdout = "";
@@ -250,11 +298,185 @@ describe("operator CLI doctor", () => {
         ingress: "private_inherited_descriptor",
       },
     });
+    expect(
+      await invoke([
+        "rebuild",
+        "--dry-run",
+        "--repair-kind",
+        "fts",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ]),
+    ).toMatchObject({
+      code: 3,
+      output: {
+        operation: "projection.rebuild",
+        repair_kind: "fts",
+        status: "operator_action_required",
+      },
+    });
+    expect(
+      await invoke([
+        "rollback",
+        "verify",
+        "--release-ref",
+        "release:operator-runbook",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ]),
+    ).toMatchObject({
+      code: 3,
+      output: {
+        operation: "learning.rollback",
+        release_ref: "release:operator-runbook",
+      },
+    });
+    expect(
+      await invoke([
+        "g6",
+        "verify",
+        "--evidence-ref",
+        g6ReportPath,
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ]),
+    ).toMatchObject({
+      code: 3,
+      output: {
+        operation: "g6.verify",
+        status: "verified",
+        eligible: true,
+      },
+    });
     expect(durableSnapshot(dataRoot)).toEqual(before);
   });
 
+  it("executes the frozen JSON purge audit command against registered artifact roots", async () => {
+    const root = temporaryRoot("operator-purge-audit");
+    const dataRoot = join(root, "data");
+    const recoveryKeys = generateKeyPairSync("ed25519");
+    const recoveryDirectory = join(root, "recovery-head");
+    const recoveryPrivatePath = join(root, "recovery-private.pem");
+    const recoveryPublicPath = join(root, "recovery-public.pem");
+    writeFileSync(
+      recoveryPrivatePath,
+      recoveryKeys.privateKey.export({
+        format: "pem",
+        type: "pkcs8",
+      }),
+      { mode: 0o600 },
+    );
+    writeFileSync(
+      recoveryPublicPath,
+      recoveryKeys.publicKey.export({
+        format: "pem",
+        type: "spki",
+      }),
+      { mode: 0o600 },
+    );
+    const recoveryHeadProvider = new FileRecoveryHeadProvider({
+      directory: recoveryDirectory,
+      authorityKeyId: "recovery_authority:g6-runbook-purge",
+      trustRootVersion: 1,
+      privateKey: recoveryKeys.privateKey,
+      publicKey: recoveryKeys.publicKey,
+      create: true,
+    });
+    const storage = await SqliteStorageClient.open({
+      dataRoot,
+      secretPrincipalId: "user_local",
+      recoveryHeadProvider,
+    });
+    await storage.close();
+    const artifactClasses = [
+      "canonical",
+      "context",
+      "projection",
+      "learning",
+      "backup",
+      "log",
+      "temp",
+      "quarantine",
+      "ciphertext",
+    ] as const;
+    const roots = Object.fromEntries(
+      artifactClasses.map((artifactClass) => {
+        const path = join(root, `artifact-${artifactClass}`);
+        mkdirSync(path, { mode: 0o700 });
+        return [artifactClass, path];
+      }),
+    );
+    const configPath = join(root, "operator.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        data_root: dataRoot,
+        recovery: {
+          backup_bundles: {},
+          restore_targets: {},
+          authority: {
+            directory: recoveryDirectory,
+            authority_key_id: "recovery_authority:g6-runbook-purge",
+            trust_root_version: 1,
+            private_key_path: recoveryPrivatePath,
+            public_key_path: recoveryPublicPath,
+          },
+        },
+        operational_artifacts: {
+          roots,
+          forbidden_markers: ["FORBIDDEN_PURGED_CONTENT_MARKER"],
+        },
+      }),
+      { mode: 0o600 },
+    );
+    const loadedConfig = loadOperatorConfig(configPath);
+    expect(loadedConfig.operational_artifacts).not.toBeNull();
+    expect(
+      loadRecoveryHeadProvider(loadedConfig).readCurrent(),
+    ).not.toBeNull();
+    const reopened = await SqliteStorageClient.open({
+      dataRoot,
+      secretPrincipalId: loadedConfig.principal_id,
+      recoveryHeadProvider: loadRecoveryHeadProvider(loadedConfig),
+    });
+    await reopened.close();
+    let stdout = "";
+    const code = await runOperatorCli(
+      [
+        "purge",
+        "audit",
+        "--audit-id",
+        "g6_runbook_purge_audit",
+        "--tombstone-epoch",
+        "0",
+        "--config",
+        configPath,
+        "--format",
+        "json",
+      ],
+      {
+        stdout: {
+          write: (value) => ((stdout += String(value)), true),
+        },
+        stderr: { write: () => true },
+      },
+    );
+    expect(code, stdout).toBe(0);
+    expect(JSON.parse(stdout)).toMatchObject({
+      completed: true,
+      purge_audit: { completed: true },
+      residual_audit: { completed: true },
+    });
+  });
+
   it("runs separate approve and admit processes against one inherited private descriptor", async () => {
-    const root = temporaryRoot("operator-governed-secret");
+    const root = canonicalG6Root();
     const dataRoot = join(root, "data");
     const artifactRoot = join(root, "artifacts");
     mkdirSync(artifactRoot, { mode: 0o700 });
@@ -266,7 +488,7 @@ describe("operator CLI doctor", () => {
       writeFileSync(path, value, { mode: 0o600 });
       return path;
     };
-    const clock = Date.now();
+    const clock = Date.parse("2026-07-30T07:30:00.000Z");
     const issuedAt = new Date(clock - 60_000).toISOString();
     const expiresAt = new Date(clock + 10 * 60_000).toISOString();
     const trustValidFrom = new Date(clock - 60 * 60_000).toISOString();
@@ -376,78 +598,35 @@ describe("operator CLI doctor", () => {
           )
           .digest("base64url")}`,
     };
-
-    const identityBase = {
-      schema_version: "1.0.0",
-      tested_implementation_digest:
-        `sha256:${"1".repeat(64)}` as const,
-      tested_envelope_digest: `sha256:${"2".repeat(64)}` as const,
-      dependency_lock_digest: `sha256:${"3".repeat(64)}` as const,
-      migration_set_digest: `sha256:${"4".repeat(64)}` as const,
-      platform: {
-        node: "24.18.0",
-        os: "darwin",
-        architecture: "arm64",
-        sqlite: "3.50.4",
-        filesystem: "apfs",
-      },
-      configuration_digest: `sha256:${"5".repeat(64)}` as const,
+    const pinnedG6Fixture = JSON.parse(
+      readFileSync(
+        join(
+          process.cwd(),
+          "tests/fixtures/g6-pinned-secret-admission.json",
+        ),
+        "utf8",
+      ),
+    ) as {
+      runtime_identity: unknown;
+      release_artifact: {
+        control: unknown;
+        trust: NonNullable<
+          ReturnType<typeof loadOperatorConfig>["secret_admission"]
+        >["release_trust"];
+      };
     };
-    const runtimeIdentity = RuntimeIdentitySchema.parse({
-      ...identityBase,
-      runtime_identity_hash: canonicalSha256(identityBase),
-    });
+    const releaseTrust = pinnedG6Fixture.release_artifact.trust;
+    const runtimeIdentity = RuntimeIdentitySchema.parse(
+      pinnedG6Fixture.runtime_identity,
+    );
     const runtimeIdentityPath = writePrivate(
       "runtime-identity.json",
       JSON.stringify(runtimeIdentity),
     );
-    const g6Keys = generateKeyPairSync("ed25519");
-    const unsignedControl = {
-      schema_version: "1.0.0",
-      control_id: "g6-control:operator-u9",
-      purpose: "g6_release_control" as const,
-      decision: "GO" as const,
-      runtime_identity_hash: runtimeIdentity.runtime_identity_hash,
-      tested_envelope_digest: runtimeIdentity.tested_envelope_digest,
-      secret_admission_allowed: true,
-      authority_key_id: "g6-authority:operator-u9",
-      authority_key_generation: 1,
-      signature_algorithm: "Ed25519" as const,
-      issued_at: issuedAt,
-      expires_at: expiresAt,
-    };
-    const controlHash = CanonicalHashSchema.parse(
-      canonicalSha256(unsignedControl),
-    );
-    const control = G6ReleaseControlSchema.parse({
-      ...unsignedControl,
-      control_hash: controlHash,
-      signature: sign(
-        null,
-        Buffer.from(
-          g6ReleaseControlSigningPayload({ control_hash: controlHash }),
-          "utf8",
-        ),
-        g6Keys.privateKey,
-      ).toString("base64url"),
-    });
     const releaseControlPath = writePrivate(
       "release-control.json",
-      JSON.stringify(control),
+      JSON.stringify(pinnedG6Fixture.release_artifact),
     );
-    const releaseTrust = {
-      schema_version: "1.0.0",
-      purpose: "g6_release_control" as const,
-      authority_key_id: control.authority_key_id,
-      authority_key_generation: 1,
-      public_key_spki_base64url: g6Keys.publicKey
-        .export({ format: "der", type: "spki" })
-        .toString("base64url"),
-      valid_from: trustValidFrom,
-      expires_at: trustExpiresAt,
-      revoked_at: null,
-      maximum_control_ttl_seconds: 1_800,
-    };
 
     const owner = {
       kind: "evidence" as const,
@@ -524,18 +703,57 @@ describe("operator CLI doctor", () => {
         },
       }),
     );
+    const substitutedEvidenceHash = canonicalSha256(
+      "substituted-g6-evidence-bundle",
+    );
+    const substitutedReleaseArtifact = structuredClone(
+      pinnedG6Fixture.release_artifact,
+    ) as typeof pinnedG6Fixture.release_artifact & {
+      control: { control_hash: string };
+      evidence_binding: {
+        evidence_bundle_hash: string;
+        release_binding_hash: string;
+      };
+    };
+    substitutedReleaseArtifact.evidence_binding.evidence_bundle_hash =
+      substitutedEvidenceHash;
+    substitutedReleaseArtifact.evidence_binding.release_binding_hash =
+      canonicalSha256({
+        control_hash:
+          substitutedReleaseArtifact.control.control_hash,
+        evidence_bundle_hash: substitutedEvidenceHash,
+      });
+    writeFileSync(
+      releaseControlPath,
+      JSON.stringify(substitutedReleaseArtifact),
+      { mode: 0o600 },
+    );
+    expect(() =>
+      loadSecretAdmissionArtifacts(loadOperatorConfig(configPath), {}),
+    ).toThrow();
+    writeFileSync(
+      releaseControlPath,
+      JSON.stringify(pinnedG6Fixture.release_artifact),
+      { mode: 0o600 },
+    );
     const inputDescriptor = openSync(secretPath, "r");
     const invoke = async (argv: string[]) => {
       let stdout = "";
       let stderr = "";
-      const code = await runOperatorCli(argv, {
-        stdout: {
-          write: (value) => ((stdout += String(value)), true),
+      const code = await runOperatorCli(
+        argv,
+        {
+          stdout: {
+            write: (value) => ((stdout += String(value)), true),
+          },
+          stderr: {
+            write: (value) => ((stderr += String(value)), true),
+          },
         },
-        stderr: {
-          write: (value) => ((stderr += String(value)), true),
+        {
+          now: () => "2026-07-30T07:30:00.000Z",
         },
-      });
+      );
       return { code, stdout, stderr };
     };
     try {

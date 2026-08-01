@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0.0",
+  "acceptance_examples": {
+    "M6_AE1": {
+      "success": "restored_context_equivalence",
+      "failure": "tampered_context_snapshot_rejected",
+      "proof": {
+        "test_file": "tests/integration/m6-restored-context-equivalence.integration.test.ts",
+        "test_name": "restores the same accepted preference and project constraint without replaying transcripts"
+      }
+    },
+    "M6_AE2": {
+      "success": "interrupted_projection_rebuild_resumes",
+      "failure": "partial_projection_never_publishes",
+      "proof": {
+        "test_file": "tests/recovery/interrupted-projection-rebuild.recovery.test.ts",
+        "test_name": "resumes FTS repair from canonical state and exposes only the current revision"
+      }
+    },
+    "M6_AE3": {
+      "success": "disabled_optional_lanes_restore",
+      "failure": "optional_lane_becomes_dependency",
+      "proof": {
+        "test_file": "tests/recovery/disabled-optional-lanes-restore.recovery.test.ts",
+        "test_name": "keeps graph, vector, and automatic learning publication disabled"
+      }
+    },
+    "M6_AE4": {
+      "success": "complete_purge_audit",
+      "failure": "missing_store_outcome_blocks_completion",
+      "proof": {
+        "test_file": "tests/recovery/complete-purge-audit.recovery.test.ts",
+        "test_name": "blocks missing and stale frontiers after tombstone advancement"
+      }
+    },
+    "M6_AE5": {
+      "success": "pressure_hysteresis_recovers",
+      "failure": "unsafe_maintenance_admission_rejected",
+      "proof": {
+        "test_file": "tests/recovery/storage-pressure.recovery.test.ts",
+        "test_name": "requires recovery headroom and a healthy checkpoint"
+      }
+    },
+    "M6_AE6": {
+      "success": "learning_pointer_rollback_restores_frontier",
+      "failure": "unbound_pointer_rejected",
+      "proof": {
+        "test_file": "tests/recovery/restored-learning-rollback.recovery.test.ts",
+        "test_name": "restores the named base release after a post-restore monitor breach"
+      }
+    },
+    "M6_AE7": {
+      "success": "paused_learning_state_survives_restore",
+      "failure": "restore_silently_resumes_publication",
+      "proof": {
+        "test_file": "tests/recovery/paused-learning-snapshot.recovery.test.ts",
+        "test_name": "restores the paused frontier while recall and authorized writes remain available"
+      }
+    },
+    "M6_AE8": {
+      "success": "synthetic_go_secret_chain",
+      "failure": "wrong_key_or_drift_fails_closed",
+      "proof": {
+        "test_file": "tests/integration/governed-secret-admission.integration.test.ts",
+        "test_name": "atomically binds a synthetic GO control, approval consumption, ciphertext, receipt, and recovery frontier"
+      }
+    }
+  }
+}

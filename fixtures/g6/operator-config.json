@@ -1,0 +1,56 @@
+{
+  "data_root": "/private/tmp/memo-graph-g6-canonical/data",
+  "principal_id": "principal:operator-u9",
+  "root_ref": "root_primary",
+  "recovery": {
+    "backup_bundles": {},
+    "restore_targets": {},
+    "authority": {
+      "directory": "/private/tmp/memo-graph-g6-canonical/recovery-authority",
+      "authority_key_id": "recovery-authority:operator-governed-secret",
+      "trust_root_version": 1,
+      "private_key_path": "/private/tmp/memo-graph-g6-canonical/artifacts/recovery-private.pem",
+      "public_key_path": "/private/tmp/memo-graph-g6-canonical/artifacts/recovery-public.pem"
+    }
+  },
+  "secret_admission": {
+    "enabled": true,
+    "approval_trust": {
+      "schema_version": "1.0.0",
+      "purpose": "secret_admission",
+      "authority_key_id": "secret-admission-authority:operator-u9",
+      "authority_key_generation": 1,
+      "public_key_spki_base64url": "MCowBQYDK2VwAyEAVV9GnCIYjpABW92FuIlnjUWfhr349700lxsQubOFhgk",
+      "valid_from": "2026-07-30T06:30:00.000Z",
+      "expires_at": "2026-07-30T08:30:00.000Z",
+      "revoked_at": null,
+      "maximum_approval_ttl_seconds": 1800,
+      "commitment_key_id": "secret-admission-commitment:operator-u9",
+      "commitment_key_verification_tag": "hmac-sha256:K4ZTNxcvmbzuOcYqfCIJRg4p9K4WehKHJra01e4f_aA"
+    },
+    "signing_private_key_path": "/private/tmp/memo-graph-g6-canonical/artifacts/admission-signing.bin",
+    "commitment_key_path": "/private/tmp/memo-graph-g6-canonical/artifacts/admission-commitment.bin",
+    "release_control_path": "/private/tmp/memo-graph-g6-canonical/artifacts/release-control.json",
+    "release_trust": {
+      "schema_version": "1.0.0",
+      "purpose": "g6_release_control",
+      "authority_key_id": "g6-authority:local-operational-v1",
+      "authority_key_generation": 1,
+      "public_key_spki_base64url": "MCowBQYDK2VwAyEA9v19wUHOuex6XkIHsieXR3f_EImpD5EinzlUjDxfl_I",
+      "valid_from": "2026-07-30T00:00:00.000Z",
+      "expires_at": "2027-07-30T00:00:00.000Z",
+      "revoked_at": null,
+      "maximum_control_ttl_seconds": 900
+    },
+    "runtime_identity_path": "/private/tmp/memo-graph-g6-canonical/artifacts/runtime-identity.json",
+    "encryption_provider": {
+      "key_id": "key:operator-u9:1",
+      "key_generation": 1,
+      "key_path": "/private/tmp/memo-graph-g6-canonical/artifacts/data-key.bin",
+      "commitment_key_id": "data-commitment:operator-u9:1",
+      "commitment_key_path": "/private/tmp/memo-graph-g6-canonical/artifacts/data-commitment.bin"
+    },
+    "requests": {},
+    "approvals": {}
+  }
+}

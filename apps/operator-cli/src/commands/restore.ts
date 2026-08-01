@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   OperationIntentSchema,
@@ -46,6 +47,7 @@ export function restoreDryRun(input: {
 export function restoreStateBindings(input: {
   backup: BackupResult;
   target: string;
+  targetRef: string;
   recoveryHeadProvider: RecoveryHeadProvider;
 }) {
   const current = input.recoveryHeadProvider.readCurrent();
@@ -60,6 +62,8 @@ export function restoreStateBindings(input: {
         canonicalSha256({
           manifest_schema_version: manifest.schema_version,
           database_schema: manifest.schema,
+          target_ref: input.targetRef,
+          target_path: resolve(input.target),
         }),
       ),
     key_state_digest: OperationIntentSchema.shape.key_state_digest.parse(
@@ -101,6 +105,13 @@ export function runConfirmedRestore(input: {
   now: string;
   ledger: OperatorActionLedger;
   recordReceipt: (receipt: OperatorActionReceipt) => Promise<unknown>;
+  testFaultAfter?:
+    | "authorized"
+    | "effect_prepared"
+    | "external_effect"
+    | "effect_committed"
+    | "receipt_committed"
+    | "responded";
 }) {
   const requiredKeys = input.backup.manifest.encryption.required_keys
     .map(({ key_id, key_generation, state }) => ({
@@ -170,14 +181,27 @@ export function runConfirmedRestore(input: {
       ) {
         return null;
       }
+      const restored = await restoreBackupToEmptyDataRoot({
+        backup: input.backup,
+        dataRoot: input.target,
+        operationId: input.intent.operation_id,
+        recoveryHeadProvider: input.recoveryHeadProvider,
+        ...(input.requiredKeyDescriptors === undefined
+          ? {}
+          : {
+              requiredKeyDescriptors:
+                input.requiredKeyDescriptors,
+            }),
+      });
       return {
         status: "published",
-        publication: "reconciled",
+        publication: restored.publication,
         operation_id: input.intent.operation_id,
         backup_id: input.backup.backup_id,
         manifest_hash: input.backup.manifest.manifest_hash,
-        recovery_generation: current.payload.generation,
-        recovery_anchor_hash: current.anchor_hash,
+        recovery_generation: restored.recovery_generation,
+        recovery_anchor_hash: restored.recovery_anchor_hash,
+        verified_blobs: restored.verified_blobs,
       };
     },
     effect: async () => {
@@ -205,5 +229,8 @@ export function runConfirmedRestore(input: {
       };
     },
     recordReceipt: input.recordReceipt,
+    ...(input.testFaultAfter === undefined
+      ? {}
+      : { testFaultAfter: input.testFaultAfter }),
   });
 }
