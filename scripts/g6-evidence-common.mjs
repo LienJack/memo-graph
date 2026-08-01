@@ -833,6 +833,15 @@ function assertEvidenceString(entry, key, ancestors) {
     }
     return;
   }
+  if (
+    key === "allowed_evidence_artifacts" ||
+    key === "allowed_decision_artifacts"
+  ) {
+    if (!SOURCE_PATH_PATTERN.test(entry)) {
+      throw new Error(`G6 evidence ${key} is not a repository path`);
+    }
+    return;
+  }
   if (key === "commit" || key === "tree") {
     if (!/^[a-f0-9]{40}$/u.test(entry)) {
       throw new Error(`G6 evidence ${key} is invalid`);

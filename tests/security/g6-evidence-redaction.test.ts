@@ -108,8 +108,20 @@ describe("G6 content-free evidence boundary", () => {
         fault_points: [
           { id: "secret_ciphertext", state: "pass" },
         ],
+        allowed_evidence_artifacts: [
+          "docs/evaluations/g6-fault-report.json",
+        ],
+        allowed_decision_artifacts: [
+          "docs/evaluations/g6-decision.md",
+        ],
       }),
     ).not.toThrow();
+
+    expect(() =>
+      assertContentFreeEvidence({
+        allowed_evidence_artifacts: ["../outside.json"],
+      }),
+    ).toThrow();
 
     for (const value of [
       {
