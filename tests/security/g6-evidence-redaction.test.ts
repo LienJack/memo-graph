@@ -114,6 +114,13 @@ describe("G6 content-free evidence boundary", () => {
         allowed_decision_artifacts: [
           "docs/evaluations/g6-decision.md",
         ],
+        exact_environment: {
+          runtime: "node-24.18.0",
+          platform: "darwin-arm64",
+          filesystem: "apfs",
+          topology: "single-user-single-root-single-writer-stdio",
+          workload: "g6-small-expected-v1",
+        },
       }),
     ).not.toThrow();
 
