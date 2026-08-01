@@ -385,3 +385,41 @@ Completed the Trellis M5 workflow from brainstorm through governed implementatio
 
 - Create the M6 child under parent 07-28-agent-memory-runtime and run ce-brainstorm -> research-to-article -> ce-plan -> ce-work before G6.
 - Carry schema, tombstone, projection, learning release/control, and purge frontiers through backup/restore, migration, disk/WAL, observability, fault drills, runbooks, and final release evidence.
+
+
+## Session 10: M6 operational hardening and G6 decision
+
+**Date**: 2026-08-02
+**Task**: M6 operational hardening and G6 decision
+**Branch**: `codex/agent-memory-runtime-m6`
+
+### Summary
+
+Completed ce-brainstorm, research-to-article, ce-plan, activation, U1/U4/U2/U3/U5/U9, frozen G6 harness and five independent remediation commits, immutable U7 evidence, and U8 decision on codex/agent-memory-runtime-m6 from de1a4db. Tested candidate 6e2ca60, evidence commit 33549e6, implementation digest sha256:0a456f8dea612f9bf97e5b0fc1eca5fdde0dc3a748bde653d47ebb59326f2363, evidence bundle sha256:1d6d025934733687cefec12cd97e0c8e8cc3e0c4c7f1acc42bf6af5078f5cb45. G6 is supported NO-GO with first non-pass integrity: 40 fault obligations lack direct proof and ten Runbook paths lack direct typed automation observation. Signed control is non-enabling; secret admission, graph, vector, and automatic learning publication remain disabled. Last verified non-secret SQLite/FTS5/layered/G5 rollback-capable local fallback remains active. No production, fleet, HA, multi-platform, traffic, or SLO claim. M6 archived; parent roadmap has 10/10 children and awaits separate status, archive, and journal commits.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `be839ff9e174a65a9314e5dbff4d32d7828186f3` | (see git log) |
+| `adfd6905b72cc867350381eb93979c96783c5e8d` | (see git log) |
+| `0ece5d7e02006eadb780f1489c3664fd9319b238` | (see git log) |
+| `6e2137809bb936c901e221443082f23c957755b0` | (see git log) |
+| `b0cd16be6319dbff360a0e643295af4165d07478` | (see git log) |
+| `576ecc2328b2f3de8890dc6f390f90e7dc695095` | (see git log) |
+| `66cdfc51e4878bc1a3a980d64d498f8a993ea825` | (see git log) |
+| `e3862744b1af91292250ab34f3567cc87cbda1cb` | (see git log) |
+| `0150dd1b3d9c53725186b8f564fcdad573923d57` | (see git log) |
+| `e0a88728ecdc2d170ecb65d7c1d2e2db1888917a` | (see git log) |
+| `707f70b7193d655adc8166ea5fc6c599769aba30` | (see git log) |
+| `fa932fe1961fce419e106593a9a7409981b0e980` | (see git log) |
+| `790f6fd249de9bfcb37c3fe2646e32a35b2f8a5a` | (see git log) |
+| `a43581205577c7b0ee6236b1cb6ac54bb1680fdd` | (see git log) |
+| `4c848dd0168056b4fd8e357734918fa69caa214b` | (see git log) |
+| `6e2ca601e435c0fa585341c5bdde2c68a12c9e25` | (see git log) |
+| `33549e61c73a801fdaca33be54a51d0754790c0b` | (see git log) |
+| `51f40917a5c9fb4df489ba0d54a28bff61eed7ca` | (see git log) |
+
+### Status
+
+[OK] **Completed**
