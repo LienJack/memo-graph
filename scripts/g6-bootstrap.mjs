@@ -277,8 +277,85 @@ function verifyNoRuntimeDownloads() {
   };
 }
 
+export function buildG6DependencyInventory(value) {
+  const packages = new Set();
+  const projectNames = [];
+  let valid = Array.isArray(value) && value.length > 0;
+  const visitDependencies = (dependencies) => {
+    if (dependencies === undefined) return;
+    if (
+      dependencies === null ||
+      typeof dependencies !== "object" ||
+      Array.isArray(dependencies)
+    ) {
+      valid = false;
+      return;
+    }
+    for (const [name, dependency] of Object.entries(dependencies)) {
+      if (
+        typeof name !== "string" ||
+        name.length === 0 ||
+        dependency === null ||
+        typeof dependency !== "object" ||
+        Array.isArray(dependency) ||
+        typeof dependency.version !== "string" ||
+        dependency.version.length === 0
+      ) {
+        valid = false;
+        continue;
+      }
+      packages.add(`${name}@${dependency.version}`);
+      visitDependencies(dependency.dependencies);
+      visitDependencies(dependency.devDependencies);
+      visitDependencies(dependency.optionalDependencies);
+    }
+  };
+  if (Array.isArray(value)) {
+    for (const project of value) {
+      if (
+        project === null ||
+        typeof project !== "object" ||
+        Array.isArray(project) ||
+        typeof project.name !== "string" ||
+        project.name.length === 0 ||
+        typeof project.version !== "string" ||
+        project.version.length === 0
+      ) {
+        valid = false;
+        continue;
+      }
+      projectNames.push(project.name);
+      packages.add(`${project.name}@${project.version}`);
+      visitDependencies(project.dependencies);
+      visitDependencies(project.devDependencies);
+      visitDependencies(project.optionalDependencies);
+    }
+  }
+  if (new Set(projectNames).size !== projectNames.length) {
+    valid = false;
+  }
+  return {
+    valid,
+    workspace_projects: [...projectNames].sort(),
+    packages: [...packages].sort(),
+  };
+}
+
+function expectedWorkspaceProjects() {
+  const packagePaths = [
+    "package.json",
+    ...filesUnder("apps").filter(
+      (path) => /^apps\/[^/]+\/package\.json$/u.test(path),
+    ),
+    ...filesUnder("packages").filter(
+      (path) => /^packages\/[^/]+\/package\.json$/u.test(path),
+    ),
+  ];
+  return packagePaths.map((path) => readJson(path).name).sort();
+}
+
 function dependencyInventoryResult() {
-  const args = ["list", "--json", "--depth", "Infinity"];
+  const args = ["-r", "list", "--json", "--depth", "Infinity"];
   const command = canonicalEvidenceArgv("pnpm", args);
   const result = spawnSync(
     "pnpm",
@@ -289,37 +366,35 @@ function dependencyInventoryResult() {
       timeout: 300_000,
     },
   );
-  const packages = new Set();
+  let inventory = {
+    valid: false,
+    workspace_projects: [],
+    packages: [],
+  };
   if (result.status === 0) {
     try {
-      const visit = (entry) => {
-        if (entry === null || typeof entry !== "object") return;
-        if (
-          typeof entry.name === "string" &&
-          typeof entry.version === "string"
-        ) {
-          packages.add(`${entry.name}@${entry.version}`);
-        }
-        for (const dependency of Object.values(
-          entry.dependencies ?? {},
-        )) {
-          visit(dependency);
-        }
-      };
-      JSON.parse(result.stdout).forEach(visit);
+      inventory = buildG6DependencyInventory(
+        JSON.parse(result.stdout),
+      );
     } catch {
-      packages.clear();
+      inventory.valid = false;
     }
   }
+  const expectedProjects = expectedWorkspaceProjects();
+  const complete =
+    inventory.valid &&
+    canonicalJson(inventory.workspace_projects) ===
+      canonicalJson(expectedProjects) &&
+    inventory.packages.length > expectedProjects.length;
   return {
     command,
-    state:
-      result.status === 0 && packages.size > 0 ? "pass" : "fail",
+    state: result.status === 0 && complete ? "pass" : "fail",
     exit_code: result.status,
-    package_count: packages.size,
+    workspace_project_count: inventory.workspace_projects.length,
+    package_count: inventory.packages.length,
     sbom_digest:
-      packages.size > 0
-        ? canonicalSha256([...packages].sort())
+      complete
+        ? canonicalSha256(inventory.packages)
         : null,
   };
 }

@@ -36,6 +36,7 @@ import {
 import { buildG6RuntimeIdentity } from "../../scripts/build-g6-runtime-identity.mjs";
 import { buildG6ReleaseControl } from "../../scripts/build-g6-release-control.mjs";
 import {
+  buildG6DependencyInventory,
   initializeG6Authority,
   validateG6LifecycleInventory,
   verifyG6Provenance,
@@ -89,6 +90,59 @@ afterEach(() => {
 });
 
 describe("G6 harness integrity", () => {
+  it("enumerates every workspace and recursive dependency class for the SBOM", () => {
+    const inventory = buildG6DependencyInventory([
+      {
+        name: "root",
+        version: "1.0.0",
+        dependencies: {
+          runtime: {
+            version: "2.0.0",
+            dependencies: {
+              transitive: { version: "3.0.0" },
+            },
+          },
+          workspace: { version: "link:packages/workspace" },
+        },
+        devDependencies: {
+          developer: { version: "4.0.0" },
+        },
+        optionalDependencies: {
+          optional: { version: "5.0.0" },
+        },
+      },
+      { name: "workspace", version: "1.0.0" },
+    ]);
+    expect(inventory).toEqual({
+      valid: true,
+      workspace_projects: ["root", "workspace"],
+      packages: [
+        "developer@4.0.0",
+        "optional@5.0.0",
+        "root@1.0.0",
+        "runtime@2.0.0",
+        "transitive@3.0.0",
+        "workspace@1.0.0",
+        "workspace@link:packages/workspace",
+      ],
+    });
+    expect(
+      buildG6DependencyInventory([
+        { name: "root", version: "1.0.0" },
+        { name: "root", version: "1.0.0" },
+      ]).valid,
+    ).toBe(false);
+    expect(
+      buildG6DependencyInventory([
+        {
+          name: "root",
+          version: "1.0.0",
+          dependencies: { missing_version: {} },
+        },
+      ]).valid,
+    ).toBe(false);
+  });
+
   it("creates and reopens only a private durable decision-authority seed", () => {
     const root = realpathSync(
       mkdtempSync(join(realpathSync(tmpdir()), "memo-graph-g6-authority-")),

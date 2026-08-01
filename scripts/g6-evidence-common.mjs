@@ -648,7 +648,7 @@ const CANONICAL_RUNBOOK_AUTOMATION = Object.freeze([
 ]);
 const STATIC_EVIDENCE_ARGV = Object.freeze([
   ["pnpm", "audit", "--json", "--audit-level", "high"],
-  ["pnpm", "list", "--json", "--depth", "Infinity"],
+  ["pnpm", "-r", "list", "--json", "--depth", "Infinity"],
   ["pnpm", "ignored-builds"],
   [
     "pnpm",

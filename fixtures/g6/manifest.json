@@ -210,8 +210,8 @@
     },
     {
       "path": "fixtures/g6/runtime-inputs.json",
-      "raw_hash": "sha256:f872596447828ceef3e378b0417fef5c3f64a78b7badb99e8accf7f6ea427cce",
-      "canonical_hash": "sha256:34c6d741538c6fc20c1962a45a0c231c59e18b7dc8e38f91ad711f763dd5a4ea"
+      "raw_hash": "sha256:5199155ca9cbcec1116d8663982ce28974e3f6e4d5d8ae8892c65a79b3e2f49f",
+      "canonical_hash": "sha256:ea59fbf91629ee4b128c828474d31d6b88a3fb1075cf5b7377f2d11b811496f3"
     },
     {
       "path": "fixtures/g6/operator-config.json",
@@ -250,8 +250,8 @@
     },
     {
       "path": "fixtures/g6/security/provenance.json",
-      "raw_hash": "sha256:4c0dcfc0ebbdcf9923d372ee288ebf267cbf7bdd799eaeb99cc14854d7265cf9",
-      "canonical_hash": "sha256:d78d2032516c7cfa1e7e07834aa6bf962e076370ab1fce0da6b001e05a221dd8"
+      "raw_hash": "sha256:936f08340682c0276b0d6d16c70e4bf18ee974c1dc0d22e8ee861de073580a90",
+      "canonical_hash": "sha256:d557463a630ac1ac7a6da9e420847f4a550bbdb7466b81bbe5fb8f7462907fd5"
     }
   ]
 }

@@ -27,6 +27,12 @@ export function buildG6Provenance(options?: {
   write?: boolean;
 }): Record<string, unknown>;
 
+export function buildG6DependencyInventory(value: unknown): {
+  valid: boolean;
+  workspace_projects: string[];
+  packages: string[];
+};
+
 export function validateG6LifecycleInventory(input: {
   policy: Record<string, unknown>;
   pendingBuilds: unknown;
