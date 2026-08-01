@@ -4,7 +4,29 @@
 
 为单个本地开发者规划一个通过 MCP 接入 Codex 的 Agent Memory Runtime：它保存可追溯证据，把对话逐步组织为 Topic、Scenario 和 Core 等分层记忆，在有限 Context 中进行受治理召回，并通过候选、评测、发布和回滚实现可验证自学习。
 
-本任务只交付研究和实施计划，不交付产品代码。
+本 PRD 在 2026-07-28 规划阶段只交付研究和实施计划。后续产品代码由
+10 个独立 Trellis child 按授权、Gate 和 commit 边界实施；本父任务本身
+始终作为 roadmap/authority 容器，没有被启动成一个巨型编码任务。
+
+## Execution Closure
+
+父 roadmap 于 2026-08-02 完成。10/10 child 均已完成并归档，终态如下：
+
+| Gate | Terminal result | Active boundary |
+| --- | --- | --- |
+| G0 | `GO` | 合同、回放集和技术基线冻结 |
+| G1A / G1 | `GO` | SQLite 权威账本与显式 stdio MCP 闭环 |
+| G2 | `GO` | 版本化 L1 治理、用户控制和 tombstone/purge |
+| G3 | `HOLD`，由 G3R 取代 | 历史证据保留 |
+| G3R | `GO` | 有界、scope-keyed layered Context |
+| G4A | `NO-GO` | 图关闭，SQLite relations 保留 |
+| G4B | `NO-GO` | 向量关闭，FTS5/layered recall 保留 |
+| G5 | exact local synthetic `GO` | 治理式发布/回滚机制通过；自动发布仍关闭 |
+| G6 | `NO-GO` | 首个 non-pass 为 `integrity`；secret admission 关闭 |
+
+这表示 roadmap 已按约定产生完整实现、证据、决策和 fallback，不表示
+production、fleet、HA、多平台、真实流量或 SLO readiness。SQLite 仍是唯一
+权威；graph/vector、自动学习发布和 secret admission 均保持 disabled。
 
 ## Authority
 
@@ -121,4 +143,5 @@
 - [x] 图和向量是独立、可拒绝的 adoption decision。
 - [x] 学习发布默认关闭，候选失败不阻塞核心记忆运行时。
 - [x] Markdown、Mermaid、范围、依赖和跨文档一致性验收通过。
-- [x] Trellis task 保持 `planning`，未运行 `task.py start`。
+- [x] 规划阶段父 Trellis task 保持 `planning`，未作为巨型实现任务运行；
+      实施只通过独立 milestone children 进行。

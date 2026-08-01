@@ -1,7 +1,9 @@
 ---
 title: Agent Memory Runtime - Implementation Plan
 type: feat
+status: completed
 date: 2026-07-28
+completed: 2026-08-02
 artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-plan-ready
 implementation_authorized: true
@@ -9,6 +11,8 @@ execution: milestone-children
 origin: docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md
 trellis_task: .trellis/tasks/07-28-agent-memory-runtime
 research_topic: /Users/lienli/Documents/work/深度调研/research/agent-context-management
+terminal_gate: G6_NO-GO
+production_readiness: false
 ---
 
 # Agent Memory Runtime - Implementation Plan
@@ -22,7 +26,7 @@ research_topic: /Users/lienli/Documents/work/深度调研/research/agent-context
   - Product Contract：`docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md`
   - 研究：`agent-context-management` 的 `RQ032`–`RQ041`
   - Trellis：`.trellis/tasks/07-28-agent-memory-runtime/`
-- **实施状态：**用户已于 2026-07-28 授权实施；M0-M6 里程碑子任务均已执行并产生明确 Gate 结果。G6 于 2026-08-02 以受支持 `NO-GO` 收口，父任务等待独立状态收口、归档和日志提交。
+- **实施状态：**用户已于 2026-07-28 授权实施；M0-M6 里程碑子任务均已执行并产生明确 Gate 结果。G6 于 2026-08-02 以受支持 `NO-GO` 收口，父 roadmap 状态已完成，等待独立归档和日志提交。
 - **停止条件：**任何设计如果让派生图/向量成为事实权威、绕过 MCP/用户授权、削弱作用域或墓碑过滤、允许在线 Agent 直接发布学习结果，必须返回规划阶段。
 
 ---
@@ -593,7 +597,8 @@ boundary. The parent closes only after the terminal M6 handoff.
 - Roadmap, dependencies, files/modules, first failing tests, gates, fallback and stop conditions are documented.
 - Graph and vector are independent, optional, evidence-gated lanes.
 - Self-learning remains candidate-only until independent evaluation and reversible release pass.
-- Trellis artifacts agree with this plan and the task remains `planning`.
+- Trellis planning artifacts agreed with this plan and the parent remained
+  `planning` while implementation ran only through milestone children.
 - Markdown structure, Mermaid syntax, numbering, internal links, scope and dependency consistency are reviewed.
 
 ### Implementation Done

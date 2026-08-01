@@ -4,7 +4,19 @@
 
 Build a local-first Memory Runtime that lets Codex recall governed memory through MCP, preserve immutable evidence, derive higher-level topic/scenario/core projections, and propose self-learning changes without allowing the online Agent to publish unverified behavior.
 
-This document defines the target architecture only. It does not authorize implementation and does not contain production schemas or handler code.
+This document defined the target architecture and did not itself authorize
+implementation or contain production schemas/handler code. Implementation was
+later authorized and delivered through independently gated milestone children.
+
+### Recorded execution closure
+
+The architecture was exercised through M0-M6. SQLite remained authoritative;
+G3R accepted the bounded layered Context path; G4A/G4B rejected graph/vector
+enablement; G5 accepted one exact local synthetic governed release/rollback
+mechanism while automatic publication remained disabled; and G6 completed
+`NO-GO` with `integrity` as the first non-pass. Secret admission remains
+disabled. The final state is a local experimental fallback, not a production,
+fleet, HA, multi-platform, traffic, or SLO claim.
 
 ## 2. Authority and scope
 

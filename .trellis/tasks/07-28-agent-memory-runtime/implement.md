@@ -2,9 +2,13 @@
 
 ## 1. How to use this roadmap
 
-This is a future execution checklist, not a record of work already completed. Do not mark implementation items complete until code, tests, runtime artifacts, and the named phase gate all exist.
+This file began as a future execution checklist. The recorded closure sections
+now reflect the completed child tasks; historical design-time checkboxes remain
+unchanged unless their exact implementation evidence was reopened and verified.
 
-The Trellis parent remains in `planning`. The user approved implementation on 2026-07-28, and execution proceeds through independently activated milestone children beginning with M0.
+The user approved implementation on 2026-07-28. Execution proceeded through
+independently activated milestone children; the parent was never started as one
+giant coding task and reached `completed` only after all 10 children archived.
 
 ### Authority order
 
@@ -38,6 +42,25 @@ The Trellis parent remains in `planning`. The user approved implementation on 20
 | M4B | U7 optional vector decision |
 | M5 | U8 Learning Lab |
 | M6 | U9 operational hardening |
+
+### Recorded roadmap closure
+
+| Child | Gate result | Decision boundary |
+| --- | --- | --- |
+| M0 | G0 `GO` | Frozen contracts, threat model, fixtures, toolchain |
+| M1A | G1A `GO` | Canonical SQLite storage |
+| M1B | G1 `GO` | Explicit stdio MCP loop |
+| M2 | G2 `GO` | Versioned L1 governance and no-resurrection boundary |
+| M3 | G3 `HOLD` | Historical bounded-recall blockers retained as evidence |
+| H3 | G3R `GO` | Bounded search, exact sources, multi-scope frontiers fixed |
+| M4A | G4A `NO-GO` | Graph disabled; SQLite relations retained |
+| M4B | G4B `NO-GO` | Vector disabled; FTS5/layered recall retained |
+| M5 | G5 exact local synthetic `GO` | Governed release/rollback accepted; automatic publication disabled |
+| M6 | G6 `NO-GO` | `integrity` first non-pass; secret admission disabled |
+
+All 10 child tasks are completed and archived. The terminal fallback is the
+non-secret local SQLite/FTS5/layered runtime with graph/vector and automatic
+learning publication disabled. The final result is not production readiness.
 
 ## 2. Roadmap
 
@@ -408,9 +431,10 @@ Build topic, scenario, relation, procedural, and core projections on the SQLite 
 - [x] Keep Topic and Scenario as separate abstractions.
 - [x] Implement SQLite adjacency as the graph-free reference behavior.
 - [x] Invalidate and rebuild all descendants when a source revision changes status.
-- [ ] Implement hard filters before candidate generation. G3 review found
-      limit-before-match and incomplete frontier revalidation; see
-      `docs/evaluations/g3-code-review.md`.
+- [x] Implement hard filters before candidate generation. Historical G3 review
+      found limit-before-match and incomplete frontier revalidation; H3 fixed
+      bounded search, exact-source revalidation, multi-scope frontiers, and
+      relation truncation before G3R `GO`.
 - [x] Implement recent, topic, scenario/procedural, core, and optional relation lanes.
 - [x] Rank by relevance, authority, freshness, evidence diversity, conflict penalty, and token utility.
 - [x] Allocate per-lane minimums and a global token budget.
@@ -453,6 +477,14 @@ Assertions:
 ### Hold/rollback
 
 Disable the failing projection or lane and fall back to the last passing compiler version. M3 can ship with SQLite adjacency and no graph/vector lane.
+
+### Recorded G3R result
+
+- Historical G3 remains `HOLD` at its original candidate.
+- H3 remediation produced G3R `GO` at
+  `6224f782c86712488d416d8101ef7c9fa477c0ae`.
+- The accepted compiler is bounded, scope-keyed, exact-source revalidated, and
+  keeps the M2 L0/L1 path as its tested fallback.
 
 ## 9. M4A — Local graph projection adoption decision
 
@@ -521,6 +553,14 @@ Vector adoption has an independent G4B gate and is not required for G4A.
 ### Hold/rollback
 
 Disable the graph feature flag and keep SQLite adjacency. The graph store may remain available for inspection while excluded from Context Compiler candidates. A documented No-Go is a completed M4A outcome.
+
+### Recorded G4A result
+
+- [x] Final decision is `NO-GO` at tested implementation
+      `36421f5cd75007a1421d3e0594e7881dd4b864b2`.
+- [x] The first failed hard gate is structural value.
+- [x] SQLite adjacency remains active and `relation_graph` remains disabled.
+- [x] Decision receipt: `docs/evaluations/g4a-decision.md`.
 
 ## 10. M4B — Optional vector retrieval decision
 
@@ -675,6 +715,17 @@ Assertions:
 
 Retain trace collection and candidate-only mode. A failed G5 does not block the memory runtime itself.
 
+### Recorded G5 result
+
+- [x] Final decision is exact local synthetic `GO` at tested implementation
+      `91d810efe17632e64f5e9a3ddae81f8e9f0b9985`.
+- [x] Three-arm evaluation, holdout/transfer, authority, canary, monitor,
+      pause/resume, and exact rollback evidence pass.
+- [x] Automatic publication remains disabled and the synthetic fixture ends
+      on the restored base pointer after the rollback drill.
+- [x] Graph/vector decision receipts remain bound and disabled.
+- [x] Decision receipt: `docs/evaluations/g5-decision.md`.
+
 ## 12. M6 — Operational hardening
 
 ### Objective
@@ -745,7 +796,26 @@ Assertions:
 
 Keep the runtime in experimental/local mode. Disable learning release and graph/vector lanes independently when their operational evidence is weaker than the canonical SQLite path.
 
+### Recorded G6 result
+
+- [x] Final decision is `NO-GO` for tested candidate
+      `6e2ca601e435c0fa585341c5bdde2c68a12c9e25`.
+- [x] The first non-pass is `integrity`: 40 fault obligations lack direct
+      per-obligation proof and ten Runbook paths lack direct typed automation
+      observation.
+- [x] Security, resource, supply-chain, encryption, privacy, and independent
+      review evidence pass; they do not compensate for a critical false rule.
+- [x] The signed control is audit-only and sets
+      `secret_admission_allowed=false`.
+- [x] Graph/vector and automatic learning publication remain disabled; the
+      last verified non-secret local fallback remains active.
+- [x] Decision receipt: `docs/evaluations/g6-decision.md`.
+
 ## 13. Cross-phase dependency checklist
+
+Terminal verification is recorded in the child gate receipts. Any historical
+unchecked item below is not silently waived; where G6 proof remained blocked,
+the roadmap selected the explicit local fallback and `NO-GO`.
 
 - [ ] M0 contracts remain backward-compatible or receive an explicit version migration.
 - [ ] Every new mutation path uses the shared idempotency and receipt protocol.
