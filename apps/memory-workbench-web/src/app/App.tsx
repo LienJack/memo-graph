@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MEMORY_FIXTURES, STATE_MESSAGES, type MemoryFixture } from "../api/fixture-api.js";
 import { FocusDialog } from "./focus-dialog.js";
+import type { MemoryWorkbenchApi } from "../features/memories/api.js";
+import { GovernedMemoryBrowser } from "../features/memories/memory-browser.js";
 import {
   canMutate,
   recoveryPolicy,
@@ -10,6 +12,7 @@ import {
 } from "./recovery-state.js";
 import {
   parseStructuralUrl,
+  urlForMemoryStructure,
   urlForView,
   type WorkbenchView,
 } from "./url-state.js";
@@ -17,6 +20,7 @@ import {
 export type AppProps = {
   initialRecoveryKind?: RecoveryKind;
   initialUrl?: string;
+  api?: MemoryWorkbenchApi;
 };
 
 const NAVIGATION: readonly { view: WorkbenchView; label: string; meta: string }[] = [
@@ -25,19 +29,24 @@ const NAVIGATION: readonly { view: WorkbenchView; label: string; meta: string }[
   { view: "runtime", label: "运行仪表盘", meta: "只读健康状态" },
 ];
 
-export function App({ initialRecoveryKind = "ready", initialUrl }: AppProps) {
+export function App({ api, initialRecoveryKind = "ready", initialUrl }: AppProps) {
   const startingUrl = useMemo(
     () => new URL(initialUrl ?? window.location.href),
     [initialUrl],
   );
   const parsedStart = useMemo(() => parseStructuralUrl(startingUrl), [startingUrl]);
   const [view, setView] = useState<WorkbenchView>(parsedStart.state.view);
+  const [structure, setStructure] = useState(parsedStart.state);
   const [searchText, setSearchText] = useState("");
   const [recovery, setRecovery] = useState<RecoveryState<readonly MemoryFixture[]>>(
     () => recoveryState(initialRecoveryKind),
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const [dirtyDraft, setDirtyDraft] = useState(false);
+  const [liveAuthority, setLiveAuthority] = useState<
+    "verified" | "checking" | "unavailable"
+  >(api === undefined ? "verified" : "checking");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const dialogTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -53,14 +62,25 @@ export function App({ initialRecoveryKind = "ready", initialUrl }: AppProps) {
 
   const navigate = useCallback(
     (next: WorkbenchView): void => {
+      if (
+        dirtyDraft &&
+        next !== "memory" &&
+        !window.confirm("当前纠正草稿尚未提交。离开会丢弃草稿，是否继续？")
+      ) {
+        return;
+      }
+      if (next !== "memory") {
+        setDirtyDraft(false);
+      }
       setView(next);
+      setStructure((current) => ({ ...current, view: next }));
       setAnnouncement(`已切换到${labelForView(next)}`);
       if (initialUrl === undefined) {
         const nextUrl = urlForView(new URL(window.location.href), next);
         window.history.pushState(null, "", nextUrl);
       }
     },
-    [initialUrl],
+    [dirtyDraft, initialUrl],
   );
 
   const visibleMemories = useMemo(() => {
@@ -80,7 +100,9 @@ export function App({ initialRecoveryKind = "ready", initialUrl }: AppProps) {
     recovery.kind === "ready" && searchText.trim().length > 0 && visibleMemories.length === 0
       ? recoveryState("filtered-empty")
       : recovery;
-  const authority = authoritySummary(effectiveRecovery.kind);
+  const authority = api === undefined
+    ? authoritySummary(effectiveRecovery.kind)
+    : liveAuthoritySummary(liveAuthority);
 
   return (
     <div className="workbench-shell">
@@ -140,14 +162,44 @@ export function App({ initialRecoveryKind = "ready", initialUrl }: AppProps) {
         </header>
 
         {view === "memory" ? (
-          <MemoryView
-            recovery={effectiveRecovery}
-            searchText={searchText}
-            setRecovery={setRecovery}
-            setSearchText={setSearchText}
-            visibleMemories={visibleMemories}
-            onOpenHealth={() => navigate("runtime")}
-          />
+          api === undefined ? (
+            <MemoryView
+              recovery={effectiveRecovery}
+              searchText={searchText}
+              setRecovery={setRecovery}
+              setSearchText={setSearchText}
+              visibleMemories={visibleMemories}
+              onOpenHealth={() => navigate("runtime")}
+            />
+          ) : (
+            <GovernedMemoryBrowser
+              api={api}
+              onAuthorityChange={setLiveAuthority}
+              onDirtyChange={setDirtyDraft}
+              onOpenHealth={() => navigate("runtime")}
+              onStructureChange={(next) => {
+                setStructure((current) => ({
+                  ...current,
+                  scopeKind: next.scope?.kind ?? null,
+                  scopeId: next.scope?.id ?? null,
+                  selectedMemoryId: next.selectedMemoryId,
+                  selectedRevisionId: next.selectedRevisionId,
+                  includeNonCurrent: next.includeNonCurrent,
+                }));
+                if (initialUrl === undefined) {
+                  window.history.pushState(
+                    null,
+                    "",
+                    urlForMemoryStructure(
+                      new URL(window.location.href),
+                      next,
+                    ),
+                  );
+                }
+              }}
+              structure={structure}
+            />
+          )
         ) : null}
         {view === "graph" ? <GraphView /> : null}
         {view === "runtime" ? <RuntimeView /> : null}
@@ -415,4 +467,32 @@ function authoritySummary(kind: RecoveryKind): {
     case "failed":
       return { state: "unavailable", label: "Authority unavailable", detail: "当前内容不具权威性" };
   }
+}
+
+function liveAuthoritySummary(
+  state: "verified" | "checking" | "unavailable",
+): {
+  state: "verified" | "checking" | "unavailable";
+  label: string;
+  detail: string;
+} {
+  if (state === "verified") {
+    return {
+      state,
+      label: "Canonical authority",
+      detail: "当前实例已验证",
+    };
+  }
+  if (state === "checking") {
+    return {
+      state,
+      label: "Authority check",
+      detail: "正在验证当前实例",
+    };
+  }
+  return {
+    state,
+    label: "Authority unavailable",
+    detail: "当前内容不具权威性",
+  };
 }

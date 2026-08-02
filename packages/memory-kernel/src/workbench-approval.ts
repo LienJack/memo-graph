@@ -34,6 +34,11 @@ export type PreparedWorkbenchCorrection = {
 
 type StoredPreparedCorrection = PreparedWorkbenchCorrection & {
   state: "prepared" | "confirmed";
+  confirmed_at: string | null;
+};
+
+type ConfirmedWorkbenchCorrection = PreparedWorkbenchCorrection & {
+  confirmed_at: string;
 };
 
 export type WorkbenchPreviewFailureCode =
@@ -122,6 +127,7 @@ export class WorkbenchApprovalRegistry implements ApprovalRegistry {
       grant,
       request_hash: input.request_hash,
       state: "prepared",
+      confirmed_at: null,
     };
     this.#byPreview.set(input.preview.preview_id, prepared);
     this.#previewByApproval.set(input.approval_id, input.preview.preview_id);
@@ -131,7 +137,7 @@ export class WorkbenchApprovalRegistry implements ApprovalRegistry {
   confirmPreview(
     previewId: string,
     sessionId: string,
-  ): PreparedWorkbenchCorrection {
+  ): ConfirmedWorkbenchCorrection {
     const prepared = this.#byPreview.get(previewId);
     if (prepared === undefined) {
       throw new WorkbenchPreviewError("PREVIEW_NOT_FOUND");
@@ -144,8 +150,14 @@ export class WorkbenchApprovalRegistry implements ApprovalRegistry {
       this.#previewByApproval.delete(prepared.grant.approval_id);
       throw new WorkbenchPreviewError("PREVIEW_EXPIRED");
     }
+    if (prepared.confirmed_at === null) {
+      prepared.confirmed_at = this.#clock();
+    }
     prepared.state = "confirmed";
-    return prepared;
+    return {
+      ...prepared,
+      confirmed_at: prepared.confirmed_at,
+    };
   }
 
   async verify(binding: ApprovalBinding): Promise<VerifiedApproval> {

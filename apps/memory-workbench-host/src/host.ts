@@ -143,11 +143,18 @@ export async function startMemoryWorkbenchHost(options: {
         await runtime.runtime.storage.health(),
       );
     };
+    const runtimeOwner = runtime;
     http = await startWorkbenchHttpServer({
       instanceId,
       runtimeState,
       controlCredential,
       health,
+      ...(runtimeOwner === null
+        ? {}
+        : {
+            workbenchSession: (sessionId: string) =>
+              runtimeOwner.workbenchSession(sessionId),
+          }),
       ...(options.port === undefined ? {} : { port: options.port }),
     });
     const readyAt = clock();

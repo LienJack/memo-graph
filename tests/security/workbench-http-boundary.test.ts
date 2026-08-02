@@ -19,6 +19,9 @@ async function server(options: {
   runtimeState?: "ready" | "health_only";
   controlCredential?: Buffer;
   maxConnections?: number;
+  workbenchSession?: Parameters<
+    typeof startWorkbenchHttpServer
+  >[0]["workbenchSession"];
 } = {}) {
   const controlCredential = options.controlCredential ?? randomBytes(32);
   const started = await startWorkbenchHttpServer({
@@ -28,6 +31,9 @@ async function server(options: {
     ...(options.maxConnections === undefined
       ? {}
       : { maxConnections: options.maxConnections }),
+    ...(options.workbenchSession === undefined
+      ? {}
+      : { workbenchSession: options.workbenchSession }),
     health: async () =>
       blockedOperationalStatus(new Error("fixture unavailable"), {
         observedAt: "2026-08-02T08:00:00.000Z",
@@ -273,6 +279,98 @@ describe("workbench loopback HTTP boundary", () => {
     const memories = await fetch(`${started.origin}/api/memories`, { headers });
     expect(memories.status).toBe(503);
     expect(await memories.json()).toEqual({ code: "RUNTIME_BLOCKED" });
+  });
+
+  it("routes governed reads and corrections only through the bearer session", async () => {
+    const calls: { sessionId: string; operation: string; body: unknown }[] = [];
+    const { started } = await server({
+      workbenchSession: (sessionId) => ({
+        list: async (body) => {
+          calls.push({ sessionId, operation: "list", body });
+          return {
+            status: "ready_empty",
+            items: [],
+            page: null,
+            excluded_count: 0,
+            reason_codes: [],
+            warnings: [],
+          };
+        },
+        detail: async (body) => {
+          calls.push({ sessionId, operation: "detail", body });
+          return { status: "not_found", reason_code: "NOT_FOUND" };
+        },
+        previewCorrection: async (body) => {
+          calls.push({ sessionId, operation: "preview", body });
+          return { status: "failed", reason_code: "FIXTURE" };
+        },
+        confirmCorrection: async (body) => {
+          calls.push({ sessionId, operation: "confirm", body });
+          return { status: "failed", reason_code: "FIXTURE" };
+        },
+      }),
+    });
+    const ticket = started.sessions.issueTicket();
+    const exchange = await postJson(started.origin, "/api/session/exchange", {
+      instance_id: INSTANCE,
+      ticket: ticket.ticket,
+    });
+    const session = await exchange.json() as { bearer: string };
+    const authorityHeaders = {
+      authorization: `Bearer ${session.bearer}`,
+      "x-memo-graph-instance": INSTANCE,
+    };
+    const query = await postJson(
+      started.origin,
+      "/api/workbench/memories/query",
+      { include_non_current: false },
+      authorityHeaders,
+    );
+    expect(query.status).toBe(200);
+    expect(await query.json()).toMatchObject({ status: "ready_empty" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      operation: "list",
+      body: { include_non_current: false },
+    });
+    expect(calls[0]?.sessionId).toMatch(/^browser:/u);
+
+    const boundedDraft = await postJson(
+      started.origin,
+      "/api/workbench/corrections/preview",
+      {
+        memory_id: "memory:test",
+        expected_revision_id: "revision:test",
+        replacement: { text: "x".repeat(10 * 1024) },
+        reason: "bounded correction payload",
+      },
+      authorityHeaders,
+    );
+    expect(boundedDraft.status).toBe(200);
+    expect(calls.at(-1)).toMatchObject({ operation: "preview" });
+    expect(
+      await postJson(
+        started.origin,
+        "/api/workbench/corrections/preview",
+        {
+          memory_id: "memory:test",
+          expected_revision_id: "revision:test",
+          replacement: { text: "x".repeat(2 * 1024 * 1024) },
+          reason: "payload beyond the host boundary",
+        },
+        authorityHeaders,
+      ),
+    ).toMatchObject({ status: 400 });
+    expect(calls).toHaveLength(2);
+
+    expect(
+      await postJson(
+        started.origin,
+        "/api/workbench/corrections/confirm",
+        { preview_id: "workbench-preview:test", confirmed: true },
+      ),
+    ).toMatchObject({ status: 401 });
+    expect(calls).toHaveLength(2);
   });
 
   it("expires and consumes pairing codes without retaining raw authority", () => {

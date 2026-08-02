@@ -18,6 +18,7 @@ import {
 import { WorkbenchSessionAuthority } from "./session-authority.js";
 
 const MAX_JSON_BODY_BYTES = 8 * 1024;
+const MAX_CORRECTION_DRAFT_BYTES = 2 * 1024 * 1024;
 const SECURITY_HEADERS = {
   "cache-control": "no-store, max-age=0",
   "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'",
@@ -56,6 +57,20 @@ const FIXTURE_CSS = `:root{color-scheme:light;font-family:ui-sans-serif,system-u
 const BOOTSTRAP_JS = `const statusNode=document.querySelector('#status');const form=document.querySelector('#pairing');const input=document.querySelector('#pairing-code');const fragment=new URLSearchParams(location.hash.slice(1));const ticket=fragment.get('ticket');const instance=fragment.get('instance');history.replaceState(null,'',location.pathname+location.search);async function exchange(path,body){const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error('SESSION_EXCHANGE_FAILED');const session=await response.json();globalThis.__MEMO_GRAPH_SESSION__=session;globalThis.dispatchEvent(new CustomEvent('memo-graph-session',{detail:session}));statusNode.textContent='本地安全会话已建立。';form.hidden=true;}if(ticket&&instance){exchange('/api/session/exchange',{ticket,instance_id:instance}).catch(()=>{statusNode.textContent='启动票据无效或已过期，请使用配对码。';form.hidden=false;});}else{statusNode.textContent='请输入终端中显示的一次性配对码。';form.hidden=false;}form.addEventListener('submit',event=>{event.preventDefault();const code=String(new FormData(form).get('code')??'').toUpperCase().replaceAll(/[^A-Z2-9]/g,'');exchange('/api/session/pair',{code,instance_id:instance??document.documentElement.dataset.instance??''}).catch(()=>{statusNode.textContent='配对失败，请获取新的配对码。';input.focus();});});`;
 
 type FixedWindow = { startedAtMs: number; count: number };
+
+type WorkbenchRequestService = {
+  list(input: unknown): Promise<unknown>;
+  detail(input: unknown): Promise<unknown>;
+  previewCorrection(input: unknown): Promise<unknown>;
+  confirmCorrection(input: unknown): Promise<unknown>;
+};
+
+const WORKBENCH_ROUTES = {
+  "/api/workbench/memories/query": "list",
+  "/api/workbench/memories/detail": "detail",
+  "/api/workbench/corrections/preview": "previewCorrection",
+  "/api/workbench/corrections/confirm": "confirmCorrection",
+} as const satisfies Record<string, keyof WorkbenchRequestService>;
 
 function writeResponse(
   response: ServerResponse,
@@ -131,7 +146,10 @@ function sameOriginBrowserRequest(
     : requestOrigin === undefined || requestOrigin === origin;
 }
 
-async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+async function readJsonBody(
+  request: IncomingMessage,
+  maxBytes = MAX_JSON_BODY_BYTES,
+): Promise<unknown> {
   const contentType = request.headers["content-type"]?.split(";", 1)[0]
     ?.trim().toLowerCase();
   const contentLength = Number(request.headers["content-length"] ?? 0);
@@ -139,7 +157,7 @@ async function readJsonBody(request: IncomingMessage): Promise<unknown> {
     contentType !== "application/json" ||
     !Number.isSafeInteger(contentLength) ||
     contentLength < 0 ||
-    contentLength > MAX_JSON_BODY_BYTES
+    contentLength > maxBytes
   ) {
     throw new Error("INVALID_HTTP_BODY");
   }
@@ -148,7 +166,7 @@ async function readJsonBody(request: IncomingMessage): Promise<unknown> {
   for await (const chunk of request) {
     const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     length += bytes.byteLength;
-    if (length > MAX_JSON_BODY_BYTES) {
+    if (length > maxBytes) {
       throw new Error("INVALID_HTTP_BODY");
     }
     chunks.push(bytes);
@@ -180,6 +198,7 @@ export async function startWorkbenchHttpServer(options: {
   runtimeState: "ready" | "health_only";
   controlCredential: Buffer;
   health(): Promise<OperationalStatus>;
+  workbenchSession?: (sessionId: string) => WorkbenchRequestService;
   port?: number;
   clock?: () => number;
   maxConnections?: number;
@@ -234,7 +253,9 @@ export async function startWorkbenchHttpServer(options: {
       return;
     }
     const isHealth = path === "/api/health";
-    if (activeRequests > (isHealth ? 36 : 32)) {
+    const isMutation = path === "/api/workbench/corrections/confirm";
+    const requestCapacity = isHealth ? 36 : isMutation ? 34 : 32;
+    if (activeRequests > requestCapacity) {
       writeJson(response, 503, { code: "REQUEST_CAPACITY_EXCEEDED" });
       return;
     }
@@ -400,6 +421,33 @@ export async function startWorkbenchHttpServer(options: {
           writeJson(response, 503, { code: "RUNTIME_BLOCKED" });
           return;
         }
+        const operation = WORKBENCH_ROUTES[
+          path as keyof typeof WORKBENCH_ROUTES
+        ];
+        if (request.method === "POST" && operation !== undefined) {
+          if (options.workbenchSession === undefined) {
+            writeJson(response, 503, { code: "WORKBENCH_UNAVAILABLE" });
+            return;
+          }
+          const body = await readJsonBody(
+            request,
+            operation === "previewCorrection"
+              ? MAX_CORRECTION_DRAFT_BYTES
+              : MAX_JSON_BODY_BYTES,
+          );
+          let result: unknown;
+          try {
+            const service = options.workbenchSession(
+              authenticated.session_id,
+            );
+            result = await service[operation](body);
+          } catch {
+            writeJson(response, 503, { code: "WORKBENCH_UNAVAILABLE" });
+            return;
+          }
+          writeJson(response, 200, result);
+          return;
+        }
       }
       const knownPath = new Set([
         "/",
@@ -409,6 +457,7 @@ export async function startWorkbenchHttpServer(options: {
         "/api/session/pair",
         "/__operator/bootstrap",
         "/api/health",
+        ...Object.keys(WORKBENCH_ROUTES),
       ]).has(path);
       writeJson(
         response,

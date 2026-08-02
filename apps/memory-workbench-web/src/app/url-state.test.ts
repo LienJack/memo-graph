@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseStructuralUrl, urlForView } from "./url-state.js";
+import {
+  parseStructuralUrl,
+  urlForMemoryStructure,
+  urlForView,
+} from "./url-state.js";
 
 describe("structural URL state", () => {
   it("keeps reviewed structure and removes free text and malformed identifiers", () => {
@@ -16,6 +20,7 @@ describe("structural URL state", () => {
       scopeKind: "workspace",
       scopeId: "memo-graph",
       selectedMemoryId: null,
+      selectedRevisionId: null,
       includeNonCurrent: false,
     });
     expect(parsed.changed).toBe(true);
@@ -37,5 +42,21 @@ describe("structural URL state", () => {
     );
     expect(next.searchParams.get("view")).toBe("runtime");
     expect(next.searchParams.get("scope_id")).toBe("memory");
+  });
+
+  it("persists only exact governed memory structure", () => {
+    const next = urlForMemoryStructure(
+      new URL("http://127.0.0.1:4321/?query=private@example.test"),
+      {
+        scope: { kind: "workspace", id: "memo-graph" },
+        selectedMemoryId: "memory_current",
+        selectedRevisionId: "revision_current",
+        includeNonCurrent: true,
+      },
+    );
+    expect(next.searchParams.toString()).toBe(
+      "scope_kind=workspace&scope_id=memo-graph&memory_id=memory_current&revision_id=revision_current&include_non_current=1",
+    );
+    expect(next.href).not.toContain("private");
   });
 });

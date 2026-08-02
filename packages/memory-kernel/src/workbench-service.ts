@@ -562,7 +562,7 @@ export class WorkbenchService {
         approval: {
           grant: approval.grant,
           registry_hash: approval.registry_hash,
-          verified_at: this.#clock(),
+          verified_at: prepared.confirmed_at,
         },
       });
       return WorkbenchCorrectionConfirmResultSchema.parse({

@@ -3,19 +3,35 @@ export type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
 
 export type StructuralUrlState = {
   view: WorkbenchView;
-  scopeKind: "workspace" | "topic" | "agent" | "user" | null;
+  scopeKind:
+    | "thread"
+    | "topic"
+    | "scenario"
+    | "user"
+    | "workspace"
+    | "agent"
+    | null;
   scopeId: string | null;
   selectedMemoryId: string | null;
+  selectedRevisionId: string | null;
   includeNonCurrent: boolean;
 };
 
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u;
-const SCOPE_KINDS = new Set(["workspace", "topic", "agent", "user"]);
+const SCOPE_KINDS = new Set([
+  "thread",
+  "topic",
+  "scenario",
+  "user",
+  "workspace",
+  "agent",
+]);
 const ALLOWED_KEYS = new Set([
   "view",
   "scope_kind",
   "scope_id",
   "memory_id",
+  "revision_id",
   "include_non_current",
 ]);
 
@@ -52,6 +68,16 @@ export function parseStructuralUrl(url: URL): {
   if (selectedMemoryId !== null) {
     sanitizedUrl.searchParams.set("memory_id", selectedMemoryId);
   }
+  const rawRevisionId = source.get("revision_id");
+  const selectedRevisionId =
+    selectedMemoryId !== null &&
+    rawRevisionId !== null &&
+    IDENTIFIER.test(rawRevisionId)
+      ? rawRevisionId
+      : null;
+  if (selectedRevisionId !== null) {
+    sanitizedUrl.searchParams.set("revision_id", selectedRevisionId);
+  }
 
   const includeNonCurrent = source.get("include_non_current") === "1";
   if (includeNonCurrent) {
@@ -65,6 +91,7 @@ export function parseStructuralUrl(url: URL): {
       scopeKind: scopeKind !== null && scopeId !== null ? scopeKind : null,
       scopeId: scopeKind !== null && scopeId !== null ? scopeId : null,
       selectedMemoryId,
+      selectedRevisionId,
       includeNonCurrent,
     },
     sanitizedUrl,
@@ -78,6 +105,46 @@ export function urlForView(url: URL, view: WorkbenchView): URL {
     sanitizedUrl.searchParams.delete("view");
   } else {
     sanitizedUrl.searchParams.set("view", view);
+  }
+  return sanitizedUrl;
+}
+
+export function urlForMemoryStructure(
+  url: URL,
+  input: {
+    scope: { kind: StructuralUrlState["scopeKind"]; id: string } | null;
+    selectedMemoryId: string | null;
+    selectedRevisionId: string | null;
+    includeNonCurrent: boolean;
+  },
+): URL {
+  const { sanitizedUrl } = parseStructuralUrl(url);
+  sanitizedUrl.searchParams.delete("view");
+  for (const key of ["scope_kind", "scope_id", "memory_id", "revision_id", "include_non_current"]) {
+    sanitizedUrl.searchParams.delete(key);
+  }
+  if (
+    input.scope !== null &&
+    input.scope.kind !== null &&
+    IDENTIFIER.test(input.scope.id)
+  ) {
+    sanitizedUrl.searchParams.set("scope_kind", input.scope.kind);
+    sanitizedUrl.searchParams.set("scope_id", input.scope.id);
+  }
+  if (
+    input.selectedMemoryId !== null &&
+    IDENTIFIER.test(input.selectedMemoryId)
+  ) {
+    sanitizedUrl.searchParams.set("memory_id", input.selectedMemoryId);
+    if (
+      input.selectedRevisionId !== null &&
+      IDENTIFIER.test(input.selectedRevisionId)
+    ) {
+      sanitizedUrl.searchParams.set("revision_id", input.selectedRevisionId);
+    }
+  }
+  if (input.includeNonCurrent) {
+    sanitizedUrl.searchParams.set("include_non_current", "1");
   }
   return sanitizedUrl;
 }
