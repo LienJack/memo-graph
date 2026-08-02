@@ -5,6 +5,7 @@ import {
   WorkbenchControlBootstrapResponseSchema,
   WorkbenchEndpointMetadataSchema,
   type OperationalStatus,
+  type WorkbenchHealthResult,
   type WorkbenchControlBootstrapResponse,
   type WorkbenchEndpointMetadata,
 } from "@memo-graph/contracts";
@@ -32,6 +33,8 @@ import {
   startWorkbenchHttpServer,
   type WorkbenchHttpServer,
 } from "./http/server.js";
+import { workbenchHealth } from "./health.js";
+import { loadPackagedWorkbenchWebAssets } from "./http/web-assets.js";
 
 export type MemoryWorkbenchHost = {
   endpoint: WorkbenchEndpointMetadata;
@@ -133,22 +136,53 @@ export async function startMemoryWorkbenchHost(options: {
         invalidConfig: error instanceof z.ZodError,
       });
     }
-    const health = async (): Promise<OperationalStatus> => {
+    const health = async (): Promise<WorkbenchHealthResult> => {
+      const observedAt = clock();
       if (runtime === null) {
-        return blockedStatus ?? blockedOperationalStatus(
-          new Error("Runtime unavailable"),
-        );
+        return workbenchHealth({
+          runtimeState,
+          operational:
+            blockedStatus ?? blockedOperationalStatus(
+              new Error("Runtime unavailable"),
+              { observedAt },
+            ),
+          lifecycle: null,
+          background: [],
+          graph: null,
+          observedAt,
+        });
       }
-      return operationalStatusFromStorageHealth(
-        await runtime.runtime.storage.health(),
-      );
+      try {
+        const snapshot = await runtime.health();
+        return workbenchHealth({
+          runtimeState,
+          operational: operationalStatusFromStorageHealth(snapshot.storage, {
+            observedAt,
+          }),
+          lifecycle: snapshot.lifecycle,
+          background: snapshot.background,
+          graph: snapshot.graph,
+          observedAt,
+        });
+      } catch (error) {
+        return workbenchHealth({
+          runtimeState: "health_only",
+          operational: blockedOperationalStatus(error, { observedAt }),
+          lifecycle: null,
+          background: [],
+          graph: null,
+          observedAt,
+        });
+      }
     };
     const runtimeOwner = runtime;
+    const webAssets = loadPackagedWorkbenchWebAssets();
     http = await startWorkbenchHttpServer({
       instanceId,
       runtimeState,
       controlCredential,
       health,
+      webAssets,
       ...(runtimeOwner === null
         ? {}
         : {

@@ -5,6 +5,7 @@ import { FocusDialog } from "./focus-dialog.js";
 import type { MemoryWorkbenchApi } from "../features/memories/api.js";
 import { GovernedMemoryBrowser } from "../features/memories/memory-browser.js";
 import { GraphExplorer } from "../features/graph/graph-explorer.js";
+import { RuntimeDashboard } from "../features/health/runtime-dashboard.js";
 import {
   canMutate,
   recoveryPolicy,
@@ -263,7 +264,9 @@ export function App({ api, initialRecoveryKind = "ready", initialUrl }: AppProps
             />
           )
         ) : null}
-        {view === "runtime" ? <RuntimeView /> : null}
+        {view === "runtime" ? (
+          api === undefined ? <RuntimePreview /> : <RuntimeDashboard api={api} />
+        ) : null}
       </main>
 
       <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -427,7 +430,7 @@ function GraphPreview() {
   );
 }
 
-function RuntimeView() {
+function RuntimePreview() {
   return (
     <section className="feature-panel" aria-labelledby="runtime-heading">
       <div className="feature-intro">

@@ -1,19 +1,31 @@
 import { randomBytes } from "node:crypto";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { request as httpRequest } from "node:http";
 import { connect } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createWorkbenchControlProof,
+  loadWorkbenchWebAssets,
   startWorkbenchHttpServer,
+  workbenchHealth,
   WorkbenchSessionAuthority,
   type WorkbenchHttpServer,
+  type WorkbenchWebAssets,
 } from "../../apps/memory-workbench-host/src/index.js";
 import { blockedOperationalStatus } from "@memo-graph/storage-sqlite";
 
 const INSTANCE = "workbench:test-instance";
 const servers: WorkbenchHttpServer[] = [];
+const temporaryDirectories: string[] = [];
 
 async function server(options: {
   runtimeState?: "ready" | "health_only";
@@ -22,6 +34,7 @@ async function server(options: {
   workbenchSession?: Parameters<
     typeof startWorkbenchHttpServer
   >[0]["workbenchSession"];
+  webAssets?: WorkbenchWebAssets;
 } = {}) {
   const controlCredential = options.controlCredential ?? randomBytes(32);
   const started = await startWorkbenchHttpServer({
@@ -34,8 +47,18 @@ async function server(options: {
     ...(options.workbenchSession === undefined
       ? {}
       : { workbenchSession: options.workbenchSession }),
+    ...(options.webAssets === undefined
+      ? {}
+      : { webAssets: options.webAssets }),
     health: async () =>
-      blockedOperationalStatus(new Error("fixture unavailable"), {
+      workbenchHealth({
+        runtimeState: options.runtimeState ?? "ready",
+        operational: blockedOperationalStatus(new Error("fixture unavailable"), {
+          observedAt: "2026-08-02T08:00:00.000Z",
+        }),
+        lifecycle: options.runtimeState === "health_only" ? null : "ready",
+        background: [],
+        graph: null,
         observedAt: "2026-08-02T08:00:00.000Z",
       }),
   });
@@ -63,9 +86,31 @@ async function postJson(
 
 afterEach(async () => {
   await Promise.allSettled(servers.splice(0).map((server_) => server_.close()));
+  for (const directory of temporaryDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 describe("workbench loopback HTTP boundary", () => {
+  it("rejects an instance identity that could escape the HTML boundary", async () => {
+    await expect(
+      startWorkbenchHttpServer({
+        instanceId: '"><script>unsafe</script>',
+        runtimeState: "ready",
+        controlCredential: randomBytes(32),
+        health: async () =>
+          workbenchHealth({
+            runtimeState: "ready",
+            operational: blockedOperationalStatus(new Error("fixture")),
+            lifecycle: "ready",
+            background: [],
+            graph: null,
+            observedAt: "2026-08-02T08:00:00.000Z",
+          }),
+      }),
+    ).rejects.toThrow("WORKBENCH_INSTANCE_INVALID");
+  });
+
   it("serves only the allowlisted local fixture with hardening headers", async () => {
     const { started } = await server();
     const response = await fetch(`${started.origin}/`);
@@ -89,6 +134,70 @@ describe("workbench loopback HTTP boundary", () => {
     expect(
       await fetch(`${started.origin}/%2e%2e/secret`),
     ).toMatchObject({ status: 404 });
+  });
+
+  it("serves the packaged SPA from an exact map-free allowlist", async () => {
+    const root = mkdtempSync(join(tmpdir(), "memo-graph-workbench-assets-"));
+    temporaryDirectories.push(root);
+    mkdirSync(join(root, "assets"));
+    writeFileSync(
+      join(root, "index.html"),
+      '<!doctype html><html lang="zh-CN"><head><link rel="stylesheet" href="/assets/app.css"></head><body><div id="root"></div><script type="module" src="/assets/app.js"></script></body></html>',
+    );
+    writeFileSync(join(root, "assets", "app.js"), "export const ready=true;");
+    writeFileSync(join(root, "assets", "app.js.map"), "sensitive source map");
+    writeFileSync(join(root, "assets", "app.css"), "body{color:#171815}");
+    writeFileSync(join(root, "assets", "app.woff2"), Buffer.from([0, 1, 2]));
+    const assets = loadWorkbenchWebAssets(root);
+    const { started } = await server({ webAssets: assets });
+
+    const index = await fetch(`${started.origin}/`);
+    const html = await index.text();
+    expect(index.status).toBe(200);
+    expect(index.headers.get("content-security-policy")).toContain(
+      "font-src 'self'",
+    );
+    expect(html).toContain(`data-instance="${INSTANCE}"`);
+    expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/u);
+    expect(html).not.toMatch(/https?:\/\//u);
+
+    expect(await fetch(`${started.origin}/assets/app.js`)).toMatchObject({
+      status: 200,
+    });
+    expect(await fetch(`${started.origin}/assets/app.css`)).toMatchObject({
+      status: 200,
+    });
+    expect(await fetch(`${started.origin}/assets/app.woff2`)).toMatchObject({
+      status: 200,
+    });
+    for (const path of [
+      "/assets/app.js.map",
+      "/assets/unlisted.js",
+      "/bootstrap.js",
+      "/fixture.css",
+    ]) {
+      expect(await fetch(`${started.origin}${path}`)).toMatchObject({
+        status: 404,
+      });
+    }
+
+    const ticket = started.sessions.issueTicket();
+    const exchange = await postJson(started.origin, "/api/session/exchange", {
+      instance_id: INSTANCE,
+      ticket: ticket.ticket,
+    });
+    const session = await exchange.json() as { bearer: string };
+    expect(
+      await fetch(`${started.origin}/api/health`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${session.bearer}`,
+          "x-memo-graph-instance": INSTANCE,
+          origin: started.origin,
+          "sec-fetch-site": "same-origin",
+        },
+      }),
+    ).toMatchObject({ status: 405 });
   });
 
   it("requires an authenticated one-use operator control request", async () => {

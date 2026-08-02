@@ -55,6 +55,7 @@ export type ManagedRuntimeHost = {
   health(): Promise<{
     lifecycle: "ready" | "draining" | "stopped";
     storage: Awaited<ReturnType<OpenedMemoryRuntime["storage"]["health"]>>;
+    graph: Awaited<ReturnType<OpenedMemoryRuntime["storage"]["graphProjectionStatus"]>> | null;
     background: ReturnType<NonNullable<OpenedMemoryRuntime["supervisor"]>["observations"]>;
   }>;
   close(): Promise<void>;
@@ -339,11 +340,18 @@ export async function startManagedRuntimeHost(options: {
         workbenchSessions.set(sessionId, { service, approvals });
         return service;
       },
-      health: async () => ({
-        lifecycle,
-        storage: await runtime.storage.health(),
-        background: runtime.supervisor?.observations() ?? [],
-      }),
+      health: async () => {
+        const [storage, graph] = await Promise.all([
+          runtime.storage.health(),
+          runtime.storage.graphProjectionStatus().catch(() => null),
+        ]);
+        return {
+          lifecycle,
+          storage,
+          graph,
+          background: runtime.supervisor?.observations() ?? [],
+        };
+      },
       close: async () => {
         if (closed) {
           return;

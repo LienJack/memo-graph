@@ -234,6 +234,8 @@ describe("data-root and migration contract", () => {
       pending_scopes: 0,
       degraded_scopes: 0,
       outbox_pending: 0,
+      outbox_retrying: 0,
+      outbox_terminal: 0,
       receipts: 0,
     });
     expect(

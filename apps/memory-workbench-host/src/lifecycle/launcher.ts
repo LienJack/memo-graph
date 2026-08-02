@@ -551,7 +551,7 @@ export async function launchOrReuseWorkbench(options: {
       {
         shell: false,
         detached: options.detach ?? true,
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: ["ignore", "pipe", "ignore"],
       },
     );
     const ready = await waitForReady({

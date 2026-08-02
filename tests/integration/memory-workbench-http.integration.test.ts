@@ -125,10 +125,71 @@ describe("memory workbench authenticated HTTP workflow", () => {
     hosts.push(host);
     expect(host.endpoint.runtime_state).toBe("ready");
     expect(host.initialBootstrap.ticket).not.toBeNull();
+
+    const application = await fetch(`${host.http.origin}/`);
+    const applicationHtml = await application.text();
+    expect(application).toMatchObject({ status: 200 });
+    expect(applicationHtml).toContain(`data-instance="${INSTANCE}"`);
+    expect(applicationHtml).not.toContain("bootstrap.js");
+    expect(applicationHtml).not.toContain(host.initialBootstrap.ticket);
+    const mainAsset = applicationHtml.match(/src="(\/assets\/[^"]+\.js)"/u)?.[1];
+    expect(mainAsset).toBeTypeOf("string");
+    const asset = await fetch(`${host.http.origin}${mainAsset ?? ""}`);
+    expect(asset).toMatchObject({ status: 200 });
+    expect(asset.headers.get("content-type")).toContain("text/javascript");
+
     const authority = await exchange(
       host,
       host.initialBootstrap.ticket ?? "",
     );
+
+    const healthResponse = await fetch(`${host.http.origin}/api/health`, {
+      headers: {
+        authorization: `Bearer ${authority.bearer}`,
+        "x-memo-graph-instance": INSTANCE,
+        "sec-fetch-site": "same-origin",
+      },
+    });
+    const health = await healthResponse.json() as Record<string, unknown>;
+    expect(healthResponse.status).toBe(200);
+    expect(health).toMatchObject({
+      status: "ready",
+      runtime_state: "ready",
+      canonical: {
+        component: "canonical_storage",
+        authority_plane: "canonical",
+        observation_scope: "canonical_root",
+        state: "healthy",
+      },
+      runtime: {
+        component: "runtime_owner",
+        observation_scope: "runtime_instance",
+        state: "healthy",
+      },
+      projections: expect.arrayContaining([
+        expect.objectContaining({
+          component: "fts_projection",
+          observation_scope: "configured_scopes",
+        }),
+        expect.objectContaining({
+          component: "layered_projection",
+          observation_scope: "configured_scopes",
+        }),
+        expect.objectContaining({
+          component: "graph_projection",
+          observation_scope: "configured_scopes",
+          state: "unavailable",
+        }),
+      ]),
+      lanes: expect.arrayContaining([
+        expect.objectContaining({ lane: "writer_lease" }),
+        expect.objectContaining({ lane: "consolidation" }),
+      ]),
+    });
+    expect(JSON.stringify(health)).not.toContain(
+      "Original authenticated workbench memory",
+    );
+    expect(JSON.stringify(health)).not.toContain(authority.bearer);
 
     const listed = await post(
       host,

@@ -6,6 +6,7 @@ import {
   WorkbenchCorrectionPreviewResultSchema,
   WorkbenchGraphRequestSchema,
   WorkbenchGraphResultSchema,
+  WorkbenchHealthResultSchema,
   WorkbenchMemoryDetailResultSchema,
   WorkbenchMemoryListRequestSchema,
   WorkbenchMemoryListResultSchema,
@@ -46,7 +47,111 @@ const summary = {
   non_current_reason: null,
 } as const;
 
+function healthComponent(
+  component:
+    | "canonical_storage"
+    | "runtime_owner"
+    | "fts_projection"
+    | "layered_projection"
+    | "graph_projection"
+    | "background_work",
+  authority_plane: "canonical" | "runtime" | "projection" | "worker",
+  observation_scope:
+    | "canonical_root"
+    | "runtime_instance"
+    | "configured_scopes",
+) {
+  return {
+    component,
+    authority_plane,
+    observation_scope,
+    state: "healthy" as const,
+    observed_at: timestamp,
+    reason_code: null,
+    guidance_code: "NONE" as const,
+    metrics: [],
+  };
+}
+
+const health = {
+  status: "ready" as const,
+  observed_at: timestamp,
+  stale_after: "2026-08-02T06:00:15.000Z",
+  runtime_state: "ready" as const,
+  canonical: healthComponent(
+    "canonical_storage",
+    "canonical",
+    "canonical_root",
+  ),
+  runtime: healthComponent(
+    "runtime_owner",
+    "runtime",
+    "runtime_instance",
+  ),
+  projections: [
+    healthComponent("fts_projection", "projection", "configured_scopes"),
+    healthComponent(
+      "layered_projection",
+      "projection",
+      "configured_scopes",
+    ),
+    healthComponent("graph_projection", "projection", "configured_scopes"),
+  ],
+  background: healthComponent(
+    "background_work",
+    "worker",
+    "runtime_instance",
+  ),
+  lanes: [],
+  warnings: [],
+};
+
 describe("workbench contracts", () => {
+  it("keeps health authority, scope, and freshness explicit", () => {
+    const parsed = WorkbenchHealthResultSchema.parse(health);
+
+    expect(parsed.canonical.observation_scope).toBe("canonical_root");
+    expect(parsed.runtime.observation_scope).toBe("runtime_instance");
+    expect(
+      parsed.projections.every(
+        ({ observation_scope }) => observation_scope === "configured_scopes",
+      ),
+    ).toBe(true);
+
+    expect(() =>
+      WorkbenchHealthResultSchema.parse({
+        ...health,
+        canonical: healthComponent(
+          "runtime_owner",
+          "runtime",
+          "runtime_instance",
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      WorkbenchHealthResultSchema.parse({
+        ...health,
+        projections: [...health.projections].reverse(),
+      }),
+    ).toThrow();
+    expect(() =>
+      WorkbenchHealthResultSchema.parse({
+        ...health,
+        canonical: healthComponent(
+          "canonical_storage",
+          "canonical",
+          "configured_scopes",
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      WorkbenchHealthResultSchema.parse({
+        ...health,
+        stale_after: timestamp,
+      }),
+    ).toThrow();
+  });
+
   it("seals a bounded complete correction impact before confirmation", () => {
     const impact = WorkbenchCorrectionImpactSchema.parse({
       source_revision_id: "revision_1",

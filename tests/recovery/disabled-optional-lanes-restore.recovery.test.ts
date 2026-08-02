@@ -69,6 +69,8 @@ describe("disabled optional lane restore", () => {
         pending_scopes: 0,
         unavailable_scopes: 0,
         outbox_pending: 0,
+        outbox_retrying: 0,
+        outbox_terminal: 0,
         receipts: 0,
       });
       await expect(reopened.vectorProjectionStatus()).resolves.toEqual({
@@ -80,6 +82,8 @@ describe("disabled optional lane restore", () => {
         pending_scopes: 0,
         degraded_scopes: 0,
         outbox_pending: 0,
+        outbox_retrying: 0,
+        outbox_terminal: 0,
         receipts: 0,
       });
       const learning = await reopened.readLearningLedger({

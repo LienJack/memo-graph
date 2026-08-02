@@ -16,7 +16,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "pnpm --filter @memo-graph/memory-workbench-web build && tsc -p tsconfig.json && node scripts/copy-web-assets.mjs"
   },
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",

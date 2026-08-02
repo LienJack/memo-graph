@@ -2,13 +2,13 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { Socket } from "node:net";
 
 import {
-  OperationalStatusSchema,
+  WorkbenchHealthResultSchema,
   WorkbenchControlBootstrapRequestSchema,
   WorkbenchControlBootstrapResponseSchema,
   WorkbenchPairingExchangeSchema,
   WorkbenchTicketExchangeSchema,
   canonicalJson,
-  type OperationalStatus,
+  type WorkbenchHealthResult,
   type WorkbenchBrowserSession,
 } from "@memo-graph/contracts";
 
@@ -16,12 +16,16 @@ import {
   workbenchControlProofMatches,
 } from "./control-auth.js";
 import { WorkbenchSessionAuthority } from "./session-authority.js";
+import {
+  workbenchIndexHtml,
+  type WorkbenchWebAssets,
+} from "./web-assets.js";
 
 const MAX_JSON_BODY_BYTES = 8 * 1024;
 const MAX_CORRECTION_DRAFT_BYTES = 2 * 1024 * 1024;
 const SECURITY_HEADERS = {
   "cache-control": "no-store, max-age=0",
-  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'",
+  "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'",
   "cross-origin-resource-policy": "same-origin",
   "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   "referrer-policy": "no-referrer",
@@ -78,10 +82,10 @@ function writeResponse(
   response: ServerResponse,
   status: number,
   contentType: string,
-  body: string,
+  body: string | Buffer,
   extraHeaders: Record<string, string> = {},
 ): void {
-  const bytes = Buffer.from(body, "utf8");
+  const bytes = Buffer.isBuffer(body) ? body : Buffer.from(body, "utf8");
   response.writeHead(status, {
     ...SECURITY_HEADERS,
     ...extraHeaders,
@@ -199,12 +203,16 @@ export async function startWorkbenchHttpServer(options: {
   instanceId: string;
   runtimeState: "ready" | "health_only";
   controlCredential: Buffer;
-  health(): Promise<OperationalStatus>;
+  health(): Promise<WorkbenchHealthResult>;
   workbenchSession?: (sessionId: string) => WorkbenchRequestService;
+  webAssets?: WorkbenchWebAssets;
   port?: number;
   clock?: () => number;
   maxConnections?: number;
 }): Promise<WorkbenchHttpServer> {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u.test(options.instanceId)) {
+    throw new Error("WORKBENCH_INSTANCE_INVALID");
+  }
   const clock = options.clock ?? Date.now;
   const sessions = new WorkbenchSessionAuthority({
     instanceId: options.instanceId,
@@ -267,15 +275,30 @@ export async function startWorkbenchHttpServer(options: {
           response,
           200,
           "text/html; charset=utf-8",
-          FIXTURE_HTML.replace("<html lang=\"zh-CN\">", `<html lang="zh-CN" data-instance="${options.instanceId}">`),
+          options.webAssets === undefined
+            ? FIXTURE_HTML.replace("<html lang=\"zh-CN\">", `<html lang="zh-CN" data-instance="${options.instanceId}">`)
+            : workbenchIndexHtml(options.webAssets, options.instanceId),
         );
         return;
       }
-      if (request.method === "GET" && path === "/bootstrap.js") {
+      const webAsset = options.webAssets?.assets.get(path);
+      if (request.method === "GET" && webAsset !== undefined) {
+        writeResponse(response, 200, webAsset.contentType, webAsset.bytes);
+        return;
+      }
+      if (
+        options.webAssets === undefined &&
+        request.method === "GET" &&
+        path === "/bootstrap.js"
+      ) {
         writeResponse(response, 200, "text/javascript; charset=utf-8", BOOTSTRAP_JS);
         return;
       }
-      if (request.method === "GET" && path === "/fixture.css") {
+      if (
+        options.webAssets === undefined &&
+        request.method === "GET" &&
+        path === "/fixture.css"
+      ) {
         writeResponse(response, 200, "text/css; charset=utf-8", FIXTURE_CSS);
         return;
       }
@@ -416,7 +439,11 @@ export async function startWorkbenchHttpServer(options: {
           return;
         }
         if (request.method === "GET" && path === "/api/health") {
-          writeJson(response, 200, OperationalStatusSchema.parse(await options.health()));
+          writeJson(
+            response,
+            200,
+            WorkbenchHealthResultSchema.parse(await options.health()),
+          );
           return;
         }
         if (options.runtimeState === "health_only") {
@@ -453,13 +480,14 @@ export async function startWorkbenchHttpServer(options: {
       }
       const knownPath = new Set([
         "/",
-        "/bootstrap.js",
-        "/fixture.css",
         "/api/session/exchange",
         "/api/session/pair",
         "/__operator/bootstrap",
         "/api/health",
         ...Object.keys(WORKBENCH_ROUTES),
+        ...(options.webAssets === undefined
+          ? ["/bootstrap.js", "/fixture.css"]
+          : [...options.webAssets.assets.keys()]),
       ]).has(path);
       writeJson(
         response,

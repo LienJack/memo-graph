@@ -749,6 +749,204 @@ export const WorkbenchGraphResultSchema = z.discriminatedUnion("status", [
     .strict(),
 ]);
 
+export const WorkbenchHealthStateSchema = z.enum([
+  "healthy",
+  "lagging",
+  "degraded",
+  "failed",
+  "unavailable",
+]);
+
+export const WorkbenchHealthGuidanceSchema = z.enum([
+  "NONE",
+  "REOPEN_WORKBENCH",
+  "CHECK_RUNTIME_CONFIG",
+  "WAIT_FOR_PROJECTION",
+  "INSPECT_PROJECTION_LOGS",
+  "INSPECT_BACKGROUND_LOGS",
+  "PROTECT_CANONICAL_DATA",
+]);
+
+export const WorkbenchHealthComponentIdSchema = z.enum([
+  "canonical_storage",
+  "runtime_owner",
+  "fts_projection",
+  "layered_projection",
+  "graph_projection",
+  "background_work",
+]);
+
+export const WorkbenchHealthMetricSchema = z
+  .object({
+    name: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/u),
+    value: z.number().finite().nonnegative(),
+    unit: z.enum(["count", "epoch", "bytes", "milliseconds"]),
+  })
+  .strict();
+
+export const WorkbenchHealthComponentSchema = z
+  .object({
+    component: WorkbenchHealthComponentIdSchema,
+    authority_plane: z.enum(["canonical", "runtime", "projection", "worker"]),
+    observation_scope: z.enum([
+      "canonical_root",
+      "runtime_instance",
+      "configured_scopes",
+    ]),
+    state: WorkbenchHealthStateSchema,
+    observed_at: UtcTimestampSchema.nullable(),
+    reason_code: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]{0,79}$/u)
+      .nullable(),
+    guidance_code: WorkbenchHealthGuidanceSchema,
+    metrics: z.array(WorkbenchHealthMetricSchema).max(16),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if ((value.state === "healthy") !== (value.reason_code === null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["reason_code"],
+        message: "only healthy workbench health components omit a reason",
+      });
+    }
+    if ((value.state === "healthy") !== (value.guidance_code === "NONE")) {
+      context.addIssue({
+        code: "custom",
+        path: ["guidance_code"],
+        message: "only healthy workbench health components use NONE guidance",
+      });
+    }
+    if (value.state === "unavailable" && value.metrics.length > 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["metrics"],
+        message: "unavailable workbench health has no observed metrics",
+      });
+    }
+    const names = value.metrics.map((metric) => metric.name);
+    if (new Set(names).size !== names.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["metrics"],
+        message: "workbench health metric names must be unique",
+      });
+    }
+  });
+
+export const WorkbenchHealthLaneSchema = z
+  .object({
+    lane: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/u),
+    state: WorkbenchHealthStateSchema,
+    in_flight: z.boolean(),
+    observed_at: UtcTimestampSchema,
+    last_success_at: UtcTimestampSchema.nullable(),
+    reason_code: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]{0,79}$/u)
+      .nullable(),
+    claimed: z.number().int().nonnegative(),
+    completed: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+    retrying: z.number().int().nonnegative(),
+    terminal: z.number().int().nonnegative(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if ((value.state === "healthy") !== (value.reason_code === null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["reason_code"],
+        message: "only healthy background lanes omit a reason",
+      });
+    }
+  });
+
+export const WorkbenchHealthResultSchema = z
+  .object({
+    status: z.literal("ready"),
+    observed_at: UtcTimestampSchema,
+    stale_after: UtcTimestampSchema,
+    runtime_state: z.enum(["ready", "health_only"]),
+    canonical: WorkbenchHealthComponentSchema,
+    runtime: WorkbenchHealthComponentSchema,
+    projections: z.array(WorkbenchHealthComponentSchema).length(3),
+    background: WorkbenchHealthComponentSchema,
+    lanes: z.array(WorkbenchHealthLaneSchema).max(16),
+    warnings: z.array(z.string().trim().min(1).max(160)),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.canonical.component !== "canonical_storage" ||
+      value.canonical.authority_plane !== "canonical" ||
+      value.canonical.observation_scope !== "canonical_root"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["canonical"],
+        message: "canonical health must remain the primary authority plane",
+      });
+    }
+    if (
+      value.runtime.component !== "runtime_owner" ||
+      value.runtime.authority_plane !== "runtime" ||
+      value.runtime.observation_scope !== "runtime_instance"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["runtime"],
+        message: "runtime health must describe Runtime ownership",
+      });
+    }
+    const projectionIds = value.projections.map(({ component }) => component);
+    if (
+      projectionIds.join(",") !==
+        "fts_projection,layered_projection,graph_projection" ||
+      value.projections.some(
+        ({ authority_plane, observation_scope }) =>
+          authority_plane !== "projection" ||
+          observation_scope !== "configured_scopes",
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["projections"],
+        message: "projection health must use the fixed subordinate order",
+      });
+    }
+    if (
+      value.background.component !== "background_work" ||
+      value.background.authority_plane !== "worker" ||
+      value.background.observation_scope !== "runtime_instance"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["background"],
+        message: "background health must remain a worker observation",
+      });
+    }
+    if (Date.parse(value.stale_after) <= Date.parse(value.observed_at)) {
+      context.addIssue({
+        code: "custom",
+        path: ["stale_after"],
+        message: "workbench health observations need a future stale boundary",
+      });
+    }
+    const lanes = value.lanes.map(({ lane }) => lane);
+    if (
+      new Set(lanes).size !== lanes.length ||
+      [...lanes].sort().some((lane, index) => lane !== lanes[index])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["lanes"],
+        message: "background lanes must be unique and deterministic",
+      });
+    }
+  });
+
 export type WorkbenchContent = z.infer<typeof WorkbenchContentSchema>;
 export type WorkbenchGraphRequest = z.input<
   typeof WorkbenchGraphRequestSchema
@@ -758,6 +956,12 @@ export type ParsedWorkbenchGraphRequest = z.output<
 >;
 export type WorkbenchGraphResult = z.infer<
   typeof WorkbenchGraphResultSchema
+>;
+export type WorkbenchHealthComponent = z.infer<
+  typeof WorkbenchHealthComponentSchema
+>;
+export type WorkbenchHealthResult = z.infer<
+  typeof WorkbenchHealthResultSchema
 >;
 export type WorkbenchCorrectionConfirmRequest = z.input<
   typeof WorkbenchCorrectionConfirmRequestSchema

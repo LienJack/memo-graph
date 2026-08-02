@@ -31,3 +31,9 @@ export {
   launchOrReuseWorkbench,
   type WorkbenchLaunchOutcome,
 } from "./lifecycle/launcher.js";
+export { workbenchHealth } from "./health.js";
+export {
+  loadPackagedWorkbenchWebAssets,
+  loadWorkbenchWebAssets,
+  type WorkbenchWebAssets,
+} from "./http/web-assets.js";

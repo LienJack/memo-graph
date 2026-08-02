@@ -38,6 +38,32 @@ See:
 - `docs/operations/mcp-explicit-loop.md` for local MCP configuration;
 - `docs/operations/memory-governance.md` for approvals and user controls.
 
+## Memory Workbench
+
+The local Memory Workbench adds a browser entry for governed memory browsing,
+immutable correction, a bounded SQLite-backed relationship Graph, and a
+separate read-only Runtime dashboard. It does not introduce a second memory
+authority: SQLite remains canonical, while topics, scenarios, relations, FTS,
+and Graph views remain derived.
+
+Build and launch it with an existing private operator configuration:
+
+```bash
+pnpm build:runtime
+node apps/operator-cli/dist/cli.js workbench \
+  --config /absolute/private/operator.json \
+  --format human
+```
+
+Normal launch starts or reuses one managed Runtime and opens a one-use,
+authenticated loopback URL. Use `--no-open` or `--headless` when browser opening
+must be suppressed; a pairing code is revealed only on the controlling TTY.
+
+See `docs/operations/memory-workbench.md` for configuration, lifecycle, recovery,
+and trust boundaries. Workbench-specific verification is recorded in
+`docs/evaluations/memory-workbench-verification.md`; it is not G6 or production
+qualification.
+
 ## Development
 
 Use Node.js 24.18.0 and pnpm 10.33.2.

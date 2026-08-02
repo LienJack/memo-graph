@@ -5,6 +5,7 @@ import {
   WorkbenchMemoryListResultSchema,
   WorkbenchMemorySummarySchema,
   WorkbenchGraphResultSchema,
+  WorkbenchHealthResultSchema,
 } from "../../../packages/contracts/src/workbench.js";
 
 const NOW = "2026-08-02T08:00:00.000Z";
@@ -193,6 +194,110 @@ export const degradedGraph = WorkbenchGraphResultSchema.parse({
   omitted_node_count: 0,
   omitted_edge_count: 0,
   warnings: ["graph_projection_unavailable"],
+});
+
+export const readyHealth = WorkbenchHealthResultSchema.parse({
+  status: "ready",
+  observed_at: "2099-08-02T08:00:00.000Z",
+  stale_after: "2099-08-02T08:00:15.000Z",
+  runtime_state: "ready",
+  canonical: {
+    component: "canonical_storage",
+    authority_plane: "canonical",
+    observation_scope: "canonical_root",
+    state: "healthy",
+    observed_at: "2099-08-02T08:00:00.000Z",
+    reason_code: null,
+    guidance_code: "NONE",
+    metrics: [
+      { name: "frontier", value: 42, unit: "epoch" },
+      { name: "item_count", value: 18, unit: "count" },
+    ],
+  },
+  runtime: {
+    component: "runtime_owner",
+    authority_plane: "runtime",
+    observation_scope: "runtime_instance",
+    state: "healthy",
+    observed_at: "2099-08-02T08:00:00.000Z",
+    reason_code: null,
+    guidance_code: "NONE",
+    metrics: [],
+  },
+  projections: [
+    {
+      component: "fts_projection",
+      authority_plane: "projection",
+      observation_scope: "configured_scopes",
+      state: "healthy",
+      observed_at: "2099-08-02T08:00:00.000Z",
+      reason_code: null,
+      guidance_code: "NONE",
+      metrics: [],
+    },
+    {
+      component: "layered_projection",
+      authority_plane: "projection",
+      observation_scope: "configured_scopes",
+      state: "lagging",
+      observed_at: "2099-08-02T08:00:00.000Z",
+      reason_code: "LAYERED_PROJECTION_LAGGING",
+      guidance_code: "WAIT_FOR_PROJECTION",
+      metrics: [],
+    },
+    {
+      component: "graph_projection",
+      authority_plane: "projection",
+      observation_scope: "configured_scopes",
+      state: "unavailable",
+      observed_at: null,
+      reason_code: "GRAPH_PROJECTION_NOT_CONFIGURED",
+      guidance_code: "CHECK_RUNTIME_CONFIG",
+      metrics: [],
+    },
+  ],
+  background: {
+    component: "background_work",
+    authority_plane: "worker",
+    observation_scope: "runtime_instance",
+    state: "healthy",
+    observed_at: "2099-08-02T08:00:00.000Z",
+    reason_code: null,
+    guidance_code: "NONE",
+    metrics: [
+      { name: "lane_count", value: 2, unit: "count" },
+      { name: "completed", value: 7, unit: "count" },
+    ],
+  },
+  lanes: [
+    {
+      lane: "consolidation",
+      state: "healthy",
+      in_flight: false,
+      observed_at: "2099-08-02T08:00:00.000Z",
+      last_success_at: "2099-08-02T07:59:59.000Z",
+      reason_code: null,
+      claimed: 4,
+      completed: 4,
+      failed: 0,
+      retrying: 0,
+      terminal: 0,
+    },
+    {
+      lane: "writer_lease",
+      state: "healthy",
+      in_flight: false,
+      observed_at: "2099-08-02T08:00:00.000Z",
+      last_success_at: "2099-08-02T07:59:58.000Z",
+      reason_code: null,
+      claimed: 3,
+      completed: 3,
+      failed: 0,
+      retrying: 0,
+      terminal: 0,
+    },
+  ],
+  warnings: ["derived_projection_attention"],
 });
 
 export const readyPreview = WorkbenchCorrectionPreviewResultSchema.parse({

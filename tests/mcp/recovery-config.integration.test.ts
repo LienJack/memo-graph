@@ -188,9 +188,9 @@ describe("MCP recovery authority configuration", () => {
           symlinkSync(replacementPath, keyPath);
         },
       }),
-    ).toThrow("trusted recovery key descriptor is invalid");
+    ).toThrow("trusted private descriptor is invalid");
     expect(() => readPrivateOperatorFile(keyPath)).toThrow(
-      "trusted recovery key descriptor is invalid",
+      "trusted private descriptor is invalid",
     );
   });
 });

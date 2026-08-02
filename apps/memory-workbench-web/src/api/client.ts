@@ -8,6 +8,7 @@ import {
   WorkbenchMemoryDetailResultSchema,
   WorkbenchMemoryListResultSchema,
   WorkbenchGraphResultSchema,
+  WorkbenchHealthResultSchema,
 } from "@memo-graph/contracts/workbench";
 import type { ZodType } from "zod";
 
@@ -39,7 +40,7 @@ export class WorkbenchApiClient {
     this.#bearer = options.bearer;
     this.#instanceId = options.instanceId;
     this.#baseUrl = options.baseUrl ?? "";
-    this.#fetch = options.fetchImpl ?? fetch;
+    this.#fetch = options.fetchImpl ?? fetch.bind(globalThis);
   }
 
   listMemories(request: WorkbenchMemoryListRequest, signal?: AbortSignal) {
@@ -65,6 +66,14 @@ export class WorkbenchApiClient {
       "/api/workbench/graph/query",
       WorkbenchGraphResultSchema,
       request,
+      signal,
+    );
+  }
+
+  health(signal?: AbortSignal) {
+    return this.#read(
+      "/api/health",
+      WorkbenchHealthResultSchema,
       signal,
     );
   }
@@ -104,6 +113,40 @@ export class WorkbenchApiClient {
         "X-Memo-Graph-Instance": this.#instanceId,
       },
       body: JSON.stringify(body),
+      ...(signal === undefined ? {} : { signal }),
+    });
+    if (!response.ok) {
+      throw new WorkbenchApiError(
+        "HTTP_ERROR",
+        `Workbench request failed with status ${response.status}`,
+        response.status,
+      );
+    }
+    const parsed = schema.safeParse(await response.json());
+    if (!parsed.success) {
+      throw new WorkbenchApiError(
+        "INVALID_RESPONSE",
+        "Workbench response did not match the browser contract",
+        response.status,
+      );
+    }
+    return parsed.data;
+  }
+
+  async #read<T>(
+    path: string,
+    schema: ZodType<T>,
+    signal: AbortSignal | undefined,
+  ): Promise<T> {
+    const response = await this.#fetch(`${this.#baseUrl}${path}`, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "omit",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${this.#bearer}`,
+        "X-Memo-Graph-Instance": this.#instanceId,
+      },
       ...(signal === undefined ? {} : { signal }),
     });
     if (!response.ok) {

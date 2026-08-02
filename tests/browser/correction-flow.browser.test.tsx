@@ -8,6 +8,7 @@ import {
   readyConfirmation,
   readyDetail,
   readyList,
+  readyHealth,
   readyPreview,
 } from "./helpers/workbench-fixtures.js";
 
@@ -35,6 +36,7 @@ function api(overrides: Partial<MemoryWorkbenchApi> = {}): MemoryWorkbenchApi {
       retryable: false,
       warnings: [],
     })),
+    health: vi.fn(async () => readyHealth),
     previewCorrection: vi.fn(async () => readyPreview),
     confirmCorrection: vi.fn(async () => readyConfirmation),
     ...overrides,
