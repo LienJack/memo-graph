@@ -18,6 +18,7 @@ import {
   FailProjectionJobCommandSchema,
   InvalidateProjectionDescendantsCommandSchema,
   InvalidateProjectionDescendantsResultSchema,
+  MAX_PROJECTION_ATTEMPTS,
   ProjectionBatchResultSchema,
   ProjectionJobMutationResultSchema,
   ProjectionOutboxJobSchema,
@@ -286,6 +287,8 @@ export class ProjectionRepository {
     relation_objects: number;
     relation_revisions: number;
     projection_outbox_pending: number;
+    projection_outbox_retrying: number;
+    projection_outbox_terminal: number;
     projection_rebuild_receipts: number;
   } {
     const available = this.#database
@@ -302,6 +305,8 @@ export class ProjectionRepository {
         relation_objects: 0,
         relation_revisions: 0,
         projection_outbox_pending: 0,
+        projection_outbox_retrying: 0,
+        projection_outbox_terminal: 0,
         projection_rebuild_receipts: 0,
       };
     }
@@ -318,6 +323,18 @@ export class ProjectionRepository {
         this.#database,
         "projection_outbox_jobs",
         "WHERE status IN ('pending', 'processing', 'failed')",
+      ),
+      projection_outbox_retrying: count(
+        this.#database,
+        "projection_outbox_jobs",
+        `WHERE status IN ('pending', 'processing')
+           OR (status = 'failed' AND attempts < ${MAX_PROJECTION_ATTEMPTS})`,
+      ),
+      projection_outbox_terminal: count(
+        this.#database,
+        "projection_outbox_jobs",
+        `WHERE status = 'failed'
+           AND attempts >= ${MAX_PROJECTION_ATTEMPTS}`,
       ),
       projection_rebuild_receipts: count(
         this.#database,
@@ -506,12 +523,17 @@ export class ProjectionRepository {
             .prepare(
               `SELECT job_id
                FROM projection_outbox_jobs
-               WHERE status IN ('pending', 'failed')
+              WHERE status IN ('pending', 'failed')
+                 AND attempts < ?
                  AND available_at <= ?
                ORDER BY available_at, job_id
                LIMIT ?`,
             )
-            .all(request.claimed_at, request.limit) as Array<{
+            .all(
+              MAX_PROJECTION_ATTEMPTS,
+              request.claimed_at,
+              request.limit,
+            ) as Array<{
             job_id: string;
           }>;
           const update = this.#database.prepare(

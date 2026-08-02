@@ -24,6 +24,8 @@ export type ProjectionDrainResult = {
   claimed: number;
   processed: number;
   failed: number;
+  retrying: number;
+  terminal: number;
   remaining: number;
 };
 
@@ -162,12 +164,14 @@ export class ConsolidationService {
       }
     }
 
+    const health = await this.#storage.health();
     return {
       claimed: claim.jobs.length,
       processed,
       failed,
-      remaining: (await this.#storage.health()).counts
-        .projection_outbox_pending,
+      retrying: health.counts.projection_outbox_retrying,
+      terminal: health.counts.projection_outbox_terminal,
+      remaining: health.counts.projection_outbox_pending,
     };
   }
 

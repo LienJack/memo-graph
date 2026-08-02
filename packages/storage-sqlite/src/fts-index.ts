@@ -1,12 +1,31 @@
 import type Database from "better-sqlite3";
 
 import { StorageError } from "./errors.js";
-import type {
-  DrainFtsResult,
-  RebuildFtsResult,
-  ParsedSearchEvidenceQuery,
-  SearchEvidenceResult,
+import {
+  MAX_FTS_PROJECTION_ATTEMPTS,
+  type DrainFtsResult,
+  type RebuildFtsResult,
+  type ParsedSearchEvidenceQuery,
+  type SearchEvidenceResult,
 } from "./protocol.js";
+/*
+ * FTS delivery retries are durable because the retry timestamp and attempt
+ * count live with the outbox row. The supervisor may restart without losing
+ * either the delay or the terminal boundary.
+ */
+const FTS_RETRY_BASE_MS = 1_000;
+const FTS_RETRY_MAX_MS = 15 * 60_000;
+
+type FtsOutboxJob = {
+  job_id: string;
+  kind:
+    | "fts_evidence_upsert"
+    | "fts_memory_upsert"
+    | "fts_memory_delete"
+    | "fts_memory_invalidate";
+  aggregate_id: string;
+  attempts: number;
+};
 
 type ProjectionRow = {
   status: "ready" | "pending" | "rebuilding" | "unavailable";
@@ -94,7 +113,7 @@ export class FtsIndex {
   drain(limit = 1_000): DrainFtsResult {
     const jobs = this.#database
       .prepare(
-        `SELECT job_id, kind, aggregate_id
+        `SELECT job_id, kind, aggregate_id, attempts
          FROM outbox_jobs
          WHERE kind IN (
            'fts_evidence_upsert',
@@ -103,114 +122,118 @@ export class FtsIndex {
            'fts_memory_invalidate'
          )
            AND status IN ('pending', 'failed')
+           AND attempts < ?
            AND available_at <= ?
          ORDER BY available_at, job_id
          LIMIT ?`,
       )
-      .all(now(), limit) as Array<{
-      job_id: string;
-      kind:
-        | "fts_evidence_upsert"
-        | "fts_memory_upsert"
-        | "fts_memory_delete"
-        | "fts_memory_invalidate";
-      aggregate_id: string;
-    }>;
+      .all(MAX_FTS_PROJECTION_ATTEMPTS, now(), limit) as FtsOutboxJob[];
 
     let processed = 0;
     let failed = 0;
-    const insertFts = this.#database.prepare(
-      `INSERT INTO evidence_fts (
-         evidence_id, scope_kind, scope_id, source, occurred_at, searchable_text
-       ) VALUES (?, ?, ?, ?, ?, ?)`,
-    );
-    const deleteFts = this.#database.prepare(
-      "DELETE FROM evidence_fts WHERE evidence_id = ?",
-    );
-    const readEvidence = this.#database.prepare(
-      `SELECT evidence_id, scope_kind, scope_id, source, occurred_at, payload_inline
-       FROM evidence_events
-       WHERE evidence_id = ?
-         AND payload_storage = 'inline'
-         AND purged_at IS NULL`,
-    );
-    const insertMemoryFts = this.#database.prepare(
-      `INSERT INTO memory_fts (
-         memory_id, revision_id, principal_id, scope_kind, scope_id, kind,
-         valid_from, searchable_text
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const deleteMemoryRevision = this.#database.prepare(
-      "DELETE FROM memory_fts WHERE revision_id = ?",
-    );
-    const deleteMemory = this.#database.prepare(
-      "DELETE FROM memory_fts WHERE memory_id = ?",
-    );
-    const readMemory = this.#database.prepare(
-      `SELECT o.memory_id, r.revision_id, o.principal_id, r.scope_kind,
-              r.scope_id, r.kind, r.valid_from, r.content_inline
-       FROM memory_revisions AS r
-       JOIN memory_objects AS o
-         ON o.memory_id = r.memory_id
-        AND o.current_revision_id = r.revision_id
-       WHERE r.revision_id = ?
-         AND o.lifecycle = 'active'
-         AND o.context_eligible = 1
-         AND r.lifecycle = 'active'
-         AND r.content_storage = 'inline'
-         AND EXISTS (
-           SELECT 1 FROM admission_decisions AS d
-           WHERE d.revision_id = r.revision_id AND d.decision = 'activate'
-         )
-         AND EXISTS (
-           SELECT 1 FROM memory_revision_evidence AS l
-           WHERE l.revision_id = r.revision_id
-         )
-         AND NOT EXISTS (
-           SELECT 1
-           FROM memory_revision_evidence AS l
-           JOIN evidence_events AS e ON e.evidence_id = l.evidence_id
-           WHERE l.revision_id = r.revision_id
-             AND (
-               e.purged_at IS NOT NULL
-               OR e.principal_id <> o.principal_id
-               OR e.scope_kind <> r.scope_kind
-               OR e.scope_id <> r.scope_id
-             )
-         )
-         AND NOT EXISTS (
-           SELECT 1 FROM memory_conflict_groups AS c
-           WHERE c.logical_key_hash = o.logical_key_hash
-             AND c.principal_id = o.principal_id
-             AND c.scope_kind = o.scope_kind
-             AND c.scope_id = o.scope_id
-             AND c.status = 'open'
-         )`,
-    );
-    const markProcessed = this.#database.prepare(
-      `UPDATE outbox_jobs
-       SET status = 'processed', attempts = attempts + 1,
-           processed_at = ?, last_error_code = NULL
-       WHERE job_id = ?`,
-    );
     const markFailed = this.#database.prepare(
       `UPDATE outbox_jobs
        SET status = 'failed', attempts = attempts + 1,
-           last_error_code = 'FTS_UNAVAILABLE'
+           available_at = ?, last_error_code = 'FTS_UNAVAILABLE'
        WHERE job_id = ?`,
     );
+    const prepareProjectionStatements = () => ({
+      insertFts: this.#database.prepare(
+        `INSERT INTO evidence_fts (
+           evidence_id, scope_kind, scope_id, source, occurred_at, searchable_text
+         ) VALUES (?, ?, ?, ?, ?, ?)`,
+      ),
+      deleteFts: this.#database.prepare(
+        "DELETE FROM evidence_fts WHERE evidence_id = ?",
+      ),
+      readEvidence: this.#database.prepare(
+        `SELECT evidence_id, scope_kind, scope_id, source, occurred_at, payload_inline
+         FROM evidence_events
+         WHERE evidence_id = ?
+           AND payload_storage = 'inline'
+           AND purged_at IS NULL`,
+      ),
+      insertMemoryFts: this.#database.prepare(
+        `INSERT INTO memory_fts (
+           memory_id, revision_id, principal_id, scope_kind, scope_id, kind,
+           valid_from, searchable_text
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ),
+      deleteMemoryRevision: this.#database.prepare(
+        "DELETE FROM memory_fts WHERE revision_id = ?",
+      ),
+      deleteMemory: this.#database.prepare(
+        "DELETE FROM memory_fts WHERE memory_id = ?",
+      ),
+      readMemory: this.#database.prepare(
+        `SELECT o.memory_id, r.revision_id, o.principal_id, r.scope_kind,
+              r.scope_id, r.kind, r.valid_from, r.content_inline
+         FROM memory_revisions AS r
+         JOIN memory_objects AS o
+           ON o.memory_id = r.memory_id
+          AND o.current_revision_id = r.revision_id
+         WHERE r.revision_id = ?
+           AND o.lifecycle = 'active'
+           AND o.context_eligible = 1
+           AND r.lifecycle = 'active'
+           AND r.content_storage = 'inline'
+           AND EXISTS (
+             SELECT 1 FROM admission_decisions AS d
+             WHERE d.revision_id = r.revision_id AND d.decision = 'activate'
+           )
+           AND EXISTS (
+             SELECT 1 FROM memory_revision_evidence AS l
+             WHERE l.revision_id = r.revision_id
+           )
+           AND NOT EXISTS (
+             SELECT 1
+             FROM memory_revision_evidence AS l
+             JOIN evidence_events AS e ON e.evidence_id = l.evidence_id
+             WHERE l.revision_id = r.revision_id
+               AND (
+                 e.purged_at IS NOT NULL
+                 OR e.principal_id <> o.principal_id
+                 OR e.scope_kind <> r.scope_kind
+                 OR e.scope_id <> r.scope_id
+               )
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM memory_conflict_groups AS c
+             WHERE c.logical_key_hash = o.logical_key_hash
+               AND c.principal_id = o.principal_id
+               AND c.scope_kind = o.scope_kind
+               AND c.scope_id = o.scope_id
+               AND c.status = 'open'
+           )`,
+      ),
+      markProcessed: this.#database.prepare(
+        `UPDATE outbox_jobs
+         SET status = 'processed', attempts = attempts + 1,
+             processed_at = ?, last_error_code = NULL
+         WHERE job_id = ?`,
+      ),
+    });
+    let statements: ReturnType<typeof prepareProjectionStatements> | null = null;
+    try {
+      statements = prepareProjectionStatements();
+    } catch {
+      // Missing or unavailable derived FTS tables are recorded per durable job.
+    }
 
     for (const job of jobs) {
       try {
+        if (statements === null) {
+          throw new Error("FTS projection statements unavailable");
+        }
         this.#database
           .transaction(() => {
             if (job.kind === "fts_evidence_upsert") {
-              const evidence = readEvidence.get(
+              const evidence = statements.readEvidence.get(
                 job.aggregate_id,
               ) as EvidenceFtsRow | undefined;
-              deleteFts.run(job.aggregate_id);
+              statements.deleteFts.run(job.aggregate_id);
               if (evidence !== undefined) {
-                insertFts.run(
+                statements.insertFts.run(
                   evidence.evidence_id,
                   evidence.scope_kind,
                   evidence.scope_id,
@@ -220,13 +243,13 @@ export class FtsIndex {
                 );
               }
             } else if (job.kind === "fts_memory_upsert") {
-              const memory = readMemory.get(
+              const memory = statements.readMemory.get(
                 job.aggregate_id,
               ) as MemoryFtsRow | undefined;
-              deleteMemoryRevision.run(job.aggregate_id);
+              statements.deleteMemoryRevision.run(job.aggregate_id);
               if (memory !== undefined) {
-                deleteMemory.run(memory.memory_id);
-                insertMemoryFts.run(
+                statements.deleteMemory.run(memory.memory_id);
+                statements.insertMemoryFts.run(
                   memory.memory_id,
                   memory.revision_id,
                   memory.principal_id,
@@ -238,19 +261,61 @@ export class FtsIndex {
                 );
               }
             } else if (job.kind === "fts_memory_delete") {
-              deleteMemoryRevision.run(job.aggregate_id);
+              statements.deleteMemoryRevision.run(job.aggregate_id);
             } else {
-              deleteMemory.run(job.aggregate_id);
+              statements.deleteMemory.run(job.aggregate_id);
             }
-            markProcessed.run(now(), job.job_id);
+            statements.markProcessed.run(now(), job.job_id);
           })
           .immediate();
         processed += 1;
       } catch {
-        markFailed.run(job.job_id);
+        const retryDelay = Math.min(
+          FTS_RETRY_MAX_MS,
+          FTS_RETRY_BASE_MS * 2 ** Math.min(10, job.attempts),
+        );
+        markFailed.run(
+          new Date(Date.now() + retryDelay).toISOString(),
+          job.job_id,
+        );
         failed += 1;
       }
     }
+
+    const retrying = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count FROM outbox_jobs
+             WHERE kind IN (
+               'fts_evidence_upsert',
+               'fts_memory_upsert',
+               'fts_memory_delete',
+               'fts_memory_invalidate'
+             )
+               AND status IN ('pending', 'failed')
+               AND attempts < ?`,
+          )
+          .get(MAX_FTS_PROJECTION_ATTEMPTS) as { count: number }
+      ).count,
+    );
+    const terminal = Number(
+      (
+        this.#database
+          .prepare(
+            `SELECT count(*) AS count FROM outbox_jobs
+             WHERE kind IN (
+               'fts_evidence_upsert',
+               'fts_memory_upsert',
+               'fts_memory_delete',
+               'fts_memory_invalidate'
+             )
+               AND status = 'failed'
+               AND attempts >= ?`,
+          )
+          .get(MAX_FTS_PROJECTION_ATTEMPTS) as { count: number }
+      ).count,
+    );
 
     const evidenceRemaining = Number(
       (
@@ -281,7 +346,11 @@ export class FtsIndex {
     const remaining = evidenceRemaining + memoryRemaining;
     const epoch = this.#ledgerEpoch();
     const projectionState =
-      failed > 0 ? "unavailable" : remaining > 0 ? "pending" : "ready";
+      failed > 0 || terminal > 0
+        ? "unavailable"
+        : remaining > 0
+          ? "pending"
+          : "ready";
     this.#database
       .prepare(
         `UPDATE projection_state
@@ -289,14 +358,14 @@ export class FtsIndex {
          WHERE projection_name = 'fts'`,
       )
       .run(
-        failed > 0
+        failed > 0 || terminal > 0
           ? "unavailable"
           : evidenceRemaining > 0
             ? "pending"
             : "ready",
         epoch,
         now(),
-        failed > 0 ? "FTS_UNAVAILABLE" : null,
+        failed > 0 || terminal > 0 ? "FTS_UNAVAILABLE" : null,
       );
     this.#database
       .prepare(
@@ -305,19 +374,21 @@ export class FtsIndex {
          WHERE projection_name = 'memory_fts'`,
       )
       .run(
-        failed > 0
+        failed > 0 || terminal > 0
           ? "unavailable"
           : memoryRemaining > 0
             ? "pending"
             : "ready",
         epoch,
         now(),
-        failed > 0 ? "FTS_UNAVAILABLE" : null,
+        failed > 0 || terminal > 0 ? "FTS_UNAVAILABLE" : null,
       );
 
     return {
       processed,
       failed,
+      retrying,
+      terminal,
       remaining,
       projection_state: projectionState,
     };

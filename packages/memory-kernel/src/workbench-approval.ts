@@ -61,6 +61,11 @@ export class WorkbenchApprovalRegistry implements ApprovalRegistry {
     this.#clock = options?.clock ?? (() => new Date().toISOString());
   }
 
+  clear(): void {
+    this.#byPreview.clear();
+    this.#previewByApproval.clear();
+  }
+
   prepare(input: {
     session_id: string;
     preview: ReadyPreview;

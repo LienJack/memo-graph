@@ -11,7 +11,7 @@
   "scripts": {
     "build": "pnpm build:runtime",
     "build:web": "pnpm --filter @memo-graph/memory-workbench-web build",
-    "build:runtime": "pnpm --filter @memo-graph/contracts build && pnpm --filter @memo-graph/evidence-adapter build && pnpm --filter @memo-graph/vector-retrieval build && pnpm --filter @memo-graph/storage-sqlite build && pnpm --filter @memo-graph/learning-lab build && pnpm --filter @memo-graph/context-compiler build && pnpm --filter @memo-graph/memory-kernel build && pnpm --filter @memo-graph/graph-projection build && pnpm --filter @memo-graph/mcp-server build && pnpm --filter @memo-graph/operator-cli build",
+    "build:runtime": "pnpm --filter @memo-graph/contracts build && pnpm --filter @memo-graph/evidence-adapter build && pnpm --filter @memo-graph/vector-retrieval build && pnpm --filter @memo-graph/storage-sqlite build && pnpm --filter @memo-graph/learning-lab build && pnpm --filter @memo-graph/context-compiler build && pnpm --filter @memo-graph/memory-kernel build && pnpm --filter @memo-graph/graph-projection build && pnpm --filter @memo-graph/runtime-host build && pnpm --filter @memo-graph/mcp-server build && pnpm --filter @memo-graph/operator-cli build",
     "build:storage": "pnpm --filter @memo-graph/contracts build && pnpm --filter @memo-graph/storage-sqlite build",
     "benchmark:storage": "pnpm build:storage && node packages/storage-sqlite/dist/benchmark.js",
     "benchmark:baseline": "pnpm build:runtime && node packages/memory-kernel/dist/benchmark.js",

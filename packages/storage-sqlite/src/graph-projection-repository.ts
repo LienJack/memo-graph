@@ -853,6 +853,18 @@ export class GraphProjectionRepository {
         "graph_projection_outbox_jobs",
         "WHERE status IN ('pending', 'processing', 'failed')",
       ),
+      outbox_retrying: count(
+        this.#database,
+        "graph_projection_outbox_jobs",
+        `WHERE status IN ('pending', 'processing')
+           OR (status = 'failed' AND attempts < ${MAX_GRAPH_PROJECTION_ATTEMPTS})`,
+      ),
+      outbox_terminal: count(
+        this.#database,
+        "graph_projection_outbox_jobs",
+        `WHERE status = 'failed'
+           AND attempts >= ${MAX_GRAPH_PROJECTION_ATTEMPTS}`,
+      ),
       receipts: count(this.#database, "graph_projection_receipts"),
     });
   }

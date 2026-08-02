@@ -14,7 +14,10 @@ import {
   buildDeterministicProjections,
   projectionStructuralDigest,
 } from "../../packages/memory-kernel/src/index.js";
-import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
+import {
+  MAX_PROJECTION_ATTEMPTS,
+  SqliteStorageClient,
+} from "@memo-graph/storage-sqlite";
 
 import { seedProjectionSources } from "../helpers/projection-examples.js";
 
@@ -128,4 +131,50 @@ describe("projection outbox recovery", () => {
     ).toMatchObject({ claimed: 0, processed: 0, failed: 0 });
     await storage.close();
   });
+
+  it("persists terminal consolidation attempts across Runtime restart", async () => {
+    const dataRoot = temporaryRoot("projection-terminal");
+    let storage = await SqliteStorageClient.open({ dataRoot });
+    await seedProjectionSources(storage);
+    const failing = new ConsolidationService({
+      storage,
+      projector: () => {
+        throw new Error("persistent projection failure");
+      },
+    });
+    for (let attempt = 1; attempt <= MAX_PROJECTION_ATTEMPTS; attempt += 1) {
+      const claimedAt = new Date(
+        Date.parse("2026-07-28T12:00:00.000Z") + attempt * 2_000,
+      );
+      const result = await failing.drain({
+        worker_id: "projection_terminal_worker",
+        claimed_at: claimedAt.toISOString(),
+        lease_expires_at: new Date(
+          claimedAt.getTime() + 60_000,
+        ).toISOString(),
+      });
+      expect(result.claimed).toBe(2);
+      expect(result.terminal).toBe(
+        attempt === MAX_PROJECTION_ATTEMPTS ? 2 : 0,
+      );
+    }
+    expect((await storage.health()).counts).toMatchObject({
+      projection_outbox_retrying: 0,
+      projection_outbox_terminal: 2,
+    });
+    await storage.close();
+
+    storage = await SqliteStorageClient.open({ dataRoot });
+    const afterRestart = await new ConsolidationService({ storage }).drain({
+      worker_id: "projection_restarted_worker",
+      claimed_at: "2026-07-28T13:00:00.000Z",
+      lease_expires_at: "2026-07-28T13:01:00.000Z",
+    });
+    expect(afterRestart).toMatchObject({
+      claimed: 0,
+      retrying: 0,
+      terminal: 2,
+    });
+    await storage.close();
+  }, 30_000);
 });

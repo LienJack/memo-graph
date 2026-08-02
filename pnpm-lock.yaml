@@ -233,18 +233,15 @@ importers:
       '@memo-graph/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@memo-graph/graph-projection':
-        specifier: workspace:*
-        version: link:../graph-projection
       '@memo-graph/memory-kernel':
         specifier: workspace:*
         version: link:../memory-kernel
+      '@memo-graph/runtime-host':
+        specifier: workspace:*
+        version: link:../runtime-host
       '@memo-graph/storage-sqlite':
         specifier: workspace:*
         version: link:../storage-sqlite
-      '@memo-graph/vector-retrieval':
-        specifier: workspace:*
-        version: link:../vector-retrieval
       '@modelcontextprotocol/server':
         specifier: 2.0.0
         version: 2.0.0
@@ -276,6 +273,34 @@ importers:
       '@memo-graph/storage-sqlite':
         specifier: workspace:*
         version: link:../storage-sqlite
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/runtime-host:
+    dependencies:
+      '@memo-graph/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@memo-graph/graph-projection':
+        specifier: workspace:*
+        version: link:../graph-projection
+      '@memo-graph/memory-kernel':
+        specifier: workspace:*
+        version: link:../memory-kernel
+      '@memo-graph/storage-sqlite':
+        specifier: workspace:*
+        version: link:../storage-sqlite
+      '@memo-graph/vector-retrieval':
+        specifier: workspace:*
+        version: link:../vector-retrieval
       zod:
         specifier: 4.4.3
         version: 4.4.3

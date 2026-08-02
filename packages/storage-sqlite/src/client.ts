@@ -998,6 +998,13 @@ export class SqliteStorageClient {
     });
   }
 
+  maintainWriterLease(options?: { now?: string; ttlMs?: number }): void {
+    if (this.#closed || this.#closing || this.#rootLease === undefined) {
+      throw new StorageError("STALE_ROOT_LEASE");
+    }
+    this.#rootLease.heartbeat(options);
+  }
+
   inspectEncryptionKeys(): Promise<EncryptionKeyInventory> {
     return this.#request(
       "inspect_encryption_keys",

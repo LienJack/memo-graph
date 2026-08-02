@@ -15,6 +15,11 @@ import {
   createMemoryMcpServer,
   openMemoryRuntime,
 } from "./index.js";
+import {
+  attachManagedMcpProxy,
+  managedAttachBlockedStatus,
+  type ManagedMcpProxyHandle,
+} from "./ipc-proxy.js";
 
 function writeDiagnostic(event: string, code: string): void {
   process.stderr.write(
@@ -31,15 +36,77 @@ function configPath(argv: string[]): string {
   return value;
 }
 
+function managedDescriptorPath(argv: string[]): string | null {
+  const index = argv.indexOf("--managed-descriptor");
+  if (index === -1) {
+    return null;
+  }
+  const value = argv[index + 1];
+  if (value === undefined || value.trim().length === 0) {
+    throw new Error("managed descriptor argument required");
+  }
+  return value;
+}
+
+async function serveBlocked(status: ReturnType<typeof managedAttachBlockedStatus>): Promise<void> {
+  const handle = serveStdio(
+    () => createBlockedMemoryMcpServer({ status: () => status }),
+    { onerror: () => writeDiagnostic("transport_error", "MCP_TRANSPORT") },
+  );
+  let closing = false;
+  const shutdown = async (code: string): Promise<void> => {
+    if (closing) {
+      return;
+    }
+    closing = true;
+    writeDiagnostic("shutdown", code);
+    await handle.close();
+  };
+  process.once("SIGINT", () => void shutdown("SIGINT"));
+  process.once("SIGTERM", () => void shutdown("SIGTERM"));
+  process.stdin.once("end", () => void shutdown("STDIN_END"));
+  writeDiagnostic("blocked", status.primary_reason ?? "STARTUP_BLOCKED");
+}
+
 export async function runMemoryMcpCli(argv = process.argv.slice(2)): Promise<void> {
   let openedRuntime: Awaited<ReturnType<typeof openMemoryRuntime>> | null =
     null;
+  let managedProxy: ManagedMcpProxyHandle | null = null;
   let configParsed = false;
   try {
     const parsedConfig = JSON.parse(
       readFileSync(configPath(argv), "utf8"),
     ) as unknown;
     configParsed = true;
+    const descriptorPath = managedDescriptorPath(argv);
+    if (descriptorPath !== null) {
+      try {
+        managedProxy = await attachManagedMcpProxy({
+          config: parsedConfig,
+          descriptorPath,
+        });
+      } catch (error) {
+        await serveBlocked(managedAttachBlockedStatus(error));
+        return;
+      }
+      let closing = false;
+      const shutdown = async (code: string): Promise<void> => {
+        if (closing || managedProxy === null) {
+          return;
+        }
+        closing = true;
+        writeDiagnostic("shutdown", code);
+        await managedProxy.close();
+      };
+      process.once("SIGINT", () => void shutdown("SIGINT"));
+      process.once("SIGTERM", () => void shutdown("SIGTERM"));
+      process.stdin.once("end", () => void shutdown("STDIN_END"));
+      void managedProxy.done.catch(() =>
+        writeDiagnostic("transport_error", "MCP_MANAGED_TRANSPORT"),
+      );
+      writeDiagnostic("ready", "MCP_MANAGED_READY");
+      return;
+    }
     const opened = await openMemoryRuntime(parsedConfig);
     openedRuntime = opened;
     const status = operationalStatusFromStorageHealth(
@@ -98,6 +165,9 @@ export async function runMemoryMcpCli(argv = process.argv.slice(2)): Promise<voi
     process.stdin.once("end", () => void shutdown("STDIN_END"));
     writeDiagnostic("ready", "MCP_STDIO_READY");
   } catch (error) {
+    if (managedProxy !== null) {
+      await managedProxy.close().catch(() => undefined);
+    }
     if (openedRuntime !== null) {
       await openedRuntime.close().catch(() => undefined);
     }

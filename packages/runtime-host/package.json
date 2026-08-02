@@ -1,5 +1,5 @@
 {
-  "name": "@memo-graph/mcp-server",
+  "name": "@memo-graph/runtime-host",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,9 +9,6 @@
       "import": "./dist/index.js"
     }
   },
-  "bin": {
-    "memo-graph-mcp": "./dist/cli.js"
-  },
   "files": [
     "dist"
   ],
@@ -20,10 +17,10 @@
   },
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",
+    "@memo-graph/graph-projection": "workspace:*",
     "@memo-graph/memory-kernel": "workspace:*",
-    "@memo-graph/runtime-host": "workspace:*",
     "@memo-graph/storage-sqlite": "workspace:*",
-    "@modelcontextprotocol/server": "2.0.0",
+    "@memo-graph/vector-retrieval": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {

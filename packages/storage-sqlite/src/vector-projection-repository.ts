@@ -740,6 +740,17 @@ export class VectorProjectionRepository {
         "vector_projection_outbox_jobs",
         "WHERE status IN ('pending', 'processing', 'failed')",
       ),
+      outbox_retrying: count(
+        this.#database,
+        "vector_projection_outbox_jobs",
+        `WHERE status IN ('pending', 'processing')
+           OR (status = 'failed' AND attempts < 32)`,
+      ),
+      outbox_terminal: count(
+        this.#database,
+        "vector_projection_outbox_jobs",
+        "WHERE status = 'failed' AND attempts >= 32",
+      ),
       receipts: count(
         this.#database,
         "vector_projection_receipts",

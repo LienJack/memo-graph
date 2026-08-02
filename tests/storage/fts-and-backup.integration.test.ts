@@ -11,6 +11,7 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  MAX_FTS_PROJECTION_ATTEMPTS,
   SqliteStorageClient,
   restoreBackupToEmptyDataRoot,
 } from "@memo-graph/storage-sqlite";
@@ -142,6 +143,58 @@ describe("FTS projection and backup", () => {
       }),
     ).resolves.toMatchObject({ status: "OK" });
     await reopened.close();
+  });
+
+  it("persists FTS retry delays and stops claiming terminal failures after restart", async () => {
+    const dataRoot = temporaryRoot("fts-terminal-retry");
+    const databasePath = join(dataRoot, "ledger", "memory.db");
+    let storage = await SqliteStorageClient.open({ dataRoot });
+    await storage.commitEpisode(inlineEpisode({}));
+    await storage.close();
+
+    const broken = new DatabaseSync(databasePath);
+    broken.exec("DROP TABLE evidence_fts");
+    broken.close();
+
+    storage = await SqliteStorageClient.open({ dataRoot });
+    const first = await storage.drainFtsOutbox();
+    expect(first).toMatchObject({
+      failed: 1,
+      retrying: 1,
+      terminal: 0,
+    });
+    expect(await storage.drainFtsOutbox()).toMatchObject({
+      failed: 0,
+      retrying: 1,
+      terminal: 0,
+    });
+    await storage.close();
+
+    for (let attempt = 2; attempt <= MAX_FTS_PROJECTION_ATTEMPTS; attempt += 1) {
+      const due = new DatabaseSync(databasePath);
+      due.prepare(
+        `UPDATE outbox_jobs
+         SET available_at = ?
+         WHERE kind = 'fts_evidence_upsert'
+           AND status = 'failed'`,
+      ).run("2000-01-01T00:00:00.000Z");
+      due.close();
+      storage = await SqliteStorageClient.open({ dataRoot });
+      const drained = await storage.drainFtsOutbox();
+      expect(drained.failed).toBe(1);
+      expect(drained.terminal).toBe(
+        attempt === MAX_FTS_PROJECTION_ATTEMPTS ? 1 : 0,
+      );
+      await storage.close();
+    }
+
+    storage = await SqliteStorageClient.open({ dataRoot });
+    expect(await storage.drainFtsOutbox()).toMatchObject({
+      failed: 0,
+      retrying: 0,
+      terminal: 1,
+    });
+    await storage.close();
   });
 
   it("runs an explicit bounded checkpoint", async () => {

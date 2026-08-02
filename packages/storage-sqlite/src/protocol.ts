@@ -695,6 +695,8 @@ export const StorageCountsSchema = z
     relation_objects: z.number().int().nonnegative(),
     relation_revisions: z.number().int().nonnegative(),
     projection_outbox_pending: z.number().int().nonnegative(),
+    projection_outbox_retrying: z.number().int().nonnegative(),
+    projection_outbox_terminal: z.number().int().nonnegative(),
     projection_rebuild_receipts: z.number().int().nonnegative(),
     learning_traces: z.number().int().nonnegative(),
     learning_candidates: z.number().int().nonnegative(),
@@ -1268,6 +1270,8 @@ export const DrainFtsResultSchema = z
   .object({
     processed: z.number().int().nonnegative(),
     failed: z.number().int().nonnegative(),
+    retrying: z.number().int().nonnegative(),
+    terminal: z.number().int().nonnegative(),
     remaining: z.number().int().nonnegative(),
     projection_state: z.enum(["ready", "pending", "unavailable"]),
   })
@@ -2191,6 +2195,8 @@ export const RelationTraversalResultSchema = z
     }
   });
 
+export const MAX_PROJECTION_ATTEMPTS = 16;
+
 export const ProjectionOutboxJobSchema = z
   .object({
     job_id: IdentifierSchema,
@@ -2200,7 +2206,7 @@ export const ProjectionOutboxJobSchema = z
     scope: ScopeSchema,
     source_revision_ids: z.array(IdentifierSchema),
     status: z.enum(["pending", "processing", "processed", "failed"]),
-    attempts: z.number().int().nonnegative(),
+    attempts: z.number().int().min(0).max(MAX_PROJECTION_ATTEMPTS),
     available_at: UtcTimestampSchema,
     claimed_by: IdentifierSchema.nullable(),
     lease_expires_at: UtcTimestampSchema.nullable(),
@@ -2275,6 +2281,7 @@ export const ProjectionJobMutationResultSchema = z
   .strict();
 
 export const MAX_GRAPH_PROJECTION_ATTEMPTS = 32;
+export const MAX_FTS_PROJECTION_ATTEMPTS = 8;
 export const MAX_GRAPH_PROJECTION_LEASE_MS = 15 * 60_000;
 
 export const GraphProjectionOutboxJobSchema = z
@@ -2454,6 +2461,8 @@ export const GraphProjectionStatusSchema = z
     pending_scopes: z.number().int().nonnegative(),
     unavailable_scopes: z.number().int().nonnegative(),
     outbox_pending: z.number().int().nonnegative(),
+    outbox_retrying: z.number().int().nonnegative(),
+    outbox_terminal: z.number().int().nonnegative(),
     receipts: z.number().int().nonnegative(),
   })
   .strict();
@@ -2612,6 +2621,8 @@ export const VectorProjectionStatusSchema = z
     pending_scopes: z.number().int().nonnegative(),
     degraded_scopes: z.number().int().nonnegative(),
     outbox_pending: z.number().int().nonnegative(),
+    outbox_retrying: z.number().int().nonnegative(),
+    outbox_terminal: z.number().int().nonnegative(),
     receipts: z.number().int().nonnegative(),
   })
   .strict();

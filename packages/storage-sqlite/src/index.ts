@@ -107,6 +107,8 @@ export {
   LearningLedgerReplayResultSchema,
   LearningLedgerWriteCommandSchema,
   LearningLedgerWriteResultSchema,
+  MAX_FTS_PROJECTION_ATTEMPTS,
+  MAX_PROJECTION_ATTEMPTS,
   LearningPartitionSealSchema,
   LearningStorageFrontierSchema,
   PurgeCountsSchema,

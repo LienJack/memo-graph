@@ -433,6 +433,8 @@ export const OperationalComponentSchema = z.enum([
   "graph_projection",
   "vector_projection",
   "learning",
+  "runtime_owner",
+  "background_work",
 ]);
 
 export const OperationalComponentStateSchema = z.enum([
@@ -460,6 +462,13 @@ export const OperationalReasonCodeSchema = z.enum([
   "FTS_UNAVAILABLE",
   "LAYERED_PROJECTION_UNAVAILABLE",
   "LEARNING_PAUSED",
+  "HOST_UNAVAILABLE",
+  "HOST_IDENTITY_MISMATCH",
+  "IPC_PROTOCOL_INCOMPATIBLE",
+  "HOST_AUTHENTICATION_FAILED",
+  "RUNTIME_BLOCKED",
+  "BACKGROUND_RETRYING",
+  "BACKGROUND_TERMINAL_FAILURE",
   "INTERNAL_FAILURE",
 ]);
 
