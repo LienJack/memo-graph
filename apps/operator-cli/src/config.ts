@@ -67,6 +67,7 @@ export const OperatorConfigSchema = z
     root_ref: IdentifierSchema.default(
       IdentifierSchema.parse("root_primary"),
     ),
+    workbench: z.unknown().optional(),
     qualification: ReleaseQualificationSchema.default({
       status: "pending",
       tested_envelope_digest: null,

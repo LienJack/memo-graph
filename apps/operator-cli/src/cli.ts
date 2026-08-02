@@ -32,6 +32,7 @@ import {
 } from "@memo-graph/learning-lab";
 
 import { runDoctor } from "./commands/doctor.js";
+import type { WorkbenchLauncher } from "./commands/workbench.js";
 import {
   inspectBackup,
   loadBackupResult,
@@ -87,18 +88,22 @@ import {
 } from "./operational-artifact-scan.js";
 import {
   renderOperationalStatus,
+  renderWorkbenchLaunch,
   type OperatorOutputFormat,
 } from "./render.js";
 import { productionRuntimeIdentityProvider } from "./runtime-identity.js";
 
 type OperatorIo = {
-  stdout: Pick<NodeJS.WriteStream, "write">;
+  stdout: Pick<NodeJS.WriteStream, "write"> & { isTTY?: boolean };
   stderr: Pick<NodeJS.WriteStream, "write">;
 };
 
 type OperatorRuntime = {
   now?: () => string;
   runtimeIdentityProvider?: RuntimeIdentityProvider;
+  workbenchLauncher?: WorkbenchLauncher;
+  workbenchRuntimeDirectory?: string;
+  browserOpener?: (url: string) => Promise<void>;
 };
 
 const ExecutePurgePayloadSchema = z
@@ -355,6 +360,13 @@ function processOwnerIsNotLive(processId: number): boolean {
 
 type ParsedArguments =
   | {
+      command: "workbench";
+      configPath: string;
+      format: OperatorOutputFormat;
+      noOpen: boolean;
+      headless: boolean;
+    }
+  | {
       command: "doctor";
       configPath: string;
       format: OperatorOutputFormat;
@@ -446,7 +458,9 @@ export function parseOperatorArguments(
   argv: readonly string[],
 ): ParsedArguments {
   const commandLength =
-    argv[0] === "doctor"
+    argv[0] === "workbench"
+      ? 1
+      : argv[0] === "doctor"
       ? 1
       : argv[0] === "key" &&
           (argv[1] === "inspect" || argv[1] === "rotate")
@@ -507,7 +521,11 @@ export function parseOperatorArguments(
       }
       continue;
     }
-    if (argument === "--dry-run") {
+    if (
+      argument === "--dry-run" ||
+      argument === "--no-open" ||
+      argument === "--headless"
+    ) {
       consumed.add(index);
     }
   }
@@ -521,6 +539,30 @@ export function parseOperatorArguments(
     (format !== "human" && format !== "json")
   ) {
     throw new OperatorConfigError();
+  }
+  if (argv[0] === "workbench") {
+    const noOpen = argv.includes("--no-open");
+    const headless = argv.includes("--headless");
+    if (
+      argumentCount(argv, "--no-open") > 1 ||
+      argumentCount(argv, "--headless") > 1 ||
+      (noOpen && headless) ||
+      hasUnexpectedFlags(argv, [
+        "--config",
+        "--format",
+        "--no-open",
+        "--headless",
+      ])
+    ) {
+      throw new OperatorConfigError();
+    }
+    return {
+      command: "workbench",
+      configPath,
+      format,
+      noOpen,
+      headless,
+    };
   }
   if (argv[0] === "doctor") {
     if (
@@ -870,6 +912,40 @@ export async function runOperatorCli(
     format = arguments_.format;
     const config = loadOperatorConfig(arguments_.configPath);
     switch (arguments_.command) {
+      case "workbench": {
+        const { runWorkbench } = await import("./commands/workbench.js");
+        const launched = await runWorkbench({
+          config,
+          noOpen: arguments_.noOpen,
+          headless: arguments_.headless,
+          ...(runtime.workbenchLauncher === undefined
+            ? {}
+            : { launcher: runtime.workbenchLauncher }),
+          ...(runtime.workbenchRuntimeDirectory === undefined
+            ? {}
+            : {
+                runtimeDirectory:
+                  runtime.workbenchRuntimeDirectory,
+              }),
+          ...(runtime.browserOpener === undefined
+            ? {}
+            : { browserOpener: runtime.browserOpener }),
+        });
+        io.stdout.write(
+          renderWorkbenchLaunch(
+            launched.result,
+            format,
+            launched.pairingCode,
+            io.stdout.isTTY === true,
+          ),
+        );
+        return operatorExitCode(
+          launched.result.runtime_state === "health_only" ||
+            launched.result.browser === "failed"
+            ? "inspectable_degraded"
+            : "success",
+        );
+      }
       case "doctor": {
         const status = await runDoctor({
           dataRoot: config.data_root,

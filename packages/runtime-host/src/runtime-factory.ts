@@ -28,6 +28,7 @@ import {
   canonicalSha256,
   type CanonicalHash,
   type OperationalStatus,
+  type RuntimeRootIdentity,
 } from "@memo-graph/contracts";
 import {
   ExactScopeGraphProjector,
@@ -160,11 +161,7 @@ export const MemoryServerConfigSchema = z
 export type MemoryServerConfig = z.infer<typeof MemoryServerConfigSchema>;
 export type RuntimeOpenMode = "direct" | "managed";
 
-export type RuntimeRootIdentity = {
-  canonical_root_hash: CanonicalHash;
-  device: string;
-  inode: string;
-};
+export type { RuntimeRootIdentity } from "@memo-graph/contracts";
 
 export type OpenedMemoryRuntime = {
   mode: RuntimeOpenMode;

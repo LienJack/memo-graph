@@ -7,6 +7,7 @@ import { createConnection, type Socket } from "node:net";
 
 import {
   CanonicalHashSchema,
+  RuntimeRootIdentitySchema,
   UtcTimestampSchema,
   canonicalJson,
   type CanonicalHash,
@@ -24,13 +25,7 @@ const IdentitySchema = z
   .max(160)
   .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u);
 
-export const RuntimeRootIdentitySchema = z
-  .object({
-    canonical_root_hash: CanonicalHashSchema,
-    device: z.string().regex(/^\d+$/u).max(40),
-    inode: z.string().regex(/^\d+$/u).max(40),
-  })
-  .strict();
+export { RuntimeRootIdentitySchema } from "@memo-graph/contracts";
 
 export const ManagedHostDescriptorSchema = z
   .object({

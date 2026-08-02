@@ -83,6 +83,31 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@24.13.3)(@vitest/browser-playwright@4.1.10)(vite@7.3.6(@types/node@24.13.3)(lightningcss@1.33.0))
 
+  apps/memory-workbench-host:
+    dependencies:
+      '@memo-graph/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@memo-graph/mcp-server':
+        specifier: workspace:*
+        version: link:../../packages/mcp-server
+      '@memo-graph/runtime-host':
+        specifier: workspace:*
+        version: link:../../packages/runtime-host
+      '@memo-graph/storage-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/storage-sqlite
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   apps/memory-workbench-web:
     dependencies:
       '@fontsource-variable/geist':
@@ -137,6 +162,12 @@ importers:
       '@memo-graph/memory-kernel':
         specifier: workspace:*
         version: link:../../packages/memory-kernel
+      '@memo-graph/memory-workbench-host':
+        specifier: workspace:*
+        version: link:../memory-workbench-host
+      '@memo-graph/runtime-host':
+        specifier: workspace:*
+        version: link:../../packages/runtime-host
       '@memo-graph/storage-sqlite':
         specifier: workspace:*
         version: link:../../packages/storage-sqlite

@@ -1,10 +1,16 @@
 {
-  "name": "@memo-graph/operator-cli",
+  "name": "@memo-graph/memory-workbench-host",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "memo-graph-operator": "./dist/cli.js"
+    "memo-graph-workbench-host": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
     "dist"
@@ -14,9 +20,7 @@
   },
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",
-    "@memo-graph/learning-lab": "workspace:*",
-    "@memo-graph/memory-workbench-host": "workspace:*",
-    "@memo-graph/memory-kernel": "workspace:*",
+    "@memo-graph/mcp-server": "workspace:*",
     "@memo-graph/runtime-host": "workspace:*",
     "@memo-graph/storage-sqlite": "workspace:*",
     "zod": "4.4.3"
