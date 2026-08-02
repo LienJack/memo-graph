@@ -78,6 +78,12 @@ import {
   VectorProjectionJobSchema,
   VectorProjectionReceiptSchema,
   VectorScopeCheckpointSchema,
+  type WorkbenchMemoryCandidateSetSchema,
+  WorkbenchMemoryDetailRequestSchema,
+  type WorkbenchMemoryDetailResultSchema,
+  WorkbenchMemoryListRequestSchema,
+  WorkbenchMemoryMemberSchema,
+  type WorkbenchMemorySummaryBatchResultSchema,
   canonicalSha256,
   scopeKey,
 } from "@memo-graph/contracts";
@@ -1391,6 +1397,65 @@ export const GovernedMemorySearchResultSchema = z.discriminatedUnion(
   ],
 );
 
+const WorkbenchReadAccessFields = {
+  principal_id: IdentifierSchema,
+  allowed_scopes: z.array(ScopeSchema).min(1).max(100),
+  as_of: UtcTimestampSchema,
+  include_sensitive: z.boolean().default(false),
+  context_scope: ScopeSchema.nullable().default(null),
+};
+
+export const WorkbenchMemoryListQuerySchema = z
+  .object({
+    ...WorkbenchReadAccessFields,
+    max_snapshot_members: z.number().int().min(1).max(10_000),
+    request: WorkbenchMemoryListRequestSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.request.cursor !== null) {
+      context.addIssue({
+        code: "custom",
+        path: ["request", "cursor"],
+        message: "storage creates snapshot membership only for first-page requests",
+      });
+    }
+    const scopeKeys = value.allowed_scopes.map(scopeKey);
+    if (new Set(scopeKeys).size !== scopeKeys.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["allowed_scopes"],
+        message: "allowed workbench scopes must be unique",
+      });
+    }
+    if (
+      value.request.scope !== null &&
+      !scopeKeys.includes(scopeKey(value.request.scope))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["request", "scope"],
+        message: "requested workbench scope must be allowed",
+      });
+    }
+  });
+
+export const WorkbenchMemorySummaryBatchQuerySchema = z
+  .object({
+    ...WorkbenchReadAccessFields,
+    members: z.array(WorkbenchMemoryMemberSchema).min(1).max(100),
+  })
+  .strict();
+
+export const WorkbenchMemoryDetailQuerySchema = z
+  .object({
+    ...WorkbenchReadAccessFields,
+    max_history: z.number().int().min(1).max(1_000),
+    max_provenance_nodes: z.number().int().min(1).max(500),
+    request: WorkbenchMemoryDetailRequestSchema,
+  })
+  .strict();
+
 export const ProjectionSourceListInputSchema = z
   .object({
     principal_id: IdentifierSchema,
@@ -2621,6 +2686,9 @@ export const WorkerOperationSchema = z.enum([
   "check_memory_eligibility",
   "get_governed_memory",
   "search_governed_memory",
+  "list_workbench_memories",
+  "get_workbench_memory_summaries",
+  "get_workbench_memory_detail",
   "commit_episode",
   "drain_fts",
   "search_evidence",
@@ -3205,6 +3273,33 @@ export type ParsedGovernedMemorySearchQuery = z.output<
 >;
 export type GovernedMemorySearchResult = z.infer<
   typeof GovernedMemorySearchResultSchema
+>;
+export type WorkbenchMemoryListQuery = z.input<
+  typeof WorkbenchMemoryListQuerySchema
+>;
+export type ParsedWorkbenchMemoryListQuery = z.output<
+  typeof WorkbenchMemoryListQuerySchema
+>;
+export type WorkbenchMemoryCandidateSet = z.infer<
+  typeof WorkbenchMemoryCandidateSetSchema
+>;
+export type WorkbenchMemorySummaryBatchQuery = z.input<
+  typeof WorkbenchMemorySummaryBatchQuerySchema
+>;
+export type ParsedWorkbenchMemorySummaryBatchQuery = z.output<
+  typeof WorkbenchMemorySummaryBatchQuerySchema
+>;
+export type WorkbenchMemorySummaryBatchResult = z.infer<
+  typeof WorkbenchMemorySummaryBatchResultSchema
+>;
+export type WorkbenchMemoryDetailQuery = z.input<
+  typeof WorkbenchMemoryDetailQuerySchema
+>;
+export type ParsedWorkbenchMemoryDetailQuery = z.output<
+  typeof WorkbenchMemoryDetailQuerySchema
+>;
+export type WorkbenchMemoryDetailResult = z.infer<
+  typeof WorkbenchMemoryDetailResultSchema
 >;
 export type StorageHealth = z.infer<typeof StorageHealthSchema>;
 export type VerifyArtifactsResult = z.infer<typeof VerifyArtifactsResultSchema>;

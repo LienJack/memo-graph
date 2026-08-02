@@ -50,6 +50,9 @@ import {
   GovernanceReplayInputSchema,
   GovernedMemoryLookupInputSchema,
   GovernedMemorySearchQuerySchema,
+  WorkbenchMemoryDetailQuerySchema,
+  WorkbenchMemoryListQuerySchema,
+  WorkbenchMemorySummaryBatchQuerySchema,
   FailProjectionJobCommandSchema,
   FailGraphProjectionJobCommandSchema,
   FailVectorProjectionJobCommandSchema,
@@ -779,6 +782,21 @@ port.on("message", (message: unknown) => {
         case "search_governed_memory":
           result = database.searchGovernedMemory(
             GovernedMemorySearchQuerySchema.parse(request.payload),
+          );
+          break;
+        case "list_workbench_memories":
+          result = database.listWorkbenchMemories(
+            WorkbenchMemoryListQuerySchema.parse(request.payload),
+          );
+          break;
+        case "get_workbench_memory_summaries":
+          result = database.getWorkbenchMemorySummaries(
+            WorkbenchMemorySummaryBatchQuerySchema.parse(request.payload),
+          );
+          break;
+        case "get_workbench_memory_detail":
+          result = database.getWorkbenchMemoryDetail(
+            WorkbenchMemoryDetailQuerySchema.parse(request.payload),
           );
           break;
         case "commit_episode": {

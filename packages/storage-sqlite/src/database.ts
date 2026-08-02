@@ -78,6 +78,7 @@ import { StorageError } from "./errors.js";
 import { FtsIndex } from "./fts-index.js";
 import { GovernanceRepository } from "./governance-repository.js";
 import { GovernedMemoryReader } from "./governed-memory-reader.js";
+import { WorkbenchReader } from "./workbench-reader.js";
 import { GraphProjectionRepository } from "./graph-projection-repository.js";
 import { LearningRepository } from "./learning-repository.js";
 import { KeyRepository } from "./key-repository.js";
@@ -114,6 +115,9 @@ import {
   GovernedMemoryLookupInputSchema,
   GovernedMemorySearchQuerySchema,
   MemoryEligibilityInputSchema,
+  WorkbenchMemoryDetailQuerySchema,
+  WorkbenchMemoryListQuerySchema,
+  WorkbenchMemorySummaryBatchQuerySchema,
   MemoryControlCommandSchema,
   MemoryCorrectionBasisInputSchema,
   MemoryDeleteCommandSchema,
@@ -179,6 +183,9 @@ import {
   type GovernedMemorySearchResult,
   type GovernedMemoryLookupResult,
   type MemoryEligibilityResult,
+  type WorkbenchMemoryCandidateSet,
+  type WorkbenchMemoryDetailResult,
+  type WorkbenchMemorySummaryBatchResult,
   type MemoryControlResult,
   type MemoryCorrectionBasis,
   type MemoryDeleteResult,
@@ -403,6 +410,7 @@ export class StorageDatabase {
   readonly #fts: FtsIndex;
   readonly #governance: GovernanceRepository;
   readonly #governedMemory: GovernedMemoryReader;
+  readonly #workbench: WorkbenchReader;
   readonly #control: ControlRepository;
   readonly #purge: PurgeRepository;
   readonly #graph: GraphProjectionRepository;
@@ -501,6 +509,10 @@ export class StorageDatabase {
     });
     this.#governance = new GovernanceRepository(this.#database);
     this.#governedMemory = new GovernedMemoryReader(this.#database);
+    this.#workbench = new WorkbenchReader(
+      this.#database,
+      this.#governedMemory,
+    );
     this.#control = new ControlRepository(this.#database);
     this.#purge = new PurgeRepository(
       this.#database,
@@ -2748,6 +2760,24 @@ export class StorageDatabase {
   searchGovernedMemory(input: unknown): GovernedMemorySearchResult {
     return this.#governedMemory.search(
       GovernedMemorySearchQuerySchema.parse(input),
+    );
+  }
+
+  listWorkbenchMemories(input: unknown): WorkbenchMemoryCandidateSet {
+    return this.#workbench.list(WorkbenchMemoryListQuerySchema.parse(input));
+  }
+
+  getWorkbenchMemorySummaries(
+    input: unknown,
+  ): WorkbenchMemorySummaryBatchResult {
+    return this.#workbench.summaries(
+      WorkbenchMemorySummaryBatchQuerySchema.parse(input),
+    );
+  }
+
+  getWorkbenchMemoryDetail(input: unknown): WorkbenchMemoryDetailResult {
+    return this.#workbench.detail(
+      WorkbenchMemoryDetailQuerySchema.parse(input),
     );
   }
 

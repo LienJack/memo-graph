@@ -79,6 +79,10 @@ import type {
   RecallLaneRetriever,
 } from "./lane-retrievers.js";
 import {
+  WorkbenchService,
+  type WorkbenchSnapshotRegistry,
+} from "./workbench-service.js";
+import {
   ApprovalBindingSchema,
   ApprovalError,
   DenyAllApprovalRegistry,
@@ -140,6 +144,13 @@ export {
   type VerifiedCanaryAuthorization,
   type VerifiedPostCanaryApproval,
 } from "./approval.js";
+export {
+  WorkbenchService,
+  type WorkbenchSnapshotCreateInput,
+  type WorkbenchSnapshotPage,
+  type WorkbenchSnapshotRegistry,
+  type WorkbenchSnapshotStaleReason,
+} from "./workbench-service.js";
 export {
   G3_ACCEPTED_M2_COMMIT,
   G3_ACCEPTED_M2_LOCK_HASH,
@@ -667,6 +678,35 @@ export class MemoryRuntime {
       ...(options.laneRetriever === undefined
         ? {}
         : { retriever: options.laneRetriever }),
+    });
+  }
+
+  createWorkbenchService(
+    snapshots: WorkbenchSnapshotRegistry,
+    options?: {
+      includeSensitive?: boolean;
+      maxSnapshotMembers?: number;
+      maxHistory?: number;
+      maxProvenanceNodes?: number;
+    },
+  ): WorkbenchService {
+    return new WorkbenchService({
+      storage: this.#storage,
+      authority: this.#policy.principal,
+      snapshots,
+      clock: this.#clock,
+      ...(options?.includeSensitive === undefined
+        ? {}
+        : { includeSensitive: options.includeSensitive }),
+      ...(options?.maxSnapshotMembers === undefined
+        ? {}
+        : { maxSnapshotMembers: options.maxSnapshotMembers }),
+      ...(options?.maxHistory === undefined
+        ? {}
+        : { maxHistory: options.maxHistory }),
+      ...(options?.maxProvenanceNodes === undefined
+        ? {}
+        : { maxProvenanceNodes: options.maxProvenanceNodes }),
     });
   }
 

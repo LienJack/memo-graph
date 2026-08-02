@@ -22,6 +22,9 @@ import {
   OperatorConfirmationSchema,
   RootLeaseSchema,
   VectorScopeCheckpointSchema,
+  WorkbenchMemoryCandidateSetSchema,
+  WorkbenchMemoryDetailResultSchema,
+  WorkbenchMemorySummaryBatchResultSchema,
   canonicalJson,
   canonicalSha256,
   verifyOperatorConfirmationBinding,
@@ -43,6 +46,7 @@ import {
   type RuntimeIdentityProvider,
   type SecretAdmissionTrust,
   type VectorScopeCheckpoint,
+  type WorkbenchMemoryDetailResult,
 } from "@memo-graph/contracts";
 import { z } from "zod";
 
@@ -104,6 +108,9 @@ import {
   GovernedMemoryLookupResultSchema,
   GovernedMemorySearchQuerySchema,
   GovernedMemorySearchResultSchema,
+  WorkbenchMemoryDetailQuerySchema,
+  WorkbenchMemoryListQuerySchema,
+  WorkbenchMemorySummaryBatchQuerySchema,
   GovernanceMutationResultSchema,
   GovernanceReplayInputSchema,
   GovernanceReplayResultSchema,
@@ -234,6 +241,11 @@ import {
   type GovernedMemorySearchResult,
   type GovernedMemoryLookupInput,
   type GovernedMemoryLookupResult,
+  type WorkbenchMemoryCandidateSet,
+  type WorkbenchMemoryDetailQuery,
+  type WorkbenchMemoryListQuery,
+  type WorkbenchMemorySummaryBatchQuery,
+  type WorkbenchMemorySummaryBatchResult,
   type GovernanceReplayInput,
   type FailProjectionJobCommand,
   type FailGraphProjectionJobCommand,
@@ -1903,6 +1915,39 @@ export class SqliteStorageClient {
       "search_governed_memory",
       request,
       GovernedMemorySearchResultSchema,
+    );
+  }
+
+  listWorkbenchMemories(
+    input: WorkbenchMemoryListQuery,
+  ): Promise<WorkbenchMemoryCandidateSet> {
+    const request = WorkbenchMemoryListQuerySchema.parse(input);
+    return this.#request(
+      "list_workbench_memories",
+      request,
+      WorkbenchMemoryCandidateSetSchema,
+    );
+  }
+
+  getWorkbenchMemorySummaries(
+    input: WorkbenchMemorySummaryBatchQuery,
+  ): Promise<WorkbenchMemorySummaryBatchResult> {
+    const request = WorkbenchMemorySummaryBatchQuerySchema.parse(input);
+    return this.#request(
+      "get_workbench_memory_summaries",
+      request,
+      WorkbenchMemorySummaryBatchResultSchema,
+    );
+  }
+
+  getWorkbenchMemoryDetail(
+    input: WorkbenchMemoryDetailQuery,
+  ): Promise<WorkbenchMemoryDetailResult> {
+    const request = WorkbenchMemoryDetailQuerySchema.parse(input);
+    return this.#request(
+      "get_workbench_memory_detail",
+      request,
+      WorkbenchMemoryDetailResultSchema,
     );
   }
 

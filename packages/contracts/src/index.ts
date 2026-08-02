@@ -14,3 +14,4 @@ export * from "./receipts.js";
 export * from "./replay.js";
 export * from "./tool-inputs.js";
 export * from "./vector.js";
+export * from "./workbench.js";
