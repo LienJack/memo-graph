@@ -6,46 +6,28 @@
 
 ## Overview
 
-<!--
-Document your project's state management conventions here.
-
-Questions to answer:
-- What state management solution do you use?
-- How is local vs global state decided?
-- How do you handle server state?
-- What are the patterns for derived state?
--->
-
-(To be filled by the team)
-
----
+The workbench uses React local state plus explicit framework-neutral state machines. There is no global state library in v1.
 
 ## State Categories
 
-<!-- Local state, global state, server state, URL state -->
-
-(To be filled by the team)
-
----
+- **Page memory:** free-text search, correction content/reason drafts, dialog state, and unsent intent.
+- **Structural URL:** allowlisted view, exact scope, selected governed identifier, and reviewed status switches.
+- **Server state:** validated DTOs tied to a bearer and Runtime instance.
+- **Recovery state:** a discriminated union carrying retained/stale content only where the recovery matrix permits it.
 
 ## When to Use Global State
 
-<!-- Criteria for promoting state to global -->
-
-(To be filled by the team)
-
----
+Promote state only when multiple top-level features need the same live authority and lifecycle. Prefer lifting state to the shell before adding a library. Browser authentication remains in memory and must not enter local/session storage.
 
 ## Server State
 
-<!-- How server data is cached and synchronized -->
-
-(To be filled by the team)
-
----
+- Every response is Zod-validated before becoming server state.
+- Refresh may retain verified content with an explicit refreshing label and disabled mutations.
+- Unauthorized, expired, disconnected, stale-instance, and failed states remove current-authority indicators and stop polling.
+- Stale cursor causes a fresh bounded snapshot; mutation loss uses operation recovery and is never blindly replayed.
 
 ## Common Mistakes
 
-<!-- State management mistakes your team has made -->
-
-(To be filled by the team)
+- Never infer an empty library from blocked, excluded, filtered, or failed responses.
+- Never put search text, memory text, reasons, drafts, credentials, or evidence payloads in URL state.
+- Never silently rebase a correction draft after stale preview or instance change.

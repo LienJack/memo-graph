@@ -21,6 +21,15 @@ export const CanonicalHashSchema = z
   .regex(/^sha256:[a-f0-9]{64}$/)
   .brand<"CanonicalHash">();
 
+export const EvidenceSourceSchema = z.enum([
+  "conversation_turn",
+  "tool_result",
+  "artifact",
+  "user_feedback",
+  "evaluation",
+  "import",
+]);
+
 export const NonEmptyReasonSchema = z.string().trim().min(1).max(2_000);
 
 export const AbstractionLevelSchema = z.enum([

@@ -6,46 +6,24 @@
 
 ## Overview
 
-<!--
-Document your project's hook conventions here.
-
-Questions to answer:
-- What custom hooks do you have?
-- How do you handle data fetching?
-- What are the naming conventions?
-- How do you share stateful logic?
--->
-
-(To be filled by the team)
-
----
+Use React hooks for component lifecycle and current-page UI state. Transport and concurrency semantics remain framework-neutral classes/functions so they can be tested without a simulated DOM.
 
 ## Custom Hook Patterns
 
-<!-- How to create and structure custom hooks -->
-
-(To be filled by the team)
-
----
+- Extract a custom hook only when stateful behavior is reused or has a lifecycle contract that is clearer in isolation.
+- Return explicit state and intent callbacks; do not expose mutable refs as public state.
+- Effects must clean up listeners, polling, AbortControllers, and focus ownership.
 
 ## Data Fetching
 
-<!-- How data fetching is handled (React Query, SWR, etc.) -->
-
-(To be filled by the team)
-
----
+V1 uses the typed `WorkbenchApiClient` plus `RequestCoordinator`. A new structural filter or route cancels the old request, and late responses are ignored. Do not add a server-state library until bounded polling and recovery requirements prove it necessary.
 
 ## Naming Conventions
 
-<!-- Hook naming rules (use*, etc.) -->
-
-(To be filled by the team)
-
----
+Custom hooks use the `use` prefix. Framework-neutral request/state modules do not.
 
 ## Common Mistakes
 
-<!-- Hook-related mistakes your team has made -->
-
-(To be filled by the team)
+- Do not capture a stale bearer, instance ID, or draft in a long-lived effect.
+- Do not automatically replay a mutation after connection or instance loss.
+- Do not poll when recovery policy says `stop`.

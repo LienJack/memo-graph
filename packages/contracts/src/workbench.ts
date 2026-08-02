@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   AuthoritySchema,
   CanonicalHashSchema,
+  EvidenceSourceSchema,
   IdentifierSchema,
   LifecycleSchema,
   MemoryKindSchema,
@@ -11,8 +12,7 @@ import {
   UtcTimestampSchema,
   ValidityWindowSchema,
 } from "./common.js";
-import { EvidenceSourceSchema } from "./memory.js";
-import { MutationReceiptSchema } from "./receipts.js";
+import { MutationReceiptSchema } from "./mutation-receipt.js";
 
 export const WorkbenchOpaqueCursorSchema = z
   .string()

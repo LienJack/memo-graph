@@ -8,6 +8,7 @@ import {
   CanonicalHashSchema,
   ContentRefSchema,
   ContractVersionSchema,
+  EvidenceSourceSchema,
   IdentifierSchema,
   LifecycleSchema,
   MemoryKindSchema,
@@ -32,14 +33,7 @@ export function logicalKeyHash(value: string): `sha256:${string}` {
   return canonicalSha256(normalizeLogicalKey(value));
 }
 
-export const EvidenceSourceSchema = z.enum([
-  "conversation_turn",
-  "tool_result",
-  "artifact",
-  "user_feedback",
-  "evaluation",
-  "import",
-]);
+export { EvidenceSourceSchema } from "./common.js";
 
 export const EvidenceRecordSchema = z
   .object({

@@ -1,0 +1,94 @@
+export const WORKBENCH_VIEWS = ["memory", "graph", "runtime"] as const;
+export type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
+
+export type StructuralUrlState = {
+  view: WorkbenchView;
+  scopeKind: "workspace" | "topic" | "agent" | "user" | null;
+  scopeId: string | null;
+  selectedMemoryId: string | null;
+  includeNonCurrent: boolean;
+};
+
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u;
+const SCOPE_KINDS = new Set(["workspace", "topic", "agent", "user"]);
+const ALLOWED_KEYS = new Set([
+  "view",
+  "scope_kind",
+  "scope_id",
+  "memory_id",
+  "include_non_current",
+]);
+
+export function parseStructuralUrl(url: URL): {
+  state: StructuralUrlState;
+  sanitizedUrl: URL;
+  changed: boolean;
+} {
+  const source = url.searchParams;
+  const sanitizedUrl = new URL(url.href);
+  sanitizedUrl.search = "";
+
+  const rawView = source.get("view");
+  const view = isWorkbenchView(rawView) ? rawView : "memory";
+  if (view !== "memory") {
+    sanitizedUrl.searchParams.set("view", view);
+  }
+
+  const rawScopeKind = source.get("scope_kind");
+  const rawScopeId = source.get("scope_id");
+  const scopeKind =
+    rawScopeKind !== null && SCOPE_KINDS.has(rawScopeKind)
+      ? (rawScopeKind as StructuralUrlState["scopeKind"])
+      : null;
+  const scopeId = rawScopeId !== null && IDENTIFIER.test(rawScopeId) ? rawScopeId : null;
+  if (scopeKind !== null && scopeId !== null) {
+    sanitizedUrl.searchParams.set("scope_kind", scopeKind);
+    sanitizedUrl.searchParams.set("scope_id", scopeId);
+  }
+
+  const rawMemoryId = source.get("memory_id");
+  const selectedMemoryId =
+    rawMemoryId !== null && IDENTIFIER.test(rawMemoryId) ? rawMemoryId : null;
+  if (selectedMemoryId !== null) {
+    sanitizedUrl.searchParams.set("memory_id", selectedMemoryId);
+  }
+
+  const includeNonCurrent = source.get("include_non_current") === "1";
+  if (includeNonCurrent) {
+    sanitizedUrl.searchParams.set("include_non_current", "1");
+  }
+
+  const unknownKey = [...source.keys()].some((key) => !ALLOWED_KEYS.has(key));
+  return {
+    state: {
+      view,
+      scopeKind: scopeKind !== null && scopeId !== null ? scopeKind : null,
+      scopeId: scopeKind !== null && scopeId !== null ? scopeId : null,
+      selectedMemoryId,
+      includeNonCurrent,
+    },
+    sanitizedUrl,
+    changed: unknownKey || normalizedSearch(url) !== normalizedSearch(sanitizedUrl),
+  };
+}
+
+export function urlForView(url: URL, view: WorkbenchView): URL {
+  const { sanitizedUrl } = parseStructuralUrl(url);
+  if (view === "memory") {
+    sanitizedUrl.searchParams.delete("view");
+  } else {
+    sanitizedUrl.searchParams.set("view", view);
+  }
+  return sanitizedUrl;
+}
+
+function isWorkbenchView(value: string | null): value is WorkbenchView {
+  return value !== null && WORKBENCH_VIEWS.some((candidate) => candidate === value);
+}
+
+function normalizedSearch(url: URL): string {
+  const entries = [...url.searchParams.entries()].sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  return new URLSearchParams(entries).toString();
+}
