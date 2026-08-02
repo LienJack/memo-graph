@@ -4,6 +4,7 @@ export const STORAGE_ERROR_CODES = [
   "CONFLICT",
   "STALE_REVISION",
   "STALE_PROJECTION_FRONTIER",
+  "CORRECTION_IMPACT_LIMIT_EXCEEDED",
   "APPROVAL_INVALID",
   "INCOMPLETE_PURGE",
   "STALE_TOMBSTONE_FRONTIER",
@@ -47,6 +48,8 @@ const PUBLIC_MESSAGES: Record<StorageErrorCode, string> = {
   STALE_REVISION: "the expected memory revision is no longer current",
   STALE_PROJECTION_FRONTIER:
     "the projection scope frontier changed during the read",
+  CORRECTION_IMPACT_LIMIT_EXCEEDED:
+    "the correction impact exceeds the supported atomic closure limit",
   APPROVAL_INVALID:
     "the trusted approval is invalid, expired, changed, or already consumed",
   INCOMPLETE_PURGE: "the purge still has residual or failed stores",

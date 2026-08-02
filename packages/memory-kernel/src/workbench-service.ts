@@ -1,5 +1,14 @@
+import { randomUUID } from "node:crypto";
+
 import {
   CanonicalHashSchema,
+  EvidenceRecordSchema,
+  MemoryCandidateSchema,
+  MemoryCorrectInputSchema,
+  WorkbenchCorrectionConfirmRequestSchema,
+  WorkbenchCorrectionConfirmResultSchema,
+  WorkbenchCorrectionDraftSchema,
+  WorkbenchCorrectionPreviewResultSchema,
   WorkbenchMemoryDetailRequestSchema,
   WorkbenchMemoryDetailResultSchema,
   WorkbenchMemoryListRequestSchema,
@@ -12,11 +21,19 @@ import {
   type WorkbenchMemoryListResult,
   type WorkbenchMemoryMember,
   type WorkbenchOpaqueCursor,
+  type WorkbenchCorrectionConfirmResult,
+  type WorkbenchCorrectionPreviewResult,
 } from "@memo-graph/contracts";
 import {
   StorageError,
   type SqliteStorageClient,
 } from "@memo-graph/storage-sqlite";
+
+import { evaluateAdmission } from "./governance.js";
+import {
+  WorkbenchApprovalRegistry,
+  WorkbenchPreviewError,
+} from "./workbench-approval.js";
 
 export type WorkbenchSnapshotStaleReason =
   | "SNAPSHOT_EXPIRED"
@@ -56,6 +73,8 @@ type WorkbenchStoragePort = Pick<
   | "listWorkbenchMemories"
   | "getWorkbenchMemorySummaries"
   | "getWorkbenchMemoryDetail"
+  | "previewWorkbenchCorrection"
+  | "applyMemoryRevision"
 >;
 
 function hasActiveFilter(request: ParsedWorkbenchMemoryListRequest): boolean {
@@ -101,6 +120,12 @@ export class WorkbenchService {
   readonly #maxSnapshotMembers: number;
   readonly #maxHistory: number;
   readonly #maxProvenanceNodes: number;
+  readonly #approvals: WorkbenchApprovalRegistry;
+  readonly #sessionId: string;
+  readonly #idFactory: (prefix: string) => string;
+  readonly #previewTtlMs: number;
+  readonly #impactLimit: number;
+  readonly #impactSampleLimit: number;
 
   constructor(options: {
     storage: WorkbenchStoragePort;
@@ -111,6 +136,12 @@ export class WorkbenchService {
     maxSnapshotMembers?: number;
     maxHistory?: number;
     maxProvenanceNodes?: number;
+    approvals?: WorkbenchApprovalRegistry;
+    sessionId?: string;
+    idFactory?: (prefix: string) => string;
+    previewTtlMs?: number;
+    impactLimit?: number;
+    impactSampleLimit?: number;
   }) {
     this.#storage = options.storage;
     this.#authority = options.authority;
@@ -120,6 +151,14 @@ export class WorkbenchService {
     this.#maxSnapshotMembers = options.maxSnapshotMembers ?? 2_000;
     this.#maxHistory = options.maxHistory ?? 200;
     this.#maxProvenanceNodes = options.maxProvenanceNodes ?? 300;
+    this.#approvals =
+      options.approvals ?? new WorkbenchApprovalRegistry({ clock: this.#clock });
+    this.#sessionId = options.sessionId ?? "workbench_session_local";
+    this.#idFactory =
+      options.idFactory ?? ((prefix) => `${prefix}:${randomUUID()}`);
+    this.#previewTtlMs = options.previewTtlMs ?? 5 * 60 * 1_000;
+    this.#impactLimit = options.impactLimit ?? 1_000;
+    this.#impactSampleLimit = options.impactSampleLimit ?? 100;
   }
 
   async list(input: unknown): Promise<WorkbenchMemoryListResult> {
@@ -249,6 +288,325 @@ export class WorkbenchService {
       });
     } catch (error) {
       return detailFailure(error);
+    }
+  }
+
+  async previewCorrection(
+    input: unknown,
+  ): Promise<WorkbenchCorrectionPreviewResult> {
+    const draft = WorkbenchCorrectionDraftSchema.safeParse(input);
+    if (!draft.success) {
+      return WorkbenchCorrectionPreviewResultSchema.parse({
+        status: "failed",
+        reason_code: "INVALID_REQUEST",
+        retryable: false,
+        warnings: [],
+      });
+    }
+    const now = this.#clock();
+    try {
+      const detail = await this.detail({
+        memory_id: draft.data.memory_id,
+        revision_id: null,
+      });
+      if (detail.status !== "ready") {
+        return WorkbenchCorrectionPreviewResultSchema.parse({
+          status:
+            detail.status === "not_found"
+              ? "not_found"
+              : detail.status === "governance_excluded"
+                ? "governance_excluded"
+                : detail.status === "blocked"
+                  ? "blocked"
+                  : "failed",
+          reason_code: detail.reason_code,
+          retryable:
+            detail.status === "not_found" ||
+            detail.status === "governance_excluded"
+              ? false
+              : detail.retryable,
+          warnings: detail.warnings,
+        });
+      }
+      if (
+        detail.memory.revision_id !== draft.data.expected_revision_id ||
+        !detail.memory.writable
+      ) {
+        return WorkbenchCorrectionPreviewResultSchema.parse({
+          status: "stale",
+          reason_code: "STALE_REVISION",
+          retryable: false,
+          warnings: [],
+        });
+      }
+      const storagePreview = await this.#storage.previewWorkbenchCorrection({
+        memory_id: draft.data.memory_id,
+        principal_id: this.#authority.principal_id,
+        scope: detail.memory.scope,
+        expected_revision_id: draft.data.expected_revision_id,
+        impact_limit: this.#impactLimit,
+        sample_limit: this.#impactSampleLimit,
+      });
+      if (storagePreview === null) {
+        return WorkbenchCorrectionPreviewResultSchema.parse({
+          status: "stale",
+          reason_code: "STALE_REVISION",
+          retryable: false,
+          warnings: [],
+        });
+      }
+      const content = {
+        storage: "inline",
+        text: draft.data.replacement.text,
+        media_type: draft.data.replacement.media_type,
+      } as const;
+      const contentHash = CanonicalHashSchema.parse(canonicalSha256(content));
+      const previewId = this.#idFactory("workbench-preview");
+      const operationId = this.#idFactory("workbench-correction");
+      const approvalId = this.#idFactory("workbench-approval");
+      const evidenceId = this.#idFactory("workbench-feedback");
+      const requestId = this.#idFactory("workbench-request");
+      const expiresAt = new Date(
+        Date.parse(now) + this.#previewTtlMs,
+      ).toISOString();
+      const payload = {
+        storage: "inline",
+        text: draft.data.reason,
+        media_type: "text/plain",
+      } as const;
+      const evidence = EvidenceRecordSchema.parse({
+        schema_version: "1.0.0",
+        evidence_id: evidenceId,
+        sequence: 0,
+        occurred_at: now,
+        recorded_at: now,
+        scope: storagePreview.basis.scope,
+        actor: {
+          principal_id: this.#authority.principal_id,
+          authority: "user_stated",
+        },
+        source: "user_feedback",
+        authority: "user_stated",
+        sensitivity: storagePreview.basis.sensitivity,
+        payload,
+        content_hash: canonicalSha256(payload),
+      });
+      const correctionRequest = MemoryCorrectInputSchema.parse({
+        envelope: {
+          schema_version: "1.0.0",
+          request_id: requestId,
+          tool: "memory_correct",
+          safety_class: "important_mutation",
+          actor_claim: {
+            principal_id: this.#authority.principal_id,
+            authority: "user_stated",
+          },
+          scopes: [storagePreview.basis.scope],
+          purpose: "Apply a confirmed Memory Workbench correction",
+          reason: draft.data.reason,
+          requested_at: now,
+          idempotency_key: operationId,
+          expected_revision_id: draft.data.expected_revision_id,
+          approval_id: approvalId,
+          dry_run: false,
+        },
+        memory_id: draft.data.memory_id,
+        replacement: {
+          content,
+          content_hash: contentHash,
+          evidence_ids: [evidence.evidence_id],
+          validity: {
+            valid_from: now,
+            valid_to: null,
+            recorded_at: now,
+          },
+          reason: draft.data.reason,
+        },
+      });
+      const requestHash = CanonicalHashSchema.parse(
+        canonicalSha256(correctionRequest),
+      );
+      const candidate = MemoryCandidateSchema.parse({
+        schema_version: "1.0.0",
+        candidate_id: this.#idFactory("workbench-candidate"),
+        logical_key: storagePreview.basis.logical_key,
+        kind: storagePreview.basis.kind,
+        scope: storagePreview.basis.scope,
+        sensitivity: storagePreview.basis.sensitivity,
+        inferred: storagePreview.basis.inferred,
+        content,
+        content_hash: contentHash,
+        evidence_ids: [evidence.evidence_id],
+        validity: correctionRequest.replacement.validity,
+        injection_risk: "none",
+        requires_user_confirmation: false,
+        transform: { name: "memory-correction", version: "1.0.0" },
+      });
+      const evaluation = evaluateAdmission(candidate, [evidence]);
+      if (evaluation.decision === "reject") {
+        return WorkbenchCorrectionPreviewResultSchema.parse({
+          status: "governance_excluded",
+          reason_code: "CORRECTION_REJECTED",
+          retryable: false,
+          warnings: [],
+        });
+      }
+      const previewDraft = {
+        status: "ready",
+        preview_id: previewId,
+        operation_id: operationId,
+        memory_id: draft.data.memory_id,
+        expected_revision_id: draft.data.expected_revision_id,
+        replacement: {
+          text: content.text,
+          media_type: content.media_type,
+          content_hash: contentHash,
+        },
+        reason: draft.data.reason,
+        impact: storagePreview.impact,
+        seal_hash: `sha256:${"0".repeat(64)}`,
+        expires_at: expiresAt,
+        warnings: storagePreview.impact.sample_truncated
+          ? ["impact_sample_truncated"]
+          : [],
+      } as const;
+      const sealHash = CanonicalHashSchema.parse(
+        canonicalSha256({
+          session_id: this.#sessionId,
+          preview_id: previewDraft.preview_id,
+          operation_id: previewDraft.operation_id,
+          memory_id: previewDraft.memory_id,
+          expected_revision_id: previewDraft.expected_revision_id,
+          replacement: previewDraft.replacement,
+          reason: previewDraft.reason,
+          impact: previewDraft.impact,
+          expires_at: previewDraft.expires_at,
+        }),
+      );
+      const preview = WorkbenchCorrectionPreviewResultSchema.parse({
+        ...previewDraft,
+        seal_hash: sealHash,
+      });
+      if (preview.status !== "ready") {
+        throw new Error("ready correction preview failed validation");
+      }
+      this.#approvals.prepare({
+        session_id: this.#sessionId,
+        preview,
+        request_hash: requestHash,
+        approval_id: approvalId,
+        command: {
+          idempotency_key: operationId,
+          principal_id: this.#authority.principal_id,
+          actor_authority: "user_stated",
+          scope: storagePreview.basis.scope,
+          requested_at: now,
+          memory_id: draft.data.memory_id,
+          expected_revision_id: draft.data.expected_revision_id,
+          candidate,
+          evaluation,
+          dry_run: false,
+          request_hash: requestHash,
+          correction_evidence: evidence,
+          expected_projection_impact: {
+            source_revision_id: storagePreview.impact.source_revision_id,
+            descendant_count: storagePreview.impact.descendant_count,
+            closure_hash: storagePreview.impact.closure_hash,
+            supported_limit: storagePreview.impact.supported_limit,
+          },
+        },
+      });
+      return preview;
+    } catch (error) {
+      return WorkbenchCorrectionPreviewResultSchema.parse({
+        status:
+          error instanceof StorageError
+            ? error.code === "STALE_REVISION"
+              ? "stale"
+              : error.code === "CORRECTION_IMPACT_LIMIT_EXCEEDED"
+                ? "blocked"
+                : "failed"
+            : "failed",
+        reason_code:
+          error instanceof StorageError
+            ? error.code
+            : "CORRECTION_PREVIEW_FAILED",
+        retryable: error instanceof StorageError ? error.retryable : false,
+        warnings: [],
+      });
+    }
+  }
+
+  async confirmCorrection(
+    input: unknown,
+  ): Promise<WorkbenchCorrectionConfirmResult> {
+    const confirmation = WorkbenchCorrectionConfirmRequestSchema.safeParse(input);
+    if (!confirmation.success) {
+      return WorkbenchCorrectionConfirmResultSchema.parse({
+        status: "failed",
+        reason_code: "INVALID_REQUEST",
+        retryable: false,
+        warnings: [],
+      });
+    }
+    try {
+      const prepared = this.#approvals.confirmPreview(
+        confirmation.data.preview_id,
+        this.#sessionId,
+      );
+      const approval = await this.#approvals.verify(prepared.binding);
+      await this.#approvals.confirmUnchanged(approval);
+      const result = await this.#storage.applyMemoryRevision({
+        ...prepared.command,
+        approval_binding: prepared.binding,
+        approval: {
+          grant: approval.grant,
+          registry_hash: approval.registry_hash,
+          verified_at: this.#clock(),
+        },
+      });
+      return WorkbenchCorrectionConfirmResultSchema.parse({
+        status: "ready",
+        replayed: result.replayed,
+        memory_id: result.memory_id,
+        previous_revision_id: prepared.preview.expected_revision_id,
+        current_revision_id: result.current_revision_id,
+        receipt: result.receipt,
+        warnings: result.receipt.warnings,
+      });
+    } catch (error) {
+      if (error instanceof WorkbenchPreviewError) {
+        return WorkbenchCorrectionConfirmResultSchema.parse({
+          status: "stale_preview",
+          reason_code: error.code,
+          retryable: false,
+          warnings: [],
+        });
+      }
+      if (
+        error instanceof StorageError &&
+        (error.code === "STALE_REVISION" ||
+          error.code === "STALE_PROJECTION_FRONTIER")
+      ) {
+        return WorkbenchCorrectionConfirmResultSchema.parse({
+          status: "stale_preview",
+          reason_code: error.code,
+          retryable: false,
+          warnings: [],
+        });
+      }
+      return WorkbenchCorrectionConfirmResultSchema.parse({
+        status:
+          error instanceof StorageError && error.code === "APPROVAL_INVALID"
+            ? "approval_consumed"
+            : "failed",
+        reason_code:
+          error instanceof StorageError
+            ? error.code
+            : "CORRECTION_COMMIT_FAILED",
+        retryable: error instanceof StorageError ? error.retryable : false,
+        warnings: [],
+      });
     }
   }
 

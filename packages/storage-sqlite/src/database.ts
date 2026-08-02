@@ -118,6 +118,7 @@ import {
   WorkbenchMemoryDetailQuerySchema,
   WorkbenchMemoryListQuerySchema,
   WorkbenchMemorySummaryBatchQuerySchema,
+  WorkbenchCorrectionStoragePreviewInputSchema,
   MemoryControlCommandSchema,
   MemoryCorrectionBasisInputSchema,
   MemoryDeleteCommandSchema,
@@ -186,6 +187,7 @@ import {
   type WorkbenchMemoryCandidateSet,
   type WorkbenchMemoryDetailResult,
   type WorkbenchMemorySummaryBatchResult,
+  type WorkbenchCorrectionStoragePreviewResult,
   type MemoryControlResult,
   type MemoryCorrectionBasis,
   type MemoryDeleteResult,
@@ -2655,6 +2657,14 @@ export class StorageDatabase {
   getMemoryCorrectionBasis(input: unknown): MemoryCorrectionBasis | null {
     return this.#governance.correctionBasis(
       MemoryCorrectionBasisInputSchema.parse(input),
+    );
+  }
+
+  previewWorkbenchCorrection(
+    input: unknown,
+  ): WorkbenchCorrectionStoragePreviewResult {
+    return this.#governance.previewWorkbenchCorrection(
+      WorkbenchCorrectionStoragePreviewInputSchema.parse(input),
     );
   }
 

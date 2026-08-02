@@ -53,6 +53,7 @@ import {
   WorkbenchMemoryDetailQuerySchema,
   WorkbenchMemoryListQuerySchema,
   WorkbenchMemorySummaryBatchQuerySchema,
+  WorkbenchCorrectionStoragePreviewInputSchema,
   FailProjectionJobCommandSchema,
   FailGraphProjectionJobCommandSchema,
   FailVectorProjectionJobCommandSchema,
@@ -702,6 +703,13 @@ port.on("message", (message: unknown) => {
         case "get_memory_correction_basis":
           result = database.getMemoryCorrectionBasis(
             MemoryCorrectionBasisInputSchema.parse(request.payload),
+          );
+          break;
+        case "preview_workbench_correction":
+          result = database.previewWorkbenchCorrection(
+            WorkbenchCorrectionStoragePreviewInputSchema.parse(
+              request.payload,
+            ),
           );
           break;
         case "governance_replay": {

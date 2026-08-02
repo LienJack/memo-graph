@@ -78,6 +78,8 @@ import {
   VectorProjectionJobSchema,
   VectorProjectionReceiptSchema,
   VectorScopeCheckpointSchema,
+  WorkbenchCorrectionImpactSchema,
+  WorkbenchCorrectionImpactSealSchema,
   type WorkbenchMemoryCandidateSetSchema,
   WorkbenchMemoryDetailRequestSchema,
   type WorkbenchMemoryDetailResultSchema,
@@ -885,6 +887,9 @@ export const MemoryRevisionCommandSchema = z
       .optional(),
     approval_binding: ApprovalBindingSchema.optional(),
     approval: VerifiedApprovalCommandSchema.optional(),
+    correction_evidence: EvidenceRecordSchema.optional(),
+    expected_projection_impact:
+      WorkbenchCorrectionImpactSealSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -916,6 +921,28 @@ export const MemoryRevisionCommandSchema = z
         code: "custom",
         path: ["approval"],
         message: "dry-run revisions cannot carry approval authority",
+      });
+    }
+    if (
+      value.dry_run &&
+      (value.correction_evidence !== undefined ||
+        value.expected_projection_impact !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["correction_evidence"],
+        message: "revision previews cannot carry correction effects",
+      });
+    }
+    if (
+      (value.correction_evidence === undefined) !==
+      (value.expected_projection_impact === undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_projection_impact"],
+        message:
+          "atomic Workbench corrections require both feedback evidence and a projection impact seal",
       });
     }
   });
@@ -963,6 +990,24 @@ export const MemoryCorrectionBasisSchema = z
 
 export const MemoryCorrectionBasisResultSchema =
   MemoryCorrectionBasisSchema.nullable();
+
+export const WorkbenchCorrectionStoragePreviewInputSchema = z
+  .object({
+    memory_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    expected_revision_id: IdentifierSchema,
+    impact_limit: z.number().int().min(1).max(1_000),
+    sample_limit: z.number().int().nonnegative().max(100),
+  })
+  .strict();
+
+export const WorkbenchCorrectionStoragePreviewResultSchema = z
+  .object({
+    basis: MemoryCorrectionBasisSchema,
+    impact: WorkbenchCorrectionImpactSchema,
+  })
+  .strict();
 
 export const GovernanceMutationResultSchema = z
   .object({
@@ -2670,6 +2715,7 @@ export const WorkerOperationSchema = z.enum([
   "apply_memory_revision",
   "preview_memory_revision",
   "get_memory_correction_basis",
+  "preview_workbench_correction",
   "governance_replay",
   "memory_control_replay",
   "apply_memory_control",
@@ -3204,6 +3250,15 @@ export type ParsedMemoryCorrectionBasisInput = z.output<
 >;
 export type MemoryCorrectionBasis = z.infer<
   typeof MemoryCorrectionBasisSchema
+>;
+export type WorkbenchCorrectionStoragePreviewInput = z.input<
+  typeof WorkbenchCorrectionStoragePreviewInputSchema
+>;
+export type ParsedWorkbenchCorrectionStoragePreviewInput = z.output<
+  typeof WorkbenchCorrectionStoragePreviewInputSchema
+>;
+export type WorkbenchCorrectionStoragePreviewResult = z.infer<
+  typeof WorkbenchCorrectionStoragePreviewResultSchema
 >;
 export type ParsedMemoryRevisionCommand = z.output<
   typeof MemoryRevisionCommandSchema

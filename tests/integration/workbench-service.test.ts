@@ -151,6 +151,8 @@ describe("WorkbenchService", () => {
             retryable: false,
             warnings: [],
           }),
+        previewWorkbenchCorrection: vi.fn(),
+        applyMemoryRevision: vi.fn(),
       },
     });
 
@@ -207,6 +209,8 @@ describe("WorkbenchService", () => {
         listWorkbenchMemories: vi.fn(),
         getWorkbenchMemorySummaries,
         getWorkbenchMemoryDetail: vi.fn(),
+        previewWorkbenchCorrection: vi.fn(),
+        applyMemoryRevision: vi.fn(),
       },
     });
 
@@ -237,6 +241,8 @@ describe("WorkbenchService", () => {
           }),
         getWorkbenchMemorySummaries: vi.fn(),
         getWorkbenchMemoryDetail: vi.fn(),
+        previewWorkbenchCorrection: vi.fn(),
+        applyMemoryRevision: vi.fn(),
       },
     });
 

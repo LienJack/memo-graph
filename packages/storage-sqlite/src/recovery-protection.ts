@@ -36,6 +36,7 @@ const RECOVERY_OPERATION_BY_WORKER = {
   apply_memory_revision: "canonical",
   preview_memory_revision: null,
   get_memory_correction_basis: null,
+  preview_workbench_correction: null,
   governance_replay: null,
   memory_control_replay: null,
   apply_memory_control: "control",

@@ -82,6 +82,7 @@ import {
   WorkbenchService,
   type WorkbenchSnapshotRegistry,
 } from "./workbench-service.js";
+import type { WorkbenchApprovalRegistry } from "./workbench-approval.js";
 import {
   ApprovalBindingSchema,
   ApprovalError,
@@ -151,6 +152,12 @@ export {
   type WorkbenchSnapshotRegistry,
   type WorkbenchSnapshotStaleReason,
 } from "./workbench-service.js";
+export {
+  WorkbenchApprovalRegistry,
+  WorkbenchPreviewError,
+  type PreparedWorkbenchCorrection,
+  type WorkbenchPreviewFailureCode,
+} from "./workbench-approval.js";
 export {
   G3_ACCEPTED_M2_COMMIT,
   G3_ACCEPTED_M2_LOCK_HASH,
@@ -337,6 +344,7 @@ function storageFailure(error: StorageError): GovernedResponse {
     case "INVALID_INPUT":
     case "INVALID_DATA_ROOT":
     case "ENCRYPTION_REQUIRED":
+    case "CORRECTION_IMPACT_LIMIT_EXCEEDED":
       return publicFailure(
         "INVALID_INPUT",
         error.message,
@@ -688,6 +696,12 @@ export class MemoryRuntime {
       maxSnapshotMembers?: number;
       maxHistory?: number;
       maxProvenanceNodes?: number;
+      approvals?: WorkbenchApprovalRegistry;
+      sessionId?: string;
+      idFactory?: (prefix: string) => string;
+      previewTtlMs?: number;
+      impactLimit?: number;
+      impactSampleLimit?: number;
     },
   ): WorkbenchService {
     return new WorkbenchService({
@@ -707,6 +721,24 @@ export class MemoryRuntime {
       ...(options?.maxProvenanceNodes === undefined
         ? {}
         : { maxProvenanceNodes: options.maxProvenanceNodes }),
+      ...(options?.approvals === undefined
+        ? {}
+        : { approvals: options.approvals }),
+      ...(options?.sessionId === undefined
+        ? {}
+        : { sessionId: options.sessionId }),
+      ...(options?.idFactory === undefined
+        ? {}
+        : { idFactory: options.idFactory }),
+      ...(options?.previewTtlMs === undefined
+        ? {}
+        : { previewTtlMs: options.previewTtlMs }),
+      ...(options?.impactLimit === undefined
+        ? {}
+        : { impactLimit: options.impactLimit }),
+      ...(options?.impactSampleLimit === undefined
+        ? {}
+        : { impactSampleLimit: options.impactSampleLimit }),
     });
   }
 

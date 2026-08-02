@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  WorkbenchCorrectionConfirmRequestSchema,
+  WorkbenchCorrectionImpactSchema,
+  WorkbenchCorrectionPreviewResultSchema,
   WorkbenchMemoryDetailResultSchema,
   WorkbenchMemoryListRequestSchema,
   WorkbenchMemoryListResultSchema,
@@ -42,6 +45,60 @@ const summary = {
 } as const;
 
 describe("workbench contracts", () => {
+  it("seals a bounded complete correction impact before confirmation", () => {
+    const impact = WorkbenchCorrectionImpactSchema.parse({
+      source_revision_id: "revision_1",
+      descendant_count: 3,
+      closure_hash: hash,
+      supported_limit: 1_000,
+      sample: [
+        {
+          projection_id: "projection_1",
+          projection_revision_id: "projection_revision_1",
+        },
+      ],
+      sample_truncated: true,
+      omitted_count: 2,
+    });
+    const preview = WorkbenchCorrectionPreviewResultSchema.parse({
+      status: "ready",
+      preview_id: "preview_1",
+      operation_id: "operation_1",
+      memory_id: "memory_1",
+      expected_revision_id: "revision_1",
+      replacement: {
+        text: "Corrected memory",
+        media_type: "text/plain",
+        content_hash: hash,
+      },
+      reason: "The user corrected the prior memory",
+      impact,
+      seal_hash: hash,
+      expires_at: "2026-08-02T06:05:00.000Z",
+      warnings: ["impact_sample_truncated"],
+    });
+
+    expect(preview.status).toBe("ready");
+    expect(
+      WorkbenchCorrectionConfirmRequestSchema.parse({
+        preview_id: "preview_1",
+        confirmed: true,
+      }),
+    ).toEqual({ preview_id: "preview_1", confirmed: true });
+    expect(() =>
+      WorkbenchCorrectionConfirmRequestSchema.parse({
+        preview_id: "preview_1",
+        confirmed: false,
+      }),
+    ).toThrow();
+    expect(() =>
+      WorkbenchCorrectionImpactSchema.parse({
+        ...impact,
+        omitted_count: 1,
+      }),
+    ).toThrow();
+  });
+
   it("parses strict browse filters while keeping free-text out of cursor state", () => {
     expect(
       WorkbenchMemoryListRequestSchema.parse({

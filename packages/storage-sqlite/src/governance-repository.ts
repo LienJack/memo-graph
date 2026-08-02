@@ -15,7 +15,9 @@ import type Database from "better-sqlite3";
 
 import { StorageError } from "./errors.js";
 import {
+  correctionImpactFromClosure,
   enqueueProjectionRefresh,
+  enumerateProjectionDescendants,
   suppressProjectionDescendants,
 } from "./projection-effects.js";
 import {
@@ -26,8 +28,11 @@ import {
   type GovernanceMutationResult,
   type MemoryCorrectionBasis,
   type ParsedMemoryCorrectionBasisInput,
+  type ParsedWorkbenchCorrectionStoragePreviewInput,
   type ParsedAdmitMemoryCommand,
   type ParsedMemoryRevisionCommand,
+  WorkbenchCorrectionStoragePreviewResultSchema,
+  type WorkbenchCorrectionStoragePreviewResult,
 } from "./protocol.js";
 
 type AdmissionDecision = "activate" | "candidate_only" | "quarantine";
@@ -797,6 +802,8 @@ export class GovernanceRepository {
       if (conflict !== undefined) {
         throw new StorageError("CONFLICT");
       }
+      this.#revalidateExpectedProjectionImpact(command);
+      this.#insertCorrectionEvidence(command);
       const evidence = this.#validateCandidate(
         command.candidate,
         command.principal_id,
@@ -923,6 +930,93 @@ export class GovernanceRepository {
             version: row.transform_version,
           },
         });
+  }
+
+  previewWorkbenchCorrection(
+    input: ParsedWorkbenchCorrectionStoragePreviewInput,
+  ): WorkbenchCorrectionStoragePreviewResult {
+    const basis = this.correctionBasis(input);
+    if (basis === null) {
+      throw new StorageError("STALE_REVISION");
+    }
+    const closure = enumerateProjectionDescendants(this.#database, {
+      sourceRevisionId: input.expected_revision_id,
+      principalId: input.principal_id,
+      scope: input.scope,
+      limit: input.impact_limit,
+    });
+    return WorkbenchCorrectionStoragePreviewResultSchema.parse({
+      basis,
+      impact: correctionImpactFromClosure(closure, input.sample_limit),
+    });
+  }
+
+  #revalidateExpectedProjectionImpact(
+    command: ParsedMemoryRevisionCommand,
+  ): void {
+    const expected = command.expected_projection_impact;
+    if (expected === undefined) {
+      return;
+    }
+    const actual = enumerateProjectionDescendants(this.#database, {
+      sourceRevisionId: command.expected_revision_id,
+      principalId: command.principal_id,
+      scope: command.scope,
+      limit: expected.supported_limit,
+    }).seal;
+    if (canonicalJson(actual) !== canonicalJson(expected)) {
+      throw new StorageError("STALE_PROJECTION_FRONTIER");
+    }
+  }
+
+  #insertCorrectionEvidence(command: ParsedMemoryRevisionCommand): void {
+    const evidence = command.correction_evidence;
+    if (evidence === undefined) {
+      return;
+    }
+    if (
+      evidence.source !== "user_feedback" ||
+      evidence.payload.storage !== "inline" ||
+      evidence.actor.principal_id !== command.principal_id ||
+      evidence.actor.authority !== command.actor_authority ||
+      evidence.authority !== command.actor_authority ||
+      evidence.scope.kind !== command.scope.kind ||
+      evidence.scope.id !== command.scope.id ||
+      evidence.sensitivity !== command.candidate.sensitivity ||
+      evidence.content_hash !== canonicalSha256(evidence.payload) ||
+      !command.candidate.evidence_ids.includes(evidence.evidence_id) ||
+      this.#database
+        .prepare("SELECT 1 FROM evidence_events WHERE evidence_id = ?")
+        .get(evidence.evidence_id) !== undefined
+    ) {
+      throw new StorageError("INVALID_INPUT");
+    }
+    this.#database
+      .prepare(
+        `INSERT INTO evidence_events (
+           evidence_id, sequence, occurred_at, recorded_at, scope_kind,
+           scope_id, principal_id, actor_authority, source, authority,
+           sensitivity, payload_storage, payload_inline, payload_blob_hash,
+           media_type, content_hash, schema_version
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inline', ?, NULL, ?, ?, ?)`,
+      )
+      .run(
+        evidence.evidence_id,
+        evidence.sequence,
+        evidence.occurred_at,
+        evidence.recorded_at,
+        evidence.scope.kind,
+        evidence.scope.id,
+        evidence.actor.principal_id,
+        evidence.actor.authority,
+        evidence.source,
+        evidence.authority,
+        evidence.sensitivity,
+        evidence.payload.text,
+        evidence.payload.media_type,
+        evidence.content_hash,
+        evidence.schema_version,
+      );
   }
 
   #validateRevisionApproval(

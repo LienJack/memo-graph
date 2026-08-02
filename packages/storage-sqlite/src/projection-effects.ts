@@ -2,6 +2,10 @@ import {
   canonicalJson,
   canonicalSha256,
   ScopeSchema,
+  WorkbenchCorrectionImpactSchema,
+  WorkbenchCorrectionImpactSealSchema,
+  type WorkbenchCorrectionImpact,
+  type WorkbenchCorrectionImpactSeal,
 } from "@memo-graph/contracts";
 import type Database from "better-sqlite3";
 
@@ -22,6 +26,133 @@ type ProjectionEffect = {
   occurredAt: string;
   vectorReason?: "canonical_change" | "purge" | "recovery" | "rebuild";
 };
+
+export const CORRECTION_DESCENDANT_HARD_LIMIT = 1_000;
+
+export type ProjectionDescendantMember = {
+  projection_id: string;
+  projection_revision_id: string;
+};
+
+export type ProjectionDescendantClosure = {
+  members: ProjectionDescendantMember[];
+  seal: WorkbenchCorrectionImpactSeal;
+};
+
+export function enumerateProjectionDescendants(
+  database: Database.Database,
+  input: {
+    sourceRevisionId: string;
+    principalId: string;
+    scope: { kind: string; id: string };
+    limit: number;
+  },
+): ProjectionDescendantClosure;
+export function enumerateProjectionDescendants(
+  database: Database.Database,
+  input: {
+    sourceRevisionId: string;
+    principalId: string;
+    scope: { kind: string; id: string };
+    limit: null;
+  },
+): { members: ProjectionDescendantMember[] };
+export function enumerateProjectionDescendants(
+  database: Database.Database,
+  input: {
+    sourceRevisionId: string;
+    principalId: string;
+    scope: { kind: string; id: string };
+    limit: number | null;
+  },
+): ProjectionDescendantClosure | { members: ProjectionDescendantMember[] } {
+  if (
+    input.limit !== null &&
+    (!Number.isInteger(input.limit) ||
+      input.limit < 1 ||
+      input.limit > CORRECTION_DESCENDANT_HARD_LIMIT)
+  ) {
+    throw new StorageError("INVALID_INPUT");
+  }
+  const rows = database
+    .prepare(
+      `WITH RECURSIVE descendants(
+         projection_id, projection_revision_id
+       ) AS (
+         SELECT r.projection_id, s.projection_revision_id
+         FROM projection_revision_sources AS s
+         JOIN projection_revisions AS r
+           ON r.projection_revision_id = s.projection_revision_id
+         WHERE s.source_revision_id = ?
+           AND r.principal_id = ?
+           AND r.scope_kind = ?
+           AND r.scope_id = ?
+         UNION
+         SELECT r.projection_id, s.projection_revision_id
+         FROM projection_revision_sources AS s
+         JOIN projection_revisions AS r
+           ON r.projection_revision_id = s.projection_revision_id
+         JOIN descendants AS d
+           ON d.projection_revision_id = s.source_revision_id
+         WHERE r.principal_id = ?
+           AND r.scope_kind = ?
+           AND r.scope_id = ?
+       )
+       SELECT projection_id, projection_revision_id
+       FROM descendants
+       ORDER BY projection_id, projection_revision_id
+       LIMIT ?`,
+    )
+    .all(
+      input.sourceRevisionId,
+      input.principalId,
+      input.scope.kind,
+      input.scope.id,
+      input.principalId,
+      input.scope.kind,
+      input.scope.id,
+      input.limit === null ? -1 : input.limit + 1,
+    ) as ProjectionDescendantMember[];
+  if (input.limit !== null && rows.length > input.limit) {
+    throw new StorageError("CORRECTION_IMPACT_LIMIT_EXCEEDED");
+  }
+  const members = rows.map((row) => ({
+    projection_id: row.projection_id,
+    projection_revision_id: row.projection_revision_id,
+  }));
+  if (input.limit === null) {
+    return { members };
+  }
+  const seal = WorkbenchCorrectionImpactSealSchema.parse({
+    source_revision_id: input.sourceRevisionId,
+    descendant_count: members.length,
+    closure_hash: canonicalSha256({
+      source_revision_id: input.sourceRevisionId,
+      principal_id: input.principalId,
+      scope: input.scope,
+      descendants: members,
+    }),
+    supported_limit: input.limit,
+  });
+  return { members, seal };
+}
+
+export function correctionImpactFromClosure(
+  closure: ProjectionDescendantClosure,
+  sampleLimit: number,
+): WorkbenchCorrectionImpact {
+  if (!Number.isInteger(sampleLimit) || sampleLimit < 0 || sampleLimit > 100) {
+    throw new StorageError("INVALID_INPUT");
+  }
+  const sample = closure.members.slice(0, sampleLimit);
+  const omittedCount = closure.members.length - sample.length;
+  return WorkbenchCorrectionImpactSchema.parse({
+    ...closure.seal,
+    sample,
+    sample_truncated: omittedCount > 0,
+    omitted_count: omittedCount,
+  });
+}
 
 function stableJobId(
   kind: "refresh" | "invalidate",
@@ -179,32 +310,12 @@ export function suppressProjectionDescendants(
   database: Database.Database,
   effect: ProjectionEffect,
 ): string {
-  const rows = database
-    .prepare(
-      `WITH RECURSIVE descendants(
-         projection_id, projection_revision_id
-       ) AS (
-         SELECT r.projection_id, s.projection_revision_id
-         FROM projection_revision_sources AS s
-         JOIN projection_revisions AS r
-           ON r.projection_revision_id = s.projection_revision_id
-         WHERE s.source_revision_id = ?
-         UNION
-         SELECT r.projection_id, s.projection_revision_id
-         FROM projection_revision_sources AS s
-         JOIN projection_revisions AS r
-           ON r.projection_revision_id = s.projection_revision_id
-         JOIN descendants AS d
-           ON d.projection_revision_id = s.source_revision_id
-       )
-       SELECT DISTINCT projection_id, projection_revision_id
-       FROM descendants
-       ORDER BY projection_id, projection_revision_id`,
-    )
-    .all(effect.revisionId) as Array<{
-    projection_id: string;
-    projection_revision_id: string;
-  }>;
+  const { members: rows } = enumerateProjectionDescendants(database, {
+    sourceRevisionId: effect.revisionId,
+    principalId: effect.principalId,
+    scope: effect.scope,
+    limit: null,
+  });
 
   openGuard(database, "canonical-invalidate", effect.occurredAt);
   try {

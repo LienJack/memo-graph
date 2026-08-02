@@ -12,6 +12,7 @@ import {
   ValidityWindowSchema,
 } from "./common.js";
 import { EvidenceSourceSchema } from "./memory.js";
+import { MutationReceiptSchema } from "./receipts.js";
 
 export const WorkbenchOpaqueCursorSchema = z
   .string()
@@ -466,7 +467,160 @@ export const WorkbenchMemoryDetailResultSchema = z.discriminatedUnion(
   ],
 );
 
+export const WorkbenchCorrectionDraftSchema = z
+  .object({
+    memory_id: IdentifierSchema,
+    expected_revision_id: IdentifierSchema,
+    replacement: z
+      .object({
+        text: z.string().trim().min(1).max(256_000),
+        media_type: z.string().trim().min(1).max(160).default("text/plain"),
+      })
+      .strict(),
+    reason: z.string().trim().min(1).max(2_000),
+  })
+  .strict();
+
+export const WorkbenchCorrectionImpactMemberSchema = z
+  .object({
+    projection_id: IdentifierSchema,
+    projection_revision_id: IdentifierSchema,
+  })
+  .strict();
+
+export const WorkbenchCorrectionImpactSealSchema = z
+  .object({
+    source_revision_id: IdentifierSchema,
+    descendant_count: z.number().int().nonnegative(),
+    closure_hash: CanonicalHashSchema,
+    supported_limit: z.number().int().positive().max(10_000),
+  })
+  .strict();
+
+export const WorkbenchCorrectionImpactSchema =
+  WorkbenchCorrectionImpactSealSchema.extend({
+    sample: z.array(WorkbenchCorrectionImpactMemberSchema).max(100),
+    sample_truncated: z.boolean(),
+    omitted_count: z.number().int().nonnegative(),
+  })
+    .strict()
+    .superRefine((value, context) => {
+      if (
+        value.sample_truncated !== (value.omitted_count > 0) ||
+        value.descendant_count !== value.sample.length + value.omitted_count
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["omitted_count"],
+          message: "correction impact sample counts must describe the full closure",
+        });
+      }
+    });
+
+const WorkbenchCorrectionWarningsSchema = z.array(
+  z.string().trim().min(1).max(160),
+);
+
+export const WorkbenchCorrectionPreviewResultSchema = z.discriminatedUnion(
+  "status",
+  [
+    z
+      .object({
+        status: z.literal("ready"),
+        preview_id: IdentifierSchema,
+        operation_id: IdentifierSchema,
+        memory_id: IdentifierSchema,
+        expected_revision_id: IdentifierSchema,
+        replacement: z
+          .object({
+            text: z.string().min(1).max(256_000),
+            media_type: z.string().trim().min(1).max(160),
+            content_hash: CanonicalHashSchema,
+          })
+          .strict(),
+        reason: z.string().trim().min(1).max(2_000),
+        impact: WorkbenchCorrectionImpactSchema,
+        seal_hash: CanonicalHashSchema,
+        expires_at: UtcTimestampSchema,
+        warnings: WorkbenchCorrectionWarningsSchema,
+      })
+      .strict(),
+    z
+      .object({
+        status: z.enum([
+          "stale",
+          "not_found",
+          "governance_excluded",
+          "blocked",
+          "failed",
+        ]),
+        reason_code: z.string().trim().min(1).max(120),
+        retryable: z.boolean(),
+        warnings: WorkbenchCorrectionWarningsSchema,
+      })
+      .strict(),
+  ],
+);
+
+export const WorkbenchCorrectionConfirmRequestSchema = z
+  .object({
+    preview_id: IdentifierSchema,
+    confirmed: z.literal(true),
+  })
+  .strict();
+
+export const WorkbenchCorrectionConfirmResultSchema = z.discriminatedUnion(
+  "status",
+  [
+    z
+      .object({
+        status: z.literal("ready"),
+        replayed: z.boolean(),
+        memory_id: IdentifierSchema,
+        previous_revision_id: IdentifierSchema,
+        current_revision_id: IdentifierSchema,
+        receipt: MutationReceiptSchema,
+        warnings: WorkbenchCorrectionWarningsSchema,
+      })
+      .strict(),
+    z
+      .object({
+        status: z.enum([
+          "stale_preview",
+          "approval_consumed",
+          "blocked",
+          "failed",
+        ]),
+        reason_code: z.string().trim().min(1).max(120),
+        retryable: z.boolean(),
+        warnings: WorkbenchCorrectionWarningsSchema,
+      })
+      .strict(),
+  ],
+);
+
 export type WorkbenchContent = z.infer<typeof WorkbenchContentSchema>;
+export type WorkbenchCorrectionConfirmRequest = z.input<
+  typeof WorkbenchCorrectionConfirmRequestSchema
+>;
+export type WorkbenchCorrectionConfirmResult = z.infer<
+  typeof WorkbenchCorrectionConfirmResultSchema
+>;
+export type WorkbenchCorrectionDraft = z.input<
+  typeof WorkbenchCorrectionDraftSchema
+>;
+export type ParsedWorkbenchCorrectionDraft = z.output<
+  typeof WorkbenchCorrectionDraftSchema
+>;
+export type WorkbenchCorrectionImpact = z.infer<
+  typeof WorkbenchCorrectionImpactSchema
+>;
+export type WorkbenchCorrectionImpactSeal = z.infer<
+  typeof WorkbenchCorrectionImpactSealSchema
+>;
+export type WorkbenchCorrectionPreviewResult = z.infer<
+  typeof WorkbenchCorrectionPreviewResultSchema
+>;
 export type WorkbenchMemoryDetail = z.infer<
   typeof WorkbenchMemoryDetailSchema
 >;

@@ -111,6 +111,8 @@ import {
   WorkbenchMemoryDetailQuerySchema,
   WorkbenchMemoryListQuerySchema,
   WorkbenchMemorySummaryBatchQuerySchema,
+  WorkbenchCorrectionStoragePreviewInputSchema,
+  WorkbenchCorrectionStoragePreviewResultSchema,
   GovernanceMutationResultSchema,
   GovernanceReplayInputSchema,
   GovernanceReplayResultSchema,
@@ -246,6 +248,8 @@ import {
   type WorkbenchMemoryListQuery,
   type WorkbenchMemorySummaryBatchQuery,
   type WorkbenchMemorySummaryBatchResult,
+  type WorkbenchCorrectionStoragePreviewInput,
+  type WorkbenchCorrectionStoragePreviewResult,
   type GovernanceReplayInput,
   type FailProjectionJobCommand,
   type FailGraphProjectionJobCommand,
@@ -1742,6 +1746,17 @@ export class SqliteStorageClient {
       "get_memory_correction_basis",
       request,
       MemoryCorrectionBasisResultSchema,
+    );
+  }
+
+  previewWorkbenchCorrection(
+    input: WorkbenchCorrectionStoragePreviewInput,
+  ): Promise<WorkbenchCorrectionStoragePreviewResult> {
+    const request = WorkbenchCorrectionStoragePreviewInputSchema.parse(input);
+    return this.#request(
+      "preview_workbench_correction",
+      request,
+      WorkbenchCorrectionStoragePreviewResultSchema,
     );
   }
 
