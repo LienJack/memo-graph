@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
+- **Total Sessions**: 12
 - **Last Active**: 2026-08-02
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~463 | Active |
+| `journal-1.md` | ~485 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-08-02 | MemOS-inspired EvidenceAdapter and G6 qualification | `7feb7512c566eea285176cec0678ea9c596267c8`, `2d1f3ff` | `codex/agent-memory-runtime-m6` |
 | 11 | 2026-08-02 | Agent Memory Runtime roadmap closure | `36007bc3d04ec7a93430a5c7c1f093b552652076` | `codex/agent-memory-runtime-m6` |
 | 10 | 2026-08-02 | M6 operational hardening and G6 decision | `be839ff9e174a65a9314e5dbff4d32d7828186f3`, `adfd6905b72cc867350381eb93979c96783c5e8d`, `0ece5d7e02006eadb780f1489c3664fd9319b238`, `6e2137809bb936c901e221443082f23c957755b0`, `b0cd16be6319dbff360a0e643295af4165d07478`, `576ecc2328b2f3de8890dc6f390f90e7dc695095`, `66cdfc51e4878bc1a3a980d64d498f8a993ea825`, `e3862744b1af91292250ab34f3567cc87cbda1cb`, `0150dd1b3d9c53725186b8f564fcdad573923d57`, `e0a88728ecdc2d170ecb65d7c1d2e2db1888917a`, `707f70b7193d655adc8166ea5fc6c599769aba30`, `fa932fe1961fce419e106593a9a7409981b0e980`, `790f6fd249de9bfcb37c3fe2646e32a35b2f8a5a`, `a43581205577c7b0ee6236b1cb6ac54bb1680fdd`, `4c848dd0168056b4fd8e357734918fa69caa214b`, `6e2ca601e435c0fa585341c5bdde2c68a12c9e25`, `33549e61c73a801fdaca33be54a51d0754790c0b`, `51f40917a5c9fb4df489ba0d54a28bff61eed7ca` | `codex/agent-memory-runtime-m6` |
 | 9 | 2026-07-30 | M5 Governed Learning Lab completed | `19bb6124d3a484fa775d449096c75d4bd0527ae0`, `0a4a44d868160fd272ccef68baa7c41d020ba115`, `e102b94c1c2da7f38cd19dcd63c3cf8891fff2a2`, `6b95263a087deb67995af117ff6285711b8fd9df`, `038aecdfe19dec067d158f42d3cc0947e6aa71a4`, `fe79506842cf4b5ea4e594ff17e8fbac2e79dc9f`, `a3ddae7770734633c435e9fc156187eabc24da7d`, `2f9a74ff29dd22c9216fb499f9588b625261e445`, `09be40ccba00cc3f1f99322399536fc8008d1830`, `de1fdda7311c847a412f53236bd8bc8abf8ee4d8`, `946d2a8ee5fb59549678779aee5906397422c3a6`, `02bb7a1824e710b0736ee6e35c02b7d7e8925abc`, `91d810efe17632e64f5e9a3ddae81f8e9f0b9985`, `b9c0907745cedf3315d7ab3f42a39c9afb8790eb`, `7c71c455bc8837c013220440b8d1e1ce9903bd29` | `codex/agent-memory-runtime-m5` |

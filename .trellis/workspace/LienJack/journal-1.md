@@ -461,3 +461,25 @@ Closed and archived the M0-M6 Agent Memory Runtime roadmap. Gate outcomes: G0 GO
 ### Next Steps
 
 - Any future operational admission must create a new governed task and independently close the G6 integrity evidence gap before changing NO-GO.
+
+
+## Session 12: MemOS-inspired EvidenceAdapter and G6 qualification
+
+**Date**: 2026-08-02
+**Task**: MemOS-inspired EvidenceAdapter and G6 qualification
+**Branch**: `codex/agent-memory-runtime-m6`
+
+### Summary
+
+Added deterministic L0-only evidence ingestion, strict shared operator schemas, direct G6 fault and Runbook evidence, and a candidate-bound passing G6 bundle while preserving NO-GO release controls.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7feb7512c566eea285176cec0678ea9c596267c8` | (see git log) |
+| `2d1f3ff` | (see git log) |
+
+### Status
+
+[OK] **Completed**
