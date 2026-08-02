@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 12
+- **Total Sessions**: 13
 - **Last Active**: 2026-08-02
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~485 | Active |
+| `journal-1.md` | ~516 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 13 | 2026-08-02 | Ship governed Memory Workbench | `a419d34`, `e09535b`, `68414f1`, `5ca68ee`, `bb35a7a`, `bbb3af5`, `9b6dbb2`, `fefc9b6`, `c856e38`, `ffd6d22`, `237d39a` | `codex/memory-workbench` |
 | 12 | 2026-08-02 | MemOS-inspired EvidenceAdapter and G6 qualification | `7feb7512c566eea285176cec0678ea9c596267c8`, `2d1f3ff` | `codex/agent-memory-runtime-m6` |
 | 11 | 2026-08-02 | Agent Memory Runtime roadmap closure | `36007bc3d04ec7a93430a5c7c1f093b552652076` | `codex/agent-memory-runtime-m6` |
 | 10 | 2026-08-02 | M6 operational hardening and G6 decision | `be839ff9e174a65a9314e5dbff4d32d7828186f3`, `adfd6905b72cc867350381eb93979c96783c5e8d`, `0ece5d7e02006eadb780f1489c3664fd9319b238`, `6e2137809bb936c901e221443082f23c957755b0`, `b0cd16be6319dbff360a0e643295af4165d07478`, `576ecc2328b2f3de8890dc6f390f90e7dc695095`, `66cdfc51e4878bc1a3a980d64d498f8a993ea825`, `e3862744b1af91292250ab34f3567cc87cbda1cb`, `0150dd1b3d9c53725186b8f564fcdad573923d57`, `e0a88728ecdc2d170ecb65d7c1d2e2db1888917a`, `707f70b7193d655adc8166ea5fc6c599769aba30`, `fa932fe1961fce419e106593a9a7409981b0e980`, `790f6fd249de9bfcb37c3fe2646e32a35b2f8a5a`, `a43581205577c7b0ee6236b1cb6ac54bb1680fdd`, `4c848dd0168056b4fd8e357734918fa69caa214b`, `6e2ca601e435c0fa585341c5bdde2c68a12c9e25`, `33549e61c73a801fdaca33be54a51d0754790c0b`, `51f40917a5c9fb4df489ba0d54a28bff61eed7ca` | `codex/agent-memory-runtime-m6` |

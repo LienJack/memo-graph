@@ -483,3 +483,34 @@ Added deterministic L0-only evidence ingestion, strict shared operator schemas, 
 ### Status
 
 [OK] **Completed**
+
+
+## Session 13: Ship governed Memory Workbench
+
+**Date**: 2026-08-02
+**Task**: Ship governed Memory Workbench
+**Branch**: `codex/memory-workbench`
+
+### Summary
+
+Delivered the secure local Memory Workbench with governed browse and immutable correction, bounded accessible Graph, authority-first read-only Runtime dashboard, managed single-owner startup, built-SPA packaging, real browser/process verification, and explicit non-G6 operational evidence.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a419d34` | (see git log) |
+| `e09535b` | (see git log) |
+| `68414f1` | (see git log) |
+| `5ca68ee` | (see git log) |
+| `bb35a7a` | (see git log) |
+| `bbb3af5` | (see git log) |
+| `9b6dbb2` | (see git log) |
+| `fefc9b6` | (see git log) |
+| `c856e38` | (see git log) |
+| `ffd6d22` | (see git log) |
+| `237d39a` | (see git log) |
+
+### Status
+
+[OK] **Completed**
