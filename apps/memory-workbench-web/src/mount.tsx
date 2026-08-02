@@ -1,5 +1,8 @@
 import { createRoot, type Root } from "react-dom/client";
 
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+
 import { App, type AppProps } from "./app/App.js";
 import "./styles/workbench.css";
 

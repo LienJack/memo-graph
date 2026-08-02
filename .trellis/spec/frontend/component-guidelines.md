@@ -24,7 +24,7 @@ Components expose authority and recovery state rather than hiding it behind gene
 
 ## Styling Patterns
 
-The v1 shell uses reviewed global CSS in `src/styles/workbench.css`. Use project variables, restrained motion, minimum 44px targets, readable contrast, narrow-window reflow, and a reduced-motion-safe default. Do not add a second styling system without design review.
+The v1 shell uses reviewed global CSS in `src/styles/workbench.css` with locally bundled Geist and Geist Mono. Use project variables, restrained transform/opacity motion, minimum 44px targets, readable contrast, narrow-window reflow, and a reduced-motion-safe default. Dashboard headings remain sans-serif. Do not add a second styling system without design review.
 
 ## Accessibility
 

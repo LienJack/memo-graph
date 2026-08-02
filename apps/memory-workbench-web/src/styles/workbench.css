@@ -1,8 +1,6 @@
 :root {
   color-scheme: dark;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: "Geist Variable", "Avenir Next", ui-sans-serif, system-ui, sans-serif;
   background: #0a0c0b;
   color: #f3f4ef;
   font-synthesis: none;
@@ -15,6 +13,8 @@
   --amber: #f0c36a;
   --danger: #ff8a7a;
   --focus: #d9ff8e;
+  --font-sans: "Geist Variable", "Avenir Next", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "SFMono-Regular", Consolas, monospace;
 }
 
 * {
@@ -65,6 +65,11 @@ button:hover {
   border-color: #596452;
 }
 
+button:active,
+.nav-list a:active {
+  transform: scale(0.98);
+}
+
 .skip-link {
   position: fixed;
   z-index: 100;
@@ -84,7 +89,7 @@ button:hover {
 .workbench-shell {
   display: grid;
   grid-template-columns: minmax(14.5rem, 18vw) 1fr;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .sidebar {
@@ -92,8 +97,8 @@ button:hover {
   top: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  max-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100dvh;
   padding: 1.4rem 1.15rem;
   border-right: 1px solid var(--line);
   background: rgb(10 12 11 / 92%);
@@ -131,7 +136,7 @@ button:hover {
   border-radius: 0.5rem;
   background: linear-gradient(145deg, #d5ff79, #839a4c);
   color: #11150d;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-weight: 900;
 }
 
@@ -210,21 +215,21 @@ button:hover {
   height: 0.55rem;
   border-radius: 50%;
   background: var(--acid);
-  box-shadow: 0 0 0.8rem rgb(199 243 107 / 55%);
 }
 
 .authority-card[data-authority="checking"] .status-dot {
   background: var(--amber);
-  box-shadow: 0 0 0.8rem rgb(240 195 106 / 45%);
 }
 
 .authority-card[data-authority="unavailable"] .status-dot {
   background: var(--danger);
-  box-shadow: 0 0 0.8rem rgb(255 138 122 / 42%);
 }
 
 .main-panel {
+  width: 100%;
+  max-width: 90rem;
   min-width: 0;
+  margin-inline: auto;
   padding: 1.5rem clamp(1rem, 3vw, 3.6rem) 3rem;
 }
 
@@ -243,8 +248,9 @@ button:hover {
 .detail-rail h2,
 .dialog-card h2 {
   margin: 0;
-  font-family: Georgia, "Songti SC", serif;
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-weight: 620;
+  letter-spacing: -0.035em;
   line-height: 1.08;
 }
 
@@ -255,7 +261,7 @@ button:hover {
 .eyebrow {
   margin: 0 0 0.45rem;
   color: var(--acid);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: 0.11em;
 }
@@ -343,7 +349,7 @@ button:hover {
 
 .recovery-notice strong {
   color: var(--acid);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: 0.08em;
 }
@@ -585,7 +591,7 @@ button:hover {
 .health-card span {
   display: block;
   color: #8e978a;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
 }
 
@@ -593,7 +599,7 @@ button:hover {
   display: block;
   margin-top: 1rem;
   color: var(--amber);
-  font-family: Georgia, "Songti SC", serif;
+  font-family: var(--font-sans);
   font-size: 1.8rem;
   font-weight: 500;
 }
@@ -742,6 +748,50 @@ button:hover {
   .nav-list a,
   .memory-card,
   button {
-    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+    transition:
+      transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .status-dot {
+    animation: status-breathe 2.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .memory-list > li {
+    animation: memory-enter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--memory-index, 0) * 70ms);
+  }
+
+  .memory-list > li:nth-child(2) {
+    --memory-index: 1;
+  }
+
+  .memory-list > li:nth-child(3) {
+    --memory-index: 2;
+  }
+}
+
+@keyframes status-breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes memory-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
