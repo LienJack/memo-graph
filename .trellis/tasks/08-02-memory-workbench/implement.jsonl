@@ -1,0 +1,11 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend pre-development checklist and package boundary quality gates"}
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Workspace ownership and acyclic package placement"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"SQLite authority worker transaction and recovery constraints"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Typed state and transport error mapping"}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Memory and credential redaction requirements"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Runtime schema canonical hash and release gates"}
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend guideline index and conventions to establish in U5"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Feature crosses browser HTTP kernel worker storage MCP and lifecycle boundaries"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse current contracts governance status and operator patterns"}
+{"file":".trellis/tasks/08-02-memory-workbench/research/plan-review.md","reason":"Approved review decisions and the retained architecture boundary"}
+{"file": ".trellis/tasks/08-02-memory-workbench/research/baseline.md", "reason": "Pinned Node 24 baseline and existing test evidence"}
