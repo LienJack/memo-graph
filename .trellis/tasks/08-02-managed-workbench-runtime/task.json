@@ -3,7 +3,7 @@
   "name": "managed-workbench-runtime",
   "title": "切换 Codex MCP 与 Workbench 共用 Runtime",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
