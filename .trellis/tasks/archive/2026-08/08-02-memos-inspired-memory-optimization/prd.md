@@ -91,32 +91,32 @@ silently extract or publish long-term memory.
 
 ## Acceptance criteria
 
-- [ ] The MemOS capability matrix records adopt/adapt/reject/defer decisions
+- [x] The MemOS capability matrix records adopt/adapt/reject/defer decisions
       with source evidence and memo-graph authority boundaries.
-- [ ] Legacy G6 U7/U8 artifacts are unchanged, and the new run is isolated in a
+- [x] Legacy G6 U7/U8 artifacts are unchanged, and the new run is isolated in a
       versioned bundle bound to the final candidate commit.
-- [ ] The fault report contains 43 single-obligation direct proof results and
+- [x] The fault report contains 43 single-obligation direct proof results and
       all 43 fault points pass.
-- [ ] All 16 M6 acceptance success/failure proof obligations are independently
+- [x] All 16 M6 acceptance success/failure proof obligations are independently
       observed and pass.
-- [ ] All ten Runbook steps report grammar verified, direct automation
+- [x] All ten Runbook steps report grammar verified, direct automation
       observed, proof passed, and typed result verified from actual CLI runs.
-- [ ] The new G6 verifier rejects aggregate proofs, reused/ambiguous proof
+- [x] The new G6 verifier rejects aggregate proofs, reused/ambiguous proof
       selectors, untyped Runbook output, path drift, candidate drift, and
       content-bearing evidence.
-- [ ] EvidenceAdapter ingests all three supported source variants and returns a
+- [x] EvidenceAdapter ingests all three supported source variants and returns a
       replayable durable receipt.
-- [ ] Adapter ingestion creates L0 evidence and an episode only; database tests
+- [x] Adapter ingestion creates L0 evidence and an episode only; database tests
       prove there is no candidate, governed revision, or release-pointer side
       effect.
-- [ ] Exact-scope, authority, secret, size, malformed-input, changed-replay,
+- [x] Exact-scope, authority, secret, size, malformed-input, changed-replay,
       restart, and content-redaction failure cases are covered.
-- [ ] Existing SQLite-only, explicit MCP, Context Compiler, governance, purge,
+- [x] Existing SQLite-only, explicit MCP, Context Compiler, governance, purge,
       and Learning Lab behavior remains compatible.
-- [ ] `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, the focused G6
+- [x] `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, the focused G6
       commands, and the final versioned evidence verifier pass or record an
       honest environment-specific non-pass without weakening any rule.
-- [ ] No signed/enabling G6 control is produced or installed; secret admission
+- [x] No signed/enabling G6 control is produced or installed; secret admission
       remains off.
 
 ## Out of scope
