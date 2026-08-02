@@ -16,6 +16,7 @@ import {
 import { join, resolve } from "node:path";
 
 import {
+  ContentFreeOperatorResultSchema,
   OperationIntentSchema,
   OperatorActionReceiptSchema,
   OperatorActionStateSchema,
@@ -27,17 +28,12 @@ import {
   type OperatorActionState,
   type OperatorConfirmation,
   type OperatorConfirmationTrust,
+  type ContentFreeOperatorResult,
 } from "@memo-graph/contracts";
 import { z } from "zod";
 
 import { verifyPinnedOperatorConfirmation } from "./confirmation-authority.js";
 
-const ContentFreeScalarSchema = z.union([
-  z.string().trim().min(1).max(512),
-  z.number().finite(),
-  z.boolean(),
-  z.null(),
-]);
 const MAX_LEDGER_RECORD_BYTES = 256 * 1024;
 const OperatorActionLockSchema = z
   .object({
@@ -77,26 +73,6 @@ const ConfirmationConsumptionSchema = z
       });
     }
   });
-const ContentFreeResultSchema = z
-  .record(z.string().regex(/^[a-z][a-z0-9_]{0,63}$/), ContentFreeScalarSchema)
-  .superRefine((value, context) => {
-    const forbiddenKey =
-      /(?:raw_?path|data_?root|content|plaintext|ciphertext|secret|query|token|key_?material)/iu;
-    for (const [key, scalar] of Object.entries(value)) {
-      if (
-        forbiddenKey.test(key) ||
-        (typeof scalar === "string" &&
-          (scalar.startsWith("/") || scalar.includes("\0")))
-      ) {
-        context.addIssue({
-          code: "custom",
-          path: [key],
-          message: "operator action result must be content-free",
-        });
-      }
-    }
-  });
-
 const OperatorActionLedgerRecordSchema = z
   .object({
     schema_version: z.literal("1.0.0"),
@@ -107,7 +83,7 @@ const OperatorActionLedgerRecordSchema = z
     state: OperatorActionStateSchema,
     sequence: z.number().int().min(1).max(5),
     effect_digest: z.string().regex(/^sha256:[a-f0-9]{64}$/).nullable(),
-    result: ContentFreeResultSchema.nullable(),
+    result: ContentFreeOperatorResultSchema.nullable(),
     result_digest: z.string().regex(/^sha256:[a-f0-9]{64}$/).nullable(),
     receipt: OperatorActionReceiptSchema.nullable(),
     updated_at: z.string().datetime({ offset: true }),
@@ -150,9 +126,7 @@ const OperatorActionLedgerRecordSchema = z
 export type OperatorActionLedgerRecord = z.infer<
   typeof OperatorActionLedgerRecordSchema
 >;
-export type ContentFreeOperatorResult = z.infer<
-  typeof ContentFreeResultSchema
->;
+export type { ContentFreeOperatorResult };
 
 function ledgerRecordBody(
   value: Omit<OperatorActionLedgerRecord, "record_hash">,
@@ -569,7 +543,7 @@ function nextRecord(input: {
   const result =
     input.result === undefined
       ? input.previous.result
-      : ContentFreeResultSchema.parse(input.result);
+      : ContentFreeOperatorResultSchema.parse(input.result);
   return {
     ...input.previous,
     state: input.state,
@@ -718,7 +692,7 @@ export async function executeConfirmedOperatorAction(input: {
         verifyUnexpiredConfirmation();
         await input.validateCurrentState();
       }
-      const result = ContentFreeResultSchema.parse(
+      const result = ContentFreeOperatorResultSchema.parse(
         reconciled ?? (await input.effect()),
       );
       if (reconciled === null) {
@@ -735,7 +709,7 @@ export async function executeConfirmedOperatorAction(input: {
       injectFault(input.testFaultAfter, "effect_committed");
     }
     if (record.state === "effect_committed") {
-      const result = ContentFreeResultSchema.parse(record.result);
+      const result = ContentFreeOperatorResultSchema.parse(record.result);
       const receiptBody = {
         schema_version: "1.0.0" as const,
         receipt_id: `operator_receipt_${canonicalSha256({

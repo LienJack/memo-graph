@@ -3,10 +3,12 @@ import process from "node:process";
 import {
   currentCandidateIdentity,
   deriveProofStates,
+  g6RunRootFromArgv,
   readJson,
   runEvidenceProofs,
   sourceBinding,
   writeCanonicalJson,
+  writeG6RunCanonicalJson,
 } from "./g6-evidence-common.mjs";
 
 function stateFor(commands) {
@@ -22,8 +24,15 @@ function stateFor(commands) {
       : "fail";
 }
 
-export function runG6FaultMatrix() {
+export function runG6FaultMatrix(options = {}) {
+  const runRoot = options.runRoot ?? null;
   const candidate = currentCandidateIdentity();
+  if (
+    runRoot !== null &&
+    runRoot.split("/").at(-1) !== candidate.commit
+  ) {
+    throw new Error("G6 run root must name the exact candidate commit");
+  }
   const manifest = readJson("fixtures/g6/manifest.json");
   const faultFixture = readJson(
     "fixtures/g6/faults/fault-matrix.json",
@@ -31,34 +40,63 @@ export function runG6FaultMatrix() {
   const recoveryFixture = readJson(
     "fixtures/g6/recovery/acceptance-examples.json",
   );
-  const faultProofDefinitions = faultFixture.fault_groups.map(
-    ({ id, fault_points: faultPoints, proof }) => ({
-      id: `fault-group:${id}`,
-      obligations: faultPoints.map((faultPoint) => `fault:${faultPoint}`),
-      program: "pnpm",
-      args: [
-        "vitest",
-        "run",
-        proof.test_file,
-        "-t",
-        proof.test_name,
-      ],
-    }),
+  const faultDirectFixture = readJson(
+    "fixtures/g6/faults/direct-proofs.json",
   );
-  const acceptanceProofDefinitions = Object.entries(
-    recoveryFixture.acceptance_examples,
-  ).map(([id, example]) => ({
-    id: `acceptance:${id}`,
-    obligations: [`acceptance:${id}:success`, `acceptance:${id}:failure`],
+  const acceptanceDirectFixture = readJson(
+    "fixtures/g6/recovery/direct-proofs.json",
+  );
+  const directDefinition = (proof) => ({
+    id: proof.proof_id,
+    obligations: [proof.obligation],
     program: "pnpm",
     args: [
       "vitest",
       "run",
-      example.proof.test_file,
+      proof.test_file,
       "-t",
-      example.proof.test_name,
+      proof.test_name,
     ],
-  }));
+  });
+  const faultProofDefinitions =
+    runRoot === null
+      ? faultFixture.fault_groups.map(
+          ({ id, fault_points: faultPoints, proof }) => ({
+            id: `fault-group:${id}`,
+            obligations: faultPoints.map(
+              (faultPoint) => `fault:${faultPoint}`,
+            ),
+            program: "pnpm",
+            args: [
+              "vitest",
+              "run",
+              proof.test_file,
+              "-t",
+              proof.test_name,
+            ],
+          }),
+        )
+      : faultDirectFixture.proofs.map(directDefinition);
+  const acceptanceProofDefinitions =
+    runRoot === null
+      ? Object.entries(recoveryFixture.acceptance_examples).map(
+          ([id, example]) => ({
+            id: `acceptance:${id}`,
+            obligations: [
+              `acceptance:${id}:success`,
+              `acceptance:${id}:failure`,
+            ],
+            program: "pnpm",
+            args: [
+              "vitest",
+              "run",
+              example.proof.test_file,
+              "-t",
+              example.proof.test_name,
+            ],
+          }),
+        )
+      : acceptanceDirectFixture.proofs.map(directDefinition);
   const expectedFaultObligations = manifest.fault_points.map(
     (faultPoint) => `fault:${faultPoint}`,
   );
@@ -117,13 +155,29 @@ export function runG6FaultMatrix() {
         "fixtures/g6/recovery/acceptance-examples.json",
         true,
       ),
+      ...(runRoot === null
+        ? []
+        : [
+            sourceBinding(
+              "fixtures/g6/faults/direct-proofs.json",
+              true,
+            ),
+            sourceBinding(
+              "fixtures/g6/recovery/direct-proofs.json",
+              true,
+            ),
+          ]),
       sourceBinding("scripts/run-g6-fault-matrix.mjs"),
     ],
   };
-  writeCanonicalJson(
-    "docs/evaluations/g6-fault-report.json",
-    faultReport,
-  );
+  if (runRoot === null) {
+    writeCanonicalJson(
+      "docs/evaluations/g6-fault-report.json",
+      faultReport,
+    );
+  } else {
+    writeG6RunCanonicalJson(runRoot, "fault-report.json", faultReport);
+  }
 
   const evidencePolicy = readJson(
     "fixtures/g6/security/evidence-policy.json",
@@ -169,10 +223,18 @@ export function runG6FaultMatrix() {
       sourceBinding("scripts/run-g6-fault-matrix.mjs"),
     ],
   };
-  writeCanonicalJson(
-    "docs/evaluations/g6-security-report.json",
-    securityReport,
-  );
+  if (runRoot === null) {
+    writeCanonicalJson(
+      "docs/evaluations/g6-security-report.json",
+      securityReport,
+    );
+  } else {
+    writeG6RunCanonicalJson(
+      runRoot,
+      "security-report.json",
+      securityReport,
+    );
+  }
   return {
     fault: faultReport,
     security: securityReport,
@@ -180,7 +242,9 @@ export function runG6FaultMatrix() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const reports = runG6FaultMatrix();
+  const reports = runG6FaultMatrix({
+    runRoot: g6RunRootFromArgv(),
+  });
   process.stdout.write(
     `${JSON.stringify({
       fault: reports.fault.state,

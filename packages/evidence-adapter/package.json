@@ -1,5 +1,5 @@
 {
-  "name": "@memo-graph/memory-kernel",
+  "name": "@memo-graph/evidence-adapter",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,12 +16,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@memo-graph/context-compiler": "workspace:*",
-    "@memo-graph/contracts": "workspace:*",
-    "@memo-graph/evidence-adapter": "workspace:*",
-    "@memo-graph/learning-lab": "workspace:*",
-    "@memo-graph/storage-sqlite": "workspace:*",
-    "zod": "4.4.3"
+    "@memo-graph/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.13.3",

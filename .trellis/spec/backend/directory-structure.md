@@ -20,6 +20,9 @@ packages/
       learning.ts
       replay.ts
       index.ts
+  evidence-adapter/
+    src/
+      index.ts
 tests/
   contract/
   fixtures/
@@ -27,6 +30,12 @@ tests/
 fixtures/replay/{calibration,holdout,transfer}/
 docs/{adr,contracts,evaluations}/
 ```
+
+`packages/evidence-adapter` owns pure, deterministic normalization from
+explicit supported sources into canonical L0 `EvidenceRecord` and `Episode`
+artifacts. It must not depend on storage, MCP, projections, governance, or
+learning packages. Operator JSON result schemas and evidence-ingest schemas
+remain owned by `packages/contracts`.
 
 ## Contracts package rule
 

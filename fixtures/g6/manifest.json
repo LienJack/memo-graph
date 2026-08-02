@@ -210,8 +210,8 @@
     },
     {
       "path": "fixtures/g6/runtime-inputs.json",
-      "raw_hash": "sha256:ad900082fed52fb61901358ea17ee866e1bfd8475e16f2964be1a90838cf631e",
-      "canonical_hash": "sha256:701e872ee88754463212f60bbff87cfdbb5de4a54b5f61dc0265d2ab34b28d4d"
+      "raw_hash": "sha256:20b210c8a7e4982bb70284e0c08f01ee0676632fdc7dfe373eb7174b24adefbd",
+      "canonical_hash": "sha256:5b6541ce210ae0d60036b1fdd6fd11419798e97805b25835bc55b833883cd2c5"
     },
     {
       "path": "fixtures/g6/operator-config.json",
@@ -224,9 +224,19 @@
       "canonical_hash": "sha256:be976a406aa77923178bc964474f7198ba743ef02813bd719816638fa9aa168e"
     },
     {
+      "path": "fixtures/g6/faults/direct-proofs.json",
+      "raw_hash": "sha256:be86d4edb4fa0419d0de76a642cdfed91cde739c401364dbf0048462eecfd106",
+      "canonical_hash": "sha256:ce07dc8abdae454ddf5853274c45c0c6e3912b7e04e33a8bb56338089111b078"
+    },
+    {
       "path": "fixtures/g6/recovery/acceptance-examples.json",
       "raw_hash": "sha256:57642a2eb21c474ac69d33c6ae709225fa26f6228dcdf619eaf92602570c2829",
       "canonical_hash": "sha256:e820a618a9c3c532f404528a16703fc716ec90814b14fac84225f31d556b23c1"
+    },
+    {
+      "path": "fixtures/g6/recovery/direct-proofs.json",
+      "raw_hash": "sha256:9bec62a2f40b36723695d534c273793bf0ddc911b46288ccf54f331d884ca8d9",
+      "canonical_hash": "sha256:92ce0da5a21cb04c57d8abd73654278cc038ef0fdb5a534a310e8f233f9ca9b2"
     },
     {
       "path": "fixtures/g6/resources/workloads.json",
@@ -250,8 +260,8 @@
     },
     {
       "path": "fixtures/g6/security/provenance.json",
-      "raw_hash": "sha256:700cdd48a9bf4b1bfe3d9fa0d7d1b74e5ed82181053207811bb2b027969ed63d",
-      "canonical_hash": "sha256:47acd559e945c99bfcb53e9d5a46c57d26ace4d36aac4de105a28559afbd8d4d"
+      "raw_hash": "sha256:69cdd8123db70a00dd03da6022fd301bc0e8580af51d67509d89e62729811687",
+      "canonical_hash": "sha256:3837483ea54fb0dbfea1db7910ea859bdfa3be4454036ccfd89b5b5b0d346308"
     }
   ]
 }

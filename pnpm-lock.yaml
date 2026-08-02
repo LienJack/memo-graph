@@ -103,6 +103,19 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
+  packages/evidence-adapter:
+    dependencies:
+      '@memo-graph/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/graph-projection:
     dependencies:
       '@memo-graph/contracts':
@@ -184,6 +197,9 @@ importers:
       '@memo-graph/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@memo-graph/evidence-adapter':
+        specifier: workspace:*
+        version: link:../evidence-adapter
       '@memo-graph/learning-lab':
         specifier: workspace:*
         version: link:../learning-lab

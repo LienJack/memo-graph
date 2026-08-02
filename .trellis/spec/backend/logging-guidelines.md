@@ -23,6 +23,7 @@ Permitted fields include:
 - tool arguments or artifact bodies;
 - secrets, credentials, tokens, encryption keys;
 - full filesystem paths under the user's data root;
+- temporary Runbook config, grant, backup, restore, or verification paths;
 - unredacted actor labels, purpose, or reason strings;
 - deleted plaintext or purge residual content.
 
@@ -44,6 +45,9 @@ duplicating receipt payloads.
 - Inject marker secrets into memory, tool, error, and purge fixtures.
 - Assert marker absence from every log sink and default diagnostic export.
 - Assert required identifiers/codes remain present after redaction.
+- Direct G6 Runbook evidence may retain only step IDs, exit/state classes,
+  booleans, counts, canonical command identities, and source bindings; never
+  captured stdout/stderr or fixture paths.
 
 ## Wrong vs Correct
 

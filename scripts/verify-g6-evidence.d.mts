@@ -63,6 +63,7 @@ export function validateG6CodeReviewArtifact(
 export function verifyG6Evidence(options?: {
   allowDecision?: boolean;
   write?: boolean;
+  runRoot?: string | null;
 }): Promise<{
   verification: G6VerificationReport;
   runtimeIdentity: RuntimeIdentity;

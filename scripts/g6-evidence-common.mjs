@@ -2,6 +2,8 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
+  existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -40,6 +42,21 @@ export const G6_DECISION_PATHS = Object.freeze([
   "docs/evaluations/g6-handoff.md",
   "docs/evaluations/g6-release-control.json",
 ]);
+
+export const G6_RUN_ARTIFACT_NAMES = Object.freeze([
+  "code-review.md",
+  "fault-report.json",
+  "reproducibility-manifest.json",
+  "resource-report.json",
+  "runbook-report.json",
+  "security-report.json",
+  "supply-chain-report.json",
+  "verification-report.json",
+  "handoff.md",
+]);
+
+const G6_RUN_ROOT_PATTERN =
+  /^docs\/evaluations\/g6-runs\/[a-f0-9]{40}$/u;
 
 const PRIOR_GATES = Object.freeze(["G3R", "G4A", "G4B", "G5"]);
 const ACCEPTANCE_EXAMPLES = Object.freeze(
@@ -109,6 +126,67 @@ export function read(relativePath) {
 
 export function readJson(relativePath) {
   return JSON.parse(read(relativePath).toString("utf8"));
+}
+
+export function g6RunRootFromArgv(argv = process.argv.slice(2)) {
+  const indices = argv
+    .map((argument, index) => (argument === "--run-root" ? index : -1))
+    .filter((index) => index >= 0);
+  if (indices.length === 0) return null;
+  if (indices.length !== 1) {
+    throw new Error("G6 run root must be declared exactly once");
+  }
+  const index = indices[0];
+  const runRoot = argv[index + 1];
+  if (
+    typeof runRoot !== "string" ||
+    argv.length !== 2 ||
+    !G6_RUN_ROOT_PATTERN.test(runRoot)
+  ) {
+    throw new Error("G6 run root is invalid");
+  }
+  return runRoot;
+}
+
+export function g6RunArtifactPath(runRoot, artifactName) {
+  if (
+    !G6_RUN_ROOT_PATTERN.test(runRoot) ||
+    typeof artifactName !== "string" ||
+    !/^[a-z0-9-]+\.(?:json|md)$/u.test(artifactName)
+  ) {
+    throw new Error("G6 run artifact path is invalid");
+  }
+  return `${runRoot}/${artifactName}`;
+}
+
+export function g6RunEvidencePaths(runRoot) {
+  return G6_RUN_ARTIFACT_NAMES.map((artifactName) =>
+    g6RunArtifactPath(runRoot, artifactName),
+  );
+}
+
+export function assertG6RunFilesystemRoot(runRoot) {
+  if (!G6_RUN_ROOT_PATTERN.test(runRoot)) {
+    throw new Error("G6 run root is invalid");
+  }
+  let current = repositoryRoot;
+  for (const segment of runRoot.split("/")) {
+    current = join(current, segment);
+    if (existsSync(current) && lstatSync(current).isSymbolicLink()) {
+      throw new Error("G6 run root may not traverse a symbolic link");
+    }
+  }
+  if (existsSync(current) && !lstatSync(current).isDirectory()) {
+    throw new Error("G6 run root must be a directory");
+  }
+}
+
+export function assertExactG6RunPaths(paths, runRoot, options = {}) {
+  const omitted = new Set(options.omit ?? []);
+  const expected = g6RunEvidencePaths(runRoot).filter(
+    (path) => !omitted.has(path.split("/").at(-1)),
+  );
+  assertExact([...paths].sort(), expected.sort(), "run evidence path set");
 }
 
 export function filesUnder(relativeRoot) {
@@ -239,6 +317,61 @@ function assertProof(proof, label) {
   assertRelativePath(proof.test_file, `${label} proof`);
 }
 
+function validateDirectProofFixtures(input) {
+  const fault = input.fault_direct_fixture;
+  const acceptance = input.acceptance_direct_fixture;
+  if (
+    fault?.schema_version !== "2.0.0" ||
+    acceptance?.schema_version !== "2.0.0" ||
+    !Array.isArray(fault.proofs) ||
+    !Array.isArray(acceptance.proofs)
+  ) {
+    throw new Error("G6 direct proof fixture identity mismatch");
+  }
+  const proofs = [...fault.proofs, ...acceptance.proofs];
+  for (const proof of proofs) {
+    if (
+      typeof proof.proof_id !== "string" ||
+      proof.proof_id.length === 0 ||
+      typeof proof.obligation !== "string" ||
+      proof.obligation.length === 0 ||
+      typeof proof.oracle !== "string" ||
+      proof.oracle.trim().length === 0
+    ) {
+      throw new Error("G6 direct proof is invalid");
+    }
+    assertProof(proof, `direct proof ${proof.proof_id}`);
+  }
+  assertUnique(
+    proofs.map(({ proof_id: proofId }) => proofId),
+    "direct proof id",
+  );
+  assertUnique(
+    proofs.map(({ obligation }) => obligation),
+    "direct proof obligation",
+  );
+  assertUnique(
+    proofs.map(
+      ({ test_file: testFile, test_name: testName }) =>
+        `${testFile}\u0000${testName}`,
+    ),
+    "direct proof selector",
+  );
+  assertExact(
+    fault.proofs.map(({ obligation }) => obligation).sort(),
+    input.fault_points.map((faultPoint) => `fault:${faultPoint}`).sort(),
+    "direct fault proof obligation",
+  );
+  assertExact(
+    acceptance.proofs.map(({ obligation }) => obligation).sort(),
+    ACCEPTANCE_EXAMPLES.flatMap((id) => [
+      `acceptance:${id}:success`,
+      `acceptance:${id}:failure`,
+    ]).sort(),
+    "direct acceptance proof obligation",
+  );
+}
+
 export function loadG6Fixture() {
   const manifest = readJson("fixtures/g6/manifest.json");
   return {
@@ -250,8 +383,14 @@ export function loadG6Fixture() {
     ),
     runtime_inputs: readJson("fixtures/g6/runtime-inputs.json"),
     fault_fixture: readJson("fixtures/g6/faults/fault-matrix.json"),
+    fault_direct_fixture: readJson(
+      "fixtures/g6/faults/direct-proofs.json",
+    ),
     recovery_fixture: readJson(
       "fixtures/g6/recovery/acceptance-examples.json",
+    ),
+    acceptance_direct_fixture: readJson(
+      "fixtures/g6/recovery/direct-proofs.json",
     ),
     resource_fixture: readJson(
       "fixtures/g6/resources/workloads.json",
@@ -349,6 +488,7 @@ export function validateG6Fixture(input = loadG6Fixture()) {
   )) {
     assertProof(example.proof, `acceptance example ${id}`);
   }
+  validateDirectProofFixtures(input);
   assertExact(
     Object.keys(input.resource_fixture.workloads),
     ["small", "expected"],
@@ -1002,6 +1142,15 @@ export function writeCanonicalJson(relativePath, value) {
     encoding: "utf8",
     mode: 0o600,
   });
+}
+
+export function writeG6RunCanonicalJson(runRoot, artifactName, value) {
+  assertG6RunFilesystemRoot(runRoot);
+  const path = g6RunArtifactPath(runRoot, artifactName);
+  if (existsSync(resolve(repositoryRoot, path))) {
+    throw new Error(`G6 run artifact already exists: ${artifactName}`);
+  }
+  writeCanonicalJson(path, value);
 }
 
 function gitText(args) {

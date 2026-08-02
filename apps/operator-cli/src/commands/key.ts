@@ -1,5 +1,6 @@
 import {
   EncryptionKeyInventorySchema,
+  KeyRotationDryRunResultSchema,
   OperationIntentSchema,
   canonicalSha256,
   canonicalJson,
@@ -62,16 +63,12 @@ export function renderKeyInventory(
   return `${lines.join("\n")}\n`;
 }
 
-export function keyRotationDryRun(): {
-  operation: "key.rotate";
-  status: "disabled";
-  reason_code: "ENCRYPTION_REQUIRED";
-} {
-  return {
+export function keyRotationDryRun() {
+  return KeyRotationDryRunResultSchema.parse({
     operation: "key.rotate",
     status: "disabled",
     reason_code: "ENCRYPTION_REQUIRED",
-  };
+  });
 }
 
 export async function keyRotationStateBindings(

@@ -13,6 +13,7 @@ import {
   ValidityWindowSchema,
   scopeKey,
 } from "./common.js";
+import { EvidenceIngestBatchSchema } from "./evidence-adapter.js";
 import {
   MutationRequestEnvelopeSchema,
   ReadRequestEnvelopeSchema,
@@ -172,6 +173,29 @@ export const MemoryEpisodeCommitInputSchema = withExpectedTool(
       }
     }),
   "memory_episode_commit",
+);
+
+export const MemoryEvidenceIngestInputSchema = withExpectedTool(
+  z
+    .object({
+      envelope: ProposalRequestEnvelopeSchema,
+      batch: EvidenceIngestBatchSchema,
+    })
+    .strict()
+    .superRefine((value, context) => {
+      if (
+        !value.envelope.scopes.some(
+          (scope) => scopeKey(scope) === scopeKey(value.batch.scope),
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["batch", "scope"],
+          message: "evidence ingest scope is outside the request envelope",
+        });
+      }
+    }),
+  "memory_evidence_ingest",
 );
 
 export const MemoryProposeInputSchema = withExpectedTool(
@@ -525,6 +549,9 @@ export type MemoryContextCompileInput = z.infer<
 >;
 export type MemoryEpisodeCommitInput = z.infer<
   typeof MemoryEpisodeCommitInputSchema
+>;
+export type MemoryEvidenceIngestInput = z.infer<
+  typeof MemoryEvidenceIngestInputSchema
 >;
 export type LearningPauseInput = z.infer<typeof LearningPauseInputSchema>;
 export type LearningReleaseInput = z.infer<typeof LearningReleaseInputSchema>;

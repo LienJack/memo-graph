@@ -95,3 +95,19 @@ const receipt = ReceiptSchema.parse(JSON.parse(raw) as unknown);
 - Tests would fail if the feature/invariant were removed.
 - Docs distinguish declared targets from measured production evidence.
 - `git diff --check` and Markdown fence checks pass before commit.
+
+## Scenario: Candidate-Bound G6 Reruns
+
+- Historical top-level `docs/evaluations/g6-*` evidence and decisions are
+  immutable. A rerun writes only to
+  `docs/evaluations/g6-runs/<full-candidate-commit>/`.
+- The run directory has one exact artifact set, rejects traversal and aliases,
+  and is append-only: an existing artifact is never overwritten.
+- Each fault or acceptance command owns exactly one obligation. Duplicate
+  proof IDs, obligations, or `(test_file, test_name)` selectors are invalid;
+  aggregate commands reduce to `blocked` even when their process exits zero.
+- Frozen Runbook claims require both the named proof test and an actual built
+  CLI child process whose JSON output parses through the owning shared schema.
+- The verifier reads only the selected candidate directory, binds its exact
+  source/runtime identity, and records the first non-pass hard rule. Evidence
+  eligibility never signs or installs a release control.

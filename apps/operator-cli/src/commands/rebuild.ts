@@ -1,5 +1,6 @@
 import {
   OperationIntentSchema,
+  ProjectionRebuildDryRunResultSchema,
   canonicalSha256,
   type OperationIntent,
   type OperatorConfirmation,
@@ -25,7 +26,7 @@ import {
 export function rebuildDryRun(input: {
   repairKind: "fts" | "layered_projection" | "sqlite_relations";
 }) {
-  return {
+  return ProjectionRebuildDryRunResultSchema.parse({
     schema_version: "1.0.0" as const,
     operation: "projection.rebuild" as const,
     status: "operator_action_required" as const,
@@ -36,7 +37,7 @@ export function rebuildDryRun(input: {
       repair_kind: input.repairKind,
       source: "canonical_sqlite",
     }),
-  };
+  });
 }
 
 function repairResult(

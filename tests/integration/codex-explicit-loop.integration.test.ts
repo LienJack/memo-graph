@@ -23,7 +23,6 @@ import {
 } from "../../packages/mcp-server/src/index.js";
 
 import { mcpRecoveryFixture } from "../helpers/mcp-recovery.js";
-import { inlineEpisode } from "../helpers/storage-examples.js";
 
 const cleanupPaths: string[] = [];
 const requestedAt = "2026-07-28T14:00:00.000Z";
@@ -142,7 +141,7 @@ afterEach(() => {
 describe("official MCP client stdio integration", () => {
   it("codex-explicit-loop: no match, commit, restart, and frozen recall", async () => {
     const fixture = configFixture();
-    const episode = inlineEpisode({});
+    const scope = { kind: "workspace", id: "workspace_local" } as const;
     const firstSession = await connectServer(fixture.configPath);
 
     const tools = await firstSession.client.listTools();
@@ -186,9 +185,7 @@ describe("official MCP client stdio integration", () => {
             request_id: "stdio_compile_empty",
             goal: "restore prior task context",
             query: "governed context",
-            scopes: episode.episode.scope
-              ? [episode.episode.scope]
-              : [],
+            scopes: [scope],
             as_of: requestedAt,
             token_budget: 1_800,
             include_sensitive: false,
@@ -198,29 +195,56 @@ describe("official MCP client stdio integration", () => {
     );
     expect(initial.status).toBe("NO_MATCH");
 
-    const commitArguments = {
+    const ingestArguments = {
       envelope: {
-        ...readEnvelope("memory_episode_commit", "stdio_commit_1"),
+        ...readEnvelope("memory_evidence_ingest", "stdio_ingest_1"),
         safety_class: "proposal",
-        idempotency_key: episode.idempotencyKey,
+        idempotency_key: "stdio-evidence-ingest-001",
       },
-      episode: episode.episode,
-      evidence: episode.evidence,
-      blobs: [],
+      batch: {
+        scope,
+        outcome: "succeeded",
+        items: [
+          {
+            kind: "conversation_turn",
+            speaker: "user",
+            occurred_at: requestedAt,
+            sensitivity: "personal",
+            text: "governed context remains evidence before memory",
+          },
+        ],
+      },
     };
     const committed = governed(
       await firstSession.client.callTool({
-        name: "memory_episode_commit",
-        arguments: commitArguments,
+        name: "memory_evidence_ingest",
+        arguments: ingestArguments,
       }),
     );
     const replayedCommit = governed(
       await firstSession.client.callTool({
-        name: "memory_episode_commit",
-        arguments: commitArguments,
+        name: "memory_evidence_ingest",
+        arguments: ingestArguments,
       }),
     );
     expect(replayedCommit).toEqual(committed);
+    if (committed.status !== "OK") {
+      throw new Error("evidence ingestion must return a durable receipt");
+    }
+    expect(committed.data).toMatchObject({
+      adaptation: {
+        mode: "fast_l0",
+        item_count: 1,
+        candidate_count: 0,
+      },
+    });
+    const adaptation = committed.data as {
+      adaptation: { evidence_ids: string[] };
+    };
+    const evidenceId = adaptation.adaptation.evidence_ids[0];
+    if (evidenceId === undefined) {
+      throw new Error("adapted evidence identity must be returned");
+    }
     const firstHealth = await health(firstSession.client);
     expect(firstHealth).toMatchObject({
       ledger_epoch: 1,
@@ -240,6 +264,31 @@ describe("official MCP client stdio integration", () => {
     }
 
     const secondSession = await connectServer(fixture.configPath);
+    const reopenedEvidence = governed(
+      await secondSession.client.callTool({
+        name: "memory_get",
+        arguments: {
+          envelope: readEnvelope("memory_get", "stdio_get_restarted"),
+          evidence_id: evidenceId,
+          scope,
+        },
+      }),
+    );
+    const reopenedLineage = governed(
+      await secondSession.client.callTool({
+        name: "memory_explain",
+        arguments: {
+          envelope: readEnvelope(
+            "memory_explain",
+            "stdio_explain_restarted",
+          ),
+          evidence_id: evidenceId,
+          scope,
+        },
+      }),
+    );
+    expect(reopenedEvidence.status).toBe("OK");
+    expect(reopenedLineage.status).toBe("OK");
     const compiled = governed(
       await secondSession.client.callTool({
         name: "memory_context_compile",
@@ -253,7 +302,7 @@ describe("official MCP client stdio integration", () => {
             request_id: "stdio_compile_restarted",
             goal: "restore prior task context",
             query: "governed context",
-            scopes: [episode.episode.scope],
+            scopes: [scope],
             as_of: requestedAt,
             token_budget: 1_800,
             include_sensitive: false,

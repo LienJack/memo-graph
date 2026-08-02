@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Adds the pure evidence-adapter package boundary and shared contract ownership."}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Records deterministic L0-only ingestion, authority checks, idempotency, and zero-publication invariants."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Adds evidence-ingest proposal, invalid-input, and mapped-authority error behavior."}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Records Runbook output and temporary-path redaction requirements."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Records candidate-bound append-only G6 rerun and direct proof requirements."}
+{"file":".trellis/tasks/08-02-memos-inspired-memory-optimization/research/memos-assessment.md","reason":"Binds the MemOS adopt/adapt/reject/defer assessment used by this implementation."}
+{"file":".trellis/tasks/08-02-memos-inspired-memory-optimization/research/execution-baseline.md","reason":"Preserves initial candidate, fixture, migration, and legacy G6 artifact hashes."}

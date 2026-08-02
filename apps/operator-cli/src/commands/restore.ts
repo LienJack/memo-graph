@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import {
   OperationIntentSchema,
+  RestoreDryRunResultSchema,
   canonicalSha256,
   type OperationIntent,
   type OperatorActionReceipt,
@@ -29,7 +30,7 @@ export function restoreDryRun(input: {
   targetRef: string;
 }) {
   const inspection = inspectBackup(input.backupDirectory);
-  return {
+  return RestoreDryRunResultSchema.parse({
     schema_version: "1.0.0" as const,
     status: "operator_action_required" as const,
     publication: "confirmation_required" as const,
@@ -41,7 +42,7 @@ export function restoreDryRun(input: {
       target_ref: input.targetRef,
       manifest_hash: inspection.manifest_hash,
     }),
-  };
+  });
 }
 
 export function restoreStateBindings(input: {

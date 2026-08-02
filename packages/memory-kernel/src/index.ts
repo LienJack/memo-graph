@@ -27,6 +27,7 @@ import {
   MemoryCandidateSchema,
   MemoryDeleteInputSchema,
   MemoryDemoteInputSchema,
+  MemoryEvidenceIngestInputSchema,
   MemoryEpisodeCommitInputSchema,
   MemoryExplainInputSchema,
   MemoryGetInputSchema,
@@ -48,6 +49,7 @@ import {
   scopeKey,
   sealReceipt,
 } from "@memo-graph/contracts";
+import { adaptEvidenceFastL0 } from "@memo-graph/evidence-adapter";
 import type {
   EvidenceRecordSchema,
   MutationRequestEnvelopeSchema,
@@ -1682,7 +1684,7 @@ export class MemoryRuntime {
           "episode evidence is outside the configured principal",
         );
       }
-      const receipt = await this.#storage.commitEpisode({
+      const receipt = await this.#commitCanonicalEpisode({
         idempotencyKey: request.envelope.idempotency_key,
         episode: request.episode,
         evidence: request.evidence,
@@ -1692,13 +1694,78 @@ export class MemoryRuntime {
           bytes: new Uint8Array(Buffer.from(blob.data_base64, "base64")),
         })),
       });
-      await this.#storage.drainFtsOutbox();
       return GovernedResponseSchema.parse({
         status: "OK",
         receipt_id: receipt.receipt_id,
         data: { receipt },
       });
     });
+  }
+
+  memoryEvidenceIngest(input: unknown): Promise<GovernedResponse> {
+    return this.#execute(async () => {
+      const request = MemoryEvidenceIngestInputSchema.parse(input);
+      const unauthorized = this.#authorize(request.envelope);
+      if (unauthorized !== null) {
+        return unauthorized;
+      }
+      const adaptation = adaptEvidenceFastL0({
+        idempotency_key: request.envelope.idempotency_key,
+        principal_id: request.envelope.actor_claim.principal_id,
+        recorded_at: request.envelope.requested_at,
+        batch: request.batch,
+      });
+      const allowedScopes = new Set(request.envelope.scopes.map(scopeKey));
+      const allowedAuthorities = new Set(
+        this.#policy.principal.allowed_authorities,
+      );
+      if (
+        !allowedScopes.has(scopeKey(adaptation.episode.scope)) ||
+        adaptation.evidence.some(
+          (evidence) =>
+            !allowedScopes.has(scopeKey(evidence.scope)) ||
+            evidence.actor.principal_id !==
+              this.#policy.principal.principal_id ||
+            !allowedAuthorities.has(evidence.actor.authority) ||
+            !allowedAuthorities.has(evidence.authority),
+        )
+      ) {
+        return publicFailure(
+          "PERMISSION_DENIED",
+          "adapted evidence is outside the configured principal",
+        );
+      }
+      const receipt = await this.#commitCanonicalEpisode({
+        idempotencyKey: request.envelope.idempotency_key,
+        episode: adaptation.episode,
+        evidence: adaptation.evidence,
+        blobs: [],
+      });
+      return GovernedResponseSchema.parse({
+        status: "OK",
+        receipt_id: receipt.receipt_id,
+        data: {
+          receipt,
+          adaptation: {
+            mode: adaptation.mode,
+            episode_id: adaptation.episode.episode_id,
+            evidence_ids: adaptation.evidence.map(
+              (evidence) => evidence.evidence_id,
+            ),
+            item_count: adaptation.evidence.length,
+            candidate_count: adaptation.candidate_count,
+          },
+        },
+      });
+    });
+  }
+
+  async #commitCanonicalEpisode(
+    input: Parameters<SqliteStorageClient["commitEpisode"]>[0],
+  ) {
+    const receipt = await this.#storage.commitEpisode(input);
+    await this.#storage.drainFtsOutbox();
+    return receipt;
   }
 
   async #evidenceRead(

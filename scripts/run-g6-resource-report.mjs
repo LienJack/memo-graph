@@ -3,13 +3,20 @@ import process from "node:process";
 import {
   currentCandidateIdentity,
   deriveProofStates,
+  g6RunRootFromArgv,
   readJson,
   runEvidenceProofs,
   sourceBinding,
   writeCanonicalJson,
+  writeG6RunCanonicalJson,
 } from "./g6-evidence-common.mjs";
 
-export function runG6ResourceReport() {
+export function runG6ResourceReport(options = {}) {
+  const runRoot = options.runRoot ?? null;
+  const candidate = currentCandidateIdentity();
+  if (runRoot !== null && runRoot.split("/").at(-1) !== candidate.commit) {
+    throw new Error("G6 run root must name the exact candidate commit");
+  }
   const fixture = readJson("fixtures/g6/resources/workloads.json");
   const thresholds = readJson("fixtures/g6/thresholds.json");
   const expectedObligations = fixture.proofs.map(
@@ -46,7 +53,7 @@ export function runG6ResourceReport() {
     schema_version: "1.0.0",
     gate: "G6",
     family: "resource_pressure",
-    candidate: currentCandidateIdentity(),
+    candidate,
     state,
     commands,
     workload_results: Object.fromEntries(
@@ -71,15 +78,16 @@ export function runG6ResourceReport() {
       sourceBinding("scripts/run-g6-resource-report.mjs"),
     ],
   };
-  writeCanonicalJson(
-    "docs/evaluations/g6-resource-report.json",
-    report,
-  );
+  if (runRoot === null) {
+    writeCanonicalJson("docs/evaluations/g6-resource-report.json", report);
+  } else {
+    writeG6RunCanonicalJson(runRoot, "resource-report.json", report);
+  }
   return report;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const report = runG6ResourceReport();
+  const report = runG6ResourceReport({ runRoot: g6RunRootFromArgv() });
   process.stdout.write(`${JSON.stringify({ state: report.state })}\n`);
   if (report.state !== "pass") process.exitCode = 1;
 }

@@ -23,6 +23,7 @@ import {
   currentCandidateIdentity,
   canonicalSha256,
   filesUnder,
+  g6RunRootFromArgv,
   migrationIdentity,
   rawSha256,
   read,
@@ -32,6 +33,7 @@ import {
   runEvidenceCommand,
   sourceBinding,
   writeCanonicalJson,
+  writeG6RunCanonicalJson,
 } from "./g6-evidence-common.mjs";
 
 const APPROVED_LIFECYCLE_BUILDS = Object.freeze([
@@ -589,6 +591,7 @@ function g6ProvenanceStatement() {
       sourceBinding("pnpm-lock.yaml"),
       sourceBinding("tools/rename-noreplace/build.mjs"),
       sourceBinding("tools/rename-noreplace/rename-noreplace.c"),
+      sourceBinding("scripts/g6-bootstrap.mjs"),
     ],
   };
 }
@@ -629,7 +632,8 @@ export function verifyG6Provenance(
   };
 }
 
-function verifySupplyChain() {
+function verifySupplyChain(options = {}) {
+  const runRoot = options.runRoot ?? null;
   const packageJson = readJson("package.json");
   const policy = readJson(
     "fixtures/g6/security/supply-chain-policy.json",
@@ -782,12 +786,24 @@ function verifySupplyChain() {
       sourceBinding("fixtures/g6/security/provenance.json", true),
       sourceBinding("tools/rename-noreplace/build.mjs"),
       sourceBinding("tools/rename-noreplace/rename-noreplace.c"),
+      sourceBinding("scripts/g6-bootstrap.mjs"),
     ],
   };
-  writeCanonicalJson(
-    "docs/evaluations/g6-supply-chain-report.json",
-    report,
-  );
+  if (runRoot === null) {
+    writeCanonicalJson(
+      "docs/evaluations/g6-supply-chain-report.json",
+      report,
+    );
+  } else {
+    if (runRoot.split("/").at(-1) !== candidate.commit) {
+      throw new Error("G6 run root must name the exact candidate commit");
+    }
+    writeG6RunCanonicalJson(
+      runRoot,
+      "supply-chain-report.json",
+      report,
+    );
+  }
   return report;
 }
 
@@ -802,7 +818,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       `${JSON.stringify(buildG6Provenance())}\n`,
     );
   } else if (command === "verify") {
-    const report = verifySupplyChain();
+    const report = verifySupplyChain({
+      runRoot: g6RunRootFromArgv(process.argv.slice(3)),
+    });
     process.stdout.write(`${JSON.stringify(report)}\n`);
     if (report.state !== "pass") process.exitCode = 1;
   } else {

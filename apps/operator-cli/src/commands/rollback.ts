@@ -1,4 +1,5 @@
 import {
+  LearningRollbackVerificationResultSchema,
   OperationIntentSchema,
   canonicalSha256,
   scopeKey,
@@ -24,7 +25,7 @@ import {
 export function learningRollbackVerification(input: {
   releaseRef: string;
 }) {
-  return {
+  return LearningRollbackVerificationResultSchema.parse({
     schema_version: "1.0.0" as const,
     operation: "learning.rollback" as const,
     status: "operator_action_required" as const,
@@ -33,7 +34,7 @@ export function learningRollbackVerification(input: {
     parameters_digest: canonicalSha256({
       release_ref: input.releaseRef,
     }),
-  };
+  });
 }
 
 export async function learningRollbackStateBindings(

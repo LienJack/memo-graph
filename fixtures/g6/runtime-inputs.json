@@ -86,6 +86,14 @@
       "kind": "file"
     },
     {
+      "path": "scripts/g6-runbook-harness.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/g6-runbook-harness.d.mts",
+      "kind": "file"
+    },
+    {
       "path": "scripts/build-g6-manifest.mjs",
       "kind": "file"
     },
@@ -118,5 +126,5 @@
     "docs/evaluations/g6-",
     ".trellis/tasks/07-30-agent-memory-runtime-m6/"
   ],
-  "tested_implementation_digest": "sha256:0a456f8dea612f9bf97e5b0fc1eca5fdde0dc3a748bde653d47ebb59326f2363"
+  "tested_implementation_digest": "sha256:3a639f74ce89737e2051c9985f143e3f6e7b2eec4f4f096cacac31856a1f4c30"
 }

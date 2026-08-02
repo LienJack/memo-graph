@@ -1,4 +1,7 @@
-import { canonicalSha256 } from "@memo-graph/contracts";
+import {
+  BackupInspectionResultSchema,
+  canonicalSha256,
+} from "@memo-graph/contracts";
 import { join } from "node:path";
 import {
   BackupResultSchema,
@@ -8,7 +11,7 @@ import {
 
 export function inspectBackup(directory: string) {
   const manifest = verifyCompleteBackupBundle({ directory });
-  return {
+  return BackupInspectionResultSchema.parse({
     schema_version: "1.0.0" as const,
     status: "bundle_verified" as const,
     freshness: "external_head_not_checked" as const,
@@ -18,7 +21,7 @@ export function inspectBackup(directory: string) {
     artifact_count: manifest.artifacts.length,
     required_key_count: manifest.encryption.required_keys.length,
     frontier_digest: canonicalSha256(manifest.frontiers),
-  };
+  });
 }
 
 export function loadBackupResult(

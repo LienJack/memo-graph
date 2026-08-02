@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   G6_HARD_RULE_ORDER,
+  assertExactG6RunPaths,
   deriveProofStates,
   evaluateFirstFalse,
+  g6RunArtifactPath,
+  g6RunEvidencePaths,
+  g6RunRootFromArgv,
   loadG6Fixture,
   validateG6Fixture,
 } from "../../scripts/g6-evidence-common.mjs";
@@ -20,6 +24,46 @@ function first<T>(values: T[]): T {
 }
 
 describe("frozen G6 operational-hardening fixtures", () => {
+  it("derives one exact candidate-bound G6 run layout", () => {
+    const runRoot = `docs/evaluations/g6-runs/${"a".repeat(40)}`;
+    expect(g6RunRootFromArgv(["--run-root", runRoot])).toBe(runRoot);
+    expect(g6RunEvidencePaths(runRoot)).toEqual([
+      `${runRoot}/code-review.md`,
+      `${runRoot}/fault-report.json`,
+      `${runRoot}/reproducibility-manifest.json`,
+      `${runRoot}/resource-report.json`,
+      `${runRoot}/runbook-report.json`,
+      `${runRoot}/security-report.json`,
+      `${runRoot}/supply-chain-report.json`,
+      `${runRoot}/verification-report.json`,
+      `${runRoot}/handoff.md`,
+    ]);
+    expect(() =>
+      assertExactG6RunPaths(g6RunEvidencePaths(runRoot), runRoot),
+    ).not.toThrow();
+    expect(() =>
+      assertExactG6RunPaths(
+        [...g6RunEvidencePaths(runRoot), `${runRoot}/unexpected.json`],
+        runRoot,
+      ),
+    ).toThrow("run evidence path set");
+    expect(() =>
+      g6RunArtifactPath(runRoot, "../verification-report.json"),
+    ).toThrow("artifact path");
+    expect(() =>
+      g6RunRootFromArgv([
+        "--run-root",
+        "docs/evaluations/g6-runs/not-a-commit",
+      ]),
+    ).toThrow("run root");
+    expect(() =>
+      g6RunRootFromArgv([
+        "--run-root",
+        `docs/evaluations/g6-runs/${"a".repeat(40)}/../${"b".repeat(40)}`,
+      ]),
+    ).toThrow("run root");
+  });
+
   it("binds every prior gate, M6 AE, evidence family, fault, workload, and runbook", () => {
     const fixture = loadG6Fixture();
     expect(() => validateG6Fixture(fixture)).not.toThrow();
@@ -236,6 +280,44 @@ describe("frozen G6 operational-hardening fixtures", () => {
       "oracle:a": "blocked",
       "oracle:b": "blocked",
     });
+  });
+
+  it("binds every fault and acceptance Oracle to one unique direct proof selector", () => {
+    const fixture = loadG6Fixture();
+    const proofs = [
+      ...fixture.fault_direct_fixture.proofs,
+      ...fixture.acceptance_direct_fixture.proofs,
+    ];
+    expect(fixture.fault_direct_fixture.proofs).toHaveLength(43);
+    expect(fixture.acceptance_direct_fixture.proofs).toHaveLength(16);
+    expect(new Set(proofs.map(({ proof_id }) => proof_id)).size).toBe(59);
+    expect(new Set(proofs.map(({ obligation }) => obligation)).size).toBe(59);
+    expect(
+      new Set(
+        proofs.map(
+          ({ test_file, test_name }) => `${test_file}\u0000${test_name}`,
+        ),
+      ).size,
+    ).toBe(59);
+  });
+
+  it("rejects duplicate or missing direct proof ownership", () => {
+    const duplicated = clone(loadG6Fixture());
+    const acceptanceProof = first(
+      duplicated.acceptance_direct_fixture.proofs,
+    );
+    const faultProof = first(duplicated.fault_direct_fixture.proofs);
+    acceptanceProof.test_file = faultProof.test_file;
+    acceptanceProof.test_name = faultProof.test_name;
+    expect(() => validateG6Fixture(duplicated)).toThrow(
+      "direct proof selector",
+    );
+
+    const missing = clone(loadG6Fixture());
+    missing.fault_direct_fixture.proofs.pop();
+    expect(() => validateG6Fixture(missing)).toThrow(
+      "direct fault proof obligation",
+    );
   });
 
   it("parses every frozen runbook automation with the actual CLI grammar", () => {

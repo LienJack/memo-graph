@@ -21,6 +21,7 @@ import {
   LocalPrincipalSchema,
   MEMORY_TOOL_SAFETY_CLASS,
   MemoryContextCompileInputSchema,
+  MemoryEvidenceIngestInputSchema,
   MemoryEpisodeCommitInputSchema,
   MemoryFeedbackInputSchema,
   MemorySearchInputSchema,
@@ -96,11 +97,47 @@ describe("MCP boundary contracts", () => {
 
   it("classifies every planned tool by safety class", () => {
     expect(MEMORY_TOOL_SAFETY_CLASS.memory_search).toBe("read_only");
+    expect(MEMORY_TOOL_SAFETY_CLASS.memory_evidence_ingest).toBe("proposal");
     expect(MEMORY_TOOL_SAFETY_CLASS.memory_episode_commit).toBe("proposal");
     expect(MEMORY_TOOL_SAFETY_CLASS.memory_revoke).toBe(
       "important_mutation",
     );
     expect(MEMORY_TOOL_SAFETY_CLASS.memory_delete).toBe("destructive");
+  });
+
+  it("binds evidence ingest to an allowed envelope scope", () => {
+    const envelope = {
+      ...validReadRequest(),
+      tool: "memory_evidence_ingest",
+      safety_class: "proposal",
+      idempotency_key: "evidence-ingest-contract-001",
+    } as const;
+    const batch = {
+      scope: USER_SCOPE,
+      outcome: "succeeded",
+      items: [
+        {
+          kind: "conversation_turn",
+          speaker: "user",
+          occurred_at: NOW,
+          sensitivity: "personal",
+          text: "Remember this exact statement.",
+        },
+      ],
+    } as const;
+
+    expect(
+      MemoryEvidenceIngestInputSchema.safeParse({ envelope, batch }).success,
+    ).toBe(true);
+    expect(
+      MemoryEvidenceIngestInputSchema.safeParse({
+        envelope,
+        batch: {
+          ...batch,
+          scope: { kind: "workspace", id: "foreign_workspace" },
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("binds all five M5 inputs to exact tool and frontier identities", () => {

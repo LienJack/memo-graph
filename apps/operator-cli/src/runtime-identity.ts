@@ -97,6 +97,8 @@ export const G6_RUNTIME_INPUTS = Object.freeze([
   { path: "scripts/run-g6-fault-matrix.mjs", kind: "file" },
   { path: "scripts/run-g6-resource-report.mjs", kind: "file" },
   { path: "scripts/run-g6-runbooks.mjs", kind: "file" },
+  { path: "scripts/g6-runbook-harness.mjs", kind: "file" },
+  { path: "scripts/g6-runbook-harness.d.mts", kind: "file" },
   { path: "scripts/build-g6-manifest.mjs", kind: "file" },
   { path: "scripts/build-g6-runtime-identity.mjs", kind: "file" },
   { path: "scripts/build-g6-runtime-identity.d.mts", kind: "file" },

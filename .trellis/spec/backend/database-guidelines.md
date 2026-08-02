@@ -85,6 +85,38 @@ database.prepare("INSERT INTO events ...").run(payload);
 const receipt = await storage.commitEpisode(command);
 ```
 
+## Scenario: Deterministic L0 Evidence Ingestion
+
+### 1. Scope / Trigger
+
+Use this contract when `memory_evidence_ingest` accepts conversation turns,
+tool results, or caller-supplied text-file bodies.
+
+### 2. Contracts
+
+- Decode the proposal envelope and bounded source batch through the shared
+  strict schema before adaptation.
+- The adapter is pure and may emit only one sealed `Episode`, ordered inline
+  `EvidenceRecord[]`, and an empty blob list. It creates no candidate,
+  governed revision, admission, learning release, or release-pointer effect.
+- Map provenance without authority inflation: user turn to `user_stated`,
+  assistant turn to `observed`, tool result to `tool_result`, and text import
+  to `imported`. Reject any mapped authority or exact scope outside the local
+  principal policy before storage.
+- Secret plaintext and oversized UTF-8 batches fail before persistence.
+- Both adapted ingestion and direct `memory_episode_commit` delegate to the
+  same canonical commit helper and storage transaction.
+- Same idempotency key plus identical artifacts replays the durable receipt;
+  changed content, metadata, or order conflicts.
+
+### 3. Tests Required
+
+- Cover every supported source, deterministic identities, timestamp bounds,
+  episode seal, strict fields, secret/size rejection, authority/scope denial,
+  changed replay, and zero L1/learning publication side effects.
+- Exercise ingest through official MCP stdio, close the process, reopen the
+  same ledger, and prove searchable/explainable receipt lineage survives.
+
 ## Scenario: Versioned L1 Governance Transactions
 
 ### 1. Scope / Trigger

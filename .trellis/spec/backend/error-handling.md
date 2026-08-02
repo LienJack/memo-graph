@@ -37,12 +37,17 @@ McpErrorSchema
   `OK | NO_MATCH | POLICY_EXCLUDED | DEGRADED | FAILED`.
 - Failures use the stable code set in `McpErrorCodeSchema`.
 - Every safely processed request returns or references a receipt.
+- `memory_evidence_ingest` is proposal-class. Its source batch is decoded
+  strictly, its exact scope must be present in the envelope, and the adapter's
+  mapped authority must also be allowed by `LocalPrincipal`.
 
 ### 4. Validation & Error Matrix
 
 | Condition | Code/status |
 | --- | --- |
 | Malformed payload | `INVALID_INPUT` |
+| Secret or oversized evidence-ingest body | `INVALID_INPUT`, zero write |
+| Adapted source authority not allowed | `PERMISSION_DENIED`, zero write |
 | Principal/authority/scope denied | `PERMISSION_DENIED` |
 | Concurrent state conflict | `CONFLICT` |
 | Expected revision mismatch | `STALE_REVISION` |

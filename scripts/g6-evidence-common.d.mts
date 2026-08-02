@@ -8,6 +8,14 @@ export type G6HardRule =
   | "supply_chain"
   | "binding";
 
+export interface G6DirectProof {
+  proof_id: string;
+  obligation: string;
+  test_file: string;
+  test_name: string;
+  oracle: string;
+}
+
 export interface G6Fixture {
   schema_version: string;
   gate: string;
@@ -98,6 +106,14 @@ export interface G6Fixture {
     }>;
     [key: string]: unknown;
   };
+  fault_direct_fixture: {
+    schema_version: string;
+    proofs: G6DirectProof[];
+  };
+  acceptance_direct_fixture: {
+    schema_version: string;
+    proofs: G6DirectProof[];
+  };
   resource_fixture: {
     proofs: unknown[];
     [key: string]: unknown;
@@ -115,12 +131,30 @@ export interface G6Fixture {
 export const G6_HARD_RULE_ORDER: readonly G6HardRule[];
 export const G6_EVIDENCE_PATHS: readonly string[];
 export const G6_DECISION_PATHS: readonly string[];
+export const G6_RUN_ARTIFACT_NAMES: readonly string[];
 
 export function canonicalJson(value: unknown): string;
 export function canonicalSha256(value: unknown): `sha256:${string}`;
 export function rawSha256(value: Uint8Array): `sha256:${string}`;
 export function loadG6Fixture(): G6Fixture;
 export function validateG6Fixture(input?: G6Fixture): G6Fixture;
+export function g6RunRootFromArgv(argv?: string[]): string | null;
+export function g6RunArtifactPath(
+  runRoot: string,
+  artifactName: string,
+): string;
+export function g6RunEvidencePaths(runRoot: string): string[];
+export function assertG6RunFilesystemRoot(runRoot: string): void;
+export function assertExactG6RunPaths(
+  paths: readonly string[],
+  runRoot: string,
+  options?: { omit?: readonly string[] },
+): void;
+export function writeG6RunCanonicalJson(
+  runRoot: string,
+  artifactName: string,
+  value: unknown,
+): void;
 export function assertExactG6EvidencePaths(
   paths: readonly string[],
   options?: { allowDecision?: boolean },

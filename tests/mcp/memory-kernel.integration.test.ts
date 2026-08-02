@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   canonicalSha256Omitting,
   receiptHashIsValid,
+  type Authority,
 } from "../../packages/contracts/src/index.js";
 import { MemoryRuntime } from "../../packages/memory-kernel/src/index.js";
 import { SqliteStorageClient } from "@memo-graph/storage-sqlite";
@@ -51,7 +52,10 @@ function readEnvelope(
   };
 }
 
-function runtime(storage: SqliteStorageClient): MemoryRuntime {
+function runtime(
+  storage: SqliteStorageClient,
+  allowedAuthorities: Authority[] = ["user_stated", "tool_result"],
+): MemoryRuntime {
   return new MemoryRuntime({
     storage,
     policy: {
@@ -60,7 +64,7 @@ function runtime(storage: SqliteStorageClient): MemoryRuntime {
         allowed_scopes: [
           { kind: "workspace", id: "workspace_local" },
         ],
-        allowed_authorities: ["user_stated", "tool_result"],
+        allowed_authorities: allowedAuthorities,
         destructive_tools_enabled: false,
       },
       default_token_budget: 1_800,
@@ -78,6 +82,206 @@ afterEach(() => {
 });
 
 describe("principal-bound memory kernel", () => {
+  it("persists every supported evidence source as L0 without publication", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("evidence-adapter-variants"),
+    });
+    const kernel = runtime(storage, [
+      "user_stated",
+      "observed",
+      "tool_result",
+      "imported",
+    ]);
+    const result = await kernel.memoryEvidenceIngest({
+      envelope: {
+        ...readEnvelope("memory_evidence_ingest", "request_ingest_variants"),
+        safety_class: "proposal",
+        idempotency_key: "evidence-ingest-integration-variants-001",
+      },
+      batch: {
+        scope: { kind: "workspace", id: "workspace_local" },
+        outcome: "partial",
+        items: [
+          {
+            kind: "conversation_turn",
+            speaker: "user",
+            occurred_at: "2026-07-28T12:56:00.000Z",
+            sensitivity: "personal",
+            text: "Keep the original claim.",
+          },
+          {
+            kind: "conversation_turn",
+            speaker: "assistant",
+            occurred_at: "2026-07-28T12:57:00.000Z",
+            sensitivity: "internal",
+            text: "This is an observation, not a user claim.",
+          },
+          {
+            kind: "tool_result",
+            tool_name: "workspace_read",
+            occurred_at: "2026-07-28T12:58:00.000Z",
+            sensitivity: "internal",
+            text: "source verified",
+          },
+          {
+            kind: "text_file",
+            source_name: "architecture.md",
+            media_type: "text/markdown",
+            occurred_at: requestedAt,
+            sensitivity: "internal",
+            text: "# Evidence\n\nL0 remains canonical.",
+          },
+        ],
+      },
+    });
+    const health = await storage.health();
+    await storage.close();
+
+    expect(result.status, JSON.stringify(result)).toBe("OK");
+    if (result.status !== "OK") {
+      throw new Error("all supported evidence variants must be admitted");
+    }
+    expect(result.data).toMatchObject({
+      adaptation: {
+        mode: "fast_l0",
+        item_count: 4,
+        candidate_count: 0,
+      },
+    });
+    expect(health.counts).toMatchObject({
+      evidence_events: 4,
+      episodes: 1,
+      memory_candidates: 0,
+      memory_objects: 0,
+      memory_revisions: 0,
+      learning_candidates: 0,
+      learning_release_pointers: 0,
+    });
+  });
+
+  it("adapts common text input into idempotent L0 evidence only", async () => {
+    const storage = await SqliteStorageClient.open({
+      dataRoot: temporaryRoot("evidence-adapter"),
+    });
+    const kernel = runtime(storage);
+    const ingestInput = {
+      envelope: {
+        ...readEnvelope("memory_evidence_ingest", "request_ingest_1"),
+        safety_class: "proposal",
+        idempotency_key: "evidence-ingest-integration-001",
+      },
+      batch: {
+        scope: { kind: "workspace", id: "workspace_local" },
+        outcome: "succeeded",
+        items: [
+          {
+            kind: "conversation_turn",
+            speaker: "user",
+            occurred_at: "2026-07-28T12:59:00.000Z",
+            sensitivity: "personal",
+            text: "Keep raw evidence separate from durable memory.",
+          },
+          {
+            kind: "tool_result",
+            tool_name: "workspace_read",
+            occurred_at: requestedAt,
+            sensitivity: "internal",
+            text: "source lineage verified",
+          },
+        ],
+      },
+    };
+
+    const first = await kernel.memoryEvidenceIngest(ingestInput);
+    const replay = await kernel.memoryEvidenceIngest(ingestInput);
+    const conflict = await kernel.memoryEvidenceIngest({
+      ...ingestInput,
+      batch: {
+        ...ingestInput.batch,
+        items: ingestInput.batch.items.map((item, index) =>
+          index === 0
+            ? { ...item, text: "Changed text under the same idempotency key." }
+            : item,
+        ),
+      },
+    });
+    const deniedAuthority = await kernel.memoryEvidenceIngest({
+      ...ingestInput,
+      envelope: {
+        ...ingestInput.envelope,
+        request_id: "request_ingest_denied_authority",
+        idempotency_key: "evidence-ingest-integration-denied-001",
+      },
+      batch: {
+        ...ingestInput.batch,
+        items: [
+          {
+            kind: "conversation_turn",
+            speaker: "assistant",
+            occurred_at: requestedAt,
+            sensitivity: "internal",
+            text: "Observed text requires observed authority.",
+          },
+        ],
+      },
+    });
+    const secretMarker = "SECRET_INGEST_MARKER_MUST_NOT_ECHO";
+    const rejectedSecret = await kernel.memoryEvidenceIngest({
+      ...ingestInput,
+      envelope: {
+        ...ingestInput.envelope,
+        request_id: "request_ingest_secret",
+        idempotency_key: "evidence-ingest-integration-secret-001",
+      },
+      batch: {
+        ...ingestInput.batch,
+        items: [
+          {
+            kind: "conversation_turn",
+            speaker: "user",
+            occurred_at: requestedAt,
+            sensitivity: "secret",
+            text: secretMarker,
+          },
+        ],
+      },
+    });
+    const health = await storage.health();
+    await storage.close();
+
+    expect(first).toEqual(replay);
+    expect(first.status, JSON.stringify(first)).toBe("OK");
+    if (first.status !== "OK") {
+      throw new Error("evidence ingestion must return a durable receipt");
+    }
+    expect(conflict).toMatchObject({
+      status: "FAILED",
+      error: { code: "CONFLICT" },
+    });
+    expect(deniedAuthority).toMatchObject({
+      status: "FAILED",
+      error: { code: "PERMISSION_DENIED" },
+    });
+    expect(rejectedSecret.status).toBe("FAILED");
+    expect(JSON.stringify(rejectedSecret)).not.toContain(secretMarker);
+    expect(first.data).toMatchObject({
+      adaptation: {
+        mode: "fast_l0",
+        item_count: 2,
+        candidate_count: 0,
+      },
+    });
+    expect(health.counts).toMatchObject({
+      evidence_events: 2,
+      episodes: 1,
+      mutation_receipts: 1,
+      memory_candidates: 0,
+      memory_objects: 0,
+      memory_revisions: 0,
+      learning_candidates: 0,
+    });
+  });
+
   it("commits idempotently, searches, explains, and freezes context", async () => {
     const storage = await SqliteStorageClient.open({
       dataRoot: temporaryRoot("kernel-loop"),

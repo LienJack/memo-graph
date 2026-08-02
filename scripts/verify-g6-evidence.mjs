@@ -9,16 +9,22 @@ import {
   artifactBinding,
   assertContentFreeEvidence,
   assertExactG6EvidencePaths,
+  assertExactG6RunPaths,
+  assertG6RunFilesystemRoot,
   canonicalEvidenceArgv,
   canonicalJson,
   canonicalSha256,
   deriveProofStates,
   evaluateFirstFalse,
+  g6RunArtifactPath,
+  g6RunEvidencePaths,
+  g6RunRootFromArgv,
   loadG6Fixture,
   readJson,
   sourceBinding,
   validateG6Fixture,
   writeCanonicalJson,
+  writeG6RunCanonicalJson,
 } from "./g6-evidence-common.mjs";
 
 const REPORT_PATHS = Object.freeze({
@@ -28,6 +34,20 @@ const REPORT_PATHS = Object.freeze({
   security: "docs/evaluations/g6-security-report.json",
   supply_chain: "docs/evaluations/g6-supply-chain-report.json",
 });
+
+function reportPaths(runRoot) {
+  return Object.fromEntries(
+    Object.entries(REPORT_PATHS).map(([name, path]) => [
+      name,
+      runRoot === null
+        ? path
+        : g6RunArtifactPath(
+            runRoot,
+            path.slice("docs/evaluations/g6-".length),
+          ),
+    ]),
+  );
+}
 
 const CODE_REVIEW_LENSES = Object.freeze([
   "correctness",
@@ -136,7 +156,21 @@ export function validateG6CodeReviewArtifact(raw, expectedCandidate) {
   return { report, passed };
 }
 
-function observedEvidencePaths(includePendingVerification) {
+function observedEvidencePaths(includePendingVerification, runRoot = null) {
+  if (runRoot !== null) {
+    assertG6RunFilesystemRoot(runRoot);
+    const paths = readdirSync(
+      new URL(`../${runRoot}/`, import.meta.url),
+    ).map((name) => `${runRoot}/${name}`);
+    const verificationPath = g6RunArtifactPath(
+      runRoot,
+      "verification-report.json",
+    );
+    if (includePendingVerification && !paths.includes(verificationPath)) {
+      paths.push(verificationPath);
+    }
+    return paths;
+  }
   const paths = readdirSync(
     new URL("../docs/evaluations", import.meta.url),
   )
@@ -209,7 +243,7 @@ function allBooleanLeavesTrue(value) {
   return false;
 }
 
-function verifyProofClaims(name, report, fixture) {
+function verifyProofClaims(name, report, fixture, options = {}) {
   if (name === "fault") {
     const expectedFaults = fixture.fault_points.map(
       (faultPoint) => `fault:${faultPoint}`,
@@ -331,8 +365,8 @@ function verifyProofClaims(name, report, fixture) {
         automation,
         grammar_verified: report.grammar_command.state === "pass",
         proof_test_passed: states[id] === "pass",
-        direct_automation_observed: false,
-        typed_result_verified: false,
+        direct_automation_observed: options.directRun === true,
+        typed_result_verified: options.directRun === true,
       }),
     );
     if (
@@ -478,7 +512,7 @@ export function deriveG6ReportState(name, report) {
   return state;
 }
 
-function reportState(name, report, manifest, fixture) {
+function reportState(name, report, manifest, fixture, options = {}) {
   assertContentFreeEvidence(report);
   if (
     report.schema_version !== "1.0.0" ||
@@ -492,7 +526,7 @@ function reportState(name, report, manifest, fixture) {
   }
   verifySourceBindings(report.source_bindings);
   if (name !== "supply_chain") {
-    verifyProofClaims(name, report, fixture);
+    verifyProofClaims(name, report, fixture, options);
   }
   if (deriveG6ReportState(name, report) !== report.state) {
     throw new Error(`G6 ${name} report claim mismatch`);
@@ -614,12 +648,24 @@ async function verifyCurrentControl({
 }
 
 export async function verifyG6Evidence(options = {}) {
+  const runRoot = options.runRoot ?? null;
   const fixture = validateG6Fixture(loadG6Fixture());
-  assertExactG6EvidencePaths(observedEvidencePaths(true));
+  if (runRoot === null) {
+    assertExactG6EvidencePaths(observedEvidencePaths(true));
+  } else {
+    const observed = observedEvidencePaths(true, runRoot);
+    assertExactG6RunPaths(observed, runRoot, {
+      omit: observed.includes(g6RunArtifactPath(runRoot, "handoff.md"))
+        ? []
+        : ["handoff.md"],
+    });
+  }
   const runtimeIdentity = buildG6RuntimeIdentity();
-  const manifest = readJson(
-    "docs/evaluations/g6-reproducibility-manifest.json",
-  );
+  const manifestPath =
+    runRoot === null
+      ? "docs/evaluations/g6-reproducibility-manifest.json"
+      : g6RunArtifactPath(runRoot, "reproducibility-manifest.json");
+  const manifest = readJson(manifestPath);
   if (
     canonicalJson(runtimeIdentity) !==
       canonicalJson(manifest.runtime_identity) ||
@@ -632,9 +678,15 @@ export async function verifyG6Evidence(options = {}) {
   verifySourceBindings(manifest.source_bindings);
   if (
     canonicalJson(manifest.allowed_evidence_artifacts) !==
-      canonicalJson(fixture.allowed_paths.evidence) ||
+      canonicalJson(
+        runRoot === null
+          ? fixture.allowed_paths.evidence
+          : g6RunEvidencePaths(runRoot),
+      ) ||
     canonicalJson(manifest.allowed_decision_artifacts) !==
-      canonicalJson(fixture.allowed_paths.decision) ||
+      canonicalJson(
+        runRoot === null ? fixture.allowed_paths.decision : [],
+      ) ||
     manifest.candidate.dirty_paths_allowed !== true
   ) {
     throw new Error("G6 manifest partition or candidate mismatch");
@@ -648,7 +700,7 @@ export async function verifyG6Evidence(options = {}) {
   }
 
   const reports = Object.fromEntries(
-    Object.entries(REPORT_PATHS).map(([name, path]) => [
+    Object.entries(reportPaths(runRoot)).map(([name, path]) => [
       name,
       readJson(path),
     ]),
@@ -656,11 +708,17 @@ export async function verifyG6Evidence(options = {}) {
   const states = Object.fromEntries(
     Object.entries(reports).map(([name, report]) => [
       name,
-      reportState(name, report, manifest, fixture),
+      reportState(name, report, manifest, fixture, {
+        directRun: runRoot !== null,
+      }),
     ]),
   );
+  const codeReviewRelativePath =
+    runRoot === null
+      ? "docs/evaluations/g6-code-review.md"
+      : g6RunArtifactPath(runRoot, "code-review.md");
   const codeReviewPath = new URL(
-    "../docs/evaluations/g6-code-review.md",
+    `../${codeReviewRelativePath}`,
     import.meta.url,
   );
   const codeReview = existsSync(codeReviewPath)
@@ -687,7 +745,7 @@ export async function verifyG6Evidence(options = {}) {
     "../docs/evaluations/g6-release-control.json",
     import.meta.url,
   );
-  const releasePresent = existsSync(releasePath);
+  const releasePresent = runRoot === null && existsSync(releasePath);
   let currentControl = null;
   if (releasePresent) {
     if (options.allowDecision !== true) {
@@ -721,7 +779,7 @@ export async function verifyG6Evidence(options = {}) {
     topology: fixture.configuration.topology,
     source_bindings: [
       sourceBinding(
-        "docs/evaluations/g6-reproducibility-manifest.json",
+        manifestPath,
         true,
       ),
       sourceBinding("fixtures/g6/manifest.json", true),
@@ -729,10 +787,18 @@ export async function verifyG6Evidence(options = {}) {
     ],
   };
   if (options.write !== false && !releasePresent) {
-    writeCanonicalJson(
-      "docs/evaluations/g6-verification-report.json",
-      verification,
-    );
+    if (runRoot === null) {
+      writeCanonicalJson(
+        "docs/evaluations/g6-verification-report.json",
+        verification,
+      );
+    } else {
+      writeG6RunCanonicalJson(
+        runRoot,
+        "verification-report.json",
+        verification,
+      );
+    }
   }
   return {
     verification,
@@ -743,10 +809,14 @@ export async function verifyG6Evidence(options = {}) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  const runRoot = g6RunRootFromArgv();
   const allowDecision = existsSync(
     new URL("../docs/evaluations/g6-release-control.json", import.meta.url),
   );
-  const result = await verifyG6Evidence({ allowDecision });
+  const result = await verifyG6Evidence({
+    allowDecision: runRoot === null && allowDecision,
+    runRoot,
+  });
   process.stdout.write(`${JSON.stringify(result.verification)}\n`);
   if (!result.verification.eligible) process.exitCode = 1;
 }

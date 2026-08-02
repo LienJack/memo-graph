@@ -25,6 +25,7 @@ import {
   MemoryCorrectInputSchema,
   MemoryDeleteInputSchema,
   MemoryDemoteInputSchema,
+  MemoryEvidenceIngestInputSchema,
   MemoryEpisodeCommitInputSchema,
   MemoryExplainInputSchema,
   MemoryGetInputSchema,
@@ -356,6 +357,16 @@ export const MEMORY_TOOL_METADATA = [
     },
   },
   {
+    name: "memory_evidence_ingest",
+    safety_class: "proposal",
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
     name: "memory_episode_commit",
     safety_class: "proposal",
     annotations: {
@@ -522,6 +533,7 @@ export type MemoryMcpRuntime = Pick<
   | "memoryCorrect"
   | "memoryDelete"
   | "memoryDemote"
+  | "memoryEvidenceIngest"
   | "memoryEpisodeCommit"
   | "memoryExplain"
   | "memoryFeedback"
@@ -642,6 +654,19 @@ export function createMemoryMcpServer(options: {
     },
     async (input) =>
       toolResult(await options.runtime.memoryContextCompile(input)),
+  );
+  server.registerTool(
+    "memory_evidence_ingest",
+    {
+      title: "Ingest common text evidence",
+      description:
+        "Deterministically adapt conversation turns, tool results, or text files into one sealed L0 evidence episode without creating memory candidates.",
+      inputSchema: MemoryEvidenceIngestInputSchema,
+      outputSchema: GovernedResponseSchema,
+      annotations: annotations("memory_evidence_ingest"),
+    },
+    async (input) =>
+      toolResult(await options.runtime.memoryEvidenceIngest(input)),
   );
   server.registerTool(
     "memory_episode_commit",
@@ -847,7 +872,8 @@ export function createMemoryMcpServer(options: {
             schema_version: "1.0.0",
             automatic_context_injection: false,
             task_start: "Call memory_context_compile explicitly.",
-            task_end: "Call memory_episode_commit explicitly.",
+            task_end:
+              "Call memory_evidence_ingest for supported text sources, or memory_episode_commit for pre-sealed canonical evidence.",
             note:
               "MCP resources are inspection endpoints and are not automatically added to model context.",
           }),
