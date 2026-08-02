@@ -3,6 +3,9 @@ import type Database from "better-sqlite3";
 import {
   WorkbenchMemoryCandidateSetSchema,
   WorkbenchMemoryDetailResultSchema,
+  WorkbenchGraphResultSchema,
+  WorkbenchGraphEdgeSchema,
+  WorkbenchGraphNodeSchema,
   WorkbenchMemoryGroupSchema,
   WorkbenchMemorySummaryBatchResultSchema,
   WorkbenchMemorySummarySchema,
@@ -13,6 +16,7 @@ import {
   type Scope,
   type WorkbenchContent,
   type WorkbenchMemoryDetailResult,
+  type WorkbenchGraphResult,
   type WorkbenchMemorySummary,
 } from "@memo-graph/contracts";
 
@@ -21,6 +25,7 @@ import {
   MemoryEligibilityInputSchema,
   type EligibilityReasonCode,
   type ParsedWorkbenchMemoryDetailQuery,
+  type ParsedWorkbenchGraphQuery,
   type ParsedWorkbenchMemoryListQuery,
   type ParsedWorkbenchMemorySummaryBatchQuery,
   type WorkbenchMemoryCandidateSet,
@@ -91,6 +96,38 @@ type EvidenceRow = {
     | "sensitive"
     | "secret";
   purged_at: string | null;
+};
+
+type ProjectionRow = {
+  projection_id: string;
+  projection_revision_id: string;
+  current_revision_id: string | null;
+  projection_type: "topic" | "scenario" | "procedure" | "relation" | "core";
+  lifecycle: RevisionRow["revision_lifecycle"];
+  principal_id: string;
+  scope_kind: Scope["kind"];
+  scope_id: string;
+  sensitivity: RevisionRow["sensitivity"];
+  valid_from: string;
+  valid_to: string | null;
+  payload_json: string | null;
+  content_json: string | null;
+  content_hash: `sha256:${string}`;
+};
+
+type GraphNode = Extract<
+  WorkbenchGraphResult,
+  { status: "ready" | "ready_empty" | "degraded" }
+>["nodes"][number];
+
+type GraphEdge = Extract<
+  WorkbenchGraphResult,
+  { status: "ready" | "ready_empty" | "degraded" }
+>["edges"][number];
+
+type GraphNeighbor = {
+  neighbor_revision_id: string;
+  edge: GraphEdge;
 };
 
 const REVISION_SELECT = `
@@ -471,6 +508,112 @@ export class WorkbenchReader {
     });
   }
 
+  graph(input: ParsedWorkbenchGraphQuery): WorkbenchGraphResult {
+    const center = this.#graphNode(
+      input.request.center.kind,
+      input.request.center.revision_id,
+      input,
+    );
+    if (center === null) {
+      return WorkbenchGraphResultSchema.parse({
+        status: "not_found",
+        reason_code: "GRAPH_CENTER_NOT_FOUND",
+        retryable: false,
+        warnings: [],
+      });
+    }
+
+    const nodes = new Map<string, GraphNode>([[center.node_id, center]]);
+    const edges = new Map<string, GraphEdge>();
+    const omittedNodes = new Set<string>();
+    const omittedEdges = new Set<string>();
+    const visited = new Set<string>();
+    let frontier: string[] = [center.node_id];
+    for (
+      let depth = 0;
+      depth < input.request.max_depth && frontier.length > 0;
+      depth += 1
+    ) {
+      const next = new Set<string>();
+      for (const revisionId of [...frontier].sort()) {
+        if (visited.has(revisionId)) {
+          continue;
+        }
+        visited.add(revisionId);
+        const observed = this.#graphNeighbors(revisionId, input);
+        const retained = observed.slice(0, input.request.max_fanout);
+        for (const omitted of observed.slice(input.request.max_fanout)) {
+          omittedNodes.add(omitted.neighbor_revision_id);
+          omittedEdges.add(omitted.edge.edge_id);
+        }
+        for (const neighbor of retained) {
+          if (!nodes.has(neighbor.neighbor_revision_id)) {
+            const node = this.#graphNode(
+              null,
+              neighbor.neighbor_revision_id,
+              input,
+            );
+            if (node === null || nodes.size >= input.request.max_nodes) {
+              omittedNodes.add(neighbor.neighbor_revision_id);
+              omittedEdges.add(neighbor.edge.edge_id);
+              continue;
+            }
+            nodes.set(node.node_id, node);
+            next.add(node.node_id);
+          }
+          if (
+            !nodes.has(neighbor.edge.from_node_id) ||
+            !nodes.has(neighbor.edge.to_node_id)
+          ) {
+            omittedEdges.add(neighbor.edge.edge_id);
+          } else if (
+            !edges.has(neighbor.edge.edge_id) &&
+            edges.size >= input.request.max_edges
+          ) {
+            omittedEdges.add(neighbor.edge.edge_id);
+          } else {
+            edges.set(neighbor.edge.edge_id, neighbor.edge);
+          }
+        }
+      }
+      frontier = [...next];
+    }
+
+    const projectionState = this.#graphProjectionState(
+      input.principal_id,
+      input.request.scope,
+    );
+    const truncated = omittedNodes.size + omittedEdges.size > 0;
+    const warnings = [
+      ...(projectionState === "ready"
+        ? []
+        : [`graph_projection_${projectionState}`]),
+      ...(truncated ? ["graph_snapshot_truncated"] : []),
+      ...(!center.is_current ? ["historical_center"] : []),
+    ];
+    const status =
+      projectionState !== "ready" || truncated
+        ? "degraded"
+        : edges.size === 0
+          ? "ready_empty"
+          : "ready";
+    return WorkbenchGraphResultSchema.parse({
+      status,
+      center_node_id: center.node_id,
+      nodes: [...nodes.values()].sort((left, right) =>
+        left.node_id.localeCompare(right.node_id)
+      ),
+      edges: [...edges.values()].sort((left, right) =>
+        left.edge_id.localeCompare(right.edge_id)
+      ),
+      projection_state: projectionState,
+      truncated,
+      omitted_node_count: omittedNodes.size,
+      omitted_edge_count: omittedEdges.size,
+      warnings,
+    });
+  }
+
   #listSql(input: ParsedWorkbenchMemoryListQuery): {
     sql: string;
     parameters: unknown[];
@@ -684,6 +827,326 @@ export class WorkbenchReader {
     if (rows.some((row) => row.status === "processing")) return "rebuilding" as const;
     if (rows.some((row) => row.status === "pending")) return "pending" as const;
     return "ready" as const;
+  }
+
+  #graphProjectionState(principalId: string, scope: Scope) {
+    const row = this.#database
+      .prepare(
+        `SELECT status FROM graph_projection_scope_state
+         WHERE backend = 'ladybugdb' AND principal_id = ?
+           AND scope_kind = ? AND scope_id = ?`,
+      )
+      .get(principalId, scope.kind, scope.id) as
+      | { status: "disabled" | "pending" | "rebuilding" | "ready" | "unavailable" }
+      | undefined;
+    if (row?.status === "ready") return "ready" as const;
+    if (row?.status === "pending") return "pending" as const;
+    if (row?.status === "rebuilding") return "rebuilding" as const;
+    return "unavailable" as const;
+  }
+
+  #graphNode(
+    expectedKind: "memory_revision" | "projection_revision" | null,
+    revisionId: string,
+    input: ParsedWorkbenchGraphQuery,
+  ): GraphNode | null {
+    if (expectedKind !== "projection_revision") {
+      const row = this.#revisionById(revisionId);
+      if (
+        row !== undefined &&
+        row.principal_id === input.principal_id &&
+        row.scope_kind === input.request.scope.kind &&
+        row.scope_id === input.request.scope.id
+      ) {
+        const summary = this.#summary(row, {
+          ...input,
+          max_snapshot_members: 1,
+          request: {
+            query: null,
+            scope: input.request.scope,
+            kinds: [],
+            lifecycles: [],
+            authorities: [],
+            sources: [],
+            recorded_after: null,
+            recorded_before: null,
+            include_non_current: true,
+            limit: 1,
+            cursor: null,
+          },
+        });
+        if (
+          summary !== null &&
+          summary.non_current_reason !== "SECRET_EXCLUDED" &&
+          summary.non_current_reason !== "SENSITIVE_EXCLUDED"
+        ) {
+          const label = summary.content.status === "available"
+            ? summary.content.text
+            : `Memory revision ${summary.revision}`;
+          return WorkbenchGraphNodeSchema.parse({
+            node_id: summary.revision_id,
+            kind: "memory_revision",
+            authority_plane: "canonical",
+            reference_id: summary.memory_id,
+            revision_id: summary.revision_id,
+            label: label.slice(0, 8_000),
+            scope: summary.scope,
+            lifecycle: summary.lifecycle,
+            is_current: summary.is_current,
+            content: summary.content,
+          });
+        }
+      }
+      if (expectedKind === "memory_revision") {
+        return null;
+      }
+    }
+    const projection = this.#projectionRevision(revisionId, input);
+    if (
+      projection === undefined ||
+      projection.projection_type === "relation" ||
+      projection.sensitivity === "secret" ||
+      (projection.sensitivity === "sensitive" && !input.include_sensitive)
+    ) {
+      return null;
+    }
+    const projectionContent = this.#projectionContent(projection);
+    return WorkbenchGraphNodeSchema.parse({
+      node_id: projection.projection_revision_id,
+      kind: projection.projection_type,
+      authority_plane: "projection",
+      reference_id: projection.projection_id,
+      revision_id: projection.projection_revision_id,
+      label: this.#projectionLabel(projection, projectionContent),
+      scope: { kind: projection.scope_kind, id: projection.scope_id },
+      lifecycle: projection.lifecycle,
+      is_current:
+        projection.projection_revision_id === projection.current_revision_id,
+      content: projectionContent,
+    });
+  }
+
+  #graphNeighbors(
+    revisionId: string,
+    input: ParsedWorkbenchGraphQuery,
+  ): GraphNeighbor[] {
+    const limit = input.request.max_fanout + 1;
+    const lineage = this.#database
+      .prepare(
+        `SELECT s.projection_revision_id, s.source_revision_id
+         FROM projection_revision_sources AS s
+         JOIN projection_revisions AS p
+           ON p.projection_revision_id = s.projection_revision_id
+         JOIN projection_objects AS o
+           ON o.projection_id = p.projection_id
+          AND o.current_revision_id = p.projection_revision_id
+         WHERE (s.source_revision_id = ? OR s.projection_revision_id = ?)
+           AND p.principal_id = ? AND p.scope_kind = ? AND p.scope_id = ?
+           AND p.projection_type <> 'relation'
+           AND p.sensitivity <> 'secret'
+           AND (? = 1 OR p.sensitivity <> 'sensitive')
+           AND o.lifecycle = 'active' AND p.lifecycle = 'active'
+           AND p.purged_at IS NULL AND p.valid_from <= ?
+           AND (p.valid_to IS NULL OR p.valid_to > ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM projection_invalidations AS i
+             WHERE i.projection_revision_id = p.projection_revision_id
+           )
+         ORDER BY s.projection_revision_id, s.ordinal
+         LIMIT ?`,
+      )
+      .all(
+        revisionId,
+        revisionId,
+        input.principal_id,
+        input.request.scope.kind,
+        input.request.scope.id,
+        input.include_sensitive ? 1 : 0,
+        input.as_of,
+        input.as_of,
+        limit,
+      ) as Array<{
+        projection_revision_id: string;
+        source_revision_id: string;
+      }>;
+    const relations = this.#database
+      .prepare(
+        `SELECT r.relation_id, r.relation_revision_id,
+                r.source_revision_id, r.target_revision_id,
+                r.relation_type, r.direction, r.description
+         FROM relation_revisions AS r
+         JOIN relation_objects AS o
+           ON o.relation_id = r.relation_id
+          AND o.current_relation_revision_id = r.relation_revision_id
+         JOIN projection_revisions AS p
+           ON p.projection_revision_id = r.projection_revision_id
+         WHERE (r.source_revision_id = ? OR r.target_revision_id = ?)
+           AND r.principal_id = ? AND r.scope_kind = ? AND r.scope_id = ?
+           AND p.sensitivity <> 'secret'
+           AND (? = 1 OR p.sensitivity <> 'sensitive')
+           AND o.lifecycle = 'active' AND r.lifecycle = 'active'
+           AND p.purged_at IS NULL AND r.valid_from <= ?
+           AND (r.valid_to IS NULL OR r.valid_to > ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM projection_invalidations AS i
+             WHERE i.projection_revision_id = r.projection_revision_id
+           )
+         ORDER BY r.relation_type, r.relation_id, r.relation_revision_id
+         LIMIT ?`,
+      )
+      .all(
+        revisionId,
+        revisionId,
+        input.principal_id,
+        input.request.scope.kind,
+        input.request.scope.id,
+        input.include_sensitive ? 1 : 0,
+        input.as_of,
+        input.as_of,
+        limit,
+      ) as Array<{
+        relation_id: string;
+        relation_revision_id: string;
+        source_revision_id: string;
+        target_revision_id: string;
+        relation_type: GraphEdge["relation"];
+        direction: GraphEdge["direction"];
+        description: string | null;
+      }>;
+    const neighbors: GraphNeighbor[] = lineage.map((row) => ({
+      neighbor_revision_id:
+        row.projection_revision_id === revisionId
+          ? row.source_revision_id
+          : row.projection_revision_id,
+      edge: WorkbenchGraphEdgeSchema.parse({
+        edge_id: edgeId({
+          from: row.projection_revision_id,
+          to: row.source_revision_id,
+          relation: "derived_from",
+        }),
+        from_node_id: row.projection_revision_id,
+        to_node_id: row.source_revision_id,
+        relation: "derived_from",
+        direction: "directed",
+        authority_plane: "projection_lineage",
+        source_reference_id: row.projection_revision_id,
+        description: null,
+      }),
+    }));
+    for (const row of relations) {
+      neighbors.push({
+        neighbor_revision_id:
+          row.source_revision_id === revisionId
+            ? row.target_revision_id
+            : row.source_revision_id,
+        edge: WorkbenchGraphEdgeSchema.parse({
+          edge_id: edgeId({
+            relation_revision_id: row.relation_revision_id,
+            from: row.source_revision_id,
+            to: row.target_revision_id,
+          }),
+          from_node_id: row.source_revision_id,
+          to_node_id: row.target_revision_id,
+          relation: row.relation_type,
+          direction: row.direction,
+          authority_plane: "governed_relation",
+          source_reference_id: row.relation_revision_id,
+          description: row.description,
+        }),
+      });
+    }
+    return [...new Map(
+      neighbors
+        .sort((left, right) => left.edge.edge_id.localeCompare(right.edge.edge_id))
+        .map((neighbor) => [neighbor.edge.edge_id, neighbor]),
+    ).values()];
+  }
+
+  #revisionById(revisionId: string): RevisionRow | undefined {
+    return this.#database
+      .prepare(`${REVISION_SELECT} WHERE r.revision_id = ?`)
+      .get(revisionId) as RevisionRow | undefined;
+  }
+
+  #projectionRevision(
+    revisionId: string,
+    input: ParsedWorkbenchGraphQuery,
+  ): ProjectionRow | undefined {
+    return this.#database
+      .prepare(
+        `SELECT p.projection_id, p.projection_revision_id,
+                o.current_revision_id, p.projection_type, p.lifecycle,
+                p.principal_id, p.scope_kind, p.scope_id, p.sensitivity,
+                p.valid_from, p.valid_to, p.payload_json, p.content_json,
+                p.content_hash
+         FROM projection_revisions AS p
+         JOIN projection_objects AS o ON o.projection_id = p.projection_id
+         WHERE p.projection_revision_id = ? AND p.principal_id = ?
+           AND p.scope_kind = ? AND p.scope_id = ?
+           AND p.purged_at IS NULL AND p.valid_from <= ?
+           AND (p.valid_to IS NULL OR p.valid_to > ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM projection_invalidations AS i
+             WHERE i.projection_revision_id = p.projection_revision_id
+           )`,
+      )
+      .get(
+        revisionId,
+        input.principal_id,
+        input.request.scope.kind,
+        input.request.scope.id,
+        input.as_of,
+        input.as_of,
+      ) as ProjectionRow | undefined;
+  }
+
+  #projectionContent(row: ProjectionRow): WorkbenchContent {
+    if (row.content_json === null) {
+      return { status: "unavailable", reason_code: "PROJECTION_CONTENT_UNAVAILABLE" };
+    }
+    try {
+      const parsed = JSON.parse(row.content_json) as {
+        storage?: string;
+        text?: string;
+        media_type?: string;
+      };
+      if (
+        parsed.storage === "inline" &&
+        typeof parsed.text === "string" &&
+        parsed.text.length > 0 &&
+        typeof parsed.media_type === "string"
+      ) {
+        return {
+          status: "available",
+          text: parsed.text,
+          media_type: parsed.media_type,
+          content_hash: CanonicalHashSchema.parse(row.content_hash),
+        };
+      }
+    } catch {
+      // A corrupt projection remains an explicit unavailable node.
+    }
+    return { status: "unavailable", reason_code: "PROJECTION_CONTENT_INVALID" };
+  }
+
+  #projectionLabel(row: ProjectionRow, nodeContent: WorkbenchContent): string {
+    if (row.payload_json !== null) {
+      try {
+        const payload = JSON.parse(row.payload_json) as Record<string, unknown>;
+        for (const field of ["summary", "trigger", "goal", "statement", "key"]) {
+          const value = payload[field];
+          if (typeof value === "string" && value.trim().length > 0) {
+            return value.trim().slice(0, 8_000);
+          }
+        }
+      } catch {
+        // The content fallback below preserves the typed unavailable boundary.
+      }
+    }
+    if (nodeContent.status === "available") {
+      return nodeContent.text.slice(0, 8_000);
+    }
+    return `${row.projection_type} projection ${row.projection_id}`;
   }
 
   #provenance(

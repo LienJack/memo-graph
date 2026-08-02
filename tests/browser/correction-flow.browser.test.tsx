@@ -29,6 +29,12 @@ function api(overrides: Partial<MemoryWorkbenchApi> = {}): MemoryWorkbenchApi {
   return {
     listMemories: vi.fn(async () => readyList),
     memoryDetail: vi.fn(async () => readyDetail),
+    graph: vi.fn(async () => ({
+      status: "failed",
+      reason_code: "GRAPH_FIXTURE_UNUSED",
+      retryable: false,
+      warnings: [],
+    })),
     previewCorrection: vi.fn(async () => readyPreview),
     confirmCorrection: vi.fn(async () => readyConfirmation),
     ...overrides,

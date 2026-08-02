@@ -61,6 +61,7 @@ type FixedWindow = { startedAtMs: number; count: number };
 type WorkbenchRequestService = {
   list(input: unknown): Promise<unknown>;
   detail(input: unknown): Promise<unknown>;
+  graph(input: unknown): Promise<unknown>;
   previewCorrection(input: unknown): Promise<unknown>;
   confirmCorrection(input: unknown): Promise<unknown>;
 };
@@ -68,6 +69,7 @@ type WorkbenchRequestService = {
 const WORKBENCH_ROUTES = {
   "/api/workbench/memories/query": "list",
   "/api/workbench/memories/detail": "detail",
+  "/api/workbench/graph/query": "graph",
   "/api/workbench/corrections/preview": "previewCorrection",
   "/api/workbench/corrections/confirm": "confirmCorrection",
 } as const satisfies Record<string, keyof WorkbenchRequestService>;

@@ -14,6 +14,8 @@ export type StructuralUrlState = {
   scopeId: string | null;
   selectedMemoryId: string | null;
   selectedRevisionId: string | null;
+  graphCenterKind: "memory_revision" | "projection_revision" | null;
+  graphCenterRevisionId: string | null;
   includeNonCurrent: boolean;
 };
 
@@ -32,6 +34,8 @@ const ALLOWED_KEYS = new Set([
   "scope_id",
   "memory_id",
   "revision_id",
+  "graph_center_kind",
+  "graph_revision_id",
   "include_non_current",
 ]);
 
@@ -78,6 +82,23 @@ export function parseStructuralUrl(url: URL): {
   if (selectedRevisionId !== null) {
     sanitizedUrl.searchParams.set("revision_id", selectedRevisionId);
   }
+  const rawGraphCenterKind = source.get("graph_center_kind");
+  const rawGraphRevisionId = source.get("graph_revision_id");
+  const graphCenterKind =
+    rawGraphCenterKind === "memory_revision" ||
+    rawGraphCenterKind === "projection_revision"
+      ? rawGraphCenterKind
+      : null;
+  const graphCenterRevisionId =
+    graphCenterKind !== null &&
+    rawGraphRevisionId !== null &&
+    IDENTIFIER.test(rawGraphRevisionId)
+      ? rawGraphRevisionId
+      : null;
+  if (graphCenterKind !== null && graphCenterRevisionId !== null) {
+    sanitizedUrl.searchParams.set("graph_center_kind", graphCenterKind);
+    sanitizedUrl.searchParams.set("graph_revision_id", graphCenterRevisionId);
+  }
 
   const includeNonCurrent = source.get("include_non_current") === "1";
   if (includeNonCurrent) {
@@ -92,6 +113,9 @@ export function parseStructuralUrl(url: URL): {
       scopeId: scopeKind !== null && scopeId !== null ? scopeId : null,
       selectedMemoryId,
       selectedRevisionId,
+      graphCenterKind:
+        graphCenterRevisionId === null ? null : graphCenterKind,
+      graphCenterRevisionId,
       includeNonCurrent,
     },
     sanitizedUrl,
@@ -120,7 +144,15 @@ export function urlForMemoryStructure(
 ): URL {
   const { sanitizedUrl } = parseStructuralUrl(url);
   sanitizedUrl.searchParams.delete("view");
-  for (const key of ["scope_kind", "scope_id", "memory_id", "revision_id", "include_non_current"]) {
+  for (const key of [
+    "scope_kind",
+    "scope_id",
+    "memory_id",
+    "revision_id",
+    "graph_center_kind",
+    "graph_revision_id",
+    "include_non_current",
+  ]) {
     sanitizedUrl.searchParams.delete(key);
   }
   if (
@@ -145,6 +177,35 @@ export function urlForMemoryStructure(
   }
   if (input.includeNonCurrent) {
     sanitizedUrl.searchParams.set("include_non_current", "1");
+  }
+  return sanitizedUrl;
+}
+
+export function urlForGraphCenter(
+  url: URL,
+  input: {
+    scope: { kind: NonNullable<StructuralUrlState["scopeKind"]>; id: string };
+    center: {
+      kind: NonNullable<StructuralUrlState["graphCenterKind"]>;
+      revisionId: string;
+    };
+  },
+): URL {
+  const { sanitizedUrl } = parseStructuralUrl(url);
+  for (const key of [
+    "memory_id",
+    "revision_id",
+    "graph_center_kind",
+    "graph_revision_id",
+  ]) {
+    sanitizedUrl.searchParams.delete(key);
+  }
+  sanitizedUrl.searchParams.set("view", "graph");
+  sanitizedUrl.searchParams.set("scope_kind", input.scope.kind);
+  sanitizedUrl.searchParams.set("scope_id", input.scope.id);
+  if (IDENTIFIER.test(input.center.revisionId)) {
+    sanitizedUrl.searchParams.set("graph_center_kind", input.center.kind);
+    sanitizedUrl.searchParams.set("graph_revision_id", input.center.revisionId);
   }
   return sanitizedUrl;
 }

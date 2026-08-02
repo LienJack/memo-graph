@@ -300,6 +300,10 @@ describe("workbench loopback HTTP boundary", () => {
           calls.push({ sessionId, operation: "detail", body });
           return { status: "not_found", reason_code: "NOT_FOUND" };
         },
+        graph: async (body) => {
+          calls.push({ sessionId, operation: "graph", body });
+          return { status: "not_found", reason_code: "NOT_FOUND" };
+        },
         previewCorrection: async (body) => {
           calls.push({ sessionId, operation: "preview", body });
           return { status: "failed", reason_code: "FIXTURE" };

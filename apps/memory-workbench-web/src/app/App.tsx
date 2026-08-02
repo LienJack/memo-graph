@@ -4,6 +4,7 @@ import { MEMORY_FIXTURES, STATE_MESSAGES, type MemoryFixture } from "../api/fixt
 import { FocusDialog } from "./focus-dialog.js";
 import type { MemoryWorkbenchApi } from "../features/memories/api.js";
 import { GovernedMemoryBrowser } from "../features/memories/memory-browser.js";
+import { GraphExplorer } from "../features/graph/graph-explorer.js";
 import {
   canMutate,
   recoveryPolicy,
@@ -13,6 +14,7 @@ import {
 import {
   parseStructuralUrl,
   urlForMemoryStructure,
+  urlForGraphCenter,
   urlForView,
   type WorkbenchView,
 } from "./url-state.js";
@@ -184,6 +186,8 @@ export function App({ api, initialRecoveryKind = "ready", initialUrl }: AppProps
                   scopeId: next.scope?.id ?? null,
                   selectedMemoryId: next.selectedMemoryId,
                   selectedRevisionId: next.selectedRevisionId,
+                  graphCenterKind: null,
+                  graphCenterRevisionId: null,
                   includeNonCurrent: next.includeNonCurrent,
                 }));
                 if (initialUrl === undefined) {
@@ -201,7 +205,64 @@ export function App({ api, initialRecoveryKind = "ready", initialUrl }: AppProps
             />
           )
         ) : null}
-        {view === "graph" ? <GraphView /> : null}
+        {view === "graph" ? (
+          api === undefined ? <GraphPreview /> : (
+            <GraphExplorer
+              api={api}
+              onCenterChange={(scope, center) => {
+                setStructure((current) => ({
+                  ...current,
+                  view: "graph",
+                  scopeKind: scope.kind,
+                  scopeId: scope.id,
+                  selectedMemoryId: null,
+                  selectedRevisionId: null,
+                  graphCenterKind: center.kind,
+                  graphCenterRevisionId: center.revisionId,
+                }));
+                if (initialUrl === undefined) {
+                  window.history.pushState(
+                    null,
+                    "",
+                    urlForGraphCenter(new URL(window.location.href), {
+                      scope,
+                      center,
+                    }),
+                  );
+                }
+              }}
+              onOpenMemory={(memoryId, revisionId, scope) => {
+                const next = {
+                  scope,
+                  selectedMemoryId: memoryId,
+                  selectedRevisionId: revisionId,
+                  includeNonCurrent: true,
+                };
+                setView("memory");
+                setStructure((current) => ({
+                  ...current,
+                  view: "memory",
+                  scopeKind: scope.kind,
+                  scopeId: scope.id,
+                  selectedMemoryId: memoryId,
+                  selectedRevisionId: revisionId,
+                  graphCenterKind: null,
+                  graphCenterRevisionId: null,
+                  includeNonCurrent: true,
+                }));
+                setAnnouncement("已从 Graph 打开权威记忆详情");
+                if (initialUrl === undefined) {
+                  window.history.pushState(
+                    null,
+                    "",
+                    urlForMemoryStructure(new URL(window.location.href), next),
+                  );
+                }
+              }}
+              structure={structure}
+            />
+          )
+        ) : null}
         {view === "runtime" ? <RuntimeView /> : null}
       </main>
 
@@ -340,7 +401,7 @@ function RecoveryNotice({
   );
 }
 
-function GraphView() {
+function GraphPreview() {
   return (
     <section className="feature-panel" aria-labelledby="graph-heading">
       <div className="feature-intro">

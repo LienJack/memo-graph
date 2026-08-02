@@ -80,6 +80,8 @@ import {
   VectorScopeCheckpointSchema,
   WorkbenchCorrectionImpactSchema,
   WorkbenchCorrectionImpactSealSchema,
+  WorkbenchGraphRequestSchema,
+  type WorkbenchGraphResultSchema,
   type WorkbenchMemoryCandidateSetSchema,
   WorkbenchMemoryDetailRequestSchema,
   type WorkbenchMemoryDetailResultSchema,
@@ -1505,6 +1507,23 @@ export const WorkbenchMemoryDetailQuerySchema = z
   })
   .strict();
 
+export const WorkbenchGraphQuerySchema = z
+  .object({
+    ...WorkbenchReadAccessFields,
+    request: WorkbenchGraphRequestSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const allowed = new Set(value.allowed_scopes.map(scopeKey));
+    if (!allowed.has(scopeKey(value.request.scope))) {
+      context.addIssue({
+        code: "custom",
+        path: ["request", "scope"],
+        message: "requested graph scope must be allowed",
+      });
+    }
+  });
+
 export const ProjectionSourceListInputSchema = z
   .object({
     principal_id: IdentifierSchema,
@@ -2746,6 +2765,7 @@ export const WorkerOperationSchema = z.enum([
   "list_workbench_memories",
   "get_workbench_memory_summaries",
   "get_workbench_memory_detail",
+  "get_workbench_graph",
   "commit_episode",
   "drain_fts",
   "search_evidence",
@@ -3366,6 +3386,15 @@ export type ParsedWorkbenchMemoryDetailQuery = z.output<
 >;
 export type WorkbenchMemoryDetailResult = z.infer<
   typeof WorkbenchMemoryDetailResultSchema
+>;
+export type WorkbenchGraphQuery = z.input<
+  typeof WorkbenchGraphQuerySchema
+>;
+export type ParsedWorkbenchGraphQuery = z.output<
+  typeof WorkbenchGraphQuerySchema
+>;
+export type WorkbenchGraphResult = z.infer<
+  typeof WorkbenchGraphResultSchema
 >;
 export type StorageHealth = z.infer<typeof StorageHealthSchema>;
 export type VerifyArtifactsResult = z.infer<typeof VerifyArtifactsResultSchema>;

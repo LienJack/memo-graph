@@ -163,6 +163,36 @@ describe("memory workbench authenticated HTTP workflow", () => {
       },
     });
 
+    const graph = await post(
+      host,
+      authority.bearer,
+      "/api/workbench/graph/query",
+      {
+        scope,
+        center: {
+          kind: "memory_revision",
+          revision_id: admitted.current_revision_id,
+        },
+        max_depth: 1,
+        max_fanout: 10,
+        max_nodes: 20,
+        max_edges: 30,
+      },
+    );
+    expect(graph.body).toEqual(
+      expect.objectContaining({
+        status: "degraded",
+        center_node_id: admitted.current_revision_id,
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            node_id: admitted.current_revision_id,
+            authority_plane: "canonical",
+          }),
+        ]),
+        projection_state: "pending",
+      }),
+    );
+
     const beforePreview = await host.runtime?.runtime.storage.health();
     const preview = await post(
       host,

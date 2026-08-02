@@ -11,6 +11,8 @@ import {
   WorkbenchCorrectionPreviewResultSchema,
   WorkbenchMemoryDetailRequestSchema,
   WorkbenchMemoryDetailResultSchema,
+  WorkbenchGraphRequestSchema,
+  WorkbenchGraphResultSchema,
   WorkbenchMemoryListRequestSchema,
   WorkbenchMemoryListResultSchema,
   canonicalSha256,
@@ -18,6 +20,7 @@ import {
   type LocalPrincipal,
   type ParsedWorkbenchMemoryListRequest,
   type WorkbenchMemoryDetailResult,
+  type WorkbenchGraphResult,
   type WorkbenchMemoryListResult,
   type WorkbenchMemoryMember,
   type WorkbenchOpaqueCursor,
@@ -73,6 +76,7 @@ type WorkbenchStoragePort = Pick<
   | "listWorkbenchMemories"
   | "getWorkbenchMemorySummaries"
   | "getWorkbenchMemoryDetail"
+  | "getWorkbenchGraph"
   | "previewWorkbenchCorrection"
   | "applyMemoryRevision"
 >;
@@ -288,6 +292,49 @@ export class WorkbenchService {
       });
     } catch (error) {
       return detailFailure(error);
+    }
+  }
+
+  async graph(input: unknown): Promise<WorkbenchGraphResult> {
+    const request = WorkbenchGraphRequestSchema.safeParse(input);
+    if (!request.success) {
+      return WorkbenchGraphResultSchema.parse({
+        status: "failed",
+        reason_code: "INVALID_REQUEST",
+        retryable: false,
+        warnings: [],
+      });
+    }
+    const allowed = this.#authority.allowed_scopes.some(
+      (scope) =>
+        scope.kind === request.data.scope.kind &&
+        scope.id === request.data.scope.id,
+    );
+    if (!allowed) {
+      return WorkbenchGraphResultSchema.parse({
+        status: "governance_excluded",
+        reason_code: "SCOPE_NOT_ALLOWED",
+        retryable: false,
+        warnings: [],
+      });
+    }
+    try {
+      return await this.#storage.getWorkbenchGraph({
+        principal_id: this.#authority.principal_id,
+        allowed_scopes: this.#authority.allowed_scopes,
+        as_of: this.#clock(),
+        include_sensitive: this.#includeSensitive,
+        context_scope: null,
+        request: request.data,
+      });
+    } catch (error) {
+      return WorkbenchGraphResultSchema.parse({
+        status: "failed",
+        reason_code:
+          error instanceof StorageError ? error.code : "WORKBENCH_GRAPH_FAILED",
+        retryable: error instanceof StorageError ? error.retryable : false,
+        warnings: [],
+      });
     }
   }
 

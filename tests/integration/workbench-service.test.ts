@@ -4,6 +4,7 @@ import {
   LocalPrincipalSchema,
   WorkbenchMemoryCandidateSetSchema,
   WorkbenchMemoryDetailResultSchema,
+  WorkbenchGraphResultSchema,
   WorkbenchMemorySummaryBatchResultSchema,
   WorkbenchMemorySummarySchema,
   WorkbenchOpaqueCursorSchema,
@@ -151,6 +152,7 @@ describe("WorkbenchService", () => {
             retryable: false,
             warnings: [],
           }),
+        getWorkbenchGraph: vi.fn(),
         previewWorkbenchCorrection: vi.fn(),
         applyMemoryRevision: vi.fn(),
       },
@@ -209,6 +211,7 @@ describe("WorkbenchService", () => {
         listWorkbenchMemories: vi.fn(),
         getWorkbenchMemorySummaries,
         getWorkbenchMemoryDetail: vi.fn(),
+        getWorkbenchGraph: vi.fn(),
         previewWorkbenchCorrection: vi.fn(),
         applyMemoryRevision: vi.fn(),
       },
@@ -241,6 +244,7 @@ describe("WorkbenchService", () => {
           }),
         getWorkbenchMemorySummaries: vi.fn(),
         getWorkbenchMemoryDetail: vi.fn(),
+        getWorkbenchGraph: vi.fn(),
         previewWorkbenchCorrection: vi.fn(),
         applyMemoryRevision: vi.fn(),
       },
@@ -252,5 +256,68 @@ describe("WorkbenchService", () => {
       retryable: false,
       warnings: ["candidate_space_truncated"],
     });
+  });
+
+  it("derives Graph authority from the session principal and exact allowed scope", async () => {
+    const center = summary("memory_graph", "revision_graph");
+    const graphResult = WorkbenchGraphResultSchema.parse({
+      status: "degraded",
+      center_node_id: center.revision_id,
+      nodes: [
+        {
+          node_id: center.revision_id,
+          kind: "memory_revision",
+          authority_plane: "canonical",
+          reference_id: center.memory_id,
+          revision_id: center.revision_id,
+          label: "Memory memory_graph",
+          scope,
+          lifecycle: "active",
+          is_current: true,
+          content: center.content,
+        },
+      ],
+      edges: [],
+      projection_state: "unavailable",
+      truncated: false,
+      omitted_node_count: 0,
+      omitted_edge_count: 0,
+      warnings: ["graph_projection_unavailable"],
+    });
+    const getWorkbenchGraph = vi.fn(async () => graphResult);
+    const service = new WorkbenchService({
+      authority,
+      snapshots: new StableRegistry(),
+      clock: () => NOW,
+      storage: {
+        listWorkbenchMemories: vi.fn(),
+        getWorkbenchMemorySummaries: vi.fn(),
+        getWorkbenchMemoryDetail: vi.fn(),
+        getWorkbenchGraph,
+        previewWorkbenchCorrection: vi.fn(),
+        applyMemoryRevision: vi.fn(),
+      },
+    });
+
+    await expect(service.graph({
+      scope,
+      center: { kind: "memory_revision", revision_id: center.revision_id },
+    })).resolves.toEqual(graphResult);
+    expect(getWorkbenchGraph).toHaveBeenCalledWith(
+      expect.objectContaining({
+        principal_id: "user_local",
+        allowed_scopes: [scope],
+        request: expect.objectContaining({ scope }),
+      }),
+    );
+
+    await expect(service.graph({
+      scope: { kind: "topic", id: "outside" },
+      center: { kind: "memory_revision", revision_id: center.revision_id },
+    })).resolves.toMatchObject({
+      status: "governance_excluded",
+      reason_code: "SCOPE_NOT_ALLOWED",
+    });
+    expect(getWorkbenchGraph).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,6 +4,8 @@ import {
   WorkbenchCorrectionConfirmRequestSchema,
   WorkbenchCorrectionImpactSchema,
   WorkbenchCorrectionPreviewResultSchema,
+  WorkbenchGraphRequestSchema,
+  WorkbenchGraphResultSchema,
   WorkbenchMemoryDetailResultSchema,
   WorkbenchMemoryListRequestSchema,
   WorkbenchMemoryListResultSchema,
@@ -295,5 +297,89 @@ describe("workbench contracts", () => {
     }
     expect(detail.memory.writable).toBe(true);
     expect(detail.history).toHaveLength(1);
+  });
+
+  it("requires a bounded graph whose semantic edges reference returned governed nodes", () => {
+    const request = WorkbenchGraphRequestSchema.parse({
+      scope: { kind: "topic", id: "topic_alpha" },
+      center: { kind: "memory_revision", revision_id: "revision_1" },
+    });
+    expect(request).toMatchObject({
+      max_depth: 2,
+      max_fanout: 20,
+      max_nodes: 80,
+      max_edges: 120,
+    });
+
+    const graph = WorkbenchGraphResultSchema.parse({
+      status: "degraded",
+      center_node_id: "revision_1",
+      nodes: [
+        {
+          node_id: "revision_1",
+          kind: "memory_revision",
+          authority_plane: "canonical",
+          reference_id: "memory_1",
+          revision_id: "revision_1",
+          label: "The user prefers exact evidence links.",
+          scope: summary.scope,
+          lifecycle: "active",
+          is_current: true,
+          content: summary.content,
+        },
+        {
+          node_id: "projection_revision_topic_1",
+          kind: "topic",
+          authority_plane: "projection",
+          reference_id: "projection_topic_1",
+          revision_id: "projection_revision_topic_1",
+          label: "Evidence discipline",
+          scope: summary.scope,
+          lifecycle: "active",
+          is_current: true,
+          content: {
+            ...summary.content,
+            text: "Evidence discipline",
+          },
+        },
+      ],
+      edges: [
+        {
+          edge_id: "edge_projection_source",
+          from_node_id: "projection_revision_topic_1",
+          to_node_id: "revision_1",
+          relation: "derived_from",
+          direction: "directed",
+          authority_plane: "projection_lineage",
+          source_reference_id: "projection_revision_topic_1",
+          description: null,
+        },
+      ],
+      projection_state: "unavailable",
+      truncated: false,
+      omitted_node_count: 0,
+      omitted_edge_count: 0,
+      warnings: ["graph_projection_unavailable"],
+    });
+    expect(graph.status).toBe("degraded");
+    if (graph.status !== "degraded") {
+      throw new Error("expected a degraded graph contract fixture");
+    }
+    const lineageEdge = graph.edges[0];
+    if (lineageEdge === undefined) {
+      throw new Error("expected a projection lineage edge");
+    }
+
+    expect(() =>
+      WorkbenchGraphResultSchema.parse({
+        ...graph,
+        edges: [
+          {
+            ...lineageEdge,
+            to_node_id: "hidden_revision",
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });

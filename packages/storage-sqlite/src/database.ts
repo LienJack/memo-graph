@@ -116,6 +116,7 @@ import {
   GovernedMemorySearchQuerySchema,
   MemoryEligibilityInputSchema,
   WorkbenchMemoryDetailQuerySchema,
+  WorkbenchGraphQuerySchema,
   WorkbenchMemoryListQuerySchema,
   WorkbenchMemorySummaryBatchQuerySchema,
   WorkbenchCorrectionStoragePreviewInputSchema,
@@ -186,6 +187,7 @@ import {
   type MemoryEligibilityResult,
   type WorkbenchMemoryCandidateSet,
   type WorkbenchMemoryDetailResult,
+  type WorkbenchGraphResult,
   type WorkbenchMemorySummaryBatchResult,
   type WorkbenchCorrectionStoragePreviewResult,
   type MemoryControlResult,
@@ -2789,6 +2791,10 @@ export class StorageDatabase {
     return this.#workbench.detail(
       WorkbenchMemoryDetailQuerySchema.parse(input),
     );
+  }
+
+  getWorkbenchGraph(input: unknown): WorkbenchGraphResult {
+    return this.#workbench.graph(WorkbenchGraphQuerySchema.parse(input));
   }
 
   commitEpisode(input: unknown): CommitResult {

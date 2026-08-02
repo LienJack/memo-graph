@@ -40,6 +40,10 @@ export async function installedGraphBackendIdentity() {
 
 export async function applyCompleteGraphProjectionFixture(
   storage: SqliteStorageClient,
+  options: {
+    relationSensitivity?: "personal" | "sensitive";
+    relationDescription?: string;
+  } = {},
 ) {
   const sources = await seedProjectionSources(storage);
   const health = await storage.health();
@@ -93,7 +97,9 @@ export async function applyCompleteGraphProjectionFixture(
         target_revision_id: sources[1].revision_id,
         relation_type: "supports",
         direction: "directed",
-        description: "Authority supports exact revalidation.",
+        description:
+          options.relationDescription ??
+          "Authority supports exact revalidation.",
       },
     },
     {
@@ -127,7 +133,10 @@ export async function applyCompleteGraphProjectionFixture(
       scope: { kind: "workspace", id: "workspace_local" },
       lifecycle: "active",
       authority: "derived",
-      sensitivity: "personal",
+      sensitivity:
+        definition.projection_type === "relation"
+          ? options.relationSensitivity ?? "personal"
+          : "personal",
       validity: {
         valid_from: NOW,
         valid_to: null,

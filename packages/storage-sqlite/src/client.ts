@@ -24,6 +24,7 @@ import {
   VectorScopeCheckpointSchema,
   WorkbenchMemoryCandidateSetSchema,
   WorkbenchMemoryDetailResultSchema,
+  WorkbenchGraphResultSchema,
   WorkbenchMemorySummaryBatchResultSchema,
   canonicalJson,
   canonicalSha256,
@@ -47,6 +48,7 @@ import {
   type SecretAdmissionTrust,
   type VectorScopeCheckpoint,
   type WorkbenchMemoryDetailResult,
+  type WorkbenchGraphResult,
 } from "@memo-graph/contracts";
 import { z } from "zod";
 
@@ -109,6 +111,7 @@ import {
   GovernedMemorySearchQuerySchema,
   GovernedMemorySearchResultSchema,
   WorkbenchMemoryDetailQuerySchema,
+  WorkbenchGraphQuerySchema,
   WorkbenchMemoryListQuerySchema,
   WorkbenchMemorySummaryBatchQuerySchema,
   WorkbenchCorrectionStoragePreviewInputSchema,
@@ -245,6 +248,7 @@ import {
   type GovernedMemoryLookupResult,
   type WorkbenchMemoryCandidateSet,
   type WorkbenchMemoryDetailQuery,
+  type WorkbenchGraphQuery,
   type WorkbenchMemoryListQuery,
   type WorkbenchMemorySummaryBatchQuery,
   type WorkbenchMemorySummaryBatchResult,
@@ -1970,6 +1974,17 @@ export class SqliteStorageClient {
       "get_workbench_memory_detail",
       request,
       WorkbenchMemoryDetailResultSchema,
+    );
+  }
+
+  getWorkbenchGraph(
+    input: WorkbenchGraphQuery,
+  ): Promise<WorkbenchGraphResult> {
+    const request = WorkbenchGraphQuerySchema.parse(input);
+    return this.#request(
+      "get_workbench_graph",
+      request,
+      WorkbenchGraphResultSchema,
     );
   }
 

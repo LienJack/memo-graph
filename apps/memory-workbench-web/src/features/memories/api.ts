@@ -5,6 +5,8 @@ import type {
   WorkbenchMemoryDetailResult,
   WorkbenchMemoryListRequest,
   WorkbenchMemoryListResult,
+  WorkbenchGraphRequest,
+  WorkbenchGraphResult,
 } from "@memo-graph/contracts/workbench";
 
 export type MemoryWorkbenchApi = {
@@ -17,6 +19,10 @@ export type MemoryWorkbenchApi = {
     revisionId: string | null,
     signal?: AbortSignal,
   ): Promise<WorkbenchMemoryDetailResult>;
+  graph(
+    request: WorkbenchGraphRequest,
+    signal?: AbortSignal,
+  ): Promise<WorkbenchGraphResult>;
   previewCorrection(
     draft: WorkbenchCorrectionDraft,
     signal?: AbortSignal,

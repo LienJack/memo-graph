@@ -56,6 +56,7 @@ const RECOVERY_OPERATION_BY_WORKER = {
   list_workbench_memories: null,
   get_workbench_memory_summaries: null,
   get_workbench_memory_detail: null,
+  get_workbench_graph: null,
   commit_episode: "canonical",
   drain_fts: "projection",
   search_evidence: null,

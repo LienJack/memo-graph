@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseStructuralUrl,
   urlForMemoryStructure,
+  urlForGraphCenter,
   urlForView,
 } from "./url-state.js";
 
@@ -21,6 +22,8 @@ describe("structural URL state", () => {
       scopeId: "memo-graph",
       selectedMemoryId: null,
       selectedRevisionId: null,
+      graphCenterKind: null,
+      graphCenterRevisionId: null,
       includeNonCurrent: false,
     });
     expect(parsed.changed).toBe(true);
@@ -56,6 +59,23 @@ describe("structural URL state", () => {
     );
     expect(next.searchParams.toString()).toBe(
       "scope_kind=workspace&scope_id=memo-graph&memory_id=memory_current&revision_id=revision_current&include_non_current=1",
+    );
+    expect(next.href).not.toContain("private");
+  });
+
+  it("deep-links only a governed Graph center and exact scope", () => {
+    const next = urlForGraphCenter(
+      new URL("http://127.0.0.1:4321/?query=private@example.test"),
+      {
+        scope: { kind: "topic", id: "memory_governance" },
+        center: {
+          kind: "projection_revision",
+          revisionId: "projection_revision_topic_1",
+        },
+      },
+    );
+    expect(next.searchParams.toString()).toBe(
+      "view=graph&scope_kind=topic&scope_id=memory_governance&graph_center_kind=projection_revision&graph_revision_id=projection_revision_topic_1",
     );
     expect(next.href).not.toContain("private");
   });

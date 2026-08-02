@@ -4,6 +4,7 @@ import {
   WorkbenchMemoryDetailResultSchema,
   WorkbenchMemoryListResultSchema,
   WorkbenchMemorySummarySchema,
+  WorkbenchGraphResultSchema,
 } from "../../../packages/contracts/src/workbench.js";
 
 const NOW = "2026-08-02T08:00:00.000Z";
@@ -142,6 +143,56 @@ export const historicalDetail = WorkbenchMemoryDetailResultSchema.parse({
     conflicts: [],
     projection_state: "ready",
   },
+});
+
+export const degradedGraph = WorkbenchGraphResultSchema.parse({
+  status: "degraded",
+  center_node_id: currentMemory.revision_id,
+  nodes: [
+    {
+      node_id: currentMemory.revision_id,
+      kind: "memory_revision",
+      authority_plane: "canonical",
+      reference_id: currentMemory.memory_id,
+      revision_id: currentMemory.revision_id,
+      label: currentMemory.content.status === "available"
+        ? currentMemory.content.text
+        : "当前记忆",
+      scope: currentMemory.scope,
+      lifecycle: currentMemory.lifecycle,
+      is_current: true,
+      content: currentMemory.content,
+    },
+    {
+      node_id: "projection_revision_workbench_topic",
+      kind: "topic",
+      authority_plane: "projection",
+      reference_id: "projection_workbench_topic",
+      revision_id: "projection_revision_workbench_topic",
+      label: "启动入口治理",
+      scope: currentMemory.scope,
+      lifecycle: "active",
+      is_current: true,
+      content: available("记忆工作台、Graph 与运行仪表盘的入口关系"),
+    },
+  ],
+  edges: [
+    {
+      edge_id: "edge_workbench_topic_source",
+      from_node_id: "projection_revision_workbench_topic",
+      to_node_id: currentMemory.revision_id,
+      relation: "derived_from",
+      direction: "directed",
+      authority_plane: "projection_lineage",
+      source_reference_id: "projection_revision_workbench_topic",
+      description: null,
+    },
+  ],
+  projection_state: "unavailable",
+  truncated: false,
+  omitted_node_count: 0,
+  omitted_edge_count: 0,
+  warnings: ["graph_projection_unavailable"],
 });
 
 export const readyPreview = WorkbenchCorrectionPreviewResultSchema.parse({

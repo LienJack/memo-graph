@@ -74,6 +74,53 @@ const nativeIt =
     : it.skip;
 
 describe("graph content residual security", () => {
+  it("excludes sensitive relation descriptions from workbench Graph responses", async () => {
+    const dataRoot = temporaryRoot();
+    const storage = await SqliteStorageClient.open({ dataRoot });
+    const marker = "WORKBENCH_SENSITIVE_RELATION_DESCRIPTION";
+    try {
+      const fixture = await applyCompleteGraphProjectionFixture(storage, {
+        relationSensitivity: "sensitive",
+        relationDescription: marker,
+      });
+      const graph = await storage.getWorkbenchGraph({
+        principal_id: "user_local",
+        allowed_scopes: [SCOPE],
+        as_of: "2026-07-29T10:20:00.000Z",
+        include_sensitive: false,
+        context_scope: null,
+        request: {
+          scope: SCOPE,
+          center: {
+            kind: "memory_revision",
+            revision_id: fixture.sources[0].revision_id,
+          },
+          max_depth: 2,
+          max_fanout: 20,
+          max_nodes: 40,
+          max_edges: 80,
+        },
+      });
+      expect(JSON.stringify(graph)).not.toContain(marker);
+      if (
+        graph.status === "ready" ||
+        graph.status === "ready_empty" ||
+        graph.status === "degraded"
+      ) {
+        expect(graph.edges).not.toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              relation: "supports",
+              authority_plane: "governed_relation",
+            }),
+          ]),
+        );
+      }
+    } finally {
+      await storage.close();
+    }
+  });
+
   nativeIt("keeps purged plaintext out of graph-derived and diagnostic surfaces", async () => {
     const dataRoot = temporaryRoot();
     const recoveryHeadProvider = testRecoveryHeadProvider(

@@ -1,9 +1,13 @@
-import type { WorkbenchMemoryListRequest } from "@memo-graph/contracts/workbench";
+import type {
+  WorkbenchGraphRequest,
+  WorkbenchMemoryListRequest,
+} from "@memo-graph/contracts/workbench";
 import {
   WorkbenchCorrectionConfirmResultSchema,
   WorkbenchCorrectionPreviewResultSchema,
   WorkbenchMemoryDetailResultSchema,
   WorkbenchMemoryListResultSchema,
+  WorkbenchGraphResultSchema,
 } from "@memo-graph/contracts/workbench";
 import type { ZodType } from "zod";
 
@@ -52,6 +56,15 @@ export class WorkbenchApiClient {
       "/api/workbench/memories/detail",
       WorkbenchMemoryDetailResultSchema,
       { memory_id: memoryId, revision_id: revisionId },
+      signal,
+    );
+  }
+
+  graph(request: WorkbenchGraphRequest, signal?: AbortSignal) {
+    return this.#request(
+      "/api/workbench/graph/query",
+      WorkbenchGraphResultSchema,
+      request,
       signal,
     );
   }

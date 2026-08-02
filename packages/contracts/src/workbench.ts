@@ -599,7 +599,166 @@ export const WorkbenchCorrectionConfirmResultSchema = z.discriminatedUnion(
   ],
 );
 
+export const WorkbenchGraphNodeKindSchema = z.enum([
+  "memory_revision",
+  "topic",
+  "scenario",
+  "procedure",
+  "core",
+]);
+
+export const WorkbenchGraphCenterSchema = z
+  .object({
+    kind: z.enum(["memory_revision", "projection_revision"]),
+    revision_id: IdentifierSchema,
+  })
+  .strict();
+
+export const WorkbenchGraphRequestSchema = z
+  .object({
+    scope: ScopeSchema,
+    center: WorkbenchGraphCenterSchema,
+    max_depth: z.number().int().min(0).max(3).default(2),
+    max_fanout: z.number().int().min(1).max(50).default(20),
+    max_nodes: z.number().int().min(1).max(200).default(80),
+    max_edges: z.number().int().min(0).max(400).default(120),
+  })
+  .strict();
+
+export const WorkbenchGraphNodeSchema = z
+  .object({
+    node_id: IdentifierSchema,
+    kind: WorkbenchGraphNodeKindSchema,
+    authority_plane: z.enum(["canonical", "projection"]),
+    reference_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+    label: z.string().trim().min(1).max(8_000),
+    scope: ScopeSchema,
+    lifecycle: LifecycleSchema,
+    is_current: z.boolean(),
+    content: WorkbenchContentSchema,
+  })
+  .strict();
+
+export const WorkbenchGraphRelationSchema = z.enum([
+  "derived_from",
+  "supports",
+  "contradicts",
+  "supersedes",
+  "depends_on",
+  "causes",
+  "precedes",
+  "belongs_to_topic",
+  "applies_to_scenario",
+  "references_entity",
+]);
+
+export const WorkbenchGraphEdgeSchema = z
+  .object({
+    edge_id: IdentifierSchema,
+    from_node_id: IdentifierSchema,
+    to_node_id: IdentifierSchema,
+    relation: WorkbenchGraphRelationSchema,
+    direction: z.enum(["directed", "undirected"]),
+    authority_plane: z.enum(["projection_lineage", "governed_relation"]),
+    source_reference_id: IdentifierSchema,
+    description: z.string().trim().min(1).max(8_000).nullable(),
+  })
+  .strict();
+
+const WorkbenchGraphProjectionStateSchema = z.enum([
+  "ready",
+  "pending",
+  "rebuilding",
+  "unavailable",
+]);
+
+const WorkbenchGraphReadyResultSchema = z
+  .object({
+    status: z.enum(["ready", "ready_empty", "degraded"]),
+    center_node_id: IdentifierSchema,
+    nodes: z.array(WorkbenchGraphNodeSchema).min(1).max(200),
+    edges: z.array(WorkbenchGraphEdgeSchema).max(400),
+    projection_state: WorkbenchGraphProjectionStateSchema,
+    truncated: z.boolean(),
+    omitted_node_count: z.number().int().nonnegative(),
+    omitted_edge_count: z.number().int().nonnegative(),
+    warnings: z.array(z.string().trim().min(1).max(160)),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const nodeIds = new Set(value.nodes.map((node) => node.node_id));
+    if (!nodeIds.has(value.center_node_id)) {
+      context.addIssue({
+        code: "custom",
+        path: ["center_node_id"],
+        message: "graph center must be a returned node",
+      });
+    }
+    for (const [index, edge] of value.edges.entries()) {
+      if (!nodeIds.has(edge.from_node_id) || !nodeIds.has(edge.to_node_id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["edges", index],
+          message: "graph edges must reference returned nodes",
+        });
+      }
+    }
+    const omitted = value.omitted_node_count + value.omitted_edge_count;
+    if (value.truncated !== (omitted > 0)) {
+      context.addIssue({
+        code: "custom",
+        path: ["truncated"],
+        message: "graph truncation must match omitted counts",
+      });
+    }
+    if (value.status === "ready_empty" && value.edges.length !== 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "ready-empty graph cannot contain relationships",
+      });
+    }
+    if (
+      value.status === "degraded" &&
+      value.projection_state === "ready" &&
+      !value.truncated
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "degraded graph needs a projection or truncation reason",
+      });
+    }
+  });
+
+export const WorkbenchGraphResultSchema = z.discriminatedUnion("status", [
+  WorkbenchGraphReadyResultSchema,
+  z
+    .object({
+      status: z.enum([
+        "not_found",
+        "governance_excluded",
+        "unavailable",
+        "failed",
+      ]),
+      reason_code: z.string().trim().min(1).max(120),
+      retryable: z.boolean(),
+      warnings: z.array(z.string().trim().min(1).max(160)),
+    })
+    .strict(),
+]);
+
 export type WorkbenchContent = z.infer<typeof WorkbenchContentSchema>;
+export type WorkbenchGraphRequest = z.input<
+  typeof WorkbenchGraphRequestSchema
+>;
+export type ParsedWorkbenchGraphRequest = z.output<
+  typeof WorkbenchGraphRequestSchema
+>;
+export type WorkbenchGraphResult = z.infer<
+  typeof WorkbenchGraphResultSchema
+>;
 export type WorkbenchCorrectionConfirmRequest = z.input<
   typeof WorkbenchCorrectionConfirmRequestSchema
 >;

@@ -968,6 +968,168 @@ button:active,
   text-align: left;
 }
 
+.graph-explorer {
+  padding-top: 2rem;
+}
+
+.graph-intro {
+  max-width: 58rem;
+}
+
+.graph-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  max-width: 58rem;
+  margin-top: 1.4rem;
+}
+
+.center-picker,
+.graph-state,
+.graph-boundary,
+.graph-selection {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.68rem;
+  background: #111411;
+}
+
+.center-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+
+.center-list button {
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 6.5rem;
+  padding: 0.85rem;
+  text-align: left;
+}
+
+.center-list strong {
+  line-height: 1.45;
+}
+
+.center-list code {
+  color: #8f9a89;
+}
+
+.graph-boundary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  border-color: #43503b;
+}
+
+.graph-boundary > div {
+  display: grid;
+  gap: 0.3rem;
+  min-height: 4.6rem;
+  padding: 0.7rem;
+  border: 1px solid #2c332a;
+  background: #0e110e;
+}
+
+.graph-boundary span {
+  color: #818c7d;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.graph-boundary strong {
+  color: var(--acid);
+  font-size: 1rem;
+  font-weight: 550;
+}
+
+.graph-boundary p {
+  grid-column: 1 / -1;
+  margin: 0.25rem 0 0;
+  color: var(--amber);
+}
+
+.graph-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(18rem, 0.8fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.graph-canvas {
+  min-height: 30rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.68rem;
+  background:
+    linear-gradient(rgb(255 255 255 / 2.5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 2.5%) 1px, transparent 1px),
+    #0d100d;
+  background-size: 2.4rem 2.4rem;
+}
+
+.graph-surface .semantic-graph {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  background: #111411;
+}
+
+.semantic-graph section {
+  min-width: 0;
+}
+
+.semantic-graph button {
+  display: grid;
+  gap: 0.3rem;
+  min-height: 3.5rem;
+  border-color: #343d30;
+  background: #0d100d;
+}
+
+.semantic-graph button span {
+  color: #859080;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.semantic-graph button strong {
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.graph-selection {
+  position: sticky;
+  top: 1rem;
+  margin-top: 0;
+}
+
+.graph-selection h3 {
+  overflow-wrap: anywhere;
+  font-size: 1.35rem;
+}
+
+.graph-selection > p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.graph-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
 .health-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1115,6 +1277,14 @@ button:active,
   .detail-rail {
     position: static;
   }
+
+  .graph-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-selection {
+    position: static;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1134,6 +1304,17 @@ button:active,
 
   .text-diff {
     grid-template-columns: 1fr;
+  }
+
+  .graph-picker,
+  .center-list,
+  .graph-boundary,
+  .graph-surface .semantic-graph {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-boundary p {
+    grid-column: auto;
   }
 
   .preview-facts div {

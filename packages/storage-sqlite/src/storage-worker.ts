@@ -51,6 +51,7 @@ import {
   GovernedMemoryLookupInputSchema,
   GovernedMemorySearchQuerySchema,
   WorkbenchMemoryDetailQuerySchema,
+  WorkbenchGraphQuerySchema,
   WorkbenchMemoryListQuerySchema,
   WorkbenchMemorySummaryBatchQuerySchema,
   WorkbenchCorrectionStoragePreviewInputSchema,
@@ -805,6 +806,11 @@ port.on("message", (message: unknown) => {
         case "get_workbench_memory_detail":
           result = database.getWorkbenchMemoryDetail(
             WorkbenchMemoryDetailQuerySchema.parse(request.payload),
+          );
+          break;
+        case "get_workbench_graph":
+          result = database.getWorkbenchGraph(
+            WorkbenchGraphQuerySchema.parse(request.payload),
           );
           break;
         case "commit_episode": {
