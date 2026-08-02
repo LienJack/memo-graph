@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 13
+- **Total Sessions**: 14
 - **Last Active**: 2026-08-02
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~516 | Active |
+| `journal-1.md` | ~537 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 14 | 2026-08-02 | Configure Codex memo-graph MCP | `54fe8fb` | `codex/memory-workbench` |
 | 13 | 2026-08-02 | Ship governed Memory Workbench | `a419d34`, `e09535b`, `68414f1`, `5ca68ee`, `bb35a7a`, `bbb3af5`, `9b6dbb2`, `fefc9b6`, `c856e38`, `ffd6d22`, `237d39a` | `codex/memory-workbench` |
 | 12 | 2026-08-02 | MemOS-inspired EvidenceAdapter and G6 qualification | `7feb7512c566eea285176cec0678ea9c596267c8`, `2d1f3ff` | `codex/agent-memory-runtime-m6` |
 | 11 | 2026-08-02 | Agent Memory Runtime roadmap closure | `36007bc3d04ec7a93430a5c7c1f093b552652076` | `codex/agent-memory-runtime-m6` |

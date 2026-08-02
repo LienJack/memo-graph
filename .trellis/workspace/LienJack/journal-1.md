@@ -514,3 +514,24 @@ Delivered the secure local Memory Workbench with governed browse and immutable c
 ### Status
 
 [OK] **Completed**
+
+
+## Session 14: Configure Codex memo-graph MCP
+
+**Date**: 2026-08-02
+**Task**: Configure Codex memo-graph MCP
+**Branch**: `codex/memory-workbench`
+
+### Summary
+
+Built the runtime with Node 24, registered memo_graph_memory in Codex, provisioned private SQLite and external recovery authority, and verified idempotent persistence plus post-restart search/get with the official MCP client.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `54fe8fb` | (see git log) |
+
+### Status
+
+[OK] **Completed**
