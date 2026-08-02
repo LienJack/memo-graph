@@ -15,7 +15,7 @@ Execute `docs/plans/2026-08-02-001-feat-memory-workbench-plan.md` on branch `cod
 - [x] U6 — Memory and correction UI (state/cancel tests first): deliver browse, peer grouping axes, search/filter, governed detail/history/provenance, required-reason draft, diff/impact preview, explicit confirmation, receipt recovery, and projection convergence.
 - [x] U7 — Governed Graph backend and accessible explorer (bounds/semantic path first): add exact-scope relation/projection-source Graph contracts and reads, accessible center picker, bounded expansion, semantic list/detail, Cytoscape lifecycle adapter, truthful degradation, and content-residual checks. Evidence: `research/u7-check.md`.
 - [x] U8 — Authority-first Health, packaging, and evidence (real processes): add content-free health aggregation and hierarchy, integrate built web assets into the host, document operator workflows, run AE1-AE8 plus security/recovery/accessibility/parity matrices, and record macOS verification without claiming G6. Evidence: `research/u8-check.md`.
-- [ ] Quality and shipping: simplify at unit-cluster boundaries, run project-wide checks, perform correctness/security/API/reliability/testing review, resolve findings, update Trellis specs, commit final evidence, archive the task, and mark the plan completed.
+- [x] Quality and shipping: simplify at unit-cluster boundaries, run project-wide checks, perform correctness/security/API/reliability/testing review, resolve findings, update Trellis specs, commit final evidence, archive the task, and mark the plan completed. The project-wide probe and its frozen-G6/unrelated red boundary are recorded in `research/u8-check.md` without a production-readiness claim.
 
 ## Dependencies and Gates
 

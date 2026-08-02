@@ -68,6 +68,8 @@ Runtime: Node 24.18.0, pnpm 10.33.2, macOS 15.5 arm64, Playwright Chromium 151.0
   run both passed alone.
 - Root TypeScript, web TypeScript, ESLint, production Runtime build, production
   web/host build, and `git diff --check`: pass.
+- Clean-tree G5 artifact integrity after commit `ffd6d22`: 1 file, 4 tests
+  passed; the earlier dirty-path rejection is closed.
 - Production bundle: initial JS 346.61 kB / 104.18 kB gzip; lazy Graph chunk
   442.98 kB / 141.98 kB gzip; CSS 25.92 kB / 6.33 kB gzip.
 - Visual review used the real built-host screenshot at

@@ -1,7 +1,7 @@
 ---
 title: Memo Graph Memory Workbench Implementation Plan
 type: feat
-status: active
+status: completed
 date: 2026-08-02
 origin: docs/brainstorms/2026-08-02-memory-workbench-requirements.md
 ---

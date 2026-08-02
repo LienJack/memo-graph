@@ -23,6 +23,7 @@ Result: **PASS for the documented macOS local-experimental envelope.**
 | Playwright | 1.62.1 |
 | Browser | Playwright Chromium 151.0.7922.34 |
 | Baseline before U8 | `c856e38b285e3ab9e3dc7e8d62e537fb6ad598c2` |
+| U8 implementation commit | `ffd6d22ee429f9073cae113e73a1e11991d8c792` |
 
 The host packages `index.html` plus an exact `.js`, `.css`, and `.woff2` asset
 map. The measured production build contains an initial application chunk of
@@ -91,7 +92,8 @@ error assertion were updated for their additive contracts and passed. One
 unrelated operator governed-secret-admission test still returns
 `KEY_UNAVAILABLE` and remains an explicit project-wide red test; it is outside
 the workbench surface. `pnpm lint`, `pnpm typecheck`, `pnpm build`, and
-`git diff --check` pass on the candidate worktree.
+`git diff --check` pass on the candidate worktree. After U8 was committed, the
+G5 artifact-integrity lane passed 1 file and 4 tests on the clean tree.
 
 ## Residual limitations
 
