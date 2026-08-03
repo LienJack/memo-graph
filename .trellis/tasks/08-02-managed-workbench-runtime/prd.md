@@ -13,9 +13,10 @@
 - 使用仓库固定的 Node.js `24.18.0` 和已构建的 `apps/operator-cli/dist/cli.js workbench` 启动控制面板，并打开本机浏览器中的认证页面。
 - Codex 全局 MCP 配置使用固定 Node.js 执行私有 bootstrap entry；MCP config path 由 bootstrap 固定读取，managed descriptor 则在每次启动时按实际 Runtime identity 动态取得。
 - 增加仅供本机 Codex 使用的 bootstrap entry。Codex MCP command 调用 bootstrap；bootstrap 负责启动/复用 Workbench、取得匹配的 managed descriptor，随后在同一 stdio 生命周期中进入 MCP proxy。
-- 每个 Codex app-server 生命周期最多自动打开一个已认证的 Workbench 浏览器标签页。多个任务并发启动 MCP 时仍只能产生一个 Runtime owner，且不能重复打开多个标签页。
+- 每个 Codex app-server 与当前 Workbench instance 组合最多自动打开一个已认证的浏览器标签页。多个任务并发启动 MCP 时仍只能产生一个 Runtime owner，且不能重复打开多个标签页；若 host 重启为新 instance，则自动补开一个有效页面。
 - 若数据根残留 writer lease，bootstrap 仅在 exact root/lease/fence/heartbeat 全部匹配、lease 已过期且 owner PID 已确认不存在时，调用仓库的 `recoverStaleRootLease`；任何歧义均 fail closed。
 - bootstrap 不写死动态端口或 descriptor stem；它通过 canonical root/config identity 和 Workbench launcher 取得本次真实 descriptor。
+- bootstrap 使用固定私有 runtime directory `/Users/lienli/.local/state/memo-graph/workbench-runtime`，不得依赖调用方的 `TMPDIR`；Codex、CLI 验证和 shell 环境必须复用同一 host。
 - 配置切换后明确提示：已经运行的 Codex 任务不会热重载 MCP command，需要新建任务或重启 Codex 后才能采用 bootstrap；Workbench 自身可继续运行。
 - 所有新增配置、runtime directory、descriptor 和 credential 都应保持仅当前用户可访问的权限。
 - 失败时应 fail closed；不得为了恢复服务而并行启动 direct writer。
@@ -29,7 +30,7 @@
 - [ ] 使用一个新的 MCP 客户端会话经 managed proxy 成功完成 `listTools` 和只读 `memory_search`，能够检索切换前已有的验证记忆。
 - [ ] 新建或重启 Codex 任务后，`memo_graph_memory` 工具可用，并且 Workbench 页面在 MCP 使用期间保持可访问、Runtime 状态正常。
 - [ ] 完整退出并重新启动 Codex 后，无需手工运行 operator 命令：首次 `memo_graph_memory` 启动会自动启动/复用 Workbench、打开一个前端标签页并进入 `MCP_MANAGED_READY`。
-- [ ] 同一 Codex app-server 下并发启动两个以上 MCP client 时，Workbench 仍只有一个 owner，且自动打开的前端标签页不超过一个。
+- [ ] 同一 Codex app-server 下并发启动两个以上 MCP client 时，Workbench 仍只有一个 owner，且同一 Workbench instance 自动打开的前端标签页不超过一个；instance 更换后允许补开一次。
 - [ ] 模拟过期且 owner 已死亡的精确 writer lease 时可受控恢复；owner 存活、未过期或任一证明字段漂移时拒绝接管。
 - [ ] 验证失败时能够按记录的回滚步骤停止已确认的 Workbench owner、把 Codex MCP command 恢复为原 direct entry 并验证记忆连续性；不删除任何记忆数据或 writer lock。
 
@@ -48,3 +49,4 @@
 - 关闭浏览器标签页不会停止 managed host；回滚只能向 endpoint 记录并重新验证过的 owner PID 发送 `SIGTERM`。
 - Workbench v1 没有公开的 `stop` 子命令，严禁通过手工删除临时运行产物来模拟停止。
 - bootstrap 依赖当前仓库的已构建 dist entry 和固定绝对路径；仓库移动或清理构建产物后应 fail closed，并给出 content-free 诊断。
+- macOS 不同父进程可能传入不同 `TMPDIR`；如果 runtime directory 随环境推导，会出现一个 ready host 加一个 health-only host。bootstrap 必须固定该路径。

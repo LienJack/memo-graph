@@ -85,6 +85,93 @@ database.prepare("INSERT INTO events ...").run(payload);
 const receipt = await storage.commitEpisode(command);
 ```
 
+## Scenario: External Managed Runtime Bootstrap
+
+### 1. Scope / Trigger
+
+Use these rules when an external client bootstrap must start or reuse Memory
+Workbench before attaching one or more managed MCP stdio proxies.
+
+### 2. Signatures
+
+```ts
+launchOrReuseWorkbench({
+  config: memoryServerConfig,
+  runtimeDirectory: stablePrivateDirectory,
+  noOpen: true,
+});
+
+runMemoryMcpCli([
+  "--config",
+  mcpConfigPath,
+  "--managed-descriptor",
+  paths.runtimeDescriptorPath,
+]);
+```
+
+### 3. Contracts
+
+- The Workbench host remains the only SQLite writer; managed MCP processes are
+  byte proxies and never fall back to direct mode.
+- Every launcher environment for one root/config identity supplies the same
+  absolute private `runtimeDirectory`. Do not derive an external bootstrap's
+  directory from `tmpdir()` or `TMPDIR`, because sanitized MCP and interactive
+  shell environments can resolve different locations.
+- Root and full config identities must match before attach.
+- Stale writer recovery uses `recoverStaleRootLease` only with the exact root,
+  lease ID, fence token, observed heartbeat, expiry, and dead-owner proof.
+- Concurrent launchers rely on the existing per-root launch arbitration and
+  never delete descriptor, socket, credential, or writer-lock artifacts.
+- Bootstrap diagnostics are content-free stderr events. Stdout is reserved for
+  MCP bytes.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Same root/config from different `TMPDIR` values | Reuse one stable endpoint and writer |
+| Config or root identity mismatch | Fail closed before proxy attach |
+| Live, unexpired, malformed, or changed lease | Refuse stale takeover |
+| Exact expired lease with dead PID owner | Recover through `recoverStaleRootLease` |
+| Host unavailable after launch | Managed MCP remains blocked; no direct fallback |
+| Multiple proxies start together | One host owner; every healthy proxy attaches by IPC |
+
+### 5. Good / Base / Bad Cases
+
+- Good: a stable private runtime directory, exact identity checks, one managed
+  host, and multiple IPC proxies.
+- Base: an existing healthy host is authenticated and reused without changing
+  its writer lease.
+- Bad: two environment-derived temp directories create one ready host and one
+  health-only host for the same SQLite root.
+
+### 6. Tests Required
+
+- Start with no host and assert one ready endpoint plus managed MCP tools.
+- Reuse from launch environments with and without `TMPDIR`; assert the same
+  endpoint process ID and descriptor.
+- Start two proxies under one bootstrap parent; assert one Runtime owner.
+- Cover exact stale recovery and root/lease/fence/heartbeat/time/live-owner
+  refusal.
+- Search a pre-bootstrap evidence marker through the managed proxy after cold
+  start and recovery.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const runtimeDirectory = join(realpathSync(tmpdir()), `memo-graph-${uid}`);
+// A sanitized MCP process and an interactive shell can now select two hosts.
+```
+
+#### Correct
+
+```ts
+const runtimeDirectory = "/absolute/private/stable/memo-graph-runtime";
+await launchOrReuseWorkbench({ config, runtimeDirectory, noOpen: true });
+```
+
 ## Scenario: Deterministic L0 Evidence Ingestion
 
 ### 1. Scope / Trigger
