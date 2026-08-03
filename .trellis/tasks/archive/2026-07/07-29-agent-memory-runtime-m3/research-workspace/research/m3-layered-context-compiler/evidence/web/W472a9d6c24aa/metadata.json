@@ -1,0 +1,21 @@
+{
+  "source_id": "W472a9d6c24aa",
+  "snapshot_id": "Vaa5aa27461ed",
+  "previous_snapshot": null,
+  "url_id": "U472a9d6c24aa",
+  "title": "Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory",
+  "original_url": "https://arxiv.org/html/2504.19413v1",
+  "normalized_url": "https://arxiv.org/html/2504.19413v1",
+  "retrieved_at": "2026-07-29T02:31:06+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.88,
+  "independence_group": "mem0-authors",
+  "published_at": "2025-04-28",
+  "freshness": "current",
+  "extraction_quality": 0.97,
+  "extraction_method": "anysearch-extract",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "6489820c781225554a4f1dd8452419fe5823d1254f4df7feac3dcba66f9315cd"
+}

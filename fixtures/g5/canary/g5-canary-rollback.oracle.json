@@ -1,0 +1,13 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_canary_rollback",
+  "visibility": "approved_for_canary",
+  "expected_status": "OK",
+  "expected_task_unit_ids": [
+    "retain_stable_comparator"
+  ],
+  "expected_included_ids": [
+    "memory_prior_release"
+  ],
+  "expected_exclusion_codes": []
+}

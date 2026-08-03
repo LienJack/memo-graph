@@ -1,0 +1,174 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G3R",
+  "evaluation_status": "EVIDENCE_READY",
+  "recorded_at": "2026-07-29T07:31:42.860+08:00",
+  "tested_implementation": {
+    "commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+    "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+    "product_executable_frozen_after_u6": false,
+    "u8_review_fix_only": true
+  },
+  "historical_candidate": {
+    "commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
+    "review_evidence": "docs/evaluations/g3-code-review.md",
+    "review_raw_hash": "sha256:45894c4cf4cb9b4a77cf94b0f41f233ff2cb411689a9979d47ed89bebb883428",
+    "findings": 4,
+    "result": "FAIL"
+  },
+  "provisional_h3_candidate": {
+    "commit": "58b35d48020a2bd8ea3089b858d9a65eb3b9ff4b",
+    "finding": "A correction in one exact scope incorrectly removed ready projections from unrelated exact scopes.",
+    "result": "FAIL",
+    "superseded_by_tested_implementation": true
+  },
+  "accepted_baseline": {
+    "commit": "31959fc841ddc95f7570e5e0f2028a1e6b00243e",
+    "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+    "isolated_checkout_verification": "PASS"
+  },
+  "environment": {
+    "node": "v24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "macOS 15.5 (24F74)",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "versions": {
+    "storage_schema": "0011",
+    "projection_contract_schema": "1.0.0",
+    "projection_transform": "deterministic-layered-consolidation@1.0.0",
+    "context_compiler": "3.0.0",
+    "context_policy": "2.0.0",
+    "g3_protocol": "1.0.0",
+    "g3_overlay": "1.0.0",
+    "h3_regression_suite": "1.0.0",
+    "base_corpus": "1.0.0"
+  },
+  "frozen_hashes": {
+    "base_manifest_raw": "sha256:8827b6fd6f1db6df8643faa46cdd5ce1008c10cca092fada555e3896cd7804e3",
+    "base_manifest_canonical": "sha256:4c3b2a658b6f93ac09374d376edcac6f299b4628e891362c5568166d5561de0b",
+    "g3_manifest_raw": "sha256:674f73a1879795bf5b9a38b291c107782228984552ddee2b7460bbe083c5ecb2",
+    "g3_manifest_canonical": "sha256:94c74e54ab560e9b80acf282802a5b485ac685c1cb3fe9c292ed648daffaa813",
+    "h3_regression_manifest_raw": "sha256:25200d3231e3a36a828c269e36974f84b7db1a4ca9e3644dffc8e0a34c350a2e",
+    "h3_regression_manifest_canonical": "sha256:4e17282d16c91c0296386bb8d1f5d2b673df4e14573b08554459dc086d2a8390",
+    "h3_test_bundle": "sha256:7d530fc45cf07313219ca24239b7c466809446c8effd21844310cbb8b0516f9d",
+    "projection_contract_source": "sha256:6b411649101d80131abb417a23b004fe13beff2de1590693361044afb211a5d9",
+    "scope_frontier_migration_source": "sha256:072d3092b7d6ec634ba90e09ad84897619529199b6c9b6a3d4a1981ca46e25a6",
+    "governed_memory_reader_source": "sha256:3414f16fb026c714e0168805f577c6cd4b8d63ae55e1afba8d20d3e76f0e24ff",
+    "projection_effects_source": "sha256:bb4c23ebdce90e5d2e1654bc95a75841ac9458abdda8efc2ddeae85e94ea7118",
+    "projection_repository_source": "sha256:639edeff945efd0611c7ad5e71865e3e61df95d8333cdb7ea11c90e5748e58c2",
+    "relation_repository_source": "sha256:f39289ca10e90d33b5a06ccc91329ef4de28bda66e45f7c7f722948bf76c6f81",
+    "lane_retrievers_source": "sha256:45dbf803f8decf8c91e2622b4381f5adb1cad48da9fed20f3b902327aa940992",
+    "recall_orchestrator_source": "sha256:ca49a10155ae2d9b176e81b590dac5a75db444b0008d505163a47066f9d33c85",
+    "memory_runtime_source": "sha256:b2405565235c8a2772efbe2e050fbae2759d1471c9b95d52ec837e61e88adfa3",
+    "context_compiler_source": "sha256:bac3f49212abdab83ecef193e9e558e16814107dc4894ad7679ee242299a54a8",
+    "g3r_report_generator_source": "sha256:eea58419812ec12880578e3246be0b580d7e1587c012d37b49a913884febbacd"
+  },
+  "evidence_reports": {
+    "replay": {
+      "path": "docs/evaluations/g3r-h3-replay-report.json",
+      "raw_hash": "sha256:b1ae46fe0654e937e4c09c350cd49a5fd9fa3cae4327d4c8b8cf7bb4c5b56c47",
+      "canonical_hash": "sha256:58d44aea79c66c1083bde34b757208edea9a3e7411b72f2ef328c7fab5186945"
+    },
+    "performance": {
+      "path": "docs/evaluations/g3r-h3-performance-report.json",
+      "raw_hash": "sha256:6778e9b9d03ed6e127414c02106427cae82f150a2be87067a1a20b402049c417",
+      "canonical_hash": "sha256:2eb0fe767b9b7eaf71d033829b0c8b0abedb06d810b19aee14da618f6aa2cf9c"
+    }
+  },
+  "historical_finding_closure": [
+    {
+      "finding": 1,
+      "regressions": [
+        "h3_late_projection_match",
+        "h3_projection_scan_ceiling"
+      ],
+      "historical_result": "FAIL",
+      "candidate_result": "PASS"
+    },
+    {
+      "finding": 2,
+      "regressions": [
+        "h3_exact_lineage_over_scope_prefix",
+        "h3_exact_governance_revalidation"
+      ],
+      "historical_result": "FAIL",
+      "candidate_result": "PASS"
+    },
+    {
+      "finding": 3,
+      "regressions": [
+        "h3_two_scope_permutation",
+        "h3_multi_scope_epoch_retry"
+      ],
+      "historical_result": "FAIL",
+      "candidate_result": "PASS"
+    },
+    {
+      "finding": 4,
+      "regressions": [
+        "h3_relation_start_and_fanout_caps"
+      ],
+      "historical_result": "FAIL",
+      "candidate_result": "PASS"
+    },
+    {
+      "finding": "U8-1",
+      "regressions": [
+        "h3_unrelated_scope_retention"
+      ],
+      "provisional_candidate_result": "FAIL",
+      "candidate_result": "PASS"
+    }
+  ],
+  "verification": [
+    {
+      "command": "pnpm test:g3",
+      "result": "PASS",
+      "detail": "6 fixture assertions; 11 replay and benchmark assertions with 1 environment-gated case; then 5 accepted-M2 isolated-checkout assertions"
+    },
+    {
+      "command": "pnpm test:g3r:h3",
+      "result": "PASS",
+      "detail": "8 files; 70 passed and 1 environment-gated accepted-M2 replay case; 9 named H3 regression cases"
+    },
+    {
+      "command": "pnpm benchmark:g3 -- small",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm benchmark:g3 -- expected",
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm benchmark:g3:resources",
+      "result": "PASS",
+      "detail": "physical Small population with exact counts and equal incremental/rebuilt digests"
+    }
+  ],
+  "decision_input": {
+    "all_four_historical_findings_closed": true,
+    "accepted_m2_parity": true,
+    "zero_governance_privacy_budget_rebuild_partition_regression": true,
+    "strict_holdout_improvement_retained": true,
+    "resource_evidence_bounded_and_honestly_labeled": true,
+    "artifact_hashes_ready_for_u8_verification": true
+  },
+  "scope": {
+    "physical_resource_profile": "Small",
+    "compiler_profiles": [
+      "Small",
+      "Expected"
+    ],
+    "expected_physical_population_materialized": false,
+    "production_readiness_claimed": false,
+    "projection_lanes_enabled_by_default": false,
+    "graph_backend_adopted": false,
+    "vector_backend_adopted": false,
+    "learning_release_adopted": false,
+    "downstream_gates_opened": false,
+    "release_fallback": "accepted_m2_l0_l1"
+  }
+}

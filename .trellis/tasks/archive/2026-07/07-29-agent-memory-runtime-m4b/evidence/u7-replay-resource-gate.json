@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0.0",
+  "recorded_at": "2026-07-29T17:06:43+08:00",
+  "gate": "M4B-U7",
+  "outcome": "FORCED_NO_GO",
+  "u8_permitted": true,
+  "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+  "replay": {
+    "report_hash": "sha256:484420e712396923f3add4be21a4ed8ca925446d55b0f404f757330c805c9d75",
+    "logical_results_hash": "sha256:4bc49ae27ef5988032df8659684f6a67667760f980dcfb0e7e6bd6171460ea7c",
+    "repeat_runs": 2,
+    "deterministic": true,
+    "positive_cases_solved": 6,
+    "strict_case_gains": 6,
+    "holdout_gains": 2,
+    "transfer_gains": 2,
+    "critical_regressions": 0,
+    "negative_control_regressions": 0,
+    "utility_gate": false,
+    "first_failed_hard_gate": "context_pollution",
+    "pollution_case_families": [
+      "g4b_cal_irrecoverable_forgetting",
+      "g4b_cal_learning_pause_zh_en",
+      "g4b_hold_projection_fallback"
+    ]
+  },
+  "resources": {
+    "report_hash": "sha256:9fc2d5e7d23e4bcf728605e3193e285401d33610c9e20bbb81d5b7a806728251",
+    "repeat_report_hash": "sha256:d2528cf82efd4bf4068dae888571f847e95d8c68ff1abdf5c319e079ea315672",
+    "resource_gate_runs": [
+      false,
+      false
+    ],
+    "warmups": 20,
+    "measured_samples": 100,
+    "first_run": {
+      "direct_complete": 100,
+      "governed_complete": 70,
+      "governed_timeouts": 30,
+      "context_ok": 0,
+      "context_degraded": 100,
+      "typed_fallback": 100,
+      "governed_recall_p50_ms": 598.3333749999983,
+      "governed_recall_p95_ms": 779.624625000004,
+      "context_compile_p50_ms": 1256.365959000017,
+      "context_compile_p95_ms": 1770.726416999998,
+      "fallback_p95_ms": 1.1478749999951106
+    },
+    "repeat": {
+      "direct_complete": 100,
+      "governed_complete": 100,
+      "context_ok": 0,
+      "context_degraded": 100,
+      "typed_fallback": 100,
+      "changed_threshold_results": [
+        "governed_recall_outcomes"
+      ],
+      "governed_recall_p95_ratio": 1.02787,
+      "context_compile_p95_ratio": 0.793146
+    },
+    "expected_profile": {
+      "exact_scopes": 100,
+      "native_vector_records": 25000,
+      "native_physical_bytes": 240025600,
+      "full_rebuild_ms": 3721.0964169999934,
+      "epoch_migration_ms": 3587.5239159999765
+    }
+  },
+  "verification": {
+    "focused": {
+      "test_files_passed": 2,
+      "tests_passed": 7
+    },
+    "double_replay_passed": true,
+    "resource_runs_completed": 2,
+    "lint_passed": true,
+    "typecheck_passed": true,
+    "build_passed": true,
+    "diff_check_passed": true
+  },
+  "disposition": {
+    "sqlite_authority_unchanged": true,
+    "vector_default_enabled": false,
+    "u9_go_eligible": false,
+    "reason_codes": [
+      "CONTEXT_POLLUTION_GATE_FAILED",
+      "GOVERNED_RECALL_LATENCY_GATE_FAILED",
+      "CONTEXT_COMPILE_LATENCY_GATE_FAILED",
+      "CONTEXT_COMPILE_OUTCOME_GATE_FAILED",
+      "RESOURCE_OUTCOME_VARIATION"
+    ]
+  }
+}

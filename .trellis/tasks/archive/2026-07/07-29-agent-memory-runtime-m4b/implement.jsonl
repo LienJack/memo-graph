@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend pre-development and quality checklist for optional native process, SQLite delivery, governed recall, and evidence work."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite migration, short transactions, outbox leases, exact-scope checkpoints, epoch publication, purge, backup, restore, and logical digest rules."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Typed fail-closed behavior for missing model, dependency, timeout, stale frontier, corruption, rebuild, and vector-free fallback."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Content-free model, IPC, projection, queue, bounded-work, health, resource, and decision telemetry."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Test-first, deterministic fixtures, native dependency, frozen install, audit, expected-profile, evidence, and full verification expectations."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Contract-storage-process-kernel-compiler-MCP ownership, error propagation, compatibility, and rollback trace."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse projection worker, frontier, process host, lane, replay, benchmark, and artifact-verifier patterns without duplicating authority."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m4b/research/research-handoff.md", "reason": "RQ001-RQ009 Claim/Evidence closure, one qualified candidate, dependency/offline hazards, semantic-gap rule, and G4B evidence obligations."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m4b/research/semantic-gap-subset.md", "reason": "Candidate-free frozen cases, partitions, four arms, token budgets, material-gain threshold, negative controls, and M0 targets."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m4b/research/local-candidate-probe.md", "reason": "Exact runtime/model/index/file hashes, offline localModelPath boundary, audit overrides, microprobe capabilities, and resource observations."}

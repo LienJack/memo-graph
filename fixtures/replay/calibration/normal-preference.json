@@ -1,0 +1,35 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "cal_normal_preference",
+  "partition": "calibration",
+  "risk_family": "normal",
+  "description": "A stable user preference should cross sessions with source, scope, and selection reason.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Create a new code sample",
+    "memories": [
+      {
+        "memory_id": "mem_pref_typescript",
+        "value": "Use TypeScript for implementation examples",
+        "authority": "user_stated",
+        "lifecycle": "active"
+      }
+    ]
+  },
+  "expected": {
+    "status": "OK",
+    "included_memory_ids": ["mem_pref_typescript"],
+    "excluded_reason_codes": [],
+    "must_explain": ["source", "scope", "selection_reason"]
+  },
+  "prohibited_outcomes": [
+    "return the preference without provenance",
+    "expand the preference beyond its user scope"
+  ]
+}

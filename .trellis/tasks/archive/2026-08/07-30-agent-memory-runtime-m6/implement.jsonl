@@ -1,0 +1,7 @@
+{"file":"docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md","reason":"Product Contract R1-R20, F1-F4, and AE1-AE8 remain the sole product authority."}
+{"file":"docs/brainstorms/2026-07-30-m6-operational-hardening-requirements.md","reason":"Scoped M6 actors, flows, operational interpretations, acceptance, boundaries, assumptions, and research questions."}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Canonical SQLite, backup/restore, purge, worker, and recovery invariants."}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Content-free diagnostics, logging, redaction, and receipt relationship."}
+{"file":"docs/threat-model.md","reason":"M0 local threat model and deferred M6 application-encryption/key-lifecycle requirement."}
+{"file": ".trellis/tasks/07-30-agent-memory-runtime-m6/research/research-handoff.md", "reason": "Research Ready conclusions for encryption, restore, backpressure, operator contracts, fault Oracles, and G6 binding."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Typed failure mapping must preserve blocked, read-only, degraded, retryable, and invalid states."}

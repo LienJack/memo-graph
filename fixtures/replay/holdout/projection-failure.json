@@ -1,0 +1,29 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "hold_projection_failure",
+  "partition": "holdout",
+  "risk_family": "failure",
+  "description": "An unavailable derived retrieval lane must produce an explicit degraded result with a safe fallback.",
+  "scopes": [
+    {
+      "kind": "workspace",
+      "id": "memo_graph"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Recall the latest accepted runtime choice",
+    "unavailable_lane": "fts5",
+    "available_lanes": ["recent", "sqlite_relations"]
+  },
+  "expected": {
+    "status": "DEGRADED",
+    "included_memory_ids": ["mem_runtime_node24"],
+    "excluded_reason_codes": ["FTS_UNAVAILABLE"],
+    "must_explain": ["fallback_lane", "degraded_reason"]
+  },
+  "prohibited_outcomes": [
+    "return an unexplained empty list",
+    "skip scope and tombstone filters in fallback mode"
+  ]
+}

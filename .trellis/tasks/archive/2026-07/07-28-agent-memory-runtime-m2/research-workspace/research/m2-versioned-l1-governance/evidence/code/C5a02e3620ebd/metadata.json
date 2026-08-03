@@ -1,0 +1,12 @@
+{
+  "code_id": "C5a02e3620ebd",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "migrations/0003-recall-context.sql",
+  "start_line": 1,
+  "end_line": 117,
+  "symbol": "recall_context_tables",
+  "why": "M1 已持久化 Context 和 retrieval receipt 且附加 append-only triggers，M2 删除必须显式处理派生物",
+  "captured_at": "2026-07-28T23:12:59+08:00"
+}

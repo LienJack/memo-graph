@@ -1,0 +1,1183 @@
+{
+  "schema_version": "1.0.0",
+  "recorded_at": "2026-07-29T04:48:08.408Z",
+  "gate": "G4A",
+  "phase": "gate_evaluation",
+  "protocol_version": "1.0.0",
+  "accepted_g3r_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+  "accepted_g3r_dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+  "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+  "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+  "native_identity": {
+    "schema_version": "1.0.0",
+    "backend": "ladybugdb",
+    "package_name": "@ladybugdb/core",
+    "package_version": "0.18.3",
+    "storage_version": "42",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+    "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066"
+  },
+  "corpus": {
+    "manifest_raw_hash": "sha256:eaf76055a54b2a4d15c6ebb0ccadb93d5a87f7129cc666ae5096c966aa655191",
+    "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+    "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517",
+    "cases": 6,
+    "partitions": [
+      "calibration",
+      "holdout",
+      "transfer"
+    ],
+    "materializer": "g4a-frozen-topology-materializer@1.0.0",
+    "evaluator_source_hash": "sha256:420136318d5cc34cbc7e0e726a59ce6c23466a9ff70b33ada016b77ed3024d89",
+    "materializer_source_hash": "sha256:b5a3ac2e8f75b7b819e163ee7656c39212dfdb42883937c3b139cbad52d684b5",
+    "reference_source_hash": "sha256:b8113f134c7675778c5318b1269797d2794e0808c1fd24a6e07d44fdcb38b4fb",
+    "native_adapter_source_hash": "sha256:4bd785e070c302850f464c095d3a0166b509be7b607daf72798772962bd52367"
+  },
+  "results": [
+    {
+      "case_id": "g4a_cal_typed_explanatory_path",
+      "partition": "calibration",
+      "family": "typed_explanatory_path",
+      "input_identity": {
+        "snapshot_logical_digest": "sha256:47a64fd3b45fe5932bdda43334490be76030de32f868942b0ba77d33f3bd9aa9",
+        "node_count": 3,
+        "edge_count": 2,
+        "query_hash": "sha256:042762b626c01898b768627edef0ed0a44b4e389c8d11164027a0aa7dab86fc2"
+      },
+      "scores": {
+        "accepted_g3r": {
+          "exact_revision_set": false,
+          "ordered_proof_paths": false,
+          "exact_evidence": false,
+          "completeness": false,
+          "abstention": false,
+          "reason_codes": false,
+          "passed": false
+        },
+        "m4a_graph_disabled_reference": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        },
+        "m4a_graph_enabled": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        }
+      },
+      "arms": {
+        "accepted_g3r": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "accepted_g3r",
+            "case_id": "g4a_cal_typed_explanatory_path",
+            "partition": "calibration",
+            "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+            "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:9e940e16352f60b97a0beac2862715a47d90b0d65f299fe3221162fffef45d65",
+            "query_hash": "sha256:042762b626c01898b768627edef0ed0a44b4e389c8d11164027a0aa7dab86fc2",
+            "policy_hash": "sha256:830e1456868304e9515ef02b745c7b8b05c35f1a2b889024419834becf355718",
+            "frontier_hash": "sha256:04d4918f7603293342b24beb9edb28b4f59004a455c6053cccb54b4b13ef7cc4",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "degraded",
+          "actual": {
+            "status": "degraded",
+            "revision_ids": [],
+            "ordered_paths": [],
+            "evidence_ids": [],
+            "complete": false,
+            "abstain": true,
+            "reason_codes": [
+              "STRUCTURAL_PROOF_PROTOCOL_UNAVAILABLE"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:69b4fa379141a0a55dc0d7d8d433ee1e4e7a29ec72d60f118735f4e9c4fa2479"
+        },
+        "m4a_graph_disabled_reference": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_disabled_reference",
+            "case_id": "g4a_cal_typed_explanatory_path",
+            "partition": "calibration",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:9e940e16352f60b97a0beac2862715a47d90b0d65f299fe3221162fffef45d65",
+            "query_hash": "sha256:042762b626c01898b768627edef0ed0a44b4e389c8d11164027a0aa7dab86fc2",
+            "policy_hash": "sha256:830e1456868304e9515ef02b745c7b8b05c35f1a2b889024419834becf355718",
+            "frontier_hash": "sha256:04d4918f7603293342b24beb9edb28b4f59004a455c6053cccb54b4b13ef7cc4",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_dependency",
+              "revision_scenario",
+              "revision_topic"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_topic",
+                  "revision_dependency",
+                  "revision_scenario"
+                ],
+                "relation_revision_ids": [
+                  "relation_supports_1",
+                  "relation_depends_1"
+                ],
+                "relation_types": [
+                  "supports",
+                  "depends_on"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:ce05fc2991071104ccd4b616f8a748a4f2bb0c914dead2ded11097f91abaf48c"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_scenario",
+              "evidence_topic"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": []
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:f8d5e8ec20d61c116606083581816d9d1cc11b43789cdf97251e13ab577ea4c0"
+        },
+        "m4a_graph_enabled": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_enabled",
+            "case_id": "g4a_cal_typed_explanatory_path",
+            "partition": "calibration",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:9e940e16352f60b97a0beac2862715a47d90b0d65f299fe3221162fffef45d65",
+            "query_hash": "sha256:042762b626c01898b768627edef0ed0a44b4e389c8d11164027a0aa7dab86fc2",
+            "policy_hash": "sha256:830e1456868304e9515ef02b745c7b8b05c35f1a2b889024419834becf355718",
+            "frontier_hash": "sha256:04d4918f7603293342b24beb9edb28b4f59004a455c6053cccb54b4b13ef7cc4",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_dependency",
+              "revision_scenario",
+              "revision_topic"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_topic",
+                  "revision_dependency",
+                  "revision_scenario"
+                ],
+                "relation_revision_ids": [
+                  "relation_supports_1",
+                  "relation_depends_1"
+                ],
+                "relation_types": [
+                  "supports",
+                  "depends_on"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:ce05fc2991071104ccd4b616f8a748a4f2bb0c914dead2ded11097f91abaf48c"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_scenario",
+              "evidence_topic"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": []
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:eb231596ffbefa1947a9eeef59b00c3a50e5372cf32c9045a0913c798528b793"
+        }
+      },
+      "native_reference_equal": true,
+      "strict_gain": false
+    },
+    {
+      "case_id": "g4a_cal_temporal_conflict",
+      "partition": "calibration",
+      "family": "temporal_conflict",
+      "input_identity": {
+        "snapshot_logical_digest": "sha256:b2d0bcd7d82ee6e30366294efae759952cf4860f778f81e50f1d2e11898e0726",
+        "node_count": 3,
+        "edge_count": 2,
+        "query_hash": "sha256:476c43ce49a37bf0a2ba02d5eaf9a282e6fc6d4e8301606bcb5967f97ba9fb58"
+      },
+      "scores": {
+        "accepted_g3r": {
+          "exact_revision_set": false,
+          "ordered_proof_paths": false,
+          "exact_evidence": false,
+          "completeness": false,
+          "abstention": false,
+          "reason_codes": false,
+          "passed": false
+        },
+        "m4a_graph_disabled_reference": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        },
+        "m4a_graph_enabled": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        }
+      },
+      "arms": {
+        "accepted_g3r": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "accepted_g3r",
+            "case_id": "g4a_cal_temporal_conflict",
+            "partition": "calibration",
+            "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+            "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:a4e0b9ab2a2463c81564f09d8cf912674d634f3c03778e9e85b0586cdc5e4681",
+            "query_hash": "sha256:476c43ce49a37bf0a2ba02d5eaf9a282e6fc6d4e8301606bcb5967f97ba9fb58",
+            "policy_hash": "sha256:4106b9552f15626f3a2b220593c80932a4471459873f7dae7384c8499260f5ca",
+            "frontier_hash": "sha256:b8366ad9cc6ea519d5f66e20003e126c96700c2a5832b6d44acbc294ca599717",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "degraded",
+          "actual": {
+            "status": "degraded",
+            "revision_ids": [],
+            "ordered_paths": [],
+            "evidence_ids": [],
+            "complete": false,
+            "abstain": true,
+            "reason_codes": [
+              "STRUCTURAL_PROOF_PROTOCOL_UNAVAILABLE"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:700b319c9883d6701ae38b49b93866aa464f4dc8687a5a23453fd1333508435f"
+        },
+        "m4a_graph_disabled_reference": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_disabled_reference",
+            "case_id": "g4a_cal_temporal_conflict",
+            "partition": "calibration",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:a4e0b9ab2a2463c81564f09d8cf912674d634f3c03778e9e85b0586cdc5e4681",
+            "query_hash": "sha256:476c43ce49a37bf0a2ba02d5eaf9a282e6fc6d4e8301606bcb5967f97ba9fb58",
+            "policy_hash": "sha256:4106b9552f15626f3a2b220593c80932a4471459873f7dae7384c8499260f5ca",
+            "frontier_hash": "sha256:b8366ad9cc6ea519d5f66e20003e126c96700c2a5832b6d44acbc294ca599717",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_fact_a",
+              "revision_fact_b",
+              "revision_provenance"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_fact_a",
+                  "revision_provenance",
+                  "revision_fact_b"
+                ],
+                "relation_revision_ids": [
+                  "relation_conflict_1",
+                  "relation_shared_provenance_1"
+                ],
+                "relation_types": [
+                  "contradicts",
+                  "supports"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:b9bdcd4d368e143e48e3dceebea9a95b42e15193f41ed98e7589a84fea8bd114"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_fact_a",
+              "evidence_fact_b",
+              "evidence_shared"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": []
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:7837c3cd8b77ed0ad9296e532e896cbf372e3a6056efcc3dca9c876d416a5cc6"
+        },
+        "m4a_graph_enabled": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_enabled",
+            "case_id": "g4a_cal_temporal_conflict",
+            "partition": "calibration",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:a4e0b9ab2a2463c81564f09d8cf912674d634f3c03778e9e85b0586cdc5e4681",
+            "query_hash": "sha256:476c43ce49a37bf0a2ba02d5eaf9a282e6fc6d4e8301606bcb5967f97ba9fb58",
+            "policy_hash": "sha256:4106b9552f15626f3a2b220593c80932a4471459873f7dae7384c8499260f5ca",
+            "frontier_hash": "sha256:b8366ad9cc6ea519d5f66e20003e126c96700c2a5832b6d44acbc294ca599717",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_fact_a",
+              "revision_fact_b",
+              "revision_provenance"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_fact_a",
+                  "revision_provenance",
+                  "revision_fact_b"
+                ],
+                "relation_revision_ids": [
+                  "relation_conflict_1",
+                  "relation_shared_provenance_1"
+                ],
+                "relation_types": [
+                  "contradicts",
+                  "supports"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:b9bdcd4d368e143e48e3dceebea9a95b42e15193f41ed98e7589a84fea8bd114"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_fact_a",
+              "evidence_fact_b",
+              "evidence_shared"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": []
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:77b9e35ac66df976455731edda2bf7390969b51fd93b529942eb3180376b6598"
+        }
+      },
+      "native_reference_equal": true,
+      "strict_gain": false
+    },
+    {
+      "case_id": "g4a_hold_scenario_migration",
+      "partition": "holdout",
+      "family": "scenario_migration",
+      "input_identity": {
+        "snapshot_logical_digest": "sha256:b6e2e3e1032630bb72e0ae469fa2d993c17c7bf30cdc77635a28243080891976",
+        "node_count": 3,
+        "edge_count": 2,
+        "query_hash": "sha256:86015d85b10b8f6dbbc71c14885d094077abfb7cacd53137d0f276ebf9b8e124"
+      },
+      "scores": {
+        "accepted_g3r": {
+          "exact_revision_set": false,
+          "ordered_proof_paths": false,
+          "exact_evidence": false,
+          "completeness": false,
+          "abstention": false,
+          "reason_codes": false,
+          "passed": false
+        },
+        "m4a_graph_disabled_reference": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        },
+        "m4a_graph_enabled": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        }
+      },
+      "arms": {
+        "accepted_g3r": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "accepted_g3r",
+            "case_id": "g4a_hold_scenario_migration",
+            "partition": "holdout",
+            "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+            "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:4b6c7a269b70157dec63fe0596e07b6a2363b7f5f697aeb9adb98ab79c38b169",
+            "query_hash": "sha256:86015d85b10b8f6dbbc71c14885d094077abfb7cacd53137d0f276ebf9b8e124",
+            "policy_hash": "sha256:bf8132f4034f41ef95000ad924453810e798e0ba7f5b057ede815847fcf93497",
+            "frontier_hash": "sha256:eb374eba63bf8ded6b4f6b1bba532fb08bb9599b10a26faa5fbe2251d9c5b3b9",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "degraded",
+          "actual": {
+            "status": "degraded",
+            "revision_ids": [],
+            "ordered_paths": [],
+            "evidence_ids": [],
+            "complete": false,
+            "abstain": true,
+            "reason_codes": [
+              "STRUCTURAL_PROOF_PROTOCOL_UNAVAILABLE"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:a9908f068b49566a8a707374a8ae84c521b0871aa10605be952ea0b49bc849b4"
+        },
+        "m4a_graph_disabled_reference": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_disabled_reference",
+            "case_id": "g4a_hold_scenario_migration",
+            "partition": "holdout",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:4b6c7a269b70157dec63fe0596e07b6a2363b7f5f697aeb9adb98ab79c38b169",
+            "query_hash": "sha256:86015d85b10b8f6dbbc71c14885d094077abfb7cacd53137d0f276ebf9b8e124",
+            "policy_hash": "sha256:bf8132f4034f41ef95000ad924453810e798e0ba7f5b057ede815847fcf93497",
+            "frontier_hash": "sha256:eb374eba63bf8ded6b4f6b1bba532fb08bb9599b10a26faa5fbe2251d9c5b3b9",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_conversation",
+              "revision_scenario",
+              "revision_topic"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_conversation",
+                  "revision_topic",
+                  "revision_scenario"
+                ],
+                "relation_revision_ids": [
+                  "relation_topic_1",
+                  "relation_scenario_1"
+                ],
+                "relation_types": [
+                  "belongs_to_topic",
+                  "applies_to_scenario"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:e599d2648994b95959dd43e4bb9de2298a1e5a367b268a2c1b12f25d6f711b7d"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_conversation",
+              "evidence_scenario"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": []
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:d684dbce09df534c891ea29db5a273f48c8df2448bd3e7e439b289b8f42b9fdc"
+        },
+        "m4a_graph_enabled": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_enabled",
+            "case_id": "g4a_hold_scenario_migration",
+            "partition": "holdout",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:4b6c7a269b70157dec63fe0596e07b6a2363b7f5f697aeb9adb98ab79c38b169",
+            "query_hash": "sha256:86015d85b10b8f6dbbc71c14885d094077abfb7cacd53137d0f276ebf9b8e124",
+            "policy_hash": "sha256:bf8132f4034f41ef95000ad924453810e798e0ba7f5b057ede815847fcf93497",
+            "frontier_hash": "sha256:eb374eba63bf8ded6b4f6b1bba532fb08bb9599b10a26faa5fbe2251d9c5b3b9",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_conversation",
+              "revision_scenario",
+              "revision_topic"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_conversation",
+                  "revision_topic",
+                  "revision_scenario"
+                ],
+                "relation_revision_ids": [
+                  "relation_topic_1",
+                  "relation_scenario_1"
+                ],
+                "relation_types": [
+                  "belongs_to_topic",
+                  "applies_to_scenario"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:e599d2648994b95959dd43e4bb9de2298a1e5a367b268a2c1b12f25d6f711b7d"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_conversation",
+              "evidence_scenario"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": []
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:542d80e0aa0389397ad908fd05ff08d00e3ccc06cd181bb8ce2a8a888606ea8f"
+        }
+      },
+      "native_reference_equal": true,
+      "strict_gain": false
+    },
+    {
+      "case_id": "g4a_hold_shortest_valid_proof",
+      "partition": "holdout",
+      "family": "shortest_valid_proof",
+      "input_identity": {
+        "snapshot_logical_digest": "sha256:167d33b50d8a5f3e773ce2c7a637f150e787f68041fe1b7d010378d3b0042cbd",
+        "node_count": 4,
+        "edge_count": 4,
+        "query_hash": "sha256:326451d928d8a55685ef4536c01435f23c7b36c32a5546020a0617ecb27d0f0b"
+      },
+      "scores": {
+        "accepted_g3r": {
+          "exact_revision_set": false,
+          "ordered_proof_paths": false,
+          "exact_evidence": false,
+          "completeness": false,
+          "abstention": false,
+          "reason_codes": false,
+          "passed": false
+        },
+        "m4a_graph_disabled_reference": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        },
+        "m4a_graph_enabled": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        }
+      },
+      "arms": {
+        "accepted_g3r": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "accepted_g3r",
+            "case_id": "g4a_hold_shortest_valid_proof",
+            "partition": "holdout",
+            "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+            "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:2c134eb67f7c3911b2c605a65c5f868df4d8dce4bfe2ab3b88ba4887919f17b3",
+            "query_hash": "sha256:326451d928d8a55685ef4536c01435f23c7b36c32a5546020a0617ecb27d0f0b",
+            "policy_hash": "sha256:33bd3238a165afeeb78115b2aaff7972c6536ff90470ff2e8a943dc32c5f9817",
+            "frontier_hash": "sha256:51acb392effd0269c0a15d87cba8662883b38ddb40c5394b38955234cabe7345",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "degraded",
+          "actual": {
+            "status": "degraded",
+            "revision_ids": [],
+            "ordered_paths": [],
+            "evidence_ids": [],
+            "complete": false,
+            "abstain": true,
+            "reason_codes": [
+              "STRUCTURAL_PROOF_PROTOCOL_UNAVAILABLE"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:aafcf4b5595d98b30510cf80c1c6172506c7693bbd0417d08ce98a17c7b771b2"
+        },
+        "m4a_graph_disabled_reference": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_disabled_reference",
+            "case_id": "g4a_hold_shortest_valid_proof",
+            "partition": "holdout",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:2c134eb67f7c3911b2c605a65c5f868df4d8dce4bfe2ab3b88ba4887919f17b3",
+            "query_hash": "sha256:326451d928d8a55685ef4536c01435f23c7b36c32a5546020a0617ecb27d0f0b",
+            "policy_hash": "sha256:33bd3238a165afeeb78115b2aaff7972c6536ff90470ff2e8a943dc32c5f9817",
+            "frontier_hash": "sha256:51acb392effd0269c0a15d87cba8662883b38ddb40c5394b38955234cabe7345",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_goal",
+              "revision_mid_b",
+              "revision_start"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_start",
+                  "revision_mid_b",
+                  "revision_goal"
+                ],
+                "relation_revision_ids": [
+                  "relation_short_b1",
+                  "relation_short_b2"
+                ],
+                "relation_types": [
+                  "supports",
+                  "depends_on"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:6836dc33f8a35cea2fe79c258f4157778539fd132f936d33ca1dbddb79542430"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_goal",
+              "evidence_start"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": [
+              "TIE_BREAK_PATH_HASH"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:0eecb167f3ed18c482d093e148547c7c36016f19e8f38fadb77856ca256657d1"
+        },
+        "m4a_graph_enabled": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_enabled",
+            "case_id": "g4a_hold_shortest_valid_proof",
+            "partition": "holdout",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:2c134eb67f7c3911b2c605a65c5f868df4d8dce4bfe2ab3b88ba4887919f17b3",
+            "query_hash": "sha256:326451d928d8a55685ef4536c01435f23c7b36c32a5546020a0617ecb27d0f0b",
+            "policy_hash": "sha256:33bd3238a165afeeb78115b2aaff7972c6536ff90470ff2e8a943dc32c5f9817",
+            "frontier_hash": "sha256:51acb392effd0269c0a15d87cba8662883b38ddb40c5394b38955234cabe7345",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_goal",
+              "revision_mid_b",
+              "revision_start"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_start",
+                  "revision_mid_b",
+                  "revision_goal"
+                ],
+                "relation_revision_ids": [
+                  "relation_short_b1",
+                  "relation_short_b2"
+                ],
+                "relation_types": [
+                  "supports",
+                  "depends_on"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:6836dc33f8a35cea2fe79c258f4157778539fd132f936d33ca1dbddb79542430"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_goal",
+              "evidence_start"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": [
+              "TIE_BREAK_PATH_HASH"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:ec391ab10c0afb2e6df428574c83870f6157f8d743bbd27dd025ee601c443307"
+        }
+      },
+      "native_reference_equal": true,
+      "strict_gain": false
+    },
+    {
+      "case_id": "g4a_transfer_cycle_fanout_pressure",
+      "partition": "transfer",
+      "family": "cycle_fanout_pressure",
+      "input_identity": {
+        "snapshot_logical_digest": "sha256:2936a0f5626eab1950471795bbb38c6c8fcf2f4b618fd381f083c518e2abe631",
+        "node_count": 4,
+        "edge_count": 4,
+        "query_hash": "sha256:65ccb76d03d6a80dd564fd51022f5ac6f8c0ffeb7b2247b7073f50c1b5729ab8"
+      },
+      "scores": {
+        "accepted_g3r": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": false,
+          "passed": false
+        },
+        "m4a_graph_disabled_reference": {
+          "exact_revision_set": false,
+          "ordered_proof_paths": false,
+          "exact_evidence": false,
+          "completeness": true,
+          "abstention": false,
+          "reason_codes": false,
+          "passed": false
+        },
+        "m4a_graph_enabled": {
+          "exact_revision_set": false,
+          "ordered_proof_paths": false,
+          "exact_evidence": false,
+          "completeness": true,
+          "abstention": false,
+          "reason_codes": false,
+          "passed": false
+        }
+      },
+      "arms": {
+        "accepted_g3r": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "accepted_g3r",
+            "case_id": "g4a_transfer_cycle_fanout_pressure",
+            "partition": "transfer",
+            "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+            "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:983878ead918448ea47f5e0f5cf2f36582cde2a32eb7e7816d20c48c486663fb",
+            "query_hash": "sha256:65ccb76d03d6a80dd564fd51022f5ac6f8c0ffeb7b2247b7073f50c1b5729ab8",
+            "policy_hash": "sha256:5064c80d1edbd055408524adc7fb1d38a7f6042a331ab15a789b5f5a8e181013",
+            "frontier_hash": "sha256:b38b071f52b1275fcb5ede94e79a81aa2b6ae3734694a3199b3b93808e221089",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "degraded",
+          "actual": {
+            "status": "degraded",
+            "revision_ids": [],
+            "ordered_paths": [],
+            "evidence_ids": [],
+            "complete": false,
+            "abstain": true,
+            "reason_codes": [
+              "STRUCTURAL_PROOF_PROTOCOL_UNAVAILABLE"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:d386b6831e40f2ae50421abe0b812b5738f399c2462269823aa25b10335ab385"
+        },
+        "m4a_graph_disabled_reference": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_disabled_reference",
+            "case_id": "g4a_transfer_cycle_fanout_pressure",
+            "partition": "transfer",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:983878ead918448ea47f5e0f5cf2f36582cde2a32eb7e7816d20c48c486663fb",
+            "query_hash": "sha256:65ccb76d03d6a80dd564fd51022f5ac6f8c0ffeb7b2247b7073f50c1b5729ab8",
+            "policy_hash": "sha256:5064c80d1edbd055408524adc7fb1d38a7f6042a331ab15a789b5f5a8e181013",
+            "frontier_hash": "sha256:b38b071f52b1275fcb5ede94e79a81aa2b6ae3734694a3199b3b93808e221089",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "degraded",
+          "actual": {
+            "status": "degraded",
+            "revision_ids": [
+              "revision_cycle_a",
+              "revision_cycle_d"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_cycle_a",
+                  "revision_cycle_d"
+                ],
+                "relation_revision_ids": [
+                  "relation_cycle_ad"
+                ],
+                "relation_types": [
+                  "supports"
+                ],
+                "depth": 1,
+                "path_hash": "sha256:7ff3c38ed8fb0f330dbf55a60602aafa25f34ff92679ef77e7eb82588bd5e3fa"
+              }
+            ],
+            "evidence_ids": [
+              "evidence:dbc72778c88f25c783692038d8ebcc00adfb590697500b0b"
+            ],
+            "complete": false,
+            "abstain": false,
+            "reason_codes": [
+              "GRAPH_RESULT_LIMIT"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:567e171dffd6db19d4b90314a40ff25fcd6ff8ea810440bc758d6d168a47993b"
+        },
+        "m4a_graph_enabled": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_enabled",
+            "case_id": "g4a_transfer_cycle_fanout_pressure",
+            "partition": "transfer",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:983878ead918448ea47f5e0f5cf2f36582cde2a32eb7e7816d20c48c486663fb",
+            "query_hash": "sha256:65ccb76d03d6a80dd564fd51022f5ac6f8c0ffeb7b2247b7073f50c1b5729ab8",
+            "policy_hash": "sha256:5064c80d1edbd055408524adc7fb1d38a7f6042a331ab15a789b5f5a8e181013",
+            "frontier_hash": "sha256:b38b071f52b1275fcb5ede94e79a81aa2b6ae3734694a3199b3b93808e221089",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "degraded",
+          "actual": {
+            "status": "degraded",
+            "revision_ids": [
+              "revision_cycle_a",
+              "revision_cycle_d"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_cycle_a",
+                  "revision_cycle_d"
+                ],
+                "relation_revision_ids": [
+                  "relation_cycle_ad"
+                ],
+                "relation_types": [
+                  "supports"
+                ],
+                "depth": 1,
+                "path_hash": "sha256:7ff3c38ed8fb0f330dbf55a60602aafa25f34ff92679ef77e7eb82588bd5e3fa"
+              }
+            ],
+            "evidence_ids": [
+              "evidence:dbc72778c88f25c783692038d8ebcc00adfb590697500b0b"
+            ],
+            "complete": false,
+            "abstain": false,
+            "reason_codes": [
+              "GRAPH_RESULT_LIMIT"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:51c3d3fc51a1a0604a744dda2cbdd5a9e6259b7bdaa84137297568b069865d2e"
+        }
+      },
+      "native_reference_equal": true,
+      "strict_gain": false
+    },
+    {
+      "case_id": "g4a_transfer_mid_path_correction",
+      "partition": "transfer",
+      "family": "mid_path_correction",
+      "input_identity": {
+        "snapshot_logical_digest": "sha256:41e38715a46709a07f605b0d73f073a64f8e410236651916bcc42e3e77e531b3",
+        "node_count": 3,
+        "edge_count": 2,
+        "query_hash": "sha256:dbe96eb5777a0fa668130c7940964910932f4843b19a3b6e505c23e6eb81ae31"
+      },
+      "scores": {
+        "accepted_g3r": {
+          "exact_revision_set": false,
+          "ordered_proof_paths": false,
+          "exact_evidence": false,
+          "completeness": false,
+          "abstention": false,
+          "reason_codes": false,
+          "passed": false
+        },
+        "m4a_graph_disabled_reference": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        },
+        "m4a_graph_enabled": {
+          "exact_revision_set": true,
+          "ordered_proof_paths": true,
+          "exact_evidence": true,
+          "completeness": true,
+          "abstention": true,
+          "reason_codes": true,
+          "passed": true
+        }
+      },
+      "arms": {
+        "accepted_g3r": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "accepted_g3r",
+            "case_id": "g4a_transfer_mid_path_correction",
+            "partition": "transfer",
+            "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+            "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:209cef7f9c934b54196fa624b6bf1a8fa582b2a76d2857f5fff71a7a254d306f",
+            "query_hash": "sha256:dbe96eb5777a0fa668130c7940964910932f4843b19a3b6e505c23e6eb81ae31",
+            "policy_hash": "sha256:45bcc4abe6277a4682af1891280091b36394d4ca0eb901fc3f80dbe0e9db1246",
+            "frontier_hash": "sha256:5a2a1e6676c4c742a9303fa2551b6868f7913208adc0ff30d05a9aabac04ee2d",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "degraded",
+          "actual": {
+            "status": "degraded",
+            "revision_ids": [],
+            "ordered_paths": [],
+            "evidence_ids": [],
+            "complete": false,
+            "abstain": true,
+            "reason_codes": [
+              "STRUCTURAL_PROOF_PROTOCOL_UNAVAILABLE"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:f05a6e50ce1ce6acae461b9354beaef3d1da1535f6729b0e3b077087317642ce"
+        },
+        "m4a_graph_disabled_reference": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_disabled_reference",
+            "case_id": "g4a_transfer_mid_path_correction",
+            "partition": "transfer",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": null,
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:209cef7f9c934b54196fa624b6bf1a8fa582b2a76d2857f5fff71a7a254d306f",
+            "query_hash": "sha256:dbe96eb5777a0fa668130c7940964910932f4843b19a3b6e505c23e6eb81ae31",
+            "policy_hash": "sha256:45bcc4abe6277a4682af1891280091b36394d4ca0eb901fc3f80dbe0e9db1246",
+            "frontier_hash": "sha256:5a2a1e6676c4c742a9303fa2551b6868f7913208adc0ff30d05a9aabac04ee2d",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_goal",
+              "revision_mid_new",
+              "revision_start"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_start",
+                  "revision_mid_new",
+                  "revision_goal"
+                ],
+                "relation_revision_ids": [
+                  "relation_new_1",
+                  "relation_new_2"
+                ],
+                "relation_types": [
+                  "supports",
+                  "depends_on"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:605d1176b637b11e247f883d632f24e3f46d3eed27cbfbfbdf7c05116fb42643"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_goal",
+              "evidence_mid_new",
+              "evidence_start"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": [
+              "CORRECTED_PREDECESSOR_EXCLUDED"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:ccbe07c201c2555e244418bceb1ae9e080db586a64d95fc2bf360f29610f49e3"
+        },
+        "m4a_graph_enabled": {
+          "identity": {
+            "protocol_version": "1.0.0",
+            "arm": "m4a_graph_enabled",
+            "case_id": "g4a_transfer_mid_path_correction",
+            "partition": "transfer",
+            "candidate_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+            "dependency_lock_hash": "sha256:4ecf84c7b6b15287f83c346a764742843ae795f099d61c1f34bbcad6864b6066",
+            "native_binary_hash": "sha256:57e07aa4aaaae7556c414ce9bfddb24f3a6e1e6b1b4a07882e3feb5e8261c6aa",
+            "manifest_hash": "sha256:0125495066b577da571e46f7c4533b73bb3f9a4ba547affa8d7357eb5dd713e7",
+            "case_hash": "sha256:209cef7f9c934b54196fa624b6bf1a8fa582b2a76d2857f5fff71a7a254d306f",
+            "query_hash": "sha256:dbe96eb5777a0fa668130c7940964910932f4843b19a3b6e505c23e6eb81ae31",
+            "policy_hash": "sha256:45bcc4abe6277a4682af1891280091b36394d4ca0eb901fc3f80dbe0e9db1246",
+            "frontier_hash": "sha256:5a2a1e6676c4c742a9303fa2551b6868f7913208adc0ff30d05a9aabac04ee2d",
+            "thresholds_hash": "sha256:408d7a89f981fc7cae2a9d33ac6198f4f0a1435d6058ebc105af4c778a3b7517"
+          },
+          "status": "passed",
+          "actual": {
+            "status": "complete",
+            "revision_ids": [
+              "revision_goal",
+              "revision_mid_new",
+              "revision_start"
+            ],
+            "ordered_paths": [
+              {
+                "node_revision_ids": [
+                  "revision_start",
+                  "revision_mid_new",
+                  "revision_goal"
+                ],
+                "relation_revision_ids": [
+                  "relation_new_1",
+                  "relation_new_2"
+                ],
+                "relation_types": [
+                  "supports",
+                  "depends_on"
+                ],
+                "depth": 2,
+                "path_hash": "sha256:605d1176b637b11e247f883d632f24e3f46d3eed27cbfbfbdf7c05116fb42643"
+              }
+            ],
+            "evidence_ids": [
+              "evidence_goal",
+              "evidence_mid_new",
+              "evidence_start"
+            ],
+            "complete": true,
+            "abstain": false,
+            "reason_codes": [
+              "CORRECTED_PREDECESSOR_EXCLUDED"
+            ]
+          },
+          "strict_gain": false,
+          "governance_violations": [],
+          "result_hash": "sha256:66bab98dc452c28623eafad71e8edee4d8c352de71db8f9f0d2d09cb619afd1b"
+        }
+      },
+      "native_reference_equal": true,
+      "strict_gain": false
+    }
+  ],
+  "summary": {
+    "strict_gains": [],
+    "holdout_gains": 0,
+    "transfer_gains": 0,
+    "graph_regressions": [
+      "g4a_transfer_cycle_fanout_pressure"
+    ],
+    "governance_violations": [],
+    "native_reference_mismatches": [],
+    "material_structural_gain": false,
+    "logical_results_hash": "sha256:bace9907a5cb451a6847aa35f13e32287128a03f4e97c09ce1844ed6bf625596"
+  },
+  "decision_input": {
+    "identity_gate": true,
+    "frozen_input_gate": true,
+    "structural_gate": false,
+    "governance_gate": true,
+    "resource_gate": "PENDING_U7_RESOURCE_REPORT",
+    "eligible_for_go": false
+  },
+  "report_hash": "sha256:78b9e417396d9f2259bf4c2fb978fa469022cee1ae8c2aa892fa8b0955eee0d1"
+}

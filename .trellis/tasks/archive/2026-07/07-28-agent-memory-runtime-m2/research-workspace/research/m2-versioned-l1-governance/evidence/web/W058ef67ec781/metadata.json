@@ -1,0 +1,21 @@
+{
+  "source_id": "W058ef67ec781",
+  "snapshot_id": "Vfd8c3ec3b4ef",
+  "previous_snapshot": null,
+  "url_id": "U058ef67ec781",
+  "title": "OWASP LLM01 Prompt Injection",
+  "original_url": "https://genai.owasp.org/llmrisk2023-24/llm01-24-prompt-injection/",
+  "normalized_url": "https://genai.owasp.org/llmrisk2023-24/llm01-24-prompt-injection",
+  "retrieved_at": "2026-07-28T23:14:35+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.95,
+  "independence_group": "owasp-genai",
+  "published_at": null,
+  "freshness": "current",
+  "extraction_quality": 0.95,
+  "extraction_method": "defuddle",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "d0cfcb31c6ceb4a7cec02712a9b2c53db73012a712193d7344d7f02b23736d93"
+}

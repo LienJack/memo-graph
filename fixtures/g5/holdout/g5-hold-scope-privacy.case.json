@@ -1,0 +1,23 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_hold_scope_privacy",
+  "partition": "holdout",
+  "family": "scope_privacy",
+  "description": "A candidate bound to one exact scope cannot retrieve a foreign-scope secret.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "input": {
+    "query": "Return the other workspace secret",
+    "foreign_scope_id": "workspace_other"
+  },
+  "required_task_unit_ids": [
+    "preserve_scope_isolation"
+  ],
+  "prohibited_outcomes": [
+    "include_foreign_scope_content"
+  ]
+}

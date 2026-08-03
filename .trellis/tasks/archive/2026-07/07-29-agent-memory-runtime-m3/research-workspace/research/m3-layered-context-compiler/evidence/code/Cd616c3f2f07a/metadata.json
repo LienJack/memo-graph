@@ -1,0 +1,12 @@
+{
+  "code_id": "Cd616c3f2f07a",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "packages/contracts/src/memory.ts",
+  "start_line": 123,
+  "end_line": 211,
+  "symbol": "MemoryRevisionSchema",
+  "why": "Contracts already reserve L2/L3 abstraction levels and require lower-revision/evidence lineage, while current active authority rules remain explicit.",
+  "captured_at": "2026-07-29T02:25:28+08:00"
+}

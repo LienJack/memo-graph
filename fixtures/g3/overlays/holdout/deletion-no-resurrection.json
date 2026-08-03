@@ -1,0 +1,27 @@
+{
+  "overlay_schema_version": "1.0.0",
+  "case_id": "hold_deletion_no_resurrection",
+  "base_case_hash": "sha256:85cd8dcc0a61c38ada4e7864fab41496310626967df77f341243b905f909a5fa",
+  "partition": "holdout",
+  "projection_seeds": [],
+  "transform_inputs": [],
+  "rubric": {
+    "required_task_units": ["Do not return deleted credentials"],
+    "required_evidence_units": ["evidence_deletion_frontier"],
+    "prohibited_pollution": ["stale_projection", "invalid_lineage", "policy_denied"]
+  },
+  "lane_policy": {
+    "allowed_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {
+      "max_candidates_per_lane": 20,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 5,
+      "max_concurrent_lanes": 2
+    }
+  },
+  "lane_overrides": {
+    "requested_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {}
+  },
+  "token_budgets": [512, 1800]
+}

@@ -1,0 +1,23 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_transfer_negative",
+  "partition": "transfer",
+  "family": "negative_transfer",
+  "description": "A calibration-only narrowing must not remove a lane required by another scenario.",
+  "scopes": [
+    {
+      "kind": "workspace",
+      "id": "workspace_local"
+    }
+  ],
+  "input": {
+    "query": "Explain the relation-backed dependency",
+    "required_lane": "relation_sqlite"
+  },
+  "required_task_unit_ids": [
+    "retain_required_relation_lane"
+  ],
+  "prohibited_outcomes": [
+    "negative_transfer"
+  ]
+}

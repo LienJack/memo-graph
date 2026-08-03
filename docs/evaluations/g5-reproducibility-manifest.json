@@ -1,0 +1,548 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G5_U8_EVIDENCE",
+  "evaluation_status": "EVIDENCE_READY",
+  "decision_status": "PENDING_U9",
+  "recorded_at": "2026-07-30T02:20:00.000+08:00",
+  "tested_implementation": {
+    "commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+    "tree": "34719539c098343b3d47771cb0588be905faf6c5",
+    "dependency_lock_hash": "sha256:89b71c57b48310cd99dee5a054be88d08c8af18363b465f8dca2a98b186c5f82",
+    "migration_set_hash": "sha256:842ed0336266bd9a4ca7a740654671d021d1dff0bc294361b6ea9a5b17fb35b9",
+    "executable_frozen_before_evidence": true,
+    "reviewed_runtime_commit": "02bb7a1824e710b0736ee6e35c02b7d7e8925abc",
+    "reviewed_runtime_tree": "6ba5d29b3f51fb63d604a39c984e3ffc2f69b74b"
+  },
+  "accepted_baseline": {
+    "g3r": {
+      "decision": "GO",
+      "commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+      "artifact_sha256": "sha256:54cde9f9b85527a2c3bd4770a6b4f50ee34f66c3b91362502b19d5cbcb43416d"
+    },
+    "graph": {
+      "decision": "NO-GO",
+      "commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+      "artifact_sha256": "sha256:52dc230b6ad1831d070ea9f868e5754180fe903db6a385da2294750cab1f9c8c"
+    },
+    "vector": {
+      "decision": "NO-GO",
+      "commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+      "artifact_sha256": "sha256:8f638f8e685692397f5c309e27a592b703320b9c8c25da59b22e85af1d07f527"
+    },
+    "vector_enabled": false,
+    "retrieval_configuration_hash": "sha256:c094fcf736a09e19d4845d494ff0d633aee8831da8bcaf41e81ec5ec0c7f1e49"
+  },
+  "workspace_packages": [
+    {
+      "name": "@memo-graph/context-compiler",
+      "path": "packages/context-compiler",
+      "git_tree": "a1d83ef911ca1a5b26b8e54f6b1e999797d11094"
+    },
+    {
+      "name": "@memo-graph/contracts",
+      "path": "packages/contracts",
+      "git_tree": "81469e451b31bdd582b6cc8ab4cb68a2774dfda6"
+    },
+    {
+      "name": "@memo-graph/graph-projection",
+      "path": "packages/graph-projection",
+      "git_tree": "3d7b0e645221de91fb96dbefa3dd98f8d6577226"
+    },
+    {
+      "name": "@memo-graph/learning-lab",
+      "path": "packages/learning-lab",
+      "git_tree": "a6c69490fc5490add380fadc4e4d647d5c71005c"
+    },
+    {
+      "name": "@memo-graph/mcp-server",
+      "path": "packages/mcp-server",
+      "git_tree": "acd8c5a40d3f7d53cece104c1af607b2edeeda76"
+    },
+    {
+      "name": "@memo-graph/memory-kernel",
+      "path": "packages/memory-kernel",
+      "git_tree": "f725fad1862f3c1797392e2c03b6aa6258a5bfc1"
+    },
+    {
+      "name": "@memo-graph/storage-sqlite",
+      "path": "packages/storage-sqlite",
+      "git_tree": "e1d8d2eb1e8c64656890f69e497bb4cdf334fd1e"
+    },
+    {
+      "name": "@memo-graph/vector-retrieval",
+      "path": "packages/vector-retrieval",
+      "git_tree": "3e0669697616aeba9f5822b311275661dbc1d503"
+    }
+  ],
+  "migrations": {
+    "latest": "0014-learning-lab.sql",
+    "files": [
+      {
+        "path": "migrations/0001-evidence-ledger.sql",
+        "raw_hash": "sha256:707146d45e5f6d5e4c31740a85cd7eb81c43ec379bd39b2600cde533515e8e11"
+      },
+      {
+        "path": "migrations/0002-fts-baseline.sql",
+        "raw_hash": "sha256:b70b77de89023929151ba1440d1a8971b7179bde9a5c40f529db6c99a74166f8"
+      },
+      {
+        "path": "migrations/0003-recall-context.sql",
+        "raw_hash": "sha256:ed6d7538ee160a75bfdde47e58a131d98a172038a5c8615823766aa7babdd69b"
+      },
+      {
+        "path": "migrations/0004-l1-governance.sql",
+        "raw_hash": "sha256:979ef6ec5fec074a2a3c6b12b84dc44f389575b5b2ff73b5b65bc7032e17b7c6"
+      },
+      {
+        "path": "migrations/0005-tombstone-purge.sql",
+        "raw_hash": "sha256:5b99ba87d3c6a398ab2ca3884f3f0f1a0f055252a80a00f36985209cd81fe51b"
+      },
+      {
+        "path": "migrations/0006-governance-commands.sql",
+        "raw_hash": "sha256:6f977f7c686d78a8b630f529d7644a6289038717e3738ddfa77e4997eb580668"
+      },
+      {
+        "path": "migrations/0007-purge-runtime.sql",
+        "raw_hash": "sha256:1314180cb2b28925efc37765236c180912c4b34fff3a6dd23e5f14e6605c4392"
+      },
+      {
+        "path": "migrations/0008-layered-projections.sql",
+        "raw_hash": "sha256:cbb5b9fc97936964c1cc2d3b3e86cd5952c5de46e172dd85b9ff5668a7caec62"
+      },
+      {
+        "path": "migrations/0009-projection-purge-redaction.sql",
+        "raw_hash": "sha256:91aca5edcb00e5ba67c74a2304593543bd21c56bc1c5196444b9149daaba5033"
+      },
+      {
+        "path": "migrations/0010-layered-context-purge.sql",
+        "raw_hash": "sha256:21b29ee3552a2ad93adb8be07fa5fb511c9f70f1021502091918bf69ac96bff1"
+      },
+      {
+        "path": "migrations/0011-scope-projection-frontiers.sql",
+        "raw_hash": "sha256:072d3092b7d6ec634ba90e09ad84897619529199b6c9b6a3d4a1981ca46e25a6"
+      },
+      {
+        "path": "migrations/0012-graph-projection-delivery.sql",
+        "raw_hash": "sha256:5242e089722376e59056cd8d8014eaeeb4656f2ab32e0467b7f5e641902b465b"
+      },
+      {
+        "path": "migrations/0013-vector-projection-delivery.sql",
+        "raw_hash": "sha256:2f9df2534a4287a8ecd5df25c05caff6922aa26ba2b18fc97de61fdf6d56a3e8"
+      },
+      {
+        "path": "migrations/0014-learning-lab.sql",
+        "raw_hash": "sha256:72ed4be94159bfd87a461ee1928659bed9e18c0c27dea42f3a4bcf60c29c70bf"
+      }
+    ],
+    "migration_set_hash": "sha256:842ed0336266bd9a4ca7a740654671d021d1dff0bc294361b6ea9a5b17fb35b9"
+  },
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "Darwin lien.local 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132 arm64",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "frozen_inputs": {
+    "manifest": {
+      "path": "fixtures/g5/manifest.json",
+      "raw_hash": "sha256:01bd2b3504beb55631de8428857b9e6ee0fd8232baa25f617c3a3a9a16c76a5b",
+      "canonical_hash": "sha256:a09939178044ff5f8807f5ebd6c164c73b0444d8cb4658b18ec2bac42a01ad49"
+    },
+    "thresholds": {
+      "path": "fixtures/g5/thresholds.json",
+      "raw_hash": "sha256:d31e80bb9f222708abce78692d52d75cdec8c4e4675ea5fbcd541c75e65f3fd9",
+      "canonical_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e"
+    },
+    "fixtures": [
+      {
+        "path": "fixtures/g5/calibration/g5-cal-conflict.case.json",
+        "raw_hash": "sha256:158465d861fa0ccf2ce2e86cb5db13bb7fbbcae3b806e7977d6cc98f47f88908",
+        "canonical_hash": "sha256:e67bb564419b0e37439016386206d18c05d3a26f10e7eddf9dcc4c70e5788c93"
+      },
+      {
+        "path": "fixtures/g5/calibration/g5-cal-conflict.oracle.json",
+        "raw_hash": "sha256:3649dfcbb305e47cf66d0cb18cf10b82db5c32709e4098d0b35dc69b9989c28f",
+        "canonical_hash": "sha256:666be967581a47374d189409cbc186d45e0c7fdd1b5b7cc34d7e216e1367e1f8"
+      },
+      {
+        "path": "fixtures/g5/calibration/g5-cal-policy-gain.case.json",
+        "raw_hash": "sha256:0993b6df9d212cf8cad3837ffc8f682a7b10cea7fb7789a2f05f512fa2ccbfdc",
+        "canonical_hash": "sha256:5094c841c06872b5ffc17fcfca78cd71c2bc3563651c7c15b1813851a373c503"
+      },
+      {
+        "path": "fixtures/g5/calibration/g5-cal-policy-gain.oracle.json",
+        "raw_hash": "sha256:3e7088c82155485c59f2d5db5cfa0fc73d29c141a04e24af62317d9f9e74a7d3",
+        "canonical_hash": "sha256:6d1f8b5d9573b778891cdd78946ca0faf5083f2ecc1afd3cb3a5085d41bfa0e1"
+      },
+      {
+        "path": "fixtures/g5/calibration/g5-cal-pollution.case.json",
+        "raw_hash": "sha256:0d1690ed4653ca8857028fe7629c07d523b740d434fed92e0f387448afc1b7dc",
+        "canonical_hash": "sha256:2ce29340f1127ab0962d8334393b8910c5906a7cfa0fd65d12d690d9ad10357f"
+      },
+      {
+        "path": "fixtures/g5/calibration/g5-cal-pollution.oracle.json",
+        "raw_hash": "sha256:182c154c9c5fea94ccf42672cc9d5ea2e0ca360f64532e079f9362872c47dfff",
+        "canonical_hash": "sha256:3de9bc030d65185bd7428c25e02775db7b70c0c44e8375247403869541405ad5"
+      },
+      {
+        "path": "fixtures/g5/canary/g5-canary-pollution.case.json",
+        "raw_hash": "sha256:deecc8fea87eaf3a90f01764f943ef30c2483ffec96d7577ec1d5726f38f8139",
+        "canonical_hash": "sha256:ef6d616c4c7e2df5452d1ec1bd8370a8cd9bafbee2ca258954a92153fba4df97"
+      },
+      {
+        "path": "fixtures/g5/canary/g5-canary-pollution.oracle.json",
+        "raw_hash": "sha256:5184b5e1842957ee59603bf89b027554efa57fc71a7e081b3d813a245afd0225",
+        "canonical_hash": "sha256:8f052b70a9cfb9bff81dfe68897626fb70521b3649b0287c8d9d1db3c6ff4146"
+      },
+      {
+        "path": "fixtures/g5/canary/g5-canary-rollback.case.json",
+        "raw_hash": "sha256:81dcc978f4a1d7aee3083ebd7dd62507c78e054a5df65a094b72c5a4ba20494e",
+        "canonical_hash": "sha256:f06f28b91a72898e0d0b96c80e4852b221ecdeeb5131eec53e4e5beb958c42c4"
+      },
+      {
+        "path": "fixtures/g5/canary/g5-canary-rollback.oracle.json",
+        "raw_hash": "sha256:e176d11b4a2f51c40e1e642ac316c910e51fe7e33b819e6be4b606340bfd65fb",
+        "canonical_hash": "sha256:ecc9bc1ee94615087a92ec18a35e0554d925e7a64a7a1dd6e880e4fe4f286171"
+      },
+      {
+        "path": "fixtures/g5/canary/g5-canary-scope.case.json",
+        "raw_hash": "sha256:78952e0a684a60f78abcd88880c59c3f9fffa4b854070d9600819121049e84bd",
+        "canonical_hash": "sha256:fe9f6f2e757b34707719c9d4254607a8b93db6aedaf67daa2e05347f8fd8f165"
+      },
+      {
+        "path": "fixtures/g5/canary/g5-canary-scope.oracle.json",
+        "raw_hash": "sha256:d6963f94bca834e64b37e7075e35073c224ac5b2e9f43033129be7c2825b2c1d",
+        "canonical_hash": "sha256:0be11add067418ded45d651d98c36cfc347daabf881f11efc7ffb88f85228722"
+      },
+      {
+        "path": "fixtures/g5/holdout/g5-hold-policy-gain.case.json",
+        "raw_hash": "sha256:82b202c14bdf9cc929662fdbede13f2c69a049101c7b1f227de947f57605b01b",
+        "canonical_hash": "sha256:46797da5125d9d05ac09f65dba52e9b9dd568f40c10ad58fa0339362b1fbd9da"
+      },
+      {
+        "path": "fixtures/g5/holdout/g5-hold-policy-gain.oracle.json",
+        "raw_hash": "sha256:51ad9cd2b7b39f682ec2e77cd9053869d6e642b73c1cfa1401991176d3d0e67b",
+        "canonical_hash": "sha256:9ac01c6a6001325839067cc15a6024ac33b0487ddecd6c1a1608a4c36275f343"
+      },
+      {
+        "path": "fixtures/g5/holdout/g5-hold-scope-privacy.case.json",
+        "raw_hash": "sha256:d15497a0c7536db866d71e72980220795e0e6163c4c0080c3e092f898e727293",
+        "canonical_hash": "sha256:7b190e5d26d2a8b4860232a50b1ba431d23dd604c6f2af7206d333e30402a624"
+      },
+      {
+        "path": "fixtures/g5/holdout/g5-hold-scope-privacy.oracle.json",
+        "raw_hash": "sha256:754c5d9360ae62aa07ae6dfca33307f5fb214df88451e545c0f18f20724bc244",
+        "canonical_hash": "sha256:e3f4cabfacd605d09624f3828d2df60a11fcff99f58fa3cf730c9ad2676a11e5"
+      },
+      {
+        "path": "fixtures/g5/holdout/g5-hold-tombstone.case.json",
+        "raw_hash": "sha256:b05dff06b6dcbe18554571761ab9e57bb39e568bde99bd49f455f23f3fb940e7",
+        "canonical_hash": "sha256:bbf1fd14d1de8954b4a104e1526fe163140f9f2039942eded347e42b5f76a918"
+      },
+      {
+        "path": "fixtures/g5/holdout/g5-hold-tombstone.oracle.json",
+        "raw_hash": "sha256:4ae7c3e078102f431c7c4db2f09af6005359a8b4f8d07918cdfcebf1a440fdc5",
+        "canonical_hash": "sha256:8e3cddd2a32d8cb438fb5d2ad2f5f52f8b1c6beee7436904e70a466c200c2158"
+      },
+      {
+        "path": "fixtures/g5/manifest.json",
+        "raw_hash": "sha256:01bd2b3504beb55631de8428857b9e6ee0fd8232baa25f617c3a3a9a16c76a5b",
+        "canonical_hash": "sha256:a09939178044ff5f8807f5ebd6c164c73b0444d8cb4658b18ec2bac42a01ad49"
+      },
+      {
+        "path": "fixtures/g5/thresholds.json",
+        "raw_hash": "sha256:d31e80bb9f222708abce78692d52d75cdec8c4e4675ea5fbcd541c75e65f3fd9",
+        "canonical_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e"
+      },
+      {
+        "path": "fixtures/g5/transfer/g5-transfer-negative.case.json",
+        "raw_hash": "sha256:47f3474af22d6cc1527df96afb27d45f7d7df29003f036ebb4b66afd0764d8a3",
+        "canonical_hash": "sha256:afe7559264cc9228830b48c071f28d2db566a613c61a6f516310b5b3f29abc02"
+      },
+      {
+        "path": "fixtures/g5/transfer/g5-transfer-negative.oracle.json",
+        "raw_hash": "sha256:96794478c7735eba14b09b8b6d9e2806e860bcd743516e895d9ab46803c6cc62",
+        "canonical_hash": "sha256:e225aaeae47a71e05c9078d376df0d93ead31d566bdbbc505e47f28965805cec"
+      },
+      {
+        "path": "fixtures/g5/transfer/g5-transfer-policy-gain.case.json",
+        "raw_hash": "sha256:a1108f5c3f96c0ea308ca604a473abb2600d7cd95a2ace6a902e75b7fc0409c7",
+        "canonical_hash": "sha256:10365a06ebe888e8c41f5974a6e97c8a77222c3423e3cc5da7986aa4c9a86939"
+      },
+      {
+        "path": "fixtures/g5/transfer/g5-transfer-policy-gain.oracle.json",
+        "raw_hash": "sha256:f451f7789b336cca4519fd9dbca4c272bab7342bae27ead20afc9658a52bab02",
+        "canonical_hash": "sha256:30118d1731eb3890e582b149439aff9cceb2688e52e985a7f016e9a9f68253a6"
+      },
+      {
+        "path": "fixtures/g5/transfer/g5-transfer-rollback.case.json",
+        "raw_hash": "sha256:d643c18b69f6b73fc6531c9ac1c5df69c846df24952585da54fd7e087815cde1",
+        "canonical_hash": "sha256:a870946c5657ee3a589f1b722786eb0050f96c664dce1bb0946b1ecb9f6ccc7f"
+      },
+      {
+        "path": "fixtures/g5/transfer/g5-transfer-rollback.oracle.json",
+        "raw_hash": "sha256:c2e301fa54ecd125b7f66a09edf170a8a5528ed0a6a96cb93710808d3ab15fc5",
+        "canonical_hash": "sha256:8bd44e28ce7d17565654a7294c1f2d4375c94430d6643b291a9f7078df905ec6"
+      }
+    ],
+    "fixture_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+    "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+    "corpus_hash": "sha256:490fefd9d8e1cf5555fc952b46853cac0f129cbc8a106d0e1cf0ca046ac8c28a",
+    "partition_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+    "scorer_hash": "sha256:769f0d27dd9fddc834b656c7bbf71ebcd6ce5b41409a8fcd08106922e46b55b6",
+    "seed": 7
+  },
+  "configuration": {
+    "retrieval_configuration_hash": "sha256:c094fcf736a09e19d4845d494ff0d633aee8831da8bcaf41e81ec5ec0c7f1e49",
+    "graph_decision": "NO-GO",
+    "vector_decision": "NO-GO",
+    "graph_enabled": false,
+    "vector_enabled": false,
+    "sqlite_authoritative": true
+  },
+  "evaluation": {
+    "safe_candidate_id": "candidate_storage_1",
+    "safe_candidate_hash": "sha256:6367becd5448dfa2e881cf052039e8359607b9eaa21be2d6a1e4c46a643d1c44",
+    "safe_common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+    "safe_evaluation_receipt_hash": "sha256:bf3a7bf6d4a233d7c26f386377549890024f77a2b6d4ec34802452c1fd9c82d8",
+    "harmful_common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+    "harmful_evaluation_receipt_hash": "sha256:d1d444294cb5d9ec6d62aeb13b3008052a43268de303c8f20d441a6c8f59b87e",
+    "canary_authorization_hash": "sha256:9592ba76da78da7119a0fb1b98e224a29873575e14381dbd886ebd93a56e085c",
+    "canary_receipt_hash": "sha256:6f65357da73ced0caf17efe447bfcdbbf8b9231a3025dd19e1ce3e162df7fb5a",
+    "release_approval_hash": "sha256:a62e4facd9fe34621f4ca7a55fe08834c9c210a3e07e3009cf450b6a1b2d18b9",
+    "release_receipt_hash": "sha256:536dc185e8036d12d5b5a572c3a795b21f400f47a2a2735d4216420eafc73177",
+    "success_monitor_receipt_hash": "sha256:c79d6621022897383ec31c17edc3fdd5fa4aef48dd81a10a24841468122742fb",
+    "breach_monitor_receipt_hash": "sha256:a86a8e50961328736b40ccf4aee0c36792ec88fbf3214500e816b49888a043e2",
+    "rollback_receipt_hash": "sha256:804d6f00fec93f415d7b8497b7d7330cd70321aa3989b11c20d23eff25a20c76",
+    "final_pointer_hash": "sha256:de5c3c21837c0ef5d039ba28cb84d3838113d01028c29c2573a864b1fe296126"
+  },
+  "source_bindings": [
+    {
+      "path": "package.json",
+      "raw_hash": "sha256:9a71fec34aa3ccce14e69d4c8b267559897da663827144102beff391edae7365"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "raw_hash": "sha256:89b71c57b48310cd99dee5a054be88d08c8af18363b465f8dca2a98b186c5f82"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "raw_hash": "sha256:08d75840c97ab0e72d1d9b5b84a17e47a2e06cb159a5fbec5ee0a6a56682dad7"
+    },
+    {
+      "path": "tsconfig.json",
+      "raw_hash": "sha256:5727c5c77becb4c0d597a4bd939cfd24d5e2945bc9bc4b2738fe5ebf2ef273b2"
+    },
+    {
+      "path": "vitest.config.ts",
+      "raw_hash": "sha256:1cd07d75fad449104af263cdc47dcc2fdf687b2a7ed4adb278f71a95164138a8"
+    },
+    {
+      "path": "migrations/0014-learning-lab.sql",
+      "raw_hash": "sha256:72ed4be94159bfd87a461ee1928659bed9e18c0c27dea42f3a4bcf60c29c70bf"
+    },
+    {
+      "path": "tests/helpers/g5-replay.ts",
+      "raw_hash": "sha256:b3ec3c18d88987f895cb6a5499e384a1cfcfe9d65ab09449e94aa7d26536495d"
+    },
+    {
+      "path": "tests/helpers/g5-canary.ts",
+      "raw_hash": "sha256:e03dd029e5b46cad9c06a1c9683786d07f1a640ffda7532ee5e4b57b457aa238"
+    },
+    {
+      "path": "tests/helpers/g5-release.ts",
+      "raw_hash": "sha256:e67a9300034e004af13931235bfbb4c35510eff2bef7b9571b2602d6b9eefc02"
+    },
+    {
+      "path": "tests/helpers/learning-examples.ts",
+      "raw_hash": "sha256:bab0f6d0a849651f575fc429139453de54487f2ed0edefef0be47db824807d16"
+    },
+    {
+      "path": "scripts/g5-evidence-common.mjs",
+      "raw_hash": "sha256:cc7ee218299cb18dc82be5c02c716bfa996315050d9f0a109713895b037baa29"
+    },
+    {
+      "path": "scripts/run-g5-replay.mjs",
+      "raw_hash": "sha256:aa1c085672916c4e86836bf0f164c39a88f194d4ce859e2c7de8fb6ae61d5036"
+    },
+    {
+      "path": "scripts/run-g5-canary.mjs",
+      "raw_hash": "sha256:f8a2b0276bd412727dcf3e497078c82c4821408c3b270b1b259bd5b844a1421f"
+    },
+    {
+      "path": "scripts/run-g5-resource-report.mjs",
+      "raw_hash": "sha256:48dc20f23e55df8c18eead616db2a28768a3e44191311cc8ca6a99c6ea924b67"
+    },
+    {
+      "path": "scripts/build-g5-manifest.mjs",
+      "raw_hash": "sha256:2c415a5c1e56583e17bf1ced31ba7d31b586209661c14f4b840b9c7d6f789563"
+    },
+    {
+      "path": "scripts/verify-g4b-evidence.d.mts",
+      "raw_hash": "sha256:b9bc171dcb8aaa27a3992a7ed9bd7d23f00b90a275e807b050d0e40f18f55cfa"
+    },
+    {
+      "path": "scripts/verify-g5-evidence.d.mts",
+      "raw_hash": "sha256:b8dbb703b95c30613b9da872ffdbb0dbab5d127d9cb0c0566897eb81493e7880"
+    },
+    {
+      "path": "scripts/verify-g5-evidence.mjs",
+      "raw_hash": "sha256:3ccabfddc385904a3fcc1a81cd86b9033d750dabd059144a33a6bf489099ff74"
+    },
+    {
+      "path": "tests/integration/g5-artifact-integrity.test.ts",
+      "raw_hash": "sha256:a2ecfa92aec154b6efa0b29296033314ba62590310d2851df4eec43342ad998d"
+    }
+  ],
+  "evidence_reports": {
+    "replay": {
+      "path": "docs/evaluations/g5-replay-report.json",
+      "raw_hash": "sha256:c1bce5a70fc41720b87adf406cb86fc5cfb3312c7a6b34293f32d1442be1fb47",
+      "canonical_hash": "sha256:091b35072ed45a698912e807f4e2c995a81c4528bd14a5dba71d38c98d4d0c2f",
+      "report_hash": "sha256:70e893293ec4f721eabdef2f522cd2d60c02313dd9d920dfe2358c90d1bb72de"
+    },
+    "canary": {
+      "path": "docs/evaluations/g5-canary-report.json",
+      "raw_hash": "sha256:8692e96894af9d9536ec1ad5196146cf7740ab01c4abf8cfccd06be1fbef9bd6",
+      "canonical_hash": "sha256:84f2042ed7fcd9b0b4ad77353829b02439f5227e858cd60a380705fef78c1f6f",
+      "report_hash": "sha256:a9ce07df47ca55ed93c256a3f474f649556f38db98217c88001e01f4f6fd1680"
+    },
+    "resource": {
+      "path": "docs/evaluations/g5-resource-report.json",
+      "raw_hash": "sha256:e07077eb11a56972d89afd5aeddf013260288ec532f571ca7bf7d6ef9c7fcfbe",
+      "canonical_hash": "sha256:914a4454068e76d2a8c482080921e06a40244a13d1ec4fe667951f78e174211b",
+      "report_hash": "sha256:ab988d378568d775e671e687f2a68fcfbc2092165856c089086f329ef569f18a"
+    }
+  },
+  "review": {
+    "path": "docs/evaluations/g5-code-review.md",
+    "raw_hash": "sha256:61c1973eb8d8fc0c1fe10f2df2b4bce6a92599e145ff1250cc0c822376f7673c",
+    "result": "PASS",
+    "unresolved_p0": 0,
+    "unresolved_p1": 0,
+    "lower_debt_recorded": true
+  },
+  "hard_rules": {
+    "replay": {
+      "implementation_identity_bound": true,
+      "graph_vector_disabled": true,
+      "candidate_frozen_before_holdout_transfer": true,
+      "safe_three_arms": true,
+      "safe_common_identity": true,
+      "safe_d5_conjunctive": true,
+      "harmful_rejected": true,
+      "harmful_zero_pointer_change": true,
+      "deterministic_repeat": true
+    },
+    "canary": {
+      "implementation_identity_bound": true,
+      "canary_hidden_before_approval": true,
+      "precomputed_post_canary_approval_rejected": true,
+      "separate_authority_chains": true,
+      "exact_single_consumption": true,
+      "bounded_canary_success": true,
+      "forced_abort_terminal": true,
+      "exact_monitor_replay": true,
+      "breach_blocks_until_rollback": true,
+      "pause_resume_runtime_continuity": true,
+      "no_resurrection": true,
+      "release_and_rollback_exact": true
+    },
+    "resource": {
+      "implementation_identity_bound": true,
+      "complete_metric_families": true,
+      "bounded_repeat_harness": true,
+      "governance_and_privacy": true,
+      "exact_canary_bound": true,
+      "release_rollback_separate": true,
+      "reports_bounded": true
+    }
+  },
+  "hard_rule_digest": "sha256:9e7c1fb9d4648eae4f3842574750effdde87b7124637c39e212832ce7f616a9e",
+  "decision_input": {
+    "all_hard_rules_pass": true,
+    "first_false_hard_rule": null,
+    "eligible_for_g5_decision": true,
+    "decision_recorded": false
+  },
+  "dirty_state_policy": {
+    "base_commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+    "policy": "Only hash-bound U8 evidence and explicit U9 decision paths may differ from the frozen implementation.",
+    "allowed_paths": [
+      ".trellis/tasks/07-29-agent-memory-runtime-m5/implement.md",
+      ".trellis/tasks/07-29-agent-memory-runtime-m5/task.json",
+      "docs/adr/0005-governed-learning-release.md",
+      "docs/evaluations/g5-canary-report.json",
+      "docs/evaluations/g5-code-review.md",
+      "docs/evaluations/g5-decision.md",
+      "docs/evaluations/g5-replay-report.json",
+      "docs/evaluations/g5-reproducibility-manifest.json",
+      "docs/evaluations/g5-resource-report.json",
+      "docs/evaluations/g5-verification-report.json",
+      "docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md",
+      "docs/plans/2026-07-29-005-feat-governed-learning-lab-plan.md",
+      "fixtures/g5/calibration/g5-cal-conflict.case.json",
+      "fixtures/g5/calibration/g5-cal-conflict.oracle.json",
+      "fixtures/g5/calibration/g5-cal-policy-gain.case.json",
+      "fixtures/g5/calibration/g5-cal-policy-gain.oracle.json",
+      "fixtures/g5/calibration/g5-cal-pollution.case.json",
+      "fixtures/g5/calibration/g5-cal-pollution.oracle.json",
+      "fixtures/g5/canary/g5-canary-pollution.case.json",
+      "fixtures/g5/canary/g5-canary-pollution.oracle.json",
+      "fixtures/g5/canary/g5-canary-rollback.case.json",
+      "fixtures/g5/canary/g5-canary-rollback.oracle.json",
+      "fixtures/g5/canary/g5-canary-scope.case.json",
+      "fixtures/g5/canary/g5-canary-scope.oracle.json",
+      "fixtures/g5/holdout/g5-hold-policy-gain.case.json",
+      "fixtures/g5/holdout/g5-hold-policy-gain.oracle.json",
+      "fixtures/g5/holdout/g5-hold-scope-privacy.case.json",
+      "fixtures/g5/holdout/g5-hold-scope-privacy.oracle.json",
+      "fixtures/g5/holdout/g5-hold-tombstone.case.json",
+      "fixtures/g5/holdout/g5-hold-tombstone.oracle.json",
+      "fixtures/g5/manifest.json",
+      "fixtures/g5/thresholds.json",
+      "fixtures/g5/transfer/g5-transfer-negative.case.json",
+      "fixtures/g5/transfer/g5-transfer-negative.oracle.json",
+      "fixtures/g5/transfer/g5-transfer-policy-gain.case.json",
+      "fixtures/g5/transfer/g5-transfer-policy-gain.oracle.json",
+      "fixtures/g5/transfer/g5-transfer-rollback.case.json",
+      "fixtures/g5/transfer/g5-transfer-rollback.oracle.json",
+      "migrations/0014-learning-lab.sql",
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "scripts/build-g5-manifest.mjs",
+      "scripts/g5-evidence-common.mjs",
+      "scripts/run-g5-canary.mjs",
+      "scripts/run-g5-replay.mjs",
+      "scripts/run-g5-resource-report.mjs",
+      "scripts/verify-g4b-evidence.d.mts",
+      "scripts/verify-g5-evidence.d.mts",
+      "scripts/verify-g5-evidence.mjs",
+      "tests/helpers/g5-canary.ts",
+      "tests/helpers/g5-release.ts",
+      "tests/helpers/g5-replay.ts",
+      "tests/helpers/learning-examples.ts",
+      "tests/integration/g5-artifact-integrity.test.ts",
+      "tsconfig.json",
+      "vitest.config.ts"
+    ],
+    "allowed_decision_paths": [
+      ".trellis/tasks/07-29-agent-memory-runtime-m5/task.json",
+      ".trellis/tasks/07-29-agent-memory-runtime-m5/implement.md",
+      "docs/adr/0005-governed-learning-release.md",
+      "docs/evaluations/g5-decision.md",
+      "docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md",
+      "docs/plans/2026-07-29-005-feat-governed-learning-lab-plan.md"
+    ]
+  },
+  "evidence_boundary": {
+    "local_synthetic_evidence": true,
+    "production_traffic": false,
+    "production_readiness_claimed": false,
+    "m6_hardening_claimed": false
+  },
+  "report_hash": "sha256:12fe4d89de233dbe43ae3e1c416ca58a1e07684ed9602085416e2e40db6c6fac"
+}

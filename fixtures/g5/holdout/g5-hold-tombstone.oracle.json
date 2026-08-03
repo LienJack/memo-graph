@@ -1,0 +1,14 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_hold_tombstone",
+  "partition": "holdout",
+  "visibility": "sealed_evaluator",
+  "expected_status": "POLICY_EXCLUDED",
+  "expected_task_unit_ids": [
+    "preserve_tombstone_filter"
+  ],
+  "expected_included_ids": [],
+  "expected_exclusion_codes": [
+    "TOMBSTONED"
+  ]
+}

@@ -1,0 +1,284 @@
+{
+  "schema_version": "1.0.0",
+  "recorded_at": "2026-07-28T21:21:25.117Z",
+  "protocol_version": "1.0.0",
+  "final_decision": "HOLD",
+  "candidate_commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
+  "accepted_m2_commit": "31959fc841ddc95f7570e5e0f2028a1e6b00243e",
+  "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+  "accepted_m2_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+  "arm_a_execution": {
+    "mode": "isolated_detached_worktree",
+    "verification_command": "pnpm test:g3:accepted",
+    "result": "PASS",
+    "note": "The report metrics use the same protocol adapter after the exact isolated checkout proved semantic and frozen Context equality."
+  },
+  "corpus": {
+    "base_manifest_raw_hash": "sha256:8827b6fd6f1db6df8643faa46cdd5ce1008c10cca092fada555e3896cd7804e3",
+    "base_manifest_hash": "sha256:4c3b2a658b6f93ac09374d376edcac6f299b4628e891362c5568166d5561de0b",
+    "g3_manifest_raw_hash": "sha256:674f73a1879795bf5b9a38b291c107782228984552ddee2b7460bbe083c5ecb2",
+    "g3_manifest_hash": "sha256:94c74e54ab560e9b80acf282802a5b485ac685c1cb3fe9c292ed648daffaa813",
+    "cases": 11,
+    "budgets": [
+      512,
+      1800
+    ],
+    "runs_per_arm": 22
+  },
+  "compatibility": {
+    "arm_a_b_semantic_equal": true,
+    "arm_a_b_frozen_context_equal": true,
+    "mismatches": []
+  },
+  "summary": {
+    "accepted_m2": {
+      "aggregate": {
+        "runs": 22,
+        "task_included": 12,
+        "task_required": 22,
+        "evidence_included": 16,
+        "evidence_required": 24,
+        "pollution_events": 0,
+        "governance_violations": 0,
+        "budget_overflows": 0,
+        "abstention_correct": 22,
+        "rebuild_failures": 0,
+        "degraded_runs": 0,
+        "conflict_explanations": 4
+      },
+      "partitions": {
+        "calibration": {
+          "task_included": 10,
+          "evidence_included": 10
+        },
+        "holdout": {
+          "task_included": 2,
+          "evidence_included": 6
+        },
+        "transfer": {
+          "task_included": 0,
+          "evidence_included": 0
+        }
+      }
+    },
+    "m3_no_projection": {
+      "aggregate": {
+        "runs": 22,
+        "task_included": 12,
+        "task_required": 22,
+        "evidence_included": 16,
+        "evidence_required": 24,
+        "pollution_events": 0,
+        "governance_violations": 0,
+        "budget_overflows": 0,
+        "abstention_correct": 22,
+        "rebuild_failures": 0,
+        "degraded_runs": 0,
+        "conflict_explanations": 4
+      },
+      "partitions": {
+        "calibration": {
+          "task_included": 10,
+          "evidence_included": 10
+        },
+        "holdout": {
+          "task_included": 2,
+          "evidence_included": 6
+        },
+        "transfer": {
+          "task_included": 0,
+          "evidence_included": 0
+        }
+      }
+    },
+    "m3_layered": {
+      "aggregate": {
+        "runs": 22,
+        "task_included": 14,
+        "task_required": 22,
+        "evidence_included": 16,
+        "evidence_required": 24,
+        "pollution_events": 0,
+        "governance_violations": 0,
+        "budget_overflows": 0,
+        "abstention_correct": 22,
+        "rebuild_failures": 0,
+        "degraded_runs": 2,
+        "conflict_explanations": 4
+      },
+      "partitions": {
+        "calibration": {
+          "task_included": 10,
+          "evidence_included": 10
+        },
+        "holdout": {
+          "task_included": 4,
+          "evidence_included": 6
+        },
+        "transfer": {
+          "task_included": 0,
+          "evidence_included": 0
+        }
+      }
+    }
+  },
+  "case_matrix": [
+    {
+      "case_id": "cal_normal_preference",
+      "partition": "calibration",
+      "status": "OK",
+      "a_b_c_task": "1/1/1",
+      "a_b_c_evidence": "1/1/1",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "cal_conflict_supersession",
+      "partition": "calibration",
+      "status": "OK",
+      "a_b_c_task": "1/1/1",
+      "a_b_c_evidence": "1/1/1",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "cal_correction_lineage",
+      "partition": "calibration",
+      "status": "OK",
+      "a_b_c_task": "1/1/1",
+      "a_b_c_evidence": "1/1/1",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "cal_privacy_scope",
+      "partition": "calibration",
+      "status": "OK",
+      "a_b_c_task": "1/1/1",
+      "a_b_c_evidence": "1/1/1",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "cal_temporal_validity",
+      "partition": "calibration",
+      "status": "OK",
+      "a_b_c_task": "1/1/1",
+      "a_b_c_evidence": "1/1/1",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "hold_deletion_no_resurrection",
+      "partition": "holdout",
+      "status": "NO_MATCH",
+      "a_b_c_task": "0/0/0",
+      "a_b_c_evidence": "0/0/0",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "hold_persisted_prompt_injection",
+      "partition": "holdout",
+      "status": "POLICY_EXCLUDED",
+      "a_b_c_task": "0/0/0",
+      "a_b_c_evidence": "0/0/0",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "hold_multi_hop_lineage",
+      "partition": "holdout",
+      "status": "OK",
+      "a_b_c_task": "0/0/1",
+      "a_b_c_evidence": "2/2/2",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "hold_projection_failure",
+      "partition": "holdout",
+      "status": "DEGRADED",
+      "a_b_c_task": "1/1/1",
+      "a_b_c_evidence": "1/1/1",
+      "budgets": "512,1800",
+      "m3_layered_degraded_lane": "topic",
+      "fallback_lane": "recent_l1"
+    },
+    {
+      "case_id": "transfer_negative_transfer",
+      "partition": "transfer",
+      "status": "POLICY_EXCLUDED",
+      "a_b_c_task": "0/0/0",
+      "a_b_c_evidence": "0/0/0",
+      "budgets": "512,1800"
+    },
+    {
+      "case_id": "transfer_policy_exclusion",
+      "partition": "transfer",
+      "status": "POLICY_EXCLUDED",
+      "a_b_c_task": "0/0/0",
+      "a_b_c_evidence": "0/0/0",
+      "budgets": "512,1800"
+    }
+  ],
+  "strict_improvements": [
+    {
+      "case_id": "hold_multi_hop_lineage",
+      "partition": "holdout",
+      "budget": 512,
+      "task_delta": 1
+    },
+    {
+      "case_id": "hold_multi_hop_lineage",
+      "partition": "holdout",
+      "budget": 1800,
+      "task_delta": 1
+    }
+  ],
+  "ablation": {
+    "runs": 110,
+    "nonzero_deltas": [
+      {
+        "case_id": "hold_multi_hop_lineage",
+        "budget": 512,
+        "omitted_lane": "core",
+        "task_delta": -1,
+        "evidence_delta": -1
+      },
+      {
+        "case_id": "hold_multi_hop_lineage",
+        "budget": 1800,
+        "omitted_lane": "core",
+        "task_delta": -1,
+        "evidence_delta": 0
+      },
+      {
+        "case_id": "hold_projection_failure",
+        "budget": 512,
+        "omitted_lane": "recent_l1",
+        "task_delta": -1,
+        "evidence_delta": -1
+      },
+      {
+        "case_id": "hold_projection_failure",
+        "budget": 1800,
+        "omitted_lane": "recent_l1",
+        "task_delta": -1,
+        "evidence_delta": -1
+      }
+    ]
+  },
+  "no_aggregate_or_partition_regression": true,
+  "invariant_failures": [],
+  "failed_cases": [],
+  "policy_excluded_cases": [
+    "hold_persisted_prompt_injection",
+    "transfer_negative_transfer",
+    "transfer_policy_exclusion"
+  ],
+  "decision_input": {
+    "zero_governance_budget_rebuild_violations": true,
+    "no_aggregate_or_partition_regression": true,
+    "strict_designated_improvement": true
+  },
+  "post_gate_review": {
+    "reviewed_commit": "5e4c75404e288402c0c1253807cd9eed2a8414ef",
+    "result": "HOLD",
+    "reason": "The frozen replay passes its declared cases, but review found uncovered normal-usage failures in bounded projection retrieval, source-frontier revalidation above 1000 active L1 rows, and multi-scope frontier composition.",
+    "runtime_fallback": "accepted_m2_l0_l1",
+    "downstream_gates_opened": false
+  }
+}

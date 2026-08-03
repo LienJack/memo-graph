@@ -1,0 +1,12 @@
+{
+  "code_id": "C481781553210",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "packages/contracts/src/receipts.ts",
+  "start_line": 53,
+  "end_line": 125,
+  "symbol": "MutationReceiptSchema_PurgeReceiptSchema",
+  "why": "MutationReceipt 和 PurgeReceipt 已定义投影工作、tombstone epoch、store inventory 与 residual debt",
+  "captured_at": "2026-07-28T23:12:45+08:00"
+}

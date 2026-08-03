@@ -1,0 +1,371 @@
+{
+  "schema_version": "1.0.0",
+  "frozen_at": "2026-07-29T05:12:01.000Z",
+  "accepted_g3r_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+  "accepted_g3r_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+  "candidate_selection": null,
+  "arms": [
+    "fts_recency",
+    "layered",
+    "vector",
+    "hybrid"
+  ],
+  "scope": {
+    "principal_id": "user_local",
+    "kind": "workspace",
+    "id": "workspace_local"
+  },
+  "as_of": "2026-07-29T05:00:00.000Z",
+  "token_budgets": [
+    1800,
+    4096
+  ],
+  "thresholds": {
+    "positive_cases": 6,
+    "minimum_positive_cases_solved": 5,
+    "minimum_strict_case_gains": 4,
+    "minimum_holdout_gains": 1,
+    "minimum_transfer_gains": 1,
+    "critical_regression_tolerance": 0,
+    "context_pollution_delta_tolerance": 0,
+    "governed_recall_p50_ms": 50,
+    "governed_recall_p95_ms": 200,
+    "context_compile_p50_ms": 100,
+    "context_compile_p95_ms": 400,
+    "fallback_p95_ms": 100,
+    "warmup_samples": 20,
+    "measured_samples": 100
+  },
+  "expected_profile": {
+    "evidence_events": 250000,
+    "active_l1_memories": 25000,
+    "l2_l3_projections": 6000,
+    "relations": 50000
+  },
+  "strict_gain_rule": "A positive case is a strict gain only when vector or hybrid returns every expected live revision inside the identical principal, exact scope, as_of, reader policy and Context budget while both fts_recency and layered miss at least one expected revision. More candidates, similarity score alone, or a result that fails canonical postvalidation is not a gain.",
+  "adoption_rule": "G4B may record GO only when hybrid solves at least five of six positive cases, produces at least four strict gains including one holdout and one transfer gain, has zero critical governance regressions, does not increase Context pollution, preserves disabled and degraded fallback equivalence, and remains inside the frozen M0 latency envelope on the expected profile.",
+  "cases": [
+    {
+      "case_id": "g4b_cal_irrecoverable_forgetting",
+      "partition": "calibration",
+      "case_role": "positive_gap",
+      "family": "english_paraphrase",
+      "query": "How do I make forgotten information impossible to recover?",
+      "expected_revision_ids": [
+        "revision_g4b_cal_purge"
+      ],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_cal_purge",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "A purge irreversibly erases canonical evidence and every derived artifact."
+        },
+        {
+          "revision_id": "revision_g4b_cal_backup",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "A verified backup preserves the authoritative SQLite ledger."
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_cal_learning_pause_zh_en",
+      "partition": "calibration",
+      "case_role": "positive_gap",
+      "family": "cross_language",
+      "query": "怎样暂停自动学习但仍然允许读取记忆？",
+      "expected_revision_ids": [
+        "revision_g4b_cal_pause"
+      ],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_cal_pause",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "Learning pause blocks new candidate publication while ordinary governed memory reads continue."
+        },
+        {
+          "revision_id": "revision_g4b_cal_release",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "A canary release advances the active learning policy pointer."
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_cal_exact_scope_isolation",
+      "partition": "calibration",
+      "case_role": "negative_control",
+      "family": "scope_negative_control",
+      "query": "Which workspace must run package commands with Node 24.18.0?",
+      "expected_revision_ids": [
+        "revision_g4b_cal_node_local"
+      ],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_cal_node_local",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "This repository uses Node.js 24.18.0 for every package command."
+        },
+        {
+          "revision_id": "revision_g4b_cal_node_other",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_other"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "This workspace must run package commands with Node 24.18.0."
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_hold_projection_fallback",
+      "partition": "holdout",
+      "case_role": "positive_gap",
+      "family": "operational_paraphrase",
+      "query": "What should the runtime do if the optional semantic service stops responding?",
+      "expected_revision_ids": [
+        "revision_g4b_hold_fallback"
+      ],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_hold_fallback",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "Degrade to governed FTS5 and layered recall with a typed receipt."
+        },
+        {
+          "revision_id": "revision_g4b_hold_retry",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "Retry a failed projection job from its durable checkpoint."
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_hold_correction_zh_en",
+      "partition": "holdout",
+      "case_role": "positive_gap",
+      "family": "cross_language_correction",
+      "query": "怎样修正一条已经过时的偏好而保留历史证据？",
+      "expected_revision_ids": [
+        "revision_g4b_hold_correction"
+      ],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_hold_correction",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "Append an immutable successor revision and supersede the old preference; do not rewrite prior evidence."
+        },
+        {
+          "revision_id": "revision_g4b_hold_overwrite",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "superseded",
+          "valid_from": "2026-06-01T00:00:00.000Z",
+          "valid_to": "2026-07-01T00:00:00.000Z",
+          "content": "Overwrite the old preference in place and discard its earlier evidence."
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_hold_revoked_similarity_trap",
+      "partition": "holdout",
+      "case_role": "negative_control",
+      "family": "lifecycle_negative_control",
+      "query": "Can a revoked rule still guide Context assembly?",
+      "expected_revision_ids": [
+        "revision_g4b_hold_withdrawal"
+      ],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_hold_withdrawal",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "Withdrawal immediately removes a revision from governed recall."
+        },
+        {
+          "revision_id": "revision_g4b_hold_revoked_trap",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "revoked",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "A revoked rule may continue to guide Context assembly."
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_transfer_offline_operation",
+      "partition": "transfer",
+      "case_role": "positive_gap",
+      "family": "offline_semantic_operation",
+      "query": "How can the memory system work during a network outage?",
+      "expected_revision_ids": [
+        "revision_g4b_transfer_offline"
+      ],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_transfer_offline",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "Load the pinned embedding model from the private local cache and disable remote model access."
+        },
+        {
+          "revision_id": "revision_g4b_transfer_cloud",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "candidate",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "Send every query to a hosted embedding endpoint."
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_transfer_context_pollution",
+      "partition": "transfer",
+      "case_role": "positive_gap",
+      "family": "conceptual_paraphrase",
+      "query": "How do we keep helpful memories from crowding out the current task?",
+      "expected_revision_ids": [
+        "revision_g4b_transfer_budget"
+      ],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_transfer_budget",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "The Context Compiler applies a fixed token budget, relevance ordering, and pollution penalties."
+        },
+        {
+          "revision_id": "revision_g4b_transfer_unbounded",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "candidate",
+          "valid_from": "2026-07-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "Include every possibly helpful memory without a size limit."
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_transfer_temporal_abstention",
+      "partition": "transfer",
+      "case_role": "negative_control",
+      "family": "temporal_negative_control",
+      "query": "Which production deployment procedure applies now?",
+      "expected_revision_ids": [],
+      "candidate_revisions": [
+        {
+          "revision_id": "revision_g4b_transfer_future",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-10-01T00:00:00.000Z",
+          "valid_to": null,
+          "content": "The production deployment procedure for next quarter uses the new release channel."
+        },
+        {
+          "revision_id": "revision_g4b_transfer_expired",
+          "principal_id": "user_local",
+          "scope": {
+            "kind": "workspace",
+            "id": "workspace_local"
+          },
+          "lifecycle": "active",
+          "valid_from": "2026-01-01T00:00:00.000Z",
+          "valid_to": "2026-06-01T00:00:00.000Z",
+          "content": "The production deployment procedure uses the retired legacy channel."
+        }
+      ]
+    }
+  ]
+}

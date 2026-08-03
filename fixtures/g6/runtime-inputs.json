@@ -1,0 +1,130 @@
+{
+  "schema_version": "1.0.0",
+  "paths": [
+    {
+      "path": "packages",
+      "kind": "tree",
+      "suffixes": [".ts", ".js", ".json", ".node"],
+      "excluded_segments": ["node_modules"]
+    },
+    {
+      "path": "apps",
+      "kind": "tree",
+      "suffixes": [".ts", ".js", ".json", ".node"],
+      "excluded_segments": ["node_modules"]
+    },
+    {
+      "path": "migrations",
+      "kind": "tree",
+      "suffixes": [".sql"],
+      "excluded_segments": []
+    },
+    {
+      "path": "tools/rename-noreplace",
+      "kind": "tree",
+      "suffixes": [".c", ".mjs"],
+      "excluded_segments": []
+    },
+    {
+      "path": "tools/rename-noreplace/rename-noreplace",
+      "kind": "file"
+    },
+    {
+      "path": "package.json",
+      "kind": "file"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "kind": "file"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "kind": "file"
+    },
+    {
+      "path": "tsconfig.base.json",
+      "kind": "file"
+    },
+    {
+      "path": "tsconfig.json",
+      "kind": "file"
+    },
+    {
+      "path": "eslint.config.js",
+      "kind": "file"
+    },
+    {
+      "path": "vitest.config.ts",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/g6-evidence-common.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/g6-evidence-common.d.mts",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/g6-bootstrap.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/g6-bootstrap.d.mts",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/run-g6-fault-matrix.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/run-g6-resource-report.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/run-g6-runbooks.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/g6-runbook-harness.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/g6-runbook-harness.d.mts",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/build-g6-manifest.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/build-g6-runtime-identity.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/build-g6-runtime-identity.d.mts",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/build-g6-release-control.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/build-g6-release-control.d.mts",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/verify-g6-evidence.mjs",
+      "kind": "file"
+    },
+    {
+      "path": "scripts/verify-g6-evidence.d.mts",
+      "kind": "file"
+    }
+  ],
+  "excluded_prefixes": [
+    "docs/evaluations/g6-",
+    ".trellis/tasks/07-30-agent-memory-runtime-m6/"
+  ],
+  "tested_implementation_digest": "sha256:3a639f74ce89737e2051c9985f143e3f6e7b2eec4f4f096cacac31856a1f4c30"
+}

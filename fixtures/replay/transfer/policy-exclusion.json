@@ -1,0 +1,32 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "transfer_policy_exclusion",
+  "partition": "transfer",
+  "risk_family": "privacy",
+  "description": "Relevant memory outside the allowed scope must be distinguished from a genuine no-match.",
+  "scopes": [
+    {
+      "kind": "workspace",
+      "id": "workspace_transfer"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Recall a deployment endpoint",
+    "matching_memory": {
+      "memory_id": "mem_other_workspace_endpoint",
+      "scope": "other_workspace",
+      "value": "https://private.invalid"
+    }
+  },
+  "expected": {
+    "status": "POLICY_EXCLUDED",
+    "included_memory_ids": [],
+    "excluded_reason_codes": ["SCOPE_DENIED"],
+    "must_explain": ["policy_exclusion"]
+  },
+  "prohibited_outcomes": [
+    "return the endpoint",
+    "report NO_MATCH when a matching but ineligible memory exists"
+  ]
+}

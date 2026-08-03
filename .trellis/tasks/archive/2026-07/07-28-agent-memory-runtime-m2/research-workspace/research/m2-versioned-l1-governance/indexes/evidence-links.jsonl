@@ -1,0 +1,20 @@
+{"question_id": "RQ002", "evidence_id": "Ca31dcb595a63", "role": "supports", "note": "当前合同已冻结 L1 生命周期、不可变 successor、lineage 与准入决策边界", "linked_at": "2026-07-28T23:12:45+08:00"}
+{"question_id": "RQ005", "evidence_id": "C12af3fd5b335", "role": "supports", "note": "工具安全分级、幂等键、expected revision 与 dry-run 是 M2 mutation envelope 基线", "linked_at": "2026-07-28T23:12:45+08:00"}
+{"question_id": "RQ004", "evidence_id": "C481781553210", "role": "supports", "note": "MutationReceipt 和 PurgeReceipt 已定义投影工作、tombstone epoch、store inventory 与 residual debt", "linked_at": "2026-07-28T23:12:45+08:00"}
+{"question_id": "RQ003", "evidence_id": "C11d4bf9ebec4", "role": "implementation", "note": "现有 writer 使用 BEGIN IMMEDIATE、双重幂等检查、事务内 ledger/outbox/receipt 提交，可复用为 L1 mutation 原子边界", "linked_at": "2026-07-28T23:12:46+08:00"}
+{"question_id": "RQ004", "evidence_id": "Cc8bbbd43ab1a", "role": "implementation", "note": "当前 backup 只冻结 ledger epoch、receipt、migration 和 blob inventory，尚未携带 tombstone frontier", "linked_at": "2026-07-28T23:12:46+08:00"}
+{"question_id": "RQ004", "evidence_id": "C62db98fb9373", "role": "implementation", "note": "当前 restore 只校验 snapshot 内 epoch、receipt 和 blob 数，不能与 live tombstone frontier 比较", "linked_at": "2026-07-28T23:12:46+08:00"}
+{"question_id": "RQ004", "evidence_id": "Cd74944d3ea17", "role": "implementation", "note": "FTS 由 outbox 投影且可重建，但 rebuild 目前会从全部 inline evidence 重建，必须增加 tombstone hard filter", "linked_at": "2026-07-28T23:12:46+08:00"}
+{"question_id": "RQ004", "evidence_id": "C773150f379ca", "role": "implementation", "note": "Context slice 与 receipt 作为不可变派生物持久化，删除需要通过 suppression/invalidation 阻止继续使用并记录清理结果", "linked_at": "2026-07-28T23:12:46+08:00"}
+{"question_id": "RQ001", "evidence_id": "Cb69fd4e79214", "role": "context", "note": "M2 继承单 writer、WAL、FULL synchronous、migration evidence 和 projection health 基线", "linked_at": "2026-07-28T23:12:58+08:00"}
+{"question_id": "RQ001", "evidence_id": "C36b806033928", "role": "context", "note": "M1 权威账本已有 append-only evidence、idempotency、outbox 和 backup manifest 基础表", "linked_at": "2026-07-28T23:12:59+08:00"}
+{"question_id": "RQ001", "evidence_id": "C5a02e3620ebd", "role": "context", "note": "M1 已持久化 Context 和 retrieval receipt 且附加 append-only triggers，M2 删除必须显式处理派生物", "linked_at": "2026-07-28T23:12:59+08:00"}
+{"question_id": "RQ003", "evidence_id": "W0f32b54f0bcc", "role": "supports", "note": "事务原子性、单写者与 BEGIN IMMEDIATE 边界", "linked_at": "2026-07-28T23:14:34+08:00"}
+{"question_id": "RQ004", "evidence_id": "W6b5690426c7e", "role": "supports", "note": "删除页覆写、freelist 与 VACUUM 边界", "linked_at": "2026-07-28T23:14:34+08:00"}
+{"question_id": "RQ004", "evidence_id": "W90b57f7dd042", "role": "supports", "note": "FTS 删除、rebuild 与 secure-delete 配置边界", "linked_at": "2026-07-28T23:14:34+08:00"}
+{"question_id": "RQ004", "evidence_id": "W42754b59f310", "role": "supports", "note": "backup 是源数据库某时刻 snapshot，因此恢复必须叠加 tombstone frontier", "linked_at": "2026-07-28T23:14:34+08:00"}
+{"question_id": "RQ002", "evidence_id": "W058ef67ec781", "role": "supports", "note": "间接输入不可直接获得工具/长期记忆权限，应最小权限并保留 HITL", "linked_at": "2026-07-28T23:14:35+08:00"}
+{"question_id": "RQ005", "evidence_id": "Wbfba858067cc", "role": "supports", "note": "tool annotations 是 hints 且客户端应在工具调用中保留用户确认能力", "linked_at": "2026-07-28T23:14:35+08:00"}
+{"question_id": "RQ003", "evidence_id": "Ca31dcb595a63", "role": "supports", "note": "revision and admission contract informs correction semantics", "linked_at": "2026-07-28T23:15:52+08:00"}
+{"question_id": "RQ005", "evidence_id": "Ca31dcb595a63", "role": "supports", "note": "memory lifecycle invariants constrain user controls", "linked_at": "2026-07-28T23:15:53+08:00"}
+{"question_id": "RQ005", "evidence_id": "C481781553210", "role": "supports", "note": "receipt contracts apply to control mutations and delete", "linked_at": "2026-07-28T23:15:53+08:00"}

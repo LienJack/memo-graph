@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m2/prd.md", "reason": "Check every M2 invariant, acceptance criterion, exclusion, and hold rule"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m2/implement.md", "reason": "Check U1-U8 completion and exact gate commands"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m2/research/research-handoff.md", "reason": "Audit implementation against supported D1-D9 and G2 evidence contract"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/implement.md", "reason": "Check parent M2/G2 assertions and no scope expansion"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Audit transactions, migrations, concurrency, tombstones, and rebuildability"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Audit stale revision, purge, restore, and governed status handling"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Audit approval, memory, path, token, and deleted-content leakage"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Audit test depth, fixtures, hashes, and G2 evidence"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Audit contract-storage-kernel-MCP-Context parity"}

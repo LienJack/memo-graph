@@ -1,0 +1,9 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/index.md", "reason": "Run the backend quality checklist against the complete M4A diff."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Review migration ordering, authority, queue leases, scope checkpoints, digest, restore, and rollback safety."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Verify every incomplete, timed-out, stale, corrupt, or missing graph path degrades and preserves SQLite fallback."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Verify process, queue, path, and resource telemetry is stable, bounded, and content-free."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Review focused/full tests, frozen install, native dependency audit, resources, hashes, and full-diff evidence."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review one-way authority and contract propagation across storage, child process, kernel, compiler, MCP, and receipts."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Review adapter isolation and reuse of existing projection/frontier/lane/replay patterns."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m4a/research/research-handoff.md", "reason": "Check all 15 supported claims, candidate boundary, timeout counterexample, material-gain rule, and GO/NO-GO symmetry."}

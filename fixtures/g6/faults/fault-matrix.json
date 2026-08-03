@@ -1,0 +1,158 @@
+{
+  "schema_version": "1.0.0",
+  "report_family": "fault_recovery",
+  "required_oracles": [
+    "old_or_new_canonical_state",
+    "receipt_epoch_frontier_agreement",
+    "restart_retry_idempotency",
+    "no_deleted_secret_stale_or_candidate_resurrection",
+    "typed_readiness_after_recovery"
+  ],
+  "fault_groups": [
+    {
+      "id": "migration_and_canonical_commit",
+      "fault_points": [
+        "migration_table_copy",
+        "migration_table_swap",
+        "canonical_commit",
+        "canonical_receipt",
+        "worker_response"
+      ],
+      "proof": {
+        "test_file": "tests/recovery/writer-restart.recovery.test.ts",
+        "test_name": "returns the durable receipt after a crash between commit and response"
+      }
+    },
+    {
+      "id": "encrypted_artifact_publication",
+      "fault_points": [
+        "encrypted_temp_write",
+        "encrypted_fsync",
+        "encrypted_rename",
+        "encrypted_reference_commit"
+      ],
+      "proof": {
+        "test_file": "tests/storage/encryption-key-lifecycle.integration.test.ts",
+        "test_name": "uses the bounded external encrypted-artifact saga above the inline threshold"
+      }
+    },
+    {
+      "id": "key_lifecycle",
+      "fault_points": [
+        "secret_nonce_seal",
+        "secret_input_seal",
+        "key_rotation_begin",
+        "key_rotation_item",
+        "key_rotation_completion",
+        "key_rotation_abort",
+        "key_compromise"
+      ],
+      "proof": {
+        "test_file": "tests/recovery/key-rotation.recovery.test.ts",
+        "test_name": "resumes item-by-item with one durable use authority per decrypt"
+      }
+    },
+    {
+      "id": "recovery_anchor",
+      "fault_points": [
+        "recovery_anchor_pending",
+        "recovery_sqlite",
+        "recovery_cas",
+        "recovery_reconciliation"
+      ],
+      "proof": {
+        "test_file": "tests/recovery/complete-backup-restore.recovery.test.ts",
+        "test_name": "runs pending, committed-head, and reconciled phases in order"
+      }
+    },
+    {
+      "id": "operator_action_ledger",
+      "fault_points": [
+        "operator_confirmation",
+        "action_ledger_transition"
+      ],
+      "proof": {
+        "test_file": "tests/integration/operator-destructive-confirmation.integration.test.ts",
+        "test_name": "reconciles an already committed external effect after confirmation expiry"
+      }
+    },
+    {
+      "id": "root_fence_and_publish",
+      "fault_points": [
+        "root_fence_advance",
+        "root_heartbeat_advance",
+        "target_reservation",
+        "target_no_replace_publish"
+      ],
+      "proof": {
+        "test_file": "tests/recovery/root-lease.recovery.test.ts",
+        "test_name": "requires exact expired and owner-not-live proof for recovery"
+      }
+    },
+    {
+      "id": "secret_admission",
+      "fault_points": [
+        "secret_approval",
+        "secret_ciphertext",
+        "secret_canonical_publication"
+      ],
+      "proof": {
+        "test_file": "tests/integration/governed-secret-admission.integration.test.ts",
+        "test_name": "atomically binds a synthetic GO control, approval consumption, ciphertext, receipt, and recovery frontier"
+      }
+    },
+    {
+      "id": "backup_restore",
+      "fault_points": [
+        "backup_database",
+        "backup_artifact",
+        "backup_manifest",
+        "restore_copy",
+        "restore_verify",
+        "restore_migrate",
+        "restore_fsync",
+        "restore_publish"
+      ],
+      "proof": {
+        "test_file": "tests/recovery/complete-backup-restore.recovery.test.ts",
+        "test_name": "removes staging and leaves target absent on every pre-publish fault"
+      }
+    },
+    {
+      "id": "wal_checkpoint",
+      "fault_points": [
+        "checkpoint_busy",
+        "checkpoint_retry",
+        "checkpoint_convergence"
+      ],
+      "proof": {
+        "test_file": "tests/recovery/wal-checkpoint.recovery.test.ts",
+        "test_name": "reports a blocked checkpoint and converges after the long reader exits"
+      }
+    },
+    {
+      "id": "purge",
+      "fault_points": ["purge_store_outcome"],
+      "proof": {
+        "test_file": "tests/recovery/complete-purge-audit.recovery.test.ts",
+        "test_name": "blocks completion on registered debt and converges only through a confirmed retry"
+      }
+    },
+    {
+      "id": "projection_rebuild",
+      "fault_points": ["projection_rebuild_publish"],
+      "proof": {
+        "test_file": "tests/recovery/interrupted-projection-rebuild.recovery.test.ts",
+        "test_name": "resumes FTS repair from canonical state and exposes only the current revision"
+      }
+    },
+    {
+      "id": "learning_rollback",
+      "fault_points": ["learning_pointer_rollback"],
+      "proof": {
+        "test_file": "tests/recovery/restored-learning-rollback.recovery.test.ts",
+        "test_name": "restores the named base release after a post-restore monitor breach"
+      }
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G4B_U8_VERIFICATION",
+  "recorded_at": "2026-07-29T18:12:07+08:00",
+  "candidate_commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "Darwin 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "commands": [
+    {
+      "command": "MEMO_GRAPH_G4B_MODEL_ROOT=<qualified-local-root> pnpm run g4b:replay",
+      "result": "PASS",
+      "detail": "Two deterministic frozen-corpus runs regenerated the final utility NO-GO report for candidate 3eec711"
+    },
+    {
+      "command": "MEMO_GRAPH_G4B_MODEL_ROOT=<qualified-local-root> pnpm run g4b:resources",
+      "result": "PASS",
+      "detail": "20 warmups and 100 samples per latency family plus 100-scope native rebuild and epoch migration regenerated the resource NO-GO report"
+    },
+    {
+      "command": "pnpm vitest run tests/replay/vector-semantic-gap.test.ts tests/integration/vector-benchmark.integration.test.ts",
+      "result": "PASS",
+      "detail": "2 focused files and 7 tests passed"
+    },
+    {
+      "command": "pnpm vitest run tests/integration/g4b-artifact-integrity.test.ts",
+      "result": "PASS",
+      "detail": "3 evidence-integrity, candidate-drift, calibration-drift, and hard-gate tests passed"
+    },
+    {
+      "command": "pnpm run verify:g4b",
+      "result": "PASS",
+      "detail": "Independent verifier recomputed identities, thresholds, reports, environment, model files, dirty overlay, command evidence, review, and forced NO-GO"
+    },
+    {
+      "command": "pnpm test",
+      "result": "PASS",
+      "detail": "77 files; 401 passed; 1 environment-gated skip with the qualified local model configured"
+    },
+    {
+      "command": "pnpm lint",
+      "result": "PASS",
+      "detail": "ESLint completed without findings"
+    },
+    {
+      "command": "pnpm typecheck",
+      "result": "PASS",
+      "detail": "All runtime packages built and the repository TypeScript noEmit check passed"
+    },
+    {
+      "command": "pnpm build",
+      "result": "PASS",
+      "detail": "All 7 runtime workspace packages built"
+    },
+    {
+      "command": "pnpm audit --audit-level high",
+      "result": "PASS",
+      "detail": "No known vulnerabilities found"
+    },
+    {
+      "command": "CI=true pnpm install --offline --frozen-lockfile --no-optional && pnpm build && vector-disabled MCP smoke",
+      "result": "PASS",
+      "detail": "Clean Git archive of candidate 3eec711 installed from the frozen lock without optional vector packages; build passed and MCP reported vector mode disabled with no epoch"
+    },
+    {
+      "command": "python3 ./.trellis/scripts/task.py validate 07-29-agent-memory-runtime-m4b",
+      "result": "PASS",
+      "detail": "10 implement and 10 check context entries validated"
+    },
+    {
+      "command": "JSON, JSONL, Markdown fence and git diff checks",
+      "result": "PASS",
+      "detail": "All selected artifacts parsed, fences matched, task context validated, and git diff --check passed"
+    },
+    {
+      "command": "Sequential full-diff review in the main thread",
+      "result": "PASS",
+      "detail": "Correctness, architecture, security, privacy, data integrity, reliability, performance, API contract, testing, project standards, maintainability, and agent-native parity closed with zero unresolved P0 or P1"
+    }
+  ],
+  "review": {
+    "path": "docs/evaluations/g4b-code-review.md",
+    "raw_hash": "sha256:f15b2d7002551c0d97495b487d156cd07e1d8354bf13ddb1aeee8ddfe8cf15d3",
+    "result": "PASS",
+    "unresolved_p0": 0,
+    "unresolved_p1": 0
+  },
+  "gate_observation": {
+    "dependency_gate": true,
+    "governance_gate": true,
+    "recovery_gate": true,
+    "utility_gate": false,
+    "resource_gate": false,
+    "eligible_for_go": false,
+    "first_failing_gate": "hybrid_positive_success",
+    "decision": "NO-GO"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "source_id": "W485e500bd8f8",
+  "snapshot_id": "V937295ca13dd",
+  "previous_snapshot": null,
+  "url_id": "U485e500bd8f8",
+  "title": "Lost in the Middle: How Language Models Use Long Contexts",
+  "original_url": "https://aclanthology.org/2024.tacl-1.9/",
+  "normalized_url": "https://aclanthology.org/2024.tacl-1.9",
+  "retrieved_at": "2026-07-29T02:31:06+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.98,
+  "independence_group": "lost-middle-stanford-berkeley",
+  "published_at": "2024-01-01",
+  "freshness": "current",
+  "extraction_quality": 0.99,
+  "extraction_method": "anysearch-extract",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "98c1a66be600be3fc5eee1d3e5f3337e5cacee9a927c0bb07f60351b5bea9528"
+}

@@ -1,0 +1,12 @@
+{
+  "code_id": "C62bf6d199856",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "docs/evaluations/performance-envelope.md",
+  "start_line": 6,
+  "end_line": 55,
+  "symbol": "M0 performance envelope",
+  "why": "The accepted envelope predeclares Small/Expected/Stress projection and relation counts, token budgets, latency targets, disk/memory reporting, and holdout isolation.",
+  "captured_at": "2026-07-29T02:25:29+08:00"
+}

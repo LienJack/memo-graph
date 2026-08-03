@@ -1,0 +1,2448 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G5_U8_REPLAY",
+  "recorded_at": "2026-07-30T02:20:00.000+08:00",
+  "implementation": {
+    "commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+    "tree": "34719539c098343b3d47771cb0588be905faf6c5",
+    "dependency_lock_hash": "sha256:89b71c57b48310cd99dee5a054be88d08c8af18363b465f8dca2a98b186c5f82",
+    "migration_set_hash": "sha256:842ed0336266bd9a4ca7a740654671d021d1dff0bc294361b6ea9a5b17fb35b9",
+    "runtime_identity_hash": "sha256:e2472137a7258cc706ba64d84149afc2333ec8746ef67d50cf48a7959b190fa2"
+  },
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "Darwin lien.local 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132 arm64",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "protocol": {
+    "fixture_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+    "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+    "scorer": "g5-d5-conjunctive-scorer@1.0.0",
+    "scorer_hash": "sha256:769f0d27dd9fddc834b656c7bbf71ebcd6ce5b41409a8fcd08106922e46b55b6",
+    "seed": 7,
+    "arms": [
+      "no_candidate",
+      "current",
+      "candidate"
+    ],
+    "partitions": [
+      "calibration",
+      "holdout",
+      "transfer"
+    ],
+    "accepted_baseline": {
+      "g3r": {
+        "decision": "GO",
+        "commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+        "artifact_sha256": "sha256:54cde9f9b85527a2c3bd4770a6b4f50ee34f66c3b91362502b19d5cbcb43416d"
+      },
+      "graph": {
+        "decision": "NO-GO",
+        "commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+        "artifact_sha256": "sha256:52dc230b6ad1831d070ea9f868e5754180fe903db6a385da2294750cab1f9c8c"
+      },
+      "vector": {
+        "decision": "NO-GO",
+        "commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+        "artifact_sha256": "sha256:8f638f8e685692397f5c309e27a592b703320b9c8c25da59b22e85af1d07f527"
+      },
+      "vector_enabled": false,
+      "retrieval_configuration_hash": "sha256:c094fcf736a09e19d4845d494ff0d633aee8831da8bcaf41e81ec5ec0c7f1e49"
+    }
+  },
+  "safe_path": {
+    "candidate": {
+      "candidate_id": "candidate_storage_1",
+      "candidate_hash": "sha256:6367becd5448dfa2e881cf052039e8359607b9eaa21be2d6a1e4c46a643d1c44",
+      "target": {
+        "kind": "retrieval_policy",
+        "requested_lanes": [
+          "recent_l1"
+        ],
+        "limits": {
+          "max_candidates_per_lane": 10
+        }
+      },
+      "frozen_before_sealed_partitions": true
+    },
+    "identity": {
+      "schema_version": "1.0.0",
+      "run_id": "run_g5_evidence_safe",
+      "candidate_id": "candidate_storage_1",
+      "base_release_id": null,
+      "current_release_id": null,
+      "implementation_commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+      "implementation_tree": "34719539c098343b3d47771cb0588be905faf6c5",
+      "dependency_lock_hash": "sha256:89b71c57b48310cd99dee5a054be88d08c8af18363b465f8dca2a98b186c5f82",
+      "migration_set_hash": "sha256:842ed0336266bd9a4ca7a740654671d021d1dff0bc294361b6ea9a5b17fb35b9",
+      "runtime_identity_hash": "sha256:e2472137a7258cc706ba64d84149afc2333ec8746ef67d50cf48a7959b190fa2",
+      "accepted_g3r_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+      "accepted_g4a_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+      "accepted_g4b_commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+      "retrieval_configuration_hash": "sha256:c094fcf736a09e19d4845d494ff0d633aee8831da8bcaf41e81ec5ec0c7f1e49",
+      "corpus_hash": "sha256:490fefd9d8e1cf5555fc952b46853cac0f129cbc8a106d0e1cf0ca046ac8c28a",
+      "partition_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+      "scorer_hash": "sha256:769f0d27dd9fddc834b656c7bbf71ebcd6ce5b41409a8fcd08106922e46b55b6",
+      "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+      "seed": 7,
+      "environment_hash": "sha256:3c5768079e70d252cf1ce1022bc27450e6819722abccdb4e03f0acfd82b2cb01",
+      "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4"
+    },
+    "fixture_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+    "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+    "receipt": {
+      "schema_version": "1.0.0",
+      "receipt_id": "evaluation:07360a5465cf3ee85d089c936bdbe79b43065a754",
+      "created_at": "2026-07-28T12:00:00.000Z",
+      "state": "durable",
+      "request_hash": "sha256:b9b457839afb8f4709f57525a476352c7d2cb526f59e445259e366f669c956ad",
+      "receipt_hash": "sha256:bf3a7bf6d4a233d7c26f386377549890024f77a2b6d4ec34802452c1fd9c82d8",
+      "kind": "evaluation",
+      "candidate_id": "candidate_storage_1",
+      "run_id": "run_g5_evidence_safe",
+      "evaluation_version": "1.0.0",
+      "fixture_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+      "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+      "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+      "baseline_release_id": null,
+      "result_set_hashes": [
+        "sha256:aa85ede521aacac22a4c1fb3c07ae443fda1c3a50657fa61ff1bc21ccf321ea6",
+        "sha256:fc07d9c45d4b5ed23250658bf569ef12fe66963a2a10a99e505323e0a75a2401",
+        "sha256:93cdefa5cba335f2ade19501125acc25f45bbf5dc75aac7624c9b8d024f63c62",
+        "sha256:5615ed1e6c1640603a57eedb838d874a3b5a7256bf32cce3c65aaa4403dba0a9",
+        "sha256:7699c63817ab996f30d254e719ac6a0ec0e9cf07da97b88c0b74b76fb77e6686",
+        "sha256:cd79920dd9460723e4a440e7aa09b601047e68277e6a620e40d16fdccb6cd924",
+        "sha256:c0421bc07e4c2cb9e16aabc7239e574d568d6abebd0657a1157eb0d25f25de0d",
+        "sha256:d505066fcecd90aa0b0a3b2a88e11ddaf80115ff8a0313cc686a3c8525ea4bfc",
+        "sha256:f86edbbc56e4a68c68569d308a402589399c4a4bd38dc93c00f07778f88bfde1"
+      ],
+      "passed": true,
+      "invalidated": false,
+      "failed_case_ids": [],
+      "quarantined_case_ids": [],
+      "contamination_event_ids": []
+    },
+    "rules": [
+      {
+        "rule_id": "GAIN_OVER_CURRENT_CALIBRATION",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_NO_CANDIDATE_CALIBRATION",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_CURRENT_HOLDOUT",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_NO_CANDIDATE_HOLDOUT",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_CURRENT_TRANSFER",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_NO_CANDIDATE_TRANSFER",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "NO_REQUIRED_TASK_UNIT_LOSS",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_CRITICAL_REGRESSION",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_GOVERNANCE_VIOLATION",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_CONTEXT_POLLUTION_INCREASE",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_TOKEN_OVERFLOW",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_SIDE_EFFECT",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "LATENCY_ABSOLUTE_BOUND",
+        "passed": true,
+        "observed": 10,
+        "required": 400
+      },
+      {
+        "rule_id": "LATENCY_RELATIVE_BOUND",
+        "passed": true,
+        "observed": 10,
+        "required": 37
+      },
+      {
+        "rule_id": "NO_CONTAMINATION",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      }
+    ],
+    "partition_metrics": {
+      "calibration": {
+        "arms": {
+          "no_candidate": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "current": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "candidate": {
+            "passed_task_units": 3,
+            "failed_task_units": 0,
+            "errors": 0,
+            "negative_transfer_units": 0,
+            "context_tokens": 300,
+            "context_pollution": 0,
+            "latency_ms": 30,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          }
+        },
+        "deltas": {
+          "task_units_over_current": 3,
+          "task_units_over_no_candidate": 3,
+          "errors_vs_current": -3,
+          "negative_transfer_vs_current": 0,
+          "context_tokens_vs_current": -60,
+          "context_pollution_vs_current": 0,
+          "latency_ms_vs_current": -6,
+          "side_effects_vs_current": 0,
+          "violations_vs_current": 0
+        }
+      },
+      "holdout": {
+        "arms": {
+          "no_candidate": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "current": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "candidate": {
+            "passed_task_units": 3,
+            "failed_task_units": 0,
+            "errors": 0,
+            "negative_transfer_units": 0,
+            "context_tokens": 300,
+            "context_pollution": 0,
+            "latency_ms": 30,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          }
+        },
+        "deltas": {
+          "task_units_over_current": 3,
+          "task_units_over_no_candidate": 3,
+          "errors_vs_current": -3,
+          "negative_transfer_vs_current": 0,
+          "context_tokens_vs_current": -60,
+          "context_pollution_vs_current": 0,
+          "latency_ms_vs_current": -6,
+          "side_effects_vs_current": 0,
+          "violations_vs_current": 0
+        }
+      },
+      "transfer": {
+        "arms": {
+          "no_candidate": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "current": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "candidate": {
+            "passed_task_units": 3,
+            "failed_task_units": 0,
+            "errors": 0,
+            "negative_transfer_units": 0,
+            "context_tokens": 300,
+            "context_pollution": 0,
+            "latency_ms": 30,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          }
+        },
+        "deltas": {
+          "task_units_over_current": 3,
+          "task_units_over_no_candidate": 3,
+          "errors_vs_current": -3,
+          "negative_transfer_vs_current": 0,
+          "context_tokens_vs_current": -60,
+          "context_pollution_vs_current": 0,
+          "latency_ms_vs_current": -6,
+          "side_effects_vs_current": 0,
+          "violations_vs_current": 0
+        }
+      }
+    },
+    "result_sets": [
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_cal_conflict",
+        "partition": "calibration",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:4ab794d069f5f60fd4c1a7dbef55ad9986f2b3a94",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_conflict",
+            "partition": "calibration",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "surface_open_conflict"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:790bba27cc0efc1e06dabe8e64322beb6d4e7013d3cca390b02c6ac8b87e8e14"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:6c3875fdf355a7d03a9755d5d05b7a8fed396d3dc",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_conflict",
+            "partition": "calibration",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "surface_open_conflict"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:7faf20c262b89ca4272d17834befff1f7ddf6166d3c2bd3a63493732c33244f9"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:c6fadf08a2ebbf5642e0709a484b15c2f9a6e9bad",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_conflict",
+            "partition": "calibration",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "surface_open_conflict"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:f4673f326420ed711646523c745cd7554a3420678caee6bd1beea2790056ecdc"
+          }
+        ],
+        "result_set_hash": "sha256:aa85ede521aacac22a4c1fb3c07ae443fda1c3a50657fa61ff1bc21ccf321ea6"
+      },
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_cal_policy_gain",
+        "partition": "calibration",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:fec4528d44c53efea79e3aca840c378ac4c7955e2",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_policy_gain",
+            "partition": "calibration",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "identify_sqlite_authority"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:d9ae35d8f11ed3cbab231b8655d917e4089a266cde2b872e448edb3e14b30d32"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:781eebfb77d915187a1e2622498c45a145d0f0372",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_policy_gain",
+            "partition": "calibration",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "identify_sqlite_authority"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:7ab1111a68735e832e83c3e3fe4bd10b8134dd8096de985c723bd980226174e0"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:3f7251f5d2b99e7a8769c7dda229d313b908ffa30",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_policy_gain",
+            "partition": "calibration",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "identify_sqlite_authority"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_sqlite_authority"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:9c751fd528e2e04f3b1c25ddb6782e64b46ca9573920debbd46d406e52e93c19"
+          }
+        ],
+        "result_set_hash": "sha256:fc07d9c45d4b5ed23250658bf569ef12fe66963a2a10a99e505323e0a75a2401"
+      },
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_cal_pollution",
+        "partition": "calibration",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:9f7372ba5abbd270cc11200767e0693941bd24fea",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_pollution",
+            "partition": "calibration",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "explain_learning_pause"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:d932c5f471e2693a53b4650729a18a3ac9085119728ae9f16eb64bb63b68f4ed"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:c8ae4481315854447a6aed3157f2afdd86cbf19af",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_pollution",
+            "partition": "calibration",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "explain_learning_pause"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:ce0e2a0b5711ae29de18c1b6cbf83cce67a1d401557b54a61dd3a366ceb8bfa0"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:bc9a9b0733f017a85a5ea9c60a47bc9c994cc160a",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_cal_pollution",
+            "partition": "calibration",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "explain_learning_pause"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_learning_pause"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:8cf2eeeb90ef6043111b4de1665e5c813f6da61c7ea5c90a400da49b23ee943e"
+          }
+        ],
+        "result_set_hash": "sha256:93cdefa5cba335f2ade19501125acc25f45bbf5dc75aac7624c9b8d024f63c62"
+      },
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_hold_policy_gain",
+        "partition": "holdout",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:2e96f9b9b685b514d579cab7585b000962498f425",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_policy_gain",
+            "partition": "holdout",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "retain_candidate_only_fallback"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:9a5b61008d29e99f28f47e900fab78bd8f444f41c15eea07e021b0dbac90cd9e"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:0c24b20830effc8072319cce1cb415606e921f40e",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_policy_gain",
+            "partition": "holdout",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "retain_candidate_only_fallback"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:b512b3883fae669a3c06f5e1f7371ecacaa4f88525af4225de19999ae268c4bc"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:42e86c255ca56741fe4b8bda71c22215ca6baec86",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_policy_gain",
+            "partition": "holdout",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "retain_candidate_only_fallback"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_candidate_fallback"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:4f54f77ef5f9f6bc201b9f2e624c179147a25f7c786536fa41a0268ed19a0d50"
+          }
+        ],
+        "result_set_hash": "sha256:5615ed1e6c1640603a57eedb838d874a3b5a7256bf32cce3c65aaa4403dba0a9"
+      },
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_hold_scope_privacy",
+        "partition": "holdout",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:acdd3dfaca3efd3c77bef99b9e2337f8cd7269f23",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_scope_privacy",
+            "partition": "holdout",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "preserve_scope_isolation"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:4ecdd43f83657feefb68af6b24b11963238e0348c59444f14413cb3629e7ae82"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:e5934790bf549c3fc16b4faef377472bd400d7c76",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_scope_privacy",
+            "partition": "holdout",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "preserve_scope_isolation"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:e0cf7af7f33e9f86e2f6ae0af4030024683135577303cd00fb42b98da18e34ce"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:c050b82fd5b1647125a006012bbc8b5e4617444ad",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_scope_privacy",
+            "partition": "holdout",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "preserve_scope_isolation"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:8fc1dd4d40804fb9e4fe87e840b4ec802c4837372ccc80a8325e5ec541c295be"
+          }
+        ],
+        "result_set_hash": "sha256:7699c63817ab996f30d254e719ac6a0ec0e9cf07da97b88c0b74b76fb77e6686"
+      },
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_hold_tombstone",
+        "partition": "holdout",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:ba39c5cc03ba1b8f372d5c24435395ac1803c45a8",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_tombstone",
+            "partition": "holdout",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "preserve_tombstone_filter"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:342f943c0e3acaa7604dc86ffc9ae66e060a3774abaad5f39567fe7e58bfafab"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:e355f7e81ce77863e82e4a7f8f703d1a58462fbef",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_tombstone",
+            "partition": "holdout",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "preserve_tombstone_filter"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:aaa4f9523f8baa6e1ead320f1a57e487c919305c1202a5692c9e108edd31eb21"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:dc94391e3c90125683c6762b19a78c94929e8c44d",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_hold_tombstone",
+            "partition": "holdout",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "preserve_tombstone_filter"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:d77b6c9adf69522e317ac61502e51a8ff86f29ac11220237237ad9590d693956"
+          }
+        ],
+        "result_set_hash": "sha256:cd79920dd9460723e4a440e7aa09b601047e68277e6a620e40d16fdccb6cd924"
+      },
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_transfer_negative",
+        "partition": "transfer",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:45529a543f85a3a7ffaae7f8b021ffaf3a42fc72d",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_negative",
+            "partition": "transfer",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "retain_required_relation_lane"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:d99907a042f09175486b8380bfb00d0e3a902dbde48e33c0772558c066d8aa19"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:2a96435fb91fa494c4f516e6f366997d00bb73b13",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_negative",
+            "partition": "transfer",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "retain_required_relation_lane"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:4e6c1dc539c191f788f5ff5c9ee5edae71c3724fac4ac2d14c6f363e56bbc15d"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:963a47d9c0e75e702f2198b69b5e43bb5fa5cb73e",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_negative",
+            "partition": "transfer",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "retain_required_relation_lane"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "projection_relation_dependency"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:75030b3b2f5ac264b7282e8096790293ae5ed87810c1b9f8f8918f02fcf9cc68"
+          }
+        ],
+        "result_set_hash": "sha256:c0421bc07e4c2cb9e16aabc7239e574d568d6abebd0657a1157eb0d25f25de0d"
+      },
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_transfer_policy_gain",
+        "partition": "transfer",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:70d5ee823769642ebf7b9ec92e7794941b8a35472",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_policy_gain",
+            "partition": "transfer",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "identify_quality_gate"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:3db56a701bb99fddfd44b0314f9f3b34e6d55b7bd8d12b131f759870e6a90f76"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:458c63f16a97344715c4dcab854abffd5dd741530",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_policy_gain",
+            "partition": "transfer",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "identify_quality_gate"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:1811934e5a6159f0360d58bbe36a87ce89eb17e9719a88966f394511ed8aa3d3"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:ac19f3553354d45bb812893aa522dcc0109af59bf",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_policy_gain",
+            "partition": "transfer",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "identify_quality_gate"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_quality_gate"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:5ace636449e4da650a683ce0b67353689e24e098f7f8f30536b8340c2bdecbc6"
+          }
+        ],
+        "result_set_hash": "sha256:d505066fcecd90aa0b0a3b2a88e11ddaf80115ff8a0313cc686a3c8525ea4bfc"
+      },
+      {
+        "run_id": "run_g5_evidence_safe",
+        "case_id": "g5_transfer_rollback",
+        "partition": "transfer",
+        "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:0593641fa81f4be9e62845fab3326f28578150b50",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_rollback",
+            "partition": "transfer",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "restore_prior_release_behavior"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:34dcb88c8105cbb49af1b322f5972826f109d8fabdafb5c6556b90b088ab380e"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:e28f54ce63390b150a142506542c30c7b3c8047c6",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_rollback",
+            "partition": "transfer",
+            "arm": "current",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "restore_prior_release_behavior"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:1e2a85b612bab84a8959057c9e5a6b8e97484b9fc2e3da04709d9414c7e939a4"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:24d5cf26d8dd2edd546c4a8b635a20eff09a8f253",
+            "run_id": "run_g5_evidence_safe",
+            "case_id": "g5_transfer_rollback",
+            "partition": "transfer",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:6f91dfed17ed6d4d36899acb2f2e781ef0ed1af84ef29bf9641ac4614d9c6cb4",
+            "passed_required_task_units": [
+              "restore_prior_release_behavior"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_base_release"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:cec574fa33c32d49d1a352779a4a76f5fb614653751c71cf65de66f50081d7f4"
+          }
+        ],
+        "result_set_hash": "sha256:f86edbbc56e4a68c68569d308a402589399c4a4bd38dc93c00f07778f88bfde1"
+      }
+    ],
+    "pointer_before": [],
+    "pointer_after": [],
+    "logical_results_hash": "sha256:b6025e8236969b9f0a09b39dfcb7da3b179f4aaf7200e6b51a229421ee678ccc"
+  },
+  "harmful_path": {
+    "candidate": {
+      "candidate_id": "candidate_storage_1",
+      "candidate_hash": "sha256:6367becd5448dfa2e881cf052039e8359607b9eaa21be2d6a1e4c46a643d1c44",
+      "target": {
+        "kind": "retrieval_policy",
+        "requested_lanes": [
+          "recent_l1"
+        ],
+        "limits": {
+          "max_candidates_per_lane": 10
+        }
+      },
+      "frozen_before_sealed_partitions": true
+    },
+    "identity": {
+      "schema_version": "1.0.0",
+      "run_id": "run_g5_evidence_harmful",
+      "candidate_id": "candidate_storage_1",
+      "base_release_id": null,
+      "current_release_id": null,
+      "implementation_commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+      "implementation_tree": "34719539c098343b3d47771cb0588be905faf6c5",
+      "dependency_lock_hash": "sha256:89b71c57b48310cd99dee5a054be88d08c8af18363b465f8dca2a98b186c5f82",
+      "migration_set_hash": "sha256:842ed0336266bd9a4ca7a740654671d021d1dff0bc294361b6ea9a5b17fb35b9",
+      "runtime_identity_hash": "sha256:e2472137a7258cc706ba64d84149afc2333ec8746ef67d50cf48a7959b190fa2",
+      "accepted_g3r_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+      "accepted_g4a_commit": "36421f5cd75007a1421d3e0594e7881dd4b864b2",
+      "accepted_g4b_commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+      "retrieval_configuration_hash": "sha256:c094fcf736a09e19d4845d494ff0d633aee8831da8bcaf41e81ec5ec0c7f1e49",
+      "corpus_hash": "sha256:490fefd9d8e1cf5555fc952b46853cac0f129cbc8a106d0e1cf0ca046ac8c28a",
+      "partition_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+      "scorer_hash": "sha256:769f0d27dd9fddc834b656c7bbf71ebcd6ce5b41409a8fcd08106922e46b55b6",
+      "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+      "seed": 7,
+      "environment_hash": "sha256:3c5768079e70d252cf1ce1022bc27450e6819722abccdb4e03f0acfd82b2cb01",
+      "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae"
+    },
+    "fixture_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+    "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+    "receipt": {
+      "schema_version": "1.0.0",
+      "receipt_id": "evaluation:20ddf172e8739d544cc0d0329f154673c4b0c7caa",
+      "created_at": "2026-07-28T12:00:00.000Z",
+      "state": "durable",
+      "request_hash": "sha256:4e5161db67e31bb886e22e1732c0f325e3515b7bbb765d8b0534236ac9646b15",
+      "receipt_hash": "sha256:d1d444294cb5d9ec6d62aeb13b3008052a43268de303c8f20d441a6c8f59b87e",
+      "kind": "evaluation",
+      "candidate_id": "candidate_storage_1",
+      "run_id": "run_g5_evidence_harmful",
+      "evaluation_version": "1.0.0",
+      "fixture_manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+      "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e",
+      "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+      "baseline_release_id": null,
+      "result_set_hashes": [
+        "sha256:f20605a91bb53a36cf1f41bac49752014f6f9269c06c4f50805b3c091e8c9865",
+        "sha256:91ea4ee11bdf2e0aa3ce10697e4a5de565f11e63470f83e757e57fab2bab7975",
+        "sha256:8593970e34e814ca1fee95327d7be87d719183198d4f9b795cf5674548262738",
+        "sha256:a6637c7383ac7977102db741ed1683d63b10731a795dc7b328f25b968dc08245",
+        "sha256:9be9f434c7235ccf69ff7445d547c975dfb38e9e75f6183c231ac74f31365dda",
+        "sha256:a0d71e7fbcd74e0275f49f0bc84e3483b70f32463db570f1e49b9241c35be313",
+        "sha256:4c0da41109bb660ca4bee00d6c8aeb99ca02815fc87c8bc82e54696a2c62c37d",
+        "sha256:35926f5297dc17a45a8c12e65d3b8bd521e701cac8914fc40538cad60ae989de",
+        "sha256:05d21eda9a7bc17d0286e9d01f0b1787f0081a2e2013c0a5debfbd66139ccff9"
+      ],
+      "passed": false,
+      "invalidated": false,
+      "failed_case_ids": [
+        "g5_transfer_negative"
+      ],
+      "quarantined_case_ids": [
+        "g5_transfer_negative"
+      ],
+      "contamination_event_ids": []
+    },
+    "rules": [
+      {
+        "rule_id": "GAIN_OVER_CURRENT_CALIBRATION",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_NO_CANDIDATE_CALIBRATION",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_CURRENT_HOLDOUT",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_NO_CANDIDATE_HOLDOUT",
+        "passed": true,
+        "observed": 3,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_CURRENT_TRANSFER",
+        "passed": false,
+        "observed": -1,
+        "required": 1
+      },
+      {
+        "rule_id": "GAIN_OVER_NO_CANDIDATE_TRANSFER",
+        "passed": false,
+        "observed": -1,
+        "required": 1
+      },
+      {
+        "rule_id": "NO_REQUIRED_TASK_UNIT_LOSS",
+        "passed": false,
+        "observed": 1,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_CRITICAL_REGRESSION",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_GOVERNANCE_VIOLATION",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_CONTEXT_POLLUTION_INCREASE",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_TOKEN_OVERFLOW",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "NO_SIDE_EFFECT",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      },
+      {
+        "rule_id": "LATENCY_ABSOLUTE_BOUND",
+        "passed": true,
+        "observed": 10,
+        "required": 400
+      },
+      {
+        "rule_id": "LATENCY_RELATIVE_BOUND",
+        "passed": true,
+        "observed": 10,
+        "required": 37
+      },
+      {
+        "rule_id": "NO_CONTAMINATION",
+        "passed": true,
+        "observed": 0,
+        "required": 0
+      }
+    ],
+    "partition_metrics": {
+      "calibration": {
+        "arms": {
+          "no_candidate": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "current": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "candidate": {
+            "passed_task_units": 3,
+            "failed_task_units": 0,
+            "errors": 0,
+            "negative_transfer_units": 0,
+            "context_tokens": 300,
+            "context_pollution": 0,
+            "latency_ms": 30,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          }
+        },
+        "deltas": {
+          "task_units_over_current": 3,
+          "task_units_over_no_candidate": 3,
+          "errors_vs_current": -3,
+          "negative_transfer_vs_current": 0,
+          "context_tokens_vs_current": -60,
+          "context_pollution_vs_current": 0,
+          "latency_ms_vs_current": -6,
+          "side_effects_vs_current": 0,
+          "violations_vs_current": 0
+        }
+      },
+      "holdout": {
+        "arms": {
+          "no_candidate": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "current": {
+            "passed_task_units": 0,
+            "failed_task_units": 3,
+            "errors": 3,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "candidate": {
+            "passed_task_units": 3,
+            "failed_task_units": 0,
+            "errors": 0,
+            "negative_transfer_units": 0,
+            "context_tokens": 300,
+            "context_pollution": 0,
+            "latency_ms": 30,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          }
+        },
+        "deltas": {
+          "task_units_over_current": 3,
+          "task_units_over_no_candidate": 3,
+          "errors_vs_current": -3,
+          "negative_transfer_vs_current": 0,
+          "context_tokens_vs_current": -60,
+          "context_pollution_vs_current": 0,
+          "latency_ms_vs_current": -6,
+          "side_effects_vs_current": 0,
+          "violations_vs_current": 0
+        }
+      },
+      "transfer": {
+        "arms": {
+          "no_candidate": {
+            "passed_task_units": 3,
+            "failed_task_units": 0,
+            "errors": 0,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "current": {
+            "passed_task_units": 3,
+            "failed_task_units": 0,
+            "errors": 0,
+            "negative_transfer_units": 0,
+            "context_tokens": 360,
+            "context_pollution": 0,
+            "latency_ms": 36,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          },
+          "candidate": {
+            "passed_task_units": 2,
+            "failed_task_units": 1,
+            "errors": 1,
+            "negative_transfer_units": 1,
+            "context_tokens": 300,
+            "context_pollution": 0,
+            "latency_ms": 30,
+            "side_effects": 0,
+            "violations": 0,
+            "critical_failures": 0
+          }
+        },
+        "deltas": {
+          "task_units_over_current": -1,
+          "task_units_over_no_candidate": -1,
+          "errors_vs_current": 1,
+          "negative_transfer_vs_current": 1,
+          "context_tokens_vs_current": -60,
+          "context_pollution_vs_current": 0,
+          "latency_ms_vs_current": -6,
+          "side_effects_vs_current": 0,
+          "violations_vs_current": 0
+        }
+      }
+    },
+    "result_sets": [
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_cal_conflict",
+        "partition": "calibration",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:7f38de4ba438fc1f856fe99497173b52b1ca71676",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_conflict",
+            "partition": "calibration",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "surface_open_conflict"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:dc5415934f66ff73d6810eafd577286b4ed3b65db400a9e3029c336674a11beb"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:edb09450b60ae825a1c8573c75e1df4ab62cc7b62",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_conflict",
+            "partition": "calibration",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "surface_open_conflict"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:242ee80ac42d986f8280823b9e7d7e209421eb8592e6110e9b2d4c2ea276c7c1"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:d5cca8cc47f7bb66a72092a2b92be8fcb421e4abf",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_conflict",
+            "partition": "calibration",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "surface_open_conflict"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:471741c9a374200adf88cfe645ead74093e6139af43d14d6ecf5e1e2c28ff9f8"
+          }
+        ],
+        "result_set_hash": "sha256:f20605a91bb53a36cf1f41bac49752014f6f9269c06c4f50805b3c091e8c9865"
+      },
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_cal_policy_gain",
+        "partition": "calibration",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:423ebf21e28d76095d5b19e4229dc3d0361b55a98",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_policy_gain",
+            "partition": "calibration",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "identify_sqlite_authority"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:d46e334ebca9aeae4ab778ca8f76e680b0b8ecce608b0deb2c02ed0f3343e856"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:ae97724ed43bddfb53d2f840b5a3be311937f64b3",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_policy_gain",
+            "partition": "calibration",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "identify_sqlite_authority"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:e43403db3c11956553389ab701e677ca77affedf329261d0cd5a301b122c859a"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:604da7bdd8743af62ea1d648c84b383149501af58",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_policy_gain",
+            "partition": "calibration",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "identify_sqlite_authority"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_sqlite_authority"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:ff49a0efa83ca5c03b0d602d7de00a68b16aab97acf1d0db720b3e2768d03130"
+          }
+        ],
+        "result_set_hash": "sha256:91ea4ee11bdf2e0aa3ce10697e4a5de565f11e63470f83e757e57fab2bab7975"
+      },
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_cal_pollution",
+        "partition": "calibration",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:bba4668b0ba3cab5241e0e1442c559b5acfdb088d",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_pollution",
+            "partition": "calibration",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "explain_learning_pause"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:c4920738c605a34d06f9930a5d1a410f8a1c75286c967a4834fb28c28d74cf79"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:287ee3fc99854ea66d7ffa123fbd483d2b9f4ecf9",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_pollution",
+            "partition": "calibration",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "explain_learning_pause"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:751b99dcd1d15b00a78c34b3faf902057a2903db517c1d418fbc8ac6480b0448"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:81fb884b0346948ce97b13b6200e91313dd8a6b2e",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_cal_pollution",
+            "partition": "calibration",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "explain_learning_pause"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_learning_pause"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:006625735a258d88831a94dcb456dd400569cacb56141dff852d776b9a54dae5"
+          }
+        ],
+        "result_set_hash": "sha256:8593970e34e814ca1fee95327d7be87d719183198d4f9b795cf5674548262738"
+      },
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_hold_policy_gain",
+        "partition": "holdout",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:d218f60c963dc0b359d07d822329bb80754f1cb81",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_policy_gain",
+            "partition": "holdout",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "retain_candidate_only_fallback"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:90139f9635bdda4fca0096a826897c2515b2e375bde833ea69794ce00f965bb2"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:03fdb6e2a4688c83b8e6970993e09374a628566a7",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_policy_gain",
+            "partition": "holdout",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "retain_candidate_only_fallback"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:38b585c00666ce1b1829e52a8a72a913341c95997e2f2013db64702ef5a62b3d"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:44532ce632b122a041e71ab797b7bc04d825efb5f",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_policy_gain",
+            "partition": "holdout",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "retain_candidate_only_fallback"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_candidate_fallback"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:9d88c182fbe5c7f78da964d46c74b2924a91a7258c48167f98d8332b40581f2b"
+          }
+        ],
+        "result_set_hash": "sha256:a6637c7383ac7977102db741ed1683d63b10731a795dc7b328f25b968dc08245"
+      },
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_hold_scope_privacy",
+        "partition": "holdout",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:cb2c1550c147a7d5cb2ce0d1945407bbf0c60e46f",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_scope_privacy",
+            "partition": "holdout",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "preserve_scope_isolation"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:c16532cc8adcd585230aaaf674aa213a29abbd49cf93da43318fc19707bb4c3f"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:c02c23f5ca62c24b2e25286b291c0185ac93ff4bb",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_scope_privacy",
+            "partition": "holdout",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "preserve_scope_isolation"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:3e62a61f62cb553ebf9e9d4e7ef4c497622f6ccbd5ef672d60500f6224fa3e89"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:5a41a6c0b7308f0cf4ebe6c0434c12aa88152cf7f",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_scope_privacy",
+            "partition": "holdout",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "preserve_scope_isolation"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:ba0461267f48bdf4dcc9e621ab64958cc8736843f3e13c39b25ba0ea3d530743"
+          }
+        ],
+        "result_set_hash": "sha256:9be9f434c7235ccf69ff7445d547c975dfb38e9e75f6183c231ac74f31365dda"
+      },
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_hold_tombstone",
+        "partition": "holdout",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:4f816d170dc2d4a031ea5dc794aacdd30e8b94017",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_tombstone",
+            "partition": "holdout",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "preserve_tombstone_filter"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:6adddf3b7ff26f4d366f49609b7be59979c7f82eac16a21639c19a1c652a4747"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:6ab7084c9d45402e30715fe174131e642c5fb2397",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_tombstone",
+            "partition": "holdout",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "preserve_tombstone_filter"
+            ],
+            "error_codes": [
+              "TASK_UNIT_MISSING"
+            ],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:4282fdfbfa42af9a80fadb6c2e2336292fb39e5b2d725c58e03cfd3f3b4de207"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:62932cbcf9cd35793e7d634693dfafec872304c53",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_hold_tombstone",
+            "partition": "holdout",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "preserve_tombstone_filter"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:3158f7bd2bee63ecc24c74c13ee34efea1422be67781a0c587677075bda8ee39"
+          }
+        ],
+        "result_set_hash": "sha256:a0d71e7fbcd74e0275f49f0bc84e3483b70f32463db570f1e49b9241c35be313"
+      },
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_transfer_negative",
+        "partition": "transfer",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:fd9b8969f2c81978d975180527362f6c780c40a22",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_negative",
+            "partition": "transfer",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "retain_required_relation_lane"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:e4c0d1114911017044045a41b63a3d055cd1be8feb689b39aa0ea57d1a11557c"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:21d6091eea6e0aab387dcfdf0d936663c2de30158",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_negative",
+            "partition": "transfer",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "retain_required_relation_lane"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:b81bec8fc5364dde4fec124a2ccdbc1ec89b939f2c580569fd75ea30bdf50cf8"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:45986a7d0387aebcf38be5902ae448f89a5b40cb3",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_negative",
+            "partition": "transfer",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [],
+            "failed_required_task_units": [
+              "retain_required_relation_lane"
+            ],
+            "error_codes": [
+              "REQUIRED_LANE_REMOVED"
+            ],
+            "negative_transfer_units": [
+              "retain_required_relation_lane"
+            ],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "projection_relation_dependency"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:683e66e72f547cf28fa1341aea7055558d6b32e5ff8044811b90554bae0c1fba"
+          }
+        ],
+        "result_set_hash": "sha256:4c0da41109bb660ca4bee00d6c8aeb99ca02815fc87c8bc82e54696a2c62c37d"
+      },
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_transfer_policy_gain",
+        "partition": "transfer",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:7da8b276ddf5b576c11e2dc2fe5fcef0acd23a607",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_policy_gain",
+            "partition": "transfer",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "identify_quality_gate"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:02f1161407803247512b6ca807505a09bc3ccc1a476887b8872eb388ef3fd2ce"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:80b4e5d0c49535af185b95b02866686f4c1797868",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_policy_gain",
+            "partition": "transfer",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "identify_quality_gate"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:5bd2dd19452c978bfe1d067925e52c60840c7b421664d0e08ed1138ca17ed868"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:26d8cea927bdb242cb93eb7de39ef5dbf1c356fc0",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_policy_gain",
+            "partition": "transfer",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "identify_quality_gate"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_quality_gate"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:f8e99977d062e801d0d909d54de791db1897935f8b511d154de2f32129f45bfa"
+          }
+        ],
+        "result_set_hash": "sha256:35926f5297dc17a45a8c12e65d3b8bd521e701cac8914fc40538cad60ae989de"
+      },
+      {
+        "run_id": "run_g5_evidence_harmful",
+        "case_id": "g5_transfer_rollback",
+        "partition": "transfer",
+        "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+        "results": [
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:768f9616b3454ca6bc1f6c281501f08789b6c3357",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_rollback",
+            "partition": "transfer",
+            "arm": "no_candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "restore_prior_release_behavior"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:6f505096b732ad7dec37690be455705283a9a522ca6bb3812ae14e13899b7b71"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:00cd3fe53194f70c74869279156df388868435159",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_rollback",
+            "partition": "transfer",
+            "arm": "current",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "restore_prior_release_behavior"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 120,
+              "pollution_count": 0,
+              "selected_item_ids": []
+            },
+            "latency_ms": 12,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:e9b26211569a217b2d9f4d258671ab75e57c5a343ef081042c89472eb62bf200"
+          },
+          {
+            "schema_version": "1.0.0",
+            "eval_result_id": "eval:00217d0c13f073a30b2097d6a77959a4f7fc0992d",
+            "run_id": "run_g5_evidence_harmful",
+            "case_id": "g5_transfer_rollback",
+            "partition": "transfer",
+            "arm": "candidate",
+            "common_identity_hash": "sha256:72e7258f81e07ee049ad0c9df4011cba6bd4a68bf61d99b556c4ed99bf74f5ae",
+            "passed_required_task_units": [
+              "restore_prior_release_behavior"
+            ],
+            "failed_required_task_units": [],
+            "error_codes": [],
+            "negative_transfer_units": [],
+            "context": {
+              "token_budget": 1800,
+              "token_used": 100,
+              "pollution_count": 0,
+              "selected_item_ids": [
+                "memory_base_release"
+              ]
+            },
+            "latency_ms": 10,
+            "side_effect_ids": [],
+            "violation_codes": [],
+            "critical_failure_codes": [],
+            "evaluated_at": "2026-07-28T12:00:00.000Z",
+            "result_hash": "sha256:6aa014faa304d024aca201e18524c8e03e2d8f3a6c3a143757dab79625b13dee"
+          }
+        ],
+        "result_set_hash": "sha256:05d21eda9a7bc17d0286e9d01f0b1787f0081a2e2013c0a5debfbd66139ccff9"
+      }
+    ],
+    "pointer_before": [],
+    "pointer_after": [],
+    "logical_results_hash": "sha256:0325240d94ee0a211cca61d9b94bb1906e5a3a90267c3c2eaac62bdbd24a88f1"
+  },
+  "repeat": {
+    "runs_per_path": 2,
+    "safe_hashes": [
+      "sha256:b6025e8236969b9f0a09b39dfcb7da3b179f4aaf7200e6b51a229421ee678ccc",
+      "sha256:b6025e8236969b9f0a09b39dfcb7da3b179f4aaf7200e6b51a229421ee678ccc"
+    ],
+    "harmful_hashes": [
+      "sha256:0325240d94ee0a211cca61d9b94bb1906e5a3a90267c3c2eaac62bdbd24a88f1",
+      "sha256:0325240d94ee0a211cca61d9b94bb1906e5a3a90267c3c2eaac62bdbd24a88f1"
+    ],
+    "deterministic": true
+  },
+  "hard_rules": {
+    "implementation_identity_bound": true,
+    "graph_vector_disabled": true,
+    "candidate_frozen_before_holdout_transfer": true,
+    "safe_three_arms": true,
+    "safe_common_identity": true,
+    "safe_d5_conjunctive": true,
+    "harmful_rejected": true,
+    "harmful_zero_pointer_change": true,
+    "deterministic_repeat": true
+  },
+  "evidence_boundary": {
+    "synthetic_fixture": true,
+    "production_traffic": false,
+    "production_readiness_claimed": false,
+    "scope": "Deterministic local G5 evaluation of one frozen retrieval-policy candidate."
+  },
+  "report_hash": "sha256:70e893293ec4f721eabdef2f522cd2d60c02313dd9d920dfe2358c90d1bb72de"
+}

@@ -1,0 +1,94 @@
+{
+  "id": "agent-memory-runtime-m5",
+  "name": "agent-memory-runtime-m5",
+  "title": "Agent Memory Runtime M5 Learning Lab",
+  "description": "Governed candidate-only learning with replayable traces, protected three-arm evaluation, explicit authority, canary, pause/resume, and exact rollback.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "M5 only: candidate-only learning traces, minimal reversible candidates, three-arm evaluation, holdout/transfer protection, quarantine, canary, explicit release authority, pause/resume, exact rollback, G5 decision; exclude model training and M6 production hardening",
+  "package": null,
+  "priority": "P2",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-29",
+  "completedAt": "2026-07-30",
+  "branch": "codex/agent-memory-runtime-m5",
+  "base_branch": "codex/agent-memory-runtime-m4b",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [
+    "docs/brainstorms/2026-07-29-m5-learning-lab-requirements.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/prd.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/research/claim-map.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/research/research-handoff.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/design.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-m5/implement.md",
+    "docs/plans/2026-07-29-005-feat-governed-learning-lab-plan.md"
+  ],
+  "notes": "Run ce-brainstorm, research-to-article, ce-plan, then ce-work under Trellis. Keep implementation inactive until research, design, plan, and context validation are complete.",
+  "meta": {
+    "product_contract": "docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md",
+    "implementation_authorized": true,
+    "implementation_authorized_at": "2026-07-29",
+    "workflow": [
+      "ce-brainstorm",
+      "research-to-article",
+      "ce-plan",
+      "ce-work"
+    ],
+    "planning_validation": "passed",
+    "planning_validated_at": "2026-07-29",
+    "document_review": {
+      "status": "passed",
+      "method": "ce-doc-review main-thread sequential review",
+      "personas": [
+        "coherence",
+        "feasibility",
+        "security",
+        "scope",
+        "adversarial"
+      ],
+      "applied_fixes": [
+        "independent pre-frozen canary cases",
+        "non-circular two-stage canary and release authority",
+        "pause-release control-epoch linearization",
+        "learned-policy hard-filter boundary",
+        "active-pointer monitor and rollback blocker"
+      ],
+      "residual_p0_p1": 0
+    },
+    "research_topic": "memo-graph-m5-learning-lab",
+    "research_run": "RUN20260729-183807-m5-governed-learning-lif-896401",
+    "research_ready_gate": "passed",
+    "research_claims": {
+      "total": 27,
+      "supported": 27,
+      "core": 25,
+      "supported_core": 25
+    },
+    "plan": "docs/plans/2026-07-29-005-feat-governed-learning-lab-plan.md",
+    "plan_units": 9,
+    "plan_depth": "deep",
+    "plan_deepened_at": "2026-07-29",
+    "gates": [
+      "G5"
+    ],
+    "g5_decision": "GO",
+    "g5_decision_date": "2026-07-30",
+    "tested_implementation": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+    "tested_tree": "34719539c098343b3d47771cb0588be905faf6c5",
+    "evidence_commit": "b9c0907745cedf3315d7ab3f42a39c9afb8790eb",
+    "evidence_manifest": "sha256:12fe4d89de233dbe43ae3e1c416ca58a1e07684ed9602085416e2e40db6c6fac",
+    "decision_path": "docs/evaluations/g5-decision.md",
+    "qualified_release": "release:a8f7214a0c8a8db3b5f2515649b06c0ffc855ab68",
+    "base_release": null,
+    "rollback_target": null,
+    "synthetic_only": true,
+    "production_readiness": false,
+    "m6_status": "pending"
+  }
+}

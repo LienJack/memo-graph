@@ -1,0 +1,12 @@
+{
+  "code_id": "C900dd92d403e",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "packages/memory-kernel/src/index.ts",
+  "start_line": 1037,
+  "end_line": 1147,
+  "symbol": "searchScopes and searchContextScopes",
+  "why": "Runtime recall currently merges only exact-scope L0 FTS and canonically governed L1, names degraded lanes, and removes L0 duplicates covered by L1.",
+  "captured_at": "2026-07-29T02:25:29+08:00"
+}

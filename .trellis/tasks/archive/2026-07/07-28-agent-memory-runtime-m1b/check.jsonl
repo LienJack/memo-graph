@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m1b/prd.md", "reason": "Check every acceptance criterion and exclusion"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m1b/implement.md", "reason": "Check completed work and exact G1 commands"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/implement.md", "reason": "Check all remaining M1 and G1 assertions"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Audit status and error distinctions"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Audit stdout/stderr and content leakage"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Audit contract, integration, recovery, privacy, and benchmark evidence"}
+{"file": "docs/threat-model.md", "reason": "Audit principal, scope, prompt, logs, secret, and replay threats"}
+{"file": "docs/evaluations/g1a-storage-decision.md", "reason": "Ensure M1B preserves the storage gate"}

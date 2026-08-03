@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m3/prd.md", "reason": "Check M3 acceptance, scope, and authority"}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m3/implement.md", "reason": "Check every U1-U8 verification item and G3 exit"}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m3/research/research-handoff.md", "reason": "Check implementation against supported research constraints"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/prd.md", "reason": "Check parent scope and Product Contract compatibility"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Check migration, transaction, authority, and recovery correctness"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Check typed failures and degraded behavior"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Check that diagnostics remain content-free"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Check backend tests and quality gates"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check contract ownership and cross-package boundaries"}

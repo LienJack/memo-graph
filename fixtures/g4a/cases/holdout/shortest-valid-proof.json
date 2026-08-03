@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "g4a_hold_shortest_valid_proof",
+  "partition": "holdout",
+  "family": "shortest_valid_proof",
+  "description": "Choose the deterministic shortest governed proof and preserve tie-break evidence.",
+  "principal_id": "user_local",
+  "scope": {
+    "kind": "workspace",
+    "id": "memo_graph"
+  },
+  "as_of": "2026-07-29T00:00:00.000Z",
+  "input_revision_ids": [
+    "revision_start",
+    "revision_mid_a",
+    "revision_mid_b",
+    "revision_goal"
+  ],
+  "input_relation_revision_ids": [
+    "relation_short_a1",
+    "relation_short_a2",
+    "relation_short_b1",
+    "relation_short_b2"
+  ],
+  "prohibited_revision_ids": [],
+  "query": {
+    "mode": "shortest_path",
+    "start_revision_ids": [
+      "revision_start"
+    ],
+    "relation_pattern": [
+      "supports",
+      "depends_on"
+    ],
+    "max_depth": 3,
+    "max_fanout": 10,
+    "max_paths": 4,
+    "max_results": 1,
+    "max_relation_allowlist": 100,
+    "parent_deadline_ms": 75
+  },
+  "expected": {
+    "status": "complete",
+    "revision_ids": [
+      "revision_start",
+      "revision_mid_b",
+      "revision_goal"
+    ],
+    "ordered_paths": [
+      {
+        "node_revision_ids": [
+          "revision_start",
+          "revision_mid_b",
+          "revision_goal"
+        ],
+        "relation_revision_ids": [
+          "relation_short_b1",
+          "relation_short_b2"
+        ],
+        "relation_types": [
+          "supports",
+          "depends_on"
+        ],
+        "depth": 2,
+        "path_hash": "sha256:6836dc33f8a35cea2fe79c258f4157778539fd132f936d33ca1dbddb79542430"
+      }
+    ],
+    "evidence_ids": [
+      "evidence_goal",
+      "evidence_start"
+    ],
+    "complete": true,
+    "abstain": false,
+    "reason_codes": [
+      "TIE_BREAK_PATH_HASH"
+    ]
+  }
+}

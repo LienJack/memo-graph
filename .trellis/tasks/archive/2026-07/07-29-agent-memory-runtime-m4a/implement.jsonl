@@ -1,0 +1,9 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend pre-development and quality checklist for native process, SQLite delivery, retrieval, and evidence work."}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite migration, short transaction, outbox, scope checkpoint, backup, restore, and logical digest rules."}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Fail-closed graph timeout, stale frontier, incomplete traversal, corruption, and fallback behavior."}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Content-free process, queue, bounded-work, health, and decision telemetry."}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Test-first, deterministic fixtures, native dependency, full verification, and evidence expectations."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Contract-storage-process-kernel-compiler-MCP ownership and compatibility trace."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing projection worker, frontier, lane, replay, and benchmark patterns without duplicate authority."}
+{"file": ".trellis/tasks/07-29-agent-memory-runtime-m4a/research/research-handoff.md", "reason": "RQ001-RQ008 Claim/Evidence closure, selected candidate, hard timeout finding, stop conditions, and G4A manifest obligations."}

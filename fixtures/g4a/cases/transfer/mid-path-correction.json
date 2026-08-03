@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "g4a_transfer_mid_path_correction",
+  "partition": "transfer",
+  "family": "mid_path_correction",
+  "description": "Exclude the corrected intermediate revision and return only the live successor path.",
+  "principal_id": "user_local",
+  "scope": {
+    "kind": "workspace",
+    "id": "memo_graph"
+  },
+  "as_of": "2026-07-29T00:00:00.000Z",
+  "input_revision_ids": [
+    "revision_start",
+    "revision_mid_old",
+    "revision_mid_new",
+    "revision_goal"
+  ],
+  "input_relation_revision_ids": [
+    "relation_old_1",
+    "relation_old_2",
+    "relation_new_1",
+    "relation_new_2"
+  ],
+  "prohibited_revision_ids": [
+    "revision_mid_old"
+  ],
+  "query": {
+    "mode": "typed_path",
+    "start_revision_ids": [
+      "revision_start"
+    ],
+    "relation_pattern": [
+      "supports",
+      "depends_on"
+    ],
+    "max_depth": 2,
+    "max_fanout": 10,
+    "max_paths": 4,
+    "max_results": 4,
+    "max_relation_allowlist": 100,
+    "parent_deadline_ms": 75
+  },
+  "expected": {
+    "status": "complete",
+    "revision_ids": [
+      "revision_start",
+      "revision_mid_new",
+      "revision_goal"
+    ],
+    "ordered_paths": [
+      {
+        "node_revision_ids": [
+          "revision_start",
+          "revision_mid_new",
+          "revision_goal"
+        ],
+        "relation_revision_ids": [
+          "relation_new_1",
+          "relation_new_2"
+        ],
+        "relation_types": [
+          "supports",
+          "depends_on"
+        ],
+        "depth": 2,
+        "path_hash": "sha256:605d1176b637b11e247f883d632f24e3f46d3eed27cbfbfbdf7c05116fb42643"
+      }
+    ],
+    "evidence_ids": [
+      "evidence_goal",
+      "evidence_mid_new",
+      "evidence_start"
+    ],
+    "complete": true,
+    "abstain": false,
+    "reason_codes": [
+      "CORRECTED_PREDECESSOR_EXCLUDED"
+    ]
+  }
+}

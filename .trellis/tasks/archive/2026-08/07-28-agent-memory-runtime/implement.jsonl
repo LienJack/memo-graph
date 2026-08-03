@@ -1,0 +1,9 @@
+{"file": "docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md", "reason": "Confirmed Product Contract; preserve R1-R20, F1-F4, AE1-AE8"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/prd.md", "reason": "Product scope projection and planning-only boundary"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/design.md", "reason": "Architecture, authority, protocol, state, graph and learning contracts"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/research/research-handoff.md", "reason": "Closed RQ032-RQ041 research constraints and evidence anchors"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Persistence and transaction planning guardrails"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Typed MCP error and degraded-state conventions"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Sensitive-memory redaction and structured telemetry conventions"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Implementation quality and verification conventions"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer mutation, projection and recovery review"}

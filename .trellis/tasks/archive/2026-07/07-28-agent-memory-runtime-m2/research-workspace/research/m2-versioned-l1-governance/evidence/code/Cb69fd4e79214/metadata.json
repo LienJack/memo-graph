@@ -1,0 +1,12 @@
+{
+  "code_id": "Cb69fd4e79214",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "packages/storage-sqlite/src/database.ts",
+  "start_line": 171,
+  "end_line": 263,
+  "symbol": "StorageDatabase.constructor_health",
+  "why": "M2 继承单 writer、WAL、FULL synchronous、migration evidence 和 projection health 基线",
+  "captured_at": "2026-07-28T23:12:58+08:00"
+}

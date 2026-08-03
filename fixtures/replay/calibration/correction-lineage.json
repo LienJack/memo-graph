@@ -1,0 +1,42 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "cal_correction_lineage",
+  "partition": "calibration",
+  "risk_family": "correction",
+  "description": "A correction must replace the usable value and invalidate every derived projection rooted in the old revision.",
+  "scopes": [
+    {
+      "kind": "topic",
+      "id": "runtime_choice"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Select the supported runtime",
+    "old_revision": {
+      "memory_id": "mem_runtime_node20",
+      "value": "Use Node 20",
+      "lifecycle": "superseded"
+    },
+    "current_revision": {
+      "memory_id": "mem_runtime_node24",
+      "value": "Use Node 24 LTS",
+      "lifecycle": "active",
+      "supersedes": "mem_runtime_node20"
+    },
+    "derived_projection": {
+      "memory_id": "mem_runtime_summary_old",
+      "derived_from": "mem_runtime_node20"
+    }
+  },
+  "expected": {
+    "status": "OK",
+    "included_memory_ids": ["mem_runtime_node24"],
+    "excluded_reason_codes": ["SUPERSEDED", "STALE_LINEAGE"],
+    "must_explain": ["correction", "lineage_invalidation"]
+  },
+  "prohibited_outcomes": [
+    "revive Node 20 through the derived summary",
+    "overwrite the old revision without an audit edge"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "source_id": "W82e962a8f323",
+  "snapshot_id": "V6083a99d28cc",
+  "previous_snapshot": null,
+  "url_id": "U82e962a8f323",
+  "title": "DBSP: automatic incremental view maintenance for rich query languages",
+  "original_url": "https://link.springer.com/article/10.1007/s00778-025-00922-y",
+  "normalized_url": "https://link.springer.com/article/10.1007/s00778-025-00922-y",
+  "retrieved_at": "2026-07-29T02:31:06+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.98,
+  "independence_group": "dbsp-vldb",
+  "published_at": "2025-05-08",
+  "freshness": "current",
+  "extraction_quality": 0.96,
+  "extraction_method": "anysearch-extract",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "b7c30cdd3f087c8fc59086a0e2215eafd606ac6742f6acf1f84434a58a287cc3"
+}

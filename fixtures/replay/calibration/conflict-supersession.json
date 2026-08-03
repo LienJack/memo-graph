@@ -1,0 +1,40 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "cal_conflict_supersession",
+  "partition": "calibration",
+  "risk_family": "conflict",
+  "description": "A current project state supersedes an older state while the conflict remains explainable.",
+  "scopes": [
+    {
+      "kind": "workspace",
+      "id": "memo_graph"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Continue the current milestone",
+    "memories": [
+      {
+        "memory_id": "mem_project_old",
+        "value": "Task is planning-only",
+        "lifecycle": "superseded"
+      },
+      {
+        "memory_id": "mem_project_current",
+        "value": "M0 implementation is authorized",
+        "lifecycle": "active",
+        "supersedes": "mem_project_old"
+      }
+    ]
+  },
+  "expected": {
+    "status": "OK",
+    "included_memory_ids": ["mem_project_current"],
+    "excluded_reason_codes": ["SUPERSEDED"],
+    "must_explain": ["supersession", "current_validity"]
+  },
+  "prohibited_outcomes": [
+    "return both states as simultaneously authoritative",
+    "silently erase the superseded revision"
+  ]
+}

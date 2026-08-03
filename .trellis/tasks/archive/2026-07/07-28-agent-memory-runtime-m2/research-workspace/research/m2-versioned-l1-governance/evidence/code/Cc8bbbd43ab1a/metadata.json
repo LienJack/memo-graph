@@ -1,0 +1,12 @@
+{
+  "code_id": "Cc8bbbd43ab1a",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "packages/storage-sqlite/src/database.ts",
+  "start_line": 385,
+  "end_line": 508,
+  "symbol": "StorageDatabase.createBackup",
+  "why": "当前 backup 只冻结 ledger epoch、receipt、migration 和 blob inventory，尚未携带 tombstone frontier",
+  "captured_at": "2026-07-28T23:12:46+08:00"
+}

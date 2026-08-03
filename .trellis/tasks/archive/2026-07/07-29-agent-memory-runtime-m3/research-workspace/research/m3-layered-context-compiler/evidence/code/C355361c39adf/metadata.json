@@ -1,0 +1,12 @@
+{
+  "code_id": "C355361c39adf",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "packages/contracts/src/memory.ts",
+  "start_line": 466,
+  "end_line": 506,
+  "symbol": "RelationRevisionSchema",
+  "why": "A relation revision contract exists with version, endpoints, lifecycle, scope, authority, validity, evidence, lower-revision lineage, and transform, but has no storage implementation yet.",
+  "captured_at": "2026-07-29T02:25:28+08:00"
+}

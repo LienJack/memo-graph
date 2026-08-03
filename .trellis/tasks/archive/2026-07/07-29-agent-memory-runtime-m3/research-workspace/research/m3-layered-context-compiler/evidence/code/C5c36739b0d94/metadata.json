@@ -1,0 +1,12 @@
+{
+  "code_id": "C5c36739b0d94",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "packages/storage-sqlite/src/fts-index.ts",
+  "start_line": 110,
+  "end_line": 210,
+  "symbol": "FtsIndex drain outbox",
+  "why": "M2 already provides durable outbox claim/process/fail mechanics and source revalidation before projection insertion, which can anchor M3 projectors.",
+  "captured_at": "2026-07-29T02:25:29+08:00"
+}

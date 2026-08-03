@@ -1,0 +1,12 @@
+{
+  "code_id": "C7f9b788de747",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "packages/context-compiler/src/index.ts",
+  "start_line": 21,
+  "end_line": 101,
+  "symbol": "ContextCandidateSchema and CompileContextInputSchema",
+  "why": "The current compiler accepts only L0/L1 candidates, validates request scope, and already exposes typed exclusions/degraded lanes; M3 must extend rather than bypass this boundary.",
+  "captured_at": "2026-07-29T02:25:28+08:00"
+}

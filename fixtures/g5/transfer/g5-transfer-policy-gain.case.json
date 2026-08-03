@@ -1,0 +1,23 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_transfer_policy_gain",
+  "partition": "transfer",
+  "family": "positive_gain",
+  "description": "The frozen policy improves a distinct operational scenario family.",
+  "scopes": [
+    {
+      "kind": "workspace",
+      "id": "workspace_local"
+    }
+  ],
+  "input": {
+    "query": "Which command verifies the repository?",
+    "scenario_family": "release_operations"
+  },
+  "required_task_unit_ids": [
+    "identify_quality_gate"
+  ],
+  "prohibited_outcomes": [
+    "use_unapproved_lane"
+  ]
+}

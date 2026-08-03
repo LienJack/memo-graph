@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0.0",
+  "recorded_at": "2026-07-29T16:11:52+08:00",
+  "gate": "M4B-U6",
+  "outcome": "PASS",
+  "u7_permitted": true,
+  "authority_scope_privacy": {
+    "canonical_correction_immediate_suppression": true,
+    "pin_preserves_eligible_retrieval": true,
+    "usage_block_demote_revoke_immediate_suppression": true,
+    "open_conflict_immediate_suppression": true,
+    "expiry_frontier_immediate_suppression": true,
+    "tombstone_immediate_suppression": true,
+    "purge_removes_obsolete_generation_and_sidecars": true,
+    "wrong_principal_scope_membership_opaque": true,
+    "sensitive_secret_vector_membership_absent": true,
+    "query_text_absent_from_vector_artifacts": true
+  },
+  "recovery": {
+    "typed_outage_categories": [
+      "MODEL_MISSING",
+      "DEPENDENCY_UNAVAILABLE",
+      "INDEX_MISSING",
+      "INDEX_LOCKED",
+      "INDEX_CORRUPT",
+      "REBUILDING",
+      "PROCESS_TIMEOUT",
+      "PROCESS_EXIT"
+    ],
+    "vector_free_fallback_preserved": true,
+    "fallback_p95_limit_ms": 100,
+    "repeated_failure_cooldown_passed": true,
+    "epoch_migration_interruption_resume_passed": true,
+    "expired_lease_recovery_monotonic": true,
+    "unrelated_scope_preserved": true
+  },
+  "verification": {
+    "focused": {
+      "test_files_passed": 7,
+      "tests_passed": 31
+    },
+    "full_suite": {
+      "test_files_passed": 74,
+      "tests_passed": 382,
+      "tests_skipped": 5
+    },
+    "lint_passed": true,
+    "typecheck_passed": true,
+    "build_passed": true,
+    "diff_check_passed": true
+  }
+}

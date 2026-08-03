@@ -1,0 +1,21 @@
+{
+  "source_id": "Wefc9ff30e069",
+  "snapshot_id": "V6cd8cda3ce86",
+  "previous_snapshot": null,
+  "url_id": "Uefc9ff30e069",
+  "title": "Generative Agents: Interactive Simulacra of Human Behavior",
+  "original_url": "https://arxiv.org/abs/2304.03442",
+  "normalized_url": "https://arxiv.org/abs/2304.03442",
+  "retrieved_at": "2026-07-29T02:31:06+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.95,
+  "independence_group": "generative-agents-stanford-google",
+  "published_at": "2023-08-06",
+  "freshness": "current",
+  "extraction_quality": 0.97,
+  "extraction_method": "anysearch-extract",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "972147556c7a7dfa5afbe44441c0ebfb7fdea1dc3aa5f2f3cb52a6a53c28b2d7"
+}

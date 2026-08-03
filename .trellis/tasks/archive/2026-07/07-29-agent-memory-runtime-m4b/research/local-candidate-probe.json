@@ -1,0 +1,182 @@
+{
+  "schema_version": "1.0.0",
+  "runtime": {
+    "node": "v24.18.0",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "mode": "offline",
+  "candidate": {
+    "runtime_package": "@huggingface/transformers",
+    "runtime_version": "4.2.0",
+    "runtime_overrides": {
+      "adm-zip": "0.6.0",
+      "sharp": "0.35.3"
+    },
+    "model_id": "Xenova/multilingual-e5-small",
+    "model_revision": "761b726dd34fb83930e26aab4e9ac3899aa1fa78",
+    "model_dtype": "int8",
+    "model_dimensions": 384,
+    "model_sha256": "4d24e2bc01a447951524466ef533e52944bf48509e6552810bcee1a2711cb02c",
+    "pooling": "mean",
+    "normalization": "l2",
+    "query_prefix": "query: ",
+    "passage_prefix": "passage: ",
+    "index_package": "sqlite-vec",
+    "index_version": "0.1.9",
+    "extension_version": "v0.1.9",
+    "index_mode": "flat_cosine"
+  },
+  "privacy": {
+    "allow_remote_models": false,
+    "remote_embedding_endpoint": false,
+    "explicit_local_model_root": true,
+    "exact_scope_prefiltered_revision_count": 5
+  },
+  "capability": {
+    "dimensions": [
+      5,
+      384
+    ],
+    "minimum_norm": 0.9999997860218777,
+    "maximum_norm": 1.000000282501692,
+    "calibration_cases": [
+      {
+        "case_id": "g4b_cal_irrecoverable_forgetting",
+        "case_role": "positive_gap",
+        "expected_revision_ids": [
+          "revision_g4b_cal_purge"
+        ],
+        "returned_revision_ids": [
+          "revision_g4b_cal_backup",
+          "revision_g4b_cal_purge",
+          "revision_g4b_cal_pause",
+          "revision_g4b_cal_node_local",
+          "revision_g4b_cal_release"
+        ],
+        "expected_in_top_5": true,
+        "matches": [
+          {
+            "revision_id": "revision_g4b_cal_backup",
+            "distance": 0.15638509392738342
+          },
+          {
+            "revision_id": "revision_g4b_cal_purge",
+            "distance": 0.16552232205867767
+          },
+          {
+            "revision_id": "revision_g4b_cal_pause",
+            "distance": 0.17333702743053436
+          },
+          {
+            "revision_id": "revision_g4b_cal_node_local",
+            "distance": 0.1984087973833084
+          },
+          {
+            "revision_id": "revision_g4b_cal_release",
+            "distance": 0.21561045944690704
+          }
+        ]
+      },
+      {
+        "case_id": "g4b_cal_learning_pause_zh_en",
+        "case_role": "positive_gap",
+        "expected_revision_ids": [
+          "revision_g4b_cal_pause"
+        ],
+        "returned_revision_ids": [
+          "revision_g4b_cal_pause",
+          "revision_g4b_cal_release",
+          "revision_g4b_cal_backup",
+          "revision_g4b_cal_node_local",
+          "revision_g4b_cal_purge"
+        ],
+        "expected_in_top_5": true,
+        "matches": [
+          {
+            "revision_id": "revision_g4b_cal_pause",
+            "distance": 0.1759578138589859
+          },
+          {
+            "revision_id": "revision_g4b_cal_release",
+            "distance": 0.21033845841884613
+          },
+          {
+            "revision_id": "revision_g4b_cal_backup",
+            "distance": 0.2139071673154831
+          },
+          {
+            "revision_id": "revision_g4b_cal_node_local",
+            "distance": 0.2418215572834015
+          },
+          {
+            "revision_id": "revision_g4b_cal_purge",
+            "distance": 0.2535059154033661
+          }
+        ]
+      },
+      {
+        "case_id": "g4b_cal_exact_scope_isolation",
+        "case_role": "negative_control",
+        "expected_revision_ids": [
+          "revision_g4b_cal_node_local"
+        ],
+        "returned_revision_ids": [
+          "revision_g4b_cal_node_local",
+          "revision_g4b_cal_backup",
+          "revision_g4b_cal_pause",
+          "revision_g4b_cal_release",
+          "revision_g4b_cal_purge"
+        ],
+        "expected_in_top_5": true,
+        "matches": [
+          {
+            "revision_id": "revision_g4b_cal_node_local",
+            "distance": 0.10818013548851013
+          },
+          {
+            "revision_id": "revision_g4b_cal_backup",
+            "distance": 0.215684711933136
+          },
+          {
+            "revision_id": "revision_g4b_cal_pause",
+            "distance": 0.23152652382850647
+          },
+          {
+            "revision_id": "revision_g4b_cal_release",
+            "distance": 0.2456761598587036
+          },
+          {
+            "revision_id": "revision_g4b_cal_purge",
+            "distance": 0.2459455132484436
+          }
+        ]
+      }
+    ],
+    "delete_removed_revision": true,
+    "reopen_logically_equal": true
+  },
+  "resources": {
+    "model_bytes": 118054593,
+    "local_model_snapshot_bytes": 135147520,
+    "temporary_npm_node_modules_bytes": 429264896,
+    "vector_database_bytes": 1617920,
+    "load_ms": 530.679875,
+    "passage_batch_ms": 39.34608300000002,
+    "query_and_search_p50_ms": 2.649415999999974,
+    "query_and_search_p95_ms": 6.106916999999839,
+    "query_and_search_p99_ms": 7.450458000000026,
+    "rss_before_bytes": 86900736,
+    "rss_after_load_bytes": 474562560,
+    "rss_delta_bytes": 387661824,
+    "warmup_samples": 20,
+    "measured_samples": 100
+  },
+  "dependency_audit": {
+    "package_lock_sha256": "410457b0352b926ef776746a882e16c08c69a7c2edf14421aedb61d71711c625",
+    "initial_high_vulnerabilities": 4,
+    "overridden_high_vulnerabilities": 0,
+    "critical_vulnerabilities": 0,
+    "override_qualification_required": true
+  }
+}

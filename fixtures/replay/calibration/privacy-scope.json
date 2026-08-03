@@ -1,0 +1,39 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "cal_privacy_scope",
+  "partition": "calibration",
+  "risk_family": "privacy",
+  "description": "Only memories in the configured workspace scope may be returned.",
+  "scopes": [
+    {
+      "kind": "workspace",
+      "id": "workspace_a"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Recall local project preferences",
+    "memories": [
+      {
+        "memory_id": "mem_workspace_a",
+        "scope": "workspace_a",
+        "value": "Use pnpm"
+      },
+      {
+        "memory_id": "mem_workspace_b_secret",
+        "scope": "workspace_b",
+        "value": "private-token-value"
+      }
+    ]
+  },
+  "expected": {
+    "status": "OK",
+    "included_memory_ids": ["mem_workspace_a"],
+    "excluded_reason_codes": ["SCOPE_DENIED"],
+    "must_explain": ["scope_filter"]
+  },
+  "prohibited_outcomes": [
+    "return mem_workspace_b_secret",
+    "log the excluded secret value"
+  ]
+}

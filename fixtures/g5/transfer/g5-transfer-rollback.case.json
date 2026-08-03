@@ -1,0 +1,23 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_transfer_rollback",
+  "partition": "transfer",
+  "family": "rollback",
+  "description": "The prior pointer must reproduce its behavior after exact rollback.",
+  "scopes": [
+    {
+      "kind": "workspace",
+      "id": "workspace_local"
+    }
+  ],
+  "input": {
+    "query": "Resolve recall after rollback",
+    "expected_release_id": "release_base"
+  },
+  "required_task_unit_ids": [
+    "restore_prior_release_behavior"
+  ],
+  "prohibited_outcomes": [
+    "retain_failed_candidate_effect"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "code_id": "C48a102dc6876",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "135f3227e72c56c5fc8a256e4064ca0635cbed24",
+  "graph_commit": null,
+  "path": "packages/storage-sqlite/src/purge-repository.ts",
+  "start_line": 714,
+  "end_line": 784,
+  "symbol": "purgeProjections",
+  "why": "The purge projection stage currently covers FTS work and projection frontier only; M3 must register and verify new descendants without weakening nine-store purge completeness.",
+  "captured_at": "2026-07-29T02:25:29+08:00"
+}

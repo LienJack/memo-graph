@@ -1,0 +1,21 @@
+{
+  "source_id": "Wabddfee3f031",
+  "snapshot_id": "V1e11b113dbda",
+  "previous_snapshot": null,
+  "url_id": "Uabddfee3f031",
+  "title": "LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory",
+  "original_url": "https://arxiv.org/html/2410.10813v1",
+  "normalized_url": "https://arxiv.org/html/2410.10813v1",
+  "retrieved_at": "2026-07-29T02:31:06+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.96,
+  "independence_group": "longmemeval-ucla-tencent-ucsd",
+  "published_at": "2024-10-14",
+  "freshness": "current",
+  "extraction_quality": 0.97,
+  "extraction_method": "anysearch-extract",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "8ae412202baba4609abf3008f1a4e6fd881696af8aca0ec77db6567605af6b88"
+}

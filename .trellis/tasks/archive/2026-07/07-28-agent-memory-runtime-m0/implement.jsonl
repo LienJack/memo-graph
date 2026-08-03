@@ -1,0 +1,8 @@
+{"file":"docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md","reason":"Authoritative R1-R20, F1-F4, and AE1-AE8 product contract"}
+{"file":".trellis/tasks/07-28-agent-memory-runtime/design.md","reason":"Parent architecture and authority boundaries"}
+{"file":".trellis/tasks/07-28-agent-memory-runtime/implement.md","reason":"M0 checklist, G0 evidence, and stop conditions"}
+{"file":".trellis/tasks/07-28-agent-memory-runtime/research/research-handoff.md","reason":"Research-backed protocol, persistence, graph, and evaluation constraints"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Typed error boundary conventions"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Backend quality and test conventions"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Shared payload ownership and boundary validation"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Single-source contract and constant ownership"}

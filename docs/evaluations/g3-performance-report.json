@@ -1,0 +1,131 @@
+{
+  "schema_version": "1.0.0",
+  "candidate_commit": "cc6b55fe30a477340909029ea7e04bef2c85c470",
+  "final_decision": "HOLD",
+  "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+  "environment": {
+    "node": "v24.18.0",
+    "pnpm": "10.33.2",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3",
+    "storage_schema": "0010",
+    "context_compiler_version": "2.0.0",
+    "context_policy_version": "2.0.0",
+    "projection_transform": {
+      "name": "deterministic-layered-consolidation",
+      "version": "1.0.0"
+    },
+    "g3_protocol_version": "1.0.0",
+    "g3_manifest_hash": "sha256:94c74e54ab560e9b80acf282802a5b485ac685c1cb3fe9c292ed648daffaa813"
+  },
+  "compiler_profiles": {
+    "small": {
+      "recorded_at": "2026-07-28T21:19:21Z",
+      "population": {
+        "evidence": 10000,
+        "l1": 1000,
+        "projections": 250,
+        "relations": 1000
+      },
+      "warmup": 20,
+      "samples": 200,
+      "compiler": {
+        "p50_ms": 0.316,
+        "p95_ms": 0.72,
+        "max_ms": 1.604
+      },
+      "total_replay_request": {
+        "p50_ms": 0.447,
+        "p95_ms": 1.077,
+        "max_ms": 3.151
+      },
+      "token_budget": 1800,
+      "token_budget_adherent": true,
+      "result_hash": "sha256:fa39a75f646d1dd79a7da2994da526600d058f15477be55b6929688d2c037fe4"
+    },
+    "expected": {
+      "recorded_at": "2026-07-28T21:19:22Z",
+      "population": {
+        "evidence": 250000,
+        "l1": 25000,
+        "projections": 6000,
+        "relations": 50000
+      },
+      "warmup": 20,
+      "samples": 200,
+      "compiler": {
+        "p50_ms": 0.318,
+        "p95_ms": 0.541,
+        "max_ms": 1.395
+      },
+      "total_replay_request": {
+        "p50_ms": 0.45,
+        "p95_ms": 0.94,
+        "max_ms": 1.734
+      },
+      "token_budget": 1800,
+      "token_budget_adherent": true,
+      "result_hash": "sha256:fa39a75f646d1dd79a7da2994da526600d058f15477be55b6929688d2c037fe4"
+    }
+  },
+  "small_resource_profile": {
+    "recorded_at": "2026-07-28T21:19:52.957Z",
+    "workload": {
+      "evidence": 10000,
+      "l1": 1000,
+      "projections": 250,
+      "relations": 1000
+    },
+    "verified_counts": {
+      "evidence": 10000,
+      "l1": 1000,
+      "projections": 250,
+      "relations": 1000,
+      "projection_revisions": 1250,
+      "projection_sources": 3000
+    },
+    "latency": {
+      "projection_build_ms": 3622.551,
+      "full_rebuild_ms": 329.4,
+      "total_ms": 17279.948
+    },
+    "rebuild": {
+      "applied": false,
+      "incremental_digest": "sha256:027e5bd3aaed787083c8578c20855a57fc5433c80c9730933fd6d23b5dc04e71",
+      "rebuilt_digest": "sha256:027e5bd3aaed787083c8578c20855a57fc5433c80c9730933fd6d23b5dc04e71",
+      "equal": true
+    },
+    "storage": {
+      "database_bytes": 59592704,
+      "wal_bytes": 16430592,
+      "data_root_bytes": 76056064
+    },
+    "memory": {
+      "rss_bytes": 701038592,
+      "heap_used_bytes": 126883968
+    }
+  },
+  "thresholds": {
+    "compiler_p50_ms": 100,
+    "compiler_p95_ms": 400,
+    "expected_p50_pass": true,
+    "expected_p95_pass": true,
+    "token_budget_pass": true,
+    "small_rebuild_pass": true,
+    "small_exact_counts_pass": true
+  },
+  "scope_notes": [
+    "Compiler timing measures the deterministic bounded post-retrieval candidate set while retaining the declared population identity.",
+    "The complete Small population was physically materialized in SQLite.",
+    "The Expected population identity and compiler envelope were exercised; a 250k-row SQLite resource materialization was not required by the frozen M3 plan.",
+    "These are local synthetic measurements, not production capacity claims.",
+    "Post-gate review found that the online retrieval path truncates before lexical matching and revalidates only the first 1000 canonical sources, so these compiler timings cannot establish end-to-end Expected-profile retrieval correctness."
+  ],
+  "post_gate_review": {
+    "reviewed_commit": "5e4c75404e288402c0c1253807cd9eed2a8414ef",
+    "result": "HOLD",
+    "compiler_thresholds_still_pass": true,
+    "end_to_end_expected_profile_proven": false
+  }
+}

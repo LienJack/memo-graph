@@ -1,0 +1,30 @@
+{
+  "name": "@memo-graph/runtime-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@memo-graph/contracts": "workspace:*",
+    "@memo-graph/graph-projection": "workspace:*",
+    "@memo-graph/memory-kernel": "workspace:*",
+    "@memo-graph/storage-sqlite": "workspace:*",
+    "@memo-graph/vector-retrieval": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3"
+  }
+}

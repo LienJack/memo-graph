@@ -1,0 +1,34 @@
+{
+  "id": "agent-memory-runtime-m0",
+  "name": "agent-memory-runtime-m0",
+  "title": "Agent Memory Runtime M0 contracts and replay corpus",
+  "description": "Implement U1 repository/toolchain, contracts, threat model, frozen replay corpus, and G0 decision evidence.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "U1: Node/pnpm/TypeScript scaffold, runtime-validated contracts, frozen replay corpus, ADRs, threat model, and G0 evidence; excludes migrations and runtime handlers",
+  "package": null,
+  "priority": "P0",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-28",
+  "completedAt": "2026-07-28",
+  "branch": "codex/agent-memory-runtime-m0",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [
+    "docs/evaluations/g0-decision.md",
+    "packages/contracts/src/index.ts",
+    "fixtures/replay/manifest.json"
+  ],
+  "notes": "G0 GO recorded against implementation commit e8ae579484ee2d11178c266983d8d7eb8aa0c24c on Node 24.18.0. M1A may start; changes to the lockfile, public contracts, canonical serialization, or replay corpus require G0 recertification.",
+  "meta": {
+    "milestone": "M0",
+    "gate": "G0",
+    "implementation_authorized": "true"
+  }
+}

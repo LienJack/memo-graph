@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "g4a_cal_temporal_conflict",
+  "partition": "calibration",
+  "family": "temporal_conflict",
+  "description": "Return the active conflicting pair with shared provenance at the requested time.",
+  "principal_id": "user_local",
+  "scope": {
+    "kind": "workspace",
+    "id": "memo_graph"
+  },
+  "as_of": "2026-07-29T00:00:00.000Z",
+  "input_revision_ids": [
+    "revision_fact_a",
+    "revision_provenance",
+    "revision_fact_b"
+  ],
+  "input_relation_revision_ids": [
+    "relation_conflict_1",
+    "relation_shared_provenance_1"
+  ],
+  "prohibited_revision_ids": [],
+  "query": {
+    "mode": "typed_path",
+    "start_revision_ids": [
+      "revision_fact_a"
+    ],
+    "relation_pattern": [
+      "contradicts",
+      "supports"
+    ],
+    "max_depth": 2,
+    "max_fanout": 10,
+    "max_paths": 4,
+    "max_results": 4,
+    "max_relation_allowlist": 100,
+    "parent_deadline_ms": 75
+  },
+  "expected": {
+    "status": "complete",
+    "revision_ids": [
+      "revision_fact_a",
+      "revision_provenance",
+      "revision_fact_b"
+    ],
+    "ordered_paths": [
+      {
+        "node_revision_ids": [
+          "revision_fact_a",
+          "revision_provenance",
+          "revision_fact_b"
+        ],
+        "relation_revision_ids": [
+          "relation_conflict_1",
+          "relation_shared_provenance_1"
+        ],
+        "relation_types": [
+          "contradicts",
+          "supports"
+        ],
+        "depth": 2,
+        "path_hash": "sha256:b9bdcd4d368e143e48e3dceebea9a95b42e15193f41ed98e7589a84fea8bd114"
+      }
+    ],
+    "evidence_ids": [
+      "evidence_fact_a",
+      "evidence_fact_b",
+      "evidence_shared"
+    ],
+    "complete": true,
+    "abstain": false,
+    "reason_codes": []
+  }
+}

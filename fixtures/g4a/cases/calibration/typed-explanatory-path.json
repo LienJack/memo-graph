@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0.0",
+  "case_id": "g4a_cal_typed_explanatory_path",
+  "partition": "calibration",
+  "family": "typed_explanatory_path",
+  "description": "Return the exact typed explanatory path and its governed proof identities.",
+  "principal_id": "user_local",
+  "scope": {
+    "kind": "workspace",
+    "id": "memo_graph"
+  },
+  "as_of": "2026-07-29T00:00:00.000Z",
+  "input_revision_ids": [
+    "revision_topic",
+    "revision_dependency",
+    "revision_scenario"
+  ],
+  "input_relation_revision_ids": [
+    "relation_supports_1",
+    "relation_depends_1"
+  ],
+  "prohibited_revision_ids": [],
+  "query": {
+    "mode": "typed_path",
+    "start_revision_ids": [
+      "revision_topic"
+    ],
+    "relation_pattern": [
+      "supports",
+      "depends_on"
+    ],
+    "max_depth": 2,
+    "max_fanout": 10,
+    "max_paths": 4,
+    "max_results": 4,
+    "max_relation_allowlist": 100,
+    "parent_deadline_ms": 75
+  },
+  "expected": {
+    "status": "complete",
+    "revision_ids": [
+      "revision_topic",
+      "revision_dependency",
+      "revision_scenario"
+    ],
+    "ordered_paths": [
+      {
+        "node_revision_ids": [
+          "revision_topic",
+          "revision_dependency",
+          "revision_scenario"
+        ],
+        "relation_revision_ids": [
+          "relation_supports_1",
+          "relation_depends_1"
+        ],
+        "relation_types": [
+          "supports",
+          "depends_on"
+        ],
+        "depth": 2,
+        "path_hash": "sha256:ce05fc2991071104ccd4b616f8a748a4f2bb0c914dead2ded11097f91abaf48c"
+      }
+    ],
+    "evidence_ids": [
+      "evidence_topic",
+      "evidence_scenario"
+    ],
+    "complete": true,
+    "abstain": false,
+    "reason_codes": []
+  }
+}

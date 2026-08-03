@@ -1,0 +1,12 @@
+{
+  "code_id": "Ca31dcb595a63",
+  "repo": "/Users/lienli/Documents/GitHub/memo-graph",
+  "commit": "14248470946f937e3ce97ddadb506227e01b4650",
+  "graph_commit": null,
+  "path": "packages/contracts/src/memory.ts",
+  "start_line": 70,
+  "end_line": 214,
+  "symbol": "MemoryObjectSchema_MemoryRevisionSchema_AdmissionDecisionSchema",
+  "why": "当前合同已冻结 L1 生命周期、不可变 successor、lineage 与准入决策边界",
+  "captured_at": "2026-07-28T23:12:45+08:00"
+}

@@ -1,0 +1,3970 @@
+{
+  "schema_version": "1.0.0",
+  "recorded_at": "2026-07-29T10:07:48.499Z",
+  "gate": "G4B_REPLAY",
+  "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+  "thresholds_hash": "sha256:f76018937b09ef56ff4687112712749e61894ad8bf34d43124a30cf02ba29d55",
+  "calibration_receipt": {
+    "schema_version": "1.0.0",
+    "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+    "calibration_case_hashes": [
+      "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+      "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+      "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85"
+    ],
+    "configuration": {
+      "schema_version": "1.0.0",
+      "vector_top_k": 5,
+      "similarity_threshold": null,
+      "fusion": "governed_context_rank_v1",
+      "max_candidates_per_lane": 5
+    },
+    "configuration_hash": "sha256:0712ac25a950b77c0b9a3cd9bb4246667a51857b87ee204b522c95b14fcf50d2",
+    "tuner_payload_hash": "sha256:de7201493651274153ac0c581cb312bd3b9bfe9194b1d4b674f2007e8dca0f42",
+    "sealed_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+  },
+  "implementation_commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+  "dependency_lock_hash": "sha256:87f5c3f5dde4b8f29758d83866e2afb7d4fd2ae5748e30d3aeed96738faaf585",
+  "arms": [
+    "fts_recency",
+    "layered",
+    "vector",
+    "hybrid"
+  ],
+  "token_budgets": [
+    1800,
+    4096
+  ],
+  "cases": [
+    {
+      "case_id": "g4b_cal_irrecoverable_forgetting",
+      "partition": "calibration",
+      "case_role": "positive_gap",
+      "family": "english_paraphrase",
+      "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+      "hybrid_passed": false,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_cal_irrecoverable_forgetting",
+          "partition": "calibration",
+          "case_role": "positive_gap",
+          "family": "english_paraphrase",
+          "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_backup": "eligible",
+                "revision_g4b_cal_purge": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+                "canonical_setup_hash": "sha256:09ed2ece9e604ab6f52d062a0546d538107a7fec0ab92af4fcc79f1b9a9bff0d",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_backup": "eligible",
+                "revision_g4b_cal_purge": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+                "canonical_setup_hash": "sha256:09ed2ece9e604ab6f52d062a0546d538107a7fec0ab92af4fcc79f1b9a9bff0d",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:789a53863527916d5b80642088f9c56383a7bd25ce5ab5f2fc1cf07f4ae48f56",
+              "receipt_hash": "sha256:805daaca339bc49e7fd20906b0b04e89d5d3d228e0a8133ffef723e91e9a0285"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_backup": "eligible",
+                "revision_g4b_cal_purge": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+                "canonical_setup_hash": "sha256:09ed2ece9e604ab6f52d062a0546d538107a7fec0ab92af4fcc79f1b9a9bff0d",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:9500bd89f34e3e3bfb5c0744cd50267d645213479677deac2b9ea15781ba5b84",
+              "receipt_hash": "sha256:8720756b34999a5298cd987fb54106360fc5e13ee171c63c9effbf8fa6e9c5cf"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_backup": "eligible",
+                "revision_g4b_cal_purge": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+                "canonical_setup_hash": "sha256:09ed2ece9e604ab6f52d062a0546d538107a7fec0ab92af4fcc79f1b9a9bff0d",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:367016aef773d7a94d9a8d04ca4cc26ecf489470e43e81f646a10377400319e9",
+              "receipt_hash": "sha256:0c36c4ce41c619d065d5dd527e19487370b6ae5ea68bd2493c4349f4c60b8077"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_cal_irrecoverable_forgetting",
+          "partition": "calibration",
+          "case_role": "positive_gap",
+          "family": "english_paraphrase",
+          "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_backup": "eligible",
+                "revision_g4b_cal_purge": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+                "canonical_setup_hash": "sha256:09ed2ece9e604ab6f52d062a0546d538107a7fec0ab92af4fcc79f1b9a9bff0d",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_backup": "eligible",
+                "revision_g4b_cal_purge": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+                "canonical_setup_hash": "sha256:09ed2ece9e604ab6f52d062a0546d538107a7fec0ab92af4fcc79f1b9a9bff0d",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:2205738fd890101d2c2358907a41a0399f312399c05002977a7143fbc6a3d129",
+              "receipt_hash": "sha256:4d940c40c3c8555001c1f7eabd5493dfa6c868438e00190bfbd80ecb03342544"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_backup": "eligible",
+                "revision_g4b_cal_purge": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+                "canonical_setup_hash": "sha256:09ed2ece9e604ab6f52d062a0546d538107a7fec0ab92af4fcc79f1b9a9bff0d",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:c4dd312c6cc23bb8bac97b1c073624b07ba6a27a285851301fc3201c2be2216f",
+              "receipt_hash": "sha256:e38ff784208f914e28acc5fecee0de7a31bcc31d4065c6b9c987e76800f40480"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_backup": "eligible",
+                "revision_g4b_cal_purge": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:f06276b0ff23579597e2aa3ffa351a86003104302a5f4fe04804175b81ad4a85",
+                "canonical_setup_hash": "sha256:09ed2ece9e604ab6f52d062a0546d538107a7fec0ab92af4fcc79f1b9a9bff0d",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:6c9d69601df9d854a118f8b8873c813a568269fb451f57fbe6322d7bab692b0e",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:74e2c61bee8e3ae9aeaf88ace26fb879850c58a75e85080edfb9d481aab79439",
+              "receipt_hash": "sha256:f7065f7eb57579aff392a36ef0ba1057c1403b104826f6c173bbf8ccb40306ad"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_cal_learning_pause_zh_en",
+      "partition": "calibration",
+      "case_role": "positive_gap",
+      "family": "cross_language",
+      "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+      "hybrid_passed": false,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_cal_learning_pause_zh_en",
+          "partition": "calibration",
+          "case_role": "positive_gap",
+          "family": "cross_language",
+          "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_pause": "eligible",
+                "revision_g4b_cal_release": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+                "canonical_setup_hash": "sha256:5ca6bc4679cc2423d46d89b257ff2d4cba97d11132abcf7f1a41c626b4e8a0fd",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_pause": "eligible",
+                "revision_g4b_cal_release": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+                "canonical_setup_hash": "sha256:5ca6bc4679cc2423d46d89b257ff2d4cba97d11132abcf7f1a41c626b4e8a0fd",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:1943a92090aadda4cb0acf93a951d08de47b1319fa3355b3f4080b3a73ffaaaa",
+              "receipt_hash": "sha256:22e6a7c778b91bd95c4b010946156daa5a2596aeda774424566f0e7bdfd0d845"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_pause": "eligible",
+                "revision_g4b_cal_release": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+                "canonical_setup_hash": "sha256:5ca6bc4679cc2423d46d89b257ff2d4cba97d11132abcf7f1a41c626b4e8a0fd",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:2f2c978b9d546efcccc7f23000a84e0df300436bb2f1064de6793698bf049ecc",
+              "receipt_hash": "sha256:64d27e4b2bb2a739006a9e33e74c3666e614b8702829aae6a19826b9ba546d86"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_pause": "eligible",
+                "revision_g4b_cal_release": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+                "canonical_setup_hash": "sha256:5ca6bc4679cc2423d46d89b257ff2d4cba97d11132abcf7f1a41c626b4e8a0fd",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:a0249f73cf2341dd63efff915f5c6c0a831b3923b9f1918b38fa1a26b53b1ab4",
+              "receipt_hash": "sha256:b1370ffb4f8805b04be77e64ec9a06dfa79ac7ea9e0a2f38c058443cc766b9ab"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_cal_learning_pause_zh_en",
+          "partition": "calibration",
+          "case_role": "positive_gap",
+          "family": "cross_language",
+          "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_pause": "eligible",
+                "revision_g4b_cal_release": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+                "canonical_setup_hash": "sha256:5ca6bc4679cc2423d46d89b257ff2d4cba97d11132abcf7f1a41c626b4e8a0fd",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_pause": "eligible",
+                "revision_g4b_cal_release": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+                "canonical_setup_hash": "sha256:5ca6bc4679cc2423d46d89b257ff2d4cba97d11132abcf7f1a41c626b4e8a0fd",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:3651ce0e4bb41704ba38bf8a6918606393db57b82a3b0438e15d8a7f329c27fb",
+              "receipt_hash": "sha256:23a320fe65117be43e890bb8c0be79278615f1ed1ce9e09d169685b69bbf0018"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_pause": "eligible",
+                "revision_g4b_cal_release": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+                "canonical_setup_hash": "sha256:5ca6bc4679cc2423d46d89b257ff2d4cba97d11132abcf7f1a41c626b4e8a0fd",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:4a0d1dde9dd5afae61df70b26b641561bbb5bdab4986b18298d5fa20866d2492",
+              "receipt_hash": "sha256:05383cd1805c80f7b7e74b82e608c860ee75f560890309afabfdebdaf83be950"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_pause": "eligible",
+                "revision_g4b_cal_release": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:482768a3e16479cfd3a15caba81093976dbefc523c0e793e8ab8e9d61aad3a2d",
+                "canonical_setup_hash": "sha256:5ca6bc4679cc2423d46d89b257ff2d4cba97d11132abcf7f1a41c626b4e8a0fd",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:735f93e015747954f7968e80d09ebab13772885aaf49b2e9ea3d17b60f3cc5ec",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:053ea505b0bcb7b59a3e7e595a39ba4da8748c31727b75805272383b7001bcef",
+              "receipt_hash": "sha256:38ab7161036e8ec57557c717193351fc9877b37e1f9ad9c56bb8521dbddca4ca"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_cal_exact_scope_isolation",
+      "partition": "calibration",
+      "case_role": "negative_control",
+      "family": "scope_negative_control",
+      "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+      "hybrid_passed": false,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_cal_exact_scope_isolation",
+          "partition": "calibration",
+          "case_role": "negative_control",
+          "family": "scope_negative_control",
+          "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_node_local": "eligible",
+                "revision_g4b_cal_node_other": "WRONG_SCOPE"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+                "canonical_setup_hash": "sha256:a907a710ece6d58d9d4292fe42eea2a442badb868a89e2a2e28168590fc9a339",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_node_local": "eligible",
+                "revision_g4b_cal_node_other": "WRONG_SCOPE"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+                "canonical_setup_hash": "sha256:a907a710ece6d58d9d4292fe42eea2a442badb868a89e2a2e28168590fc9a339",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:94c508224329dd216204f2bd4daa58fbf60be9e1aaffa99ac77ae4d9061d8701",
+              "receipt_hash": "sha256:ce4adb02c6278d25bb304f981619822026db8cc9066d9b9806a9ff6dbe535ba9"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_node_local": "eligible",
+                "revision_g4b_cal_node_other": "WRONG_SCOPE"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+                "canonical_setup_hash": "sha256:a907a710ece6d58d9d4292fe42eea2a442badb868a89e2a2e28168590fc9a339",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:43970e5b424e867b4970a38e81df20da6c8c846a730ba334ffe3666ca5287441",
+              "receipt_hash": "sha256:1f7ad1d3cf29abd95fec1e42014c5033bb8b3550a497eb7eddb41e2320858f35"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_node_local": "eligible",
+                "revision_g4b_cal_node_other": "WRONG_SCOPE"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+                "canonical_setup_hash": "sha256:a907a710ece6d58d9d4292fe42eea2a442badb868a89e2a2e28168590fc9a339",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:356913fe7f59901932b383eb66c3bb84153b646be2a9bebdfcb90a368713f241",
+              "receipt_hash": "sha256:13baf54c869abe08dbff1d98de0e0fda7fb7c8eeae5c0333f85ba0dfc71930f6"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_cal_exact_scope_isolation",
+          "partition": "calibration",
+          "case_role": "negative_control",
+          "family": "scope_negative_control",
+          "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_node_local": "eligible",
+                "revision_g4b_cal_node_other": "WRONG_SCOPE"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+                "canonical_setup_hash": "sha256:a907a710ece6d58d9d4292fe42eea2a442badb868a89e2a2e28168590fc9a339",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_node_local": "eligible",
+                "revision_g4b_cal_node_other": "WRONG_SCOPE"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+                "canonical_setup_hash": "sha256:a907a710ece6d58d9d4292fe42eea2a442badb868a89e2a2e28168590fc9a339",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:6ba04271ea99d8f2ee099eaccb2559e494e2e4677c25955e7ccf3f0e19e5ad65",
+              "receipt_hash": "sha256:9c9c994140046bb6a3438b949bcf5d9741ac068689d4573e034ba591a44ed523"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_node_local": "eligible",
+                "revision_g4b_cal_node_other": "WRONG_SCOPE"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+                "canonical_setup_hash": "sha256:a907a710ece6d58d9d4292fe42eea2a442badb868a89e2a2e28168590fc9a339",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:5a87a14d8f968bcf219292c73e415934837ec8db07cbfa46278c7073e5ec49ca",
+              "receipt_hash": "sha256:a30271448396517f34da4e59462718ca07460665ecd8397a1ff2713ec0e00444"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_cal_node_local": "eligible",
+                "revision_g4b_cal_node_other": "WRONG_SCOPE"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:65d514b5e8a9667377e6e3f8d981880f48092eb5b968a5ebfd1dd9d2773430cd",
+                "canonical_setup_hash": "sha256:a907a710ece6d58d9d4292fe42eea2a442badb868a89e2a2e28168590fc9a339",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:7cc347962fe78f8000a65b86b3540b1a0c222f1c2f901f67f59b955120b5cd27",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:7fb471f25e27c74ac0bd76ffb876a1c968ac9298642282c8ae60e4157c611cf5",
+              "receipt_hash": "sha256:2af66e54be03df9c280a2b810efd8134eed7112217e3c962484b492e01aa43ea"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_hold_projection_fallback",
+      "partition": "holdout",
+      "case_role": "positive_gap",
+      "family": "operational_paraphrase",
+      "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+      "hybrid_passed": false,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_hold_projection_fallback",
+          "partition": "holdout",
+          "case_role": "positive_gap",
+          "family": "operational_paraphrase",
+          "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_fallback": "eligible",
+                "revision_g4b_hold_retry": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+                "canonical_setup_hash": "sha256:6c4776d22f07c0158f51ee9d1240a14c54fe2d8308185f4160c7a0cb5a196820",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_fallback": "eligible",
+                "revision_g4b_hold_retry": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+                "canonical_setup_hash": "sha256:6c4776d22f07c0158f51ee9d1240a14c54fe2d8308185f4160c7a0cb5a196820",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:8e89fff6c41b8de87373cc8f524a31767bebae8d29d5fd45c4fd64d73b156cb4",
+              "receipt_hash": "sha256:87c5fd74b71497c99706487b4814bc58a7c6d9f6207540955fa4c956b35d4e54"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_fallback": "eligible",
+                "revision_g4b_hold_retry": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+                "canonical_setup_hash": "sha256:6c4776d22f07c0158f51ee9d1240a14c54fe2d8308185f4160c7a0cb5a196820",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:90a537038804559c013bc0dba31a2d256bf8afe89cba873b47a251f2c868ccfa",
+              "receipt_hash": "sha256:d55b9e1fe10ab54f8a443dda958ffa31f5688fd56187ba3f90a466dde2618e4c"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_fallback": "eligible",
+                "revision_g4b_hold_retry": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+                "canonical_setup_hash": "sha256:6c4776d22f07c0158f51ee9d1240a14c54fe2d8308185f4160c7a0cb5a196820",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:c09c37ee6da8417b81e6573e83e4e63a77eaaed3f53a803876520f426398ec27",
+              "receipt_hash": "sha256:583bd467ee539b7f9c6264fea4594300575adb235d5689214cdb9d9f873215a0"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_hold_projection_fallback",
+          "partition": "holdout",
+          "case_role": "positive_gap",
+          "family": "operational_paraphrase",
+          "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_fallback": "eligible",
+                "revision_g4b_hold_retry": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+                "canonical_setup_hash": "sha256:6c4776d22f07c0158f51ee9d1240a14c54fe2d8308185f4160c7a0cb5a196820",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_fallback": "eligible",
+                "revision_g4b_hold_retry": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+                "canonical_setup_hash": "sha256:6c4776d22f07c0158f51ee9d1240a14c54fe2d8308185f4160c7a0cb5a196820",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:6ece79cfb869b1489eb955a70be32dca6d619d82cbdea91a68a2a1cd6b16a0e9",
+              "receipt_hash": "sha256:6d118ae4bb0c4f5541e3841473f36465d66a8ca40076619962ab52954fdcd20a"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_fallback": "eligible",
+                "revision_g4b_hold_retry": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+                "canonical_setup_hash": "sha256:6c4776d22f07c0158f51ee9d1240a14c54fe2d8308185f4160c7a0cb5a196820",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:a8c0561bb166bfe36baf752a49e8ce180c383dd77f0417a1b9f7742e74aa8158",
+              "receipt_hash": "sha256:a41824fdb0405817e505d6001fd1c2eb71c9299d47910c61159205757c5c1bef"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_fallback": "eligible",
+                "revision_g4b_hold_retry": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:425e64acb2baf06ecf3a378a0a5f0c0d76937ec6d35bf32b8cac63f84f45e40c",
+                "canonical_setup_hash": "sha256:6c4776d22f07c0158f51ee9d1240a14c54fe2d8308185f4160c7a0cb5a196820",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:75d9ffbf416d6b44e5944bf6c7ec9bc21b2fa160adfe1be6c218705f84f2cba4",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:2aa107f38f6ce46a11f4b0307ee01ef3d6637f9e20260c78bc4bd6a792715833",
+              "receipt_hash": "sha256:dca0b2158a4acd5258a25ffb8ae11eed0cf95e4a0837242d271ec95833584eb7"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_hold_correction_zh_en",
+      "partition": "holdout",
+      "case_role": "positive_gap",
+      "family": "cross_language_correction",
+      "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+      "hybrid_passed": false,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_hold_correction_zh_en",
+          "partition": "holdout",
+          "case_role": "positive_gap",
+          "family": "cross_language_correction",
+          "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_correction": "eligible",
+                "revision_g4b_hold_overwrite": "SUPERSEDED"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+                "canonical_setup_hash": "sha256:712f46a1553c558e7e1bc80dca4f9fe208d053dea5804e2b0792e23728b63d23",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_correction": "eligible",
+                "revision_g4b_hold_overwrite": "SUPERSEDED"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+                "canonical_setup_hash": "sha256:712f46a1553c558e7e1bc80dca4f9fe208d053dea5804e2b0792e23728b63d23",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:a3e882b1df313625d20422078ba572b8ff1aab51d8c963f3413ff53109a04df4",
+              "receipt_hash": "sha256:c566462d5ca2b29462f98bda87aca1a686b4563247f5d96af363fb36f069f0d7"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_correction": "eligible",
+                "revision_g4b_hold_overwrite": "SUPERSEDED"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+                "canonical_setup_hash": "sha256:712f46a1553c558e7e1bc80dca4f9fe208d053dea5804e2b0792e23728b63d23",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:d701f125f98c8834a63dd7a00c972ff23878fe1ad5b262b27dedc3321bb4f60c",
+              "receipt_hash": "sha256:92b611ad0a586e5aca867a92e685d3a5aebf17a8857cd7f9ca1ae72af12297ac"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_correction": "eligible",
+                "revision_g4b_hold_overwrite": "SUPERSEDED"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+                "canonical_setup_hash": "sha256:712f46a1553c558e7e1bc80dca4f9fe208d053dea5804e2b0792e23728b63d23",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:e6c79e441563a3321709aafc76d2175139e900830270b3d95fa5f09fb276d327",
+              "receipt_hash": "sha256:c558ed9589175caaa58131175d18c27eda57fb2f603aab3f903f89c696ba29c5"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_hold_correction_zh_en",
+          "partition": "holdout",
+          "case_role": "positive_gap",
+          "family": "cross_language_correction",
+          "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_correction": "eligible",
+                "revision_g4b_hold_overwrite": "SUPERSEDED"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+                "canonical_setup_hash": "sha256:712f46a1553c558e7e1bc80dca4f9fe208d053dea5804e2b0792e23728b63d23",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_correction": "eligible",
+                "revision_g4b_hold_overwrite": "SUPERSEDED"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+                "canonical_setup_hash": "sha256:712f46a1553c558e7e1bc80dca4f9fe208d053dea5804e2b0792e23728b63d23",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:a3c04f5332c004a1964f7265d2f78dc9c4ccbe88c472f4c1caa5cd8b4d3087c8",
+              "receipt_hash": "sha256:9808c89a7d67f2441d66c0942a331140fe064a67e6148c55975e8e82c0dfb763"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_correction": "eligible",
+                "revision_g4b_hold_overwrite": "SUPERSEDED"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+                "canonical_setup_hash": "sha256:712f46a1553c558e7e1bc80dca4f9fe208d053dea5804e2b0792e23728b63d23",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:4ad00dcb2d9bb8c7828c284455145e46d8ae10d473c9b06ccd752af1ca915317",
+              "receipt_hash": "sha256:8562fa23e8e1fd9bbedddbb36630e5e1ce05235a51ee38e13fdc61d4082d92ef"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_correction": "eligible",
+                "revision_g4b_hold_overwrite": "SUPERSEDED"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:7544b6a4abd201acd9fcd46e73be7f7e0cef7a42154785effd688819c654db68",
+                "canonical_setup_hash": "sha256:712f46a1553c558e7e1bc80dca4f9fe208d053dea5804e2b0792e23728b63d23",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:fa21878cbb84c54c6efc6d2ade3d4eb592b6698028dcb7de6224d0936c777c94",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:c140480734a7b6a56c990d9373d6d4717bd80ade0386886f1c74afefbdd37d98",
+              "receipt_hash": "sha256:48fcd4f745f833ef80a1d92e7e71c29977eb7129d0cfbc6702035c4bd8db801a"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_hold_revoked_similarity_trap",
+      "partition": "holdout",
+      "case_role": "negative_control",
+      "family": "lifecycle_negative_control",
+      "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+      "hybrid_passed": false,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_hold_revoked_similarity_trap",
+          "partition": "holdout",
+          "case_role": "negative_control",
+          "family": "lifecycle_negative_control",
+          "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_revoked_trap": "REVOKED",
+                "revision_g4b_hold_withdrawal": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+                "canonical_setup_hash": "sha256:55ad3aeee4d8b87c91c8bdf0c2efdd03d65ff3ebd52ac4ddee69988f1d090287",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_revoked_trap": "REVOKED",
+                "revision_g4b_hold_withdrawal": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+                "canonical_setup_hash": "sha256:55ad3aeee4d8b87c91c8bdf0c2efdd03d65ff3ebd52ac4ddee69988f1d090287",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:77b88c03fcff923a856b6cee55cad3e6c842d303938cf3a68e17cb9cf0b68a49",
+              "receipt_hash": "sha256:0ed83fdf0ddca5d6aca51f46a17fee83decac66aaacc9f46c2945a69881bf370"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_revoked_trap": "REVOKED",
+                "revision_g4b_hold_withdrawal": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+                "canonical_setup_hash": "sha256:55ad3aeee4d8b87c91c8bdf0c2efdd03d65ff3ebd52ac4ddee69988f1d090287",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:2dd095cf39c7298932abc92b9f2f844f5da9a50bece9be5279972bf4b9e950c1",
+              "receipt_hash": "sha256:d7f5ece2bed113bd90be8974122167c47a781187713969f953af48f01e1cd172"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_revoked_trap": "REVOKED",
+                "revision_g4b_hold_withdrawal": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+                "canonical_setup_hash": "sha256:55ad3aeee4d8b87c91c8bdf0c2efdd03d65ff3ebd52ac4ddee69988f1d090287",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:097a3bac8b487a110c860a69149bc82892142a3b70b52a8894ad4f73fcef7311",
+              "receipt_hash": "sha256:4fb121f903a488db5060d41140df94d90395bd0bc138f1249cbddc865afa1038"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_hold_revoked_similarity_trap",
+          "partition": "holdout",
+          "case_role": "negative_control",
+          "family": "lifecycle_negative_control",
+          "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_revoked_trap": "REVOKED",
+                "revision_g4b_hold_withdrawal": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+                "canonical_setup_hash": "sha256:55ad3aeee4d8b87c91c8bdf0c2efdd03d65ff3ebd52ac4ddee69988f1d090287",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_revoked_trap": "REVOKED",
+                "revision_g4b_hold_withdrawal": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+                "canonical_setup_hash": "sha256:55ad3aeee4d8b87c91c8bdf0c2efdd03d65ff3ebd52ac4ddee69988f1d090287",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:ddac213521a3eefeacadd6e93b390b3c2bb9bf0ae37ea99870f8ca944df59dcb",
+              "receipt_hash": "sha256:a2cda09392aba9a5dde471d564971b0cea5035335ef06bfcf107887cd69ccd47"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_revoked_trap": "REVOKED",
+                "revision_g4b_hold_withdrawal": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+                "canonical_setup_hash": "sha256:55ad3aeee4d8b87c91c8bdf0c2efdd03d65ff3ebd52ac4ddee69988f1d090287",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:2ee96f02e91d85307775656a6d106839971968f1dbe4ef435e3e68a9e81161ba",
+              "receipt_hash": "sha256:61bf9e83060f45dfd82a06aed98ab2daefd1fbed1ee550ca7b1a8189795a171e"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_hold_revoked_trap": "REVOKED",
+                "revision_g4b_hold_withdrawal": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:af449c1ad208688f801231a2499ea05b85aeeb2bae21612461b951042aad96df",
+                "canonical_setup_hash": "sha256:55ad3aeee4d8b87c91c8bdf0c2efdd03d65ff3ebd52ac4ddee69988f1d090287",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:1fa085da9b1bfb632106fcb54ac4857959414f8443318ddf0478006cbb52f3c7",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:efd5655ae8a8ab33719177cc9b73f5cf6fa4a8c5f902317956b5f3fdbe580639",
+              "receipt_hash": "sha256:cc8d02c8dbf8cc84d32e210aba8e5d6471efeaf34318d7fea1557c1cb42f209d"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_transfer_offline_operation",
+      "partition": "transfer",
+      "case_role": "positive_gap",
+      "family": "offline_semantic_operation",
+      "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+      "hybrid_passed": false,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_transfer_offline_operation",
+          "partition": "transfer",
+          "case_role": "positive_gap",
+          "family": "offline_semantic_operation",
+          "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_cloud": "CANDIDATE_ONLY",
+                "revision_g4b_transfer_offline": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+                "canonical_setup_hash": "sha256:eb95d94b7a5820fde88097a8744665010b8ea42390269ae58420cfeef4977a3a",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_cloud": "CANDIDATE_ONLY",
+                "revision_g4b_transfer_offline": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+                "canonical_setup_hash": "sha256:eb95d94b7a5820fde88097a8744665010b8ea42390269ae58420cfeef4977a3a",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:82821e4886d862b04e914c8ba19deba944de613394903cb036fafba78a22127a",
+              "receipt_hash": "sha256:aaf3a07b0be243fcef28855368dfc8d185f4743f0ce36c9fcbff60628cb99973"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_cloud": "CANDIDATE_ONLY",
+                "revision_g4b_transfer_offline": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+                "canonical_setup_hash": "sha256:eb95d94b7a5820fde88097a8744665010b8ea42390269ae58420cfeef4977a3a",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:3101db7f95a0f963a33844f08f264f7090a6194964352ac7212d69d7ce2f56c4",
+              "receipt_hash": "sha256:5c44ffd7ffa444e0fbe48918deac55321f338d3b350d56d0666d808419239c27"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_cloud": "CANDIDATE_ONLY",
+                "revision_g4b_transfer_offline": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+                "canonical_setup_hash": "sha256:eb95d94b7a5820fde88097a8744665010b8ea42390269ae58420cfeef4977a3a",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:b8676b6120f25d39ba6432b71c499d0b54db733da3b93e5cbdaf2e49137dad91",
+              "receipt_hash": "sha256:0c4ac4f370d44faa70b47317a30ab216451a37b65c2137f2a1ae3b41781ec1ef"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_transfer_offline_operation",
+          "partition": "transfer",
+          "case_role": "positive_gap",
+          "family": "offline_semantic_operation",
+          "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_cloud": "CANDIDATE_ONLY",
+                "revision_g4b_transfer_offline": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+                "canonical_setup_hash": "sha256:eb95d94b7a5820fde88097a8744665010b8ea42390269ae58420cfeef4977a3a",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_cloud": "CANDIDATE_ONLY",
+                "revision_g4b_transfer_offline": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+                "canonical_setup_hash": "sha256:eb95d94b7a5820fde88097a8744665010b8ea42390269ae58420cfeef4977a3a",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:ae4fd8208140b403df7264089051b29e247cceec900cfeb55f43085b3c15913e",
+              "receipt_hash": "sha256:8277f6133810f820fc34cbf715a21dfa9bee56824963ca681d24ce47799b22a3"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_cloud": "CANDIDATE_ONLY",
+                "revision_g4b_transfer_offline": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+                "canonical_setup_hash": "sha256:eb95d94b7a5820fde88097a8744665010b8ea42390269ae58420cfeef4977a3a",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:7c914383613bf539dfdc5114c0a33b6bdbd9c21531a99eb6bda4eca3b0e5f8dd",
+              "receipt_hash": "sha256:2194a4fb2bc9c74e26c9c355472f67225d67be57fa62d09131951bbdcc860479"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_cloud": "CANDIDATE_ONLY",
+                "revision_g4b_transfer_offline": "eligible"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:89bdc01c1963e9de689627dfffeb9ab19c2f37fac33dd59c61cc473b6210e6ec",
+                "canonical_setup_hash": "sha256:eb95d94b7a5820fde88097a8744665010b8ea42390269ae58420cfeef4977a3a",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:c288c9d49c85db4dc5a9686d468b89507c5f99931d4228a746b3b5cd82e553a5",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:56d2fd8698cc90edbba749ebf2f5e1dde45ae561bfbc444c8e0b80a0c15a4f66",
+              "receipt_hash": "sha256:5bb2ba0c04d603ad032b5793392a982800be09f62581719b7d60dbbce5dc6c0e"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_transfer_context_pollution",
+      "partition": "transfer",
+      "case_role": "positive_gap",
+      "family": "conceptual_paraphrase",
+      "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+      "hybrid_passed": false,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_transfer_context_pollution",
+          "partition": "transfer",
+          "case_role": "positive_gap",
+          "family": "conceptual_paraphrase",
+          "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_budget": "eligible",
+                "revision_g4b_transfer_unbounded": "CANDIDATE_ONLY"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+                "canonical_setup_hash": "sha256:b9dd5a811260831d99ea9a869c9d5083a79793c759e0cc9afaf9d52d401fd8f2",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_budget": "eligible",
+                "revision_g4b_transfer_unbounded": "CANDIDATE_ONLY"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+                "canonical_setup_hash": "sha256:b9dd5a811260831d99ea9a869c9d5083a79793c759e0cc9afaf9d52d401fd8f2",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:8bb3d47ac478e960851d4d7497ff71ddc7653705c8418ce91900bb41abee36c5",
+              "receipt_hash": "sha256:a1e9313bf75473eae71609d5e34d1c7d72f94a5243d77b8346f258b578922103"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_budget": "eligible",
+                "revision_g4b_transfer_unbounded": "CANDIDATE_ONLY"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+                "canonical_setup_hash": "sha256:b9dd5a811260831d99ea9a869c9d5083a79793c759e0cc9afaf9d52d401fd8f2",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:eea64623f7c01c5b0a0b05bdcecf40c4aad53c20cb2304b23a36105b798e0df7",
+              "receipt_hash": "sha256:d91048c0a7ab1c9f68dfa6efe37979a2578cf6dabcd8cbd3ed2c121dd1989dd7"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_budget": "eligible",
+                "revision_g4b_transfer_unbounded": "CANDIDATE_ONLY"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+                "canonical_setup_hash": "sha256:b9dd5a811260831d99ea9a869c9d5083a79793c759e0cc9afaf9d52d401fd8f2",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:23c98422315871c5e5cf03ba6896a4ff6784634910519f2acba808e8091b0028",
+              "receipt_hash": "sha256:0bfc4e75d8633791c323e9fe0faed679ad439b782b0ce867bf9e268ace18ad65"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_transfer_context_pollution",
+          "partition": "transfer",
+          "case_role": "positive_gap",
+          "family": "conceptual_paraphrase",
+          "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_budget": "eligible",
+                "revision_g4b_transfer_unbounded": "CANDIDATE_ONLY"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+                "canonical_setup_hash": "sha256:b9dd5a811260831d99ea9a869c9d5083a79793c759e0cc9afaf9d52d401fd8f2",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_budget": "eligible",
+                "revision_g4b_transfer_unbounded": "CANDIDATE_ONLY"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+                "canonical_setup_hash": "sha256:b9dd5a811260831d99ea9a869c9d5083a79793c759e0cc9afaf9d52d401fd8f2",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:c9328ddc7832a09c923c952b1af3ae02a15b0673c7972ddcaa923c935b01ee3e",
+              "receipt_hash": "sha256:08cee333a2c3511e038cb4d46af9393f4df3f8004c932b46704b3999a3d06b6d"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_budget": "eligible",
+                "revision_g4b_transfer_unbounded": "CANDIDATE_ONLY"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+                "canonical_setup_hash": "sha256:b9dd5a811260831d99ea9a869c9d5083a79793c759e0cc9afaf9d52d401fd8f2",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:a1d553ec15585e5534547f194587b07eb518ad2f30a52e91d3043f323c36e23b",
+              "receipt_hash": "sha256:3ab36d0e780c94405d6d357531e4694e10cecfe8f4be4702e7b4ab89a4b43477"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_budget": "eligible",
+                "revision_g4b_transfer_unbounded": "CANDIDATE_ONLY"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:9e3f5ab2a8b8325678f6d7479af8697bb174fbd15608d4c21bd304a97d9101dd",
+                "canonical_setup_hash": "sha256:b9dd5a811260831d99ea9a869c9d5083a79793c759e0cc9afaf9d52d401fd8f2",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:033fe9b36f4116e49e5bab186eac702aa4fa9b1e9dbb6d22cde9561584cbea24",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:2a4f62bc8ddd0bb252da557b536a7099cd9b2f72ab5a40d2c694fb654a17c64f",
+              "receipt_hash": "sha256:84e76c8016d62f2c01855bf8600124fa737be059c7927a1e33896a26d5d212f7"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": false,
+              "task_passed": false,
+              "provenance_passed": false,
+              "explanation_passed": false,
+              "expected_included": false,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "g4b_transfer_temporal_abstention",
+      "partition": "transfer",
+      "case_role": "negative_control",
+      "family": "temporal_negative_control",
+      "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+      "hybrid_passed": true,
+      "strict_gain": false,
+      "budgets": [
+        {
+          "case_id": "g4b_transfer_temporal_abstention",
+          "partition": "transfer",
+          "case_role": "negative_control",
+          "family": "temporal_negative_control",
+          "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+          "token_budget": 1800,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 1800,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_expired": "EXPIRED",
+                "revision_g4b_transfer_future": "NOT_YET_VALID"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+                "canonical_setup_hash": "sha256:1899933b348913cda87421899ab01cf23806715ceaecda1e1463c3d5c64f0223",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_expired": "EXPIRED",
+                "revision_g4b_transfer_future": "NOT_YET_VALID"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+                "canonical_setup_hash": "sha256:1899933b348913cda87421899ab01cf23806715ceaecda1e1463c3d5c64f0223",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:6d84021e265fc7f5fe6ced2732117bd7b15e341e035f8dee5a0ff52a896adedb",
+              "receipt_hash": "sha256:ee4c35a14d5bcd3138bcb4606efe3cade3027ffc5377630718f3fff824a4ff51"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_expired": "EXPIRED",
+                "revision_g4b_transfer_future": "NOT_YET_VALID"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+                "canonical_setup_hash": "sha256:1899933b348913cda87421899ab01cf23806715ceaecda1e1463c3d5c64f0223",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:a9c147c1a776e5cb57a759da0d82ca8589fab41c72a533b19d6a3067ccaa1478",
+              "receipt_hash": "sha256:5553e99d8543f3364448d9a284730d0e36895b41b684f22274f0809b6d921548"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 1800,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_expired": "EXPIRED",
+                "revision_g4b_transfer_future": "NOT_YET_VALID"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+                "canonical_setup_hash": "sha256:1899933b348913cda87421899ab01cf23806715ceaecda1e1463c3d5c64f0223",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 1800,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:a2bd294858332ae3a12ecff878e54b42e0071da258dcda4516212ce9f99561af",
+              "receipt_hash": "sha256:40e7169dc8be9aa72560597ecab57f3a69c553826c5fb065c72e6695398f190f"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": true,
+              "task_passed": true,
+              "provenance_passed": true,
+              "explanation_passed": true,
+              "expected_included": true,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": true,
+              "task_passed": true,
+              "provenance_passed": true,
+              "explanation_passed": true,
+              "expected_included": true,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": true,
+              "task_passed": true,
+              "provenance_passed": true,
+              "explanation_passed": true,
+              "expected_included": true,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": true,
+              "task_passed": true,
+              "provenance_passed": true,
+              "explanation_passed": true,
+              "expected_included": true,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        },
+        {
+          "case_id": "g4b_transfer_temporal_abstention",
+          "partition": "transfer",
+          "case_role": "negative_control",
+          "family": "temporal_negative_control",
+          "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+          "token_budget": 4096,
+          "observations": {
+            "fts_recency": {
+              "arm": "fts_recency",
+              "token_budget": 4096,
+              "status": "NO_MATCH",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_expired": "EXPIRED",
+                "revision_g4b_transfer_future": "NOT_YET_VALID"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+                "canonical_setup_hash": "sha256:1899933b348913cda87421899ab01cf23806715ceaecda1e1463c3d5c64f0223",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:dcefb6a9220993c6ebe609cb0e762497753647e9b2f25805c6af94e9348c71fd",
+              "context_hash": null,
+              "receipt_hash": null
+            },
+            "layered": {
+              "arm": "layered",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_expired": "EXPIRED",
+                "revision_g4b_transfer_future": "NOT_YET_VALID"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+                "canonical_setup_hash": "sha256:1899933b348913cda87421899ab01cf23806715ceaecda1e1463c3d5c64f0223",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:76fd7725693b5ed16c7600079f88d140b7c7122db634fb9a7ab6df324818fc7a",
+              "context_hash": "sha256:66af4fdbe7502a7d9bbc741298d75f545cb7393c76965d5b679e132ceda2ab11",
+              "receipt_hash": "sha256:caff834fc42ae814726f172188189dd7bd28b6d1fdbb128831ed9b35009e1c00"
+            },
+            "vector": {
+              "arm": "vector",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_expired": "EXPIRED",
+                "revision_g4b_transfer_future": "NOT_YET_VALID"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+                "canonical_setup_hash": "sha256:1899933b348913cda87421899ab01cf23806715ceaecda1e1463c3d5c64f0223",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:e62f4349b7e1d51487704771d52f3579bd9def40a2a58294a995f48e3e375643",
+              "context_hash": "sha256:b8daf6ad5dfddd372845cd5028a557580e93011d160c0fa2e120cab79f16b635",
+              "receipt_hash": "sha256:526e607a95220f63a91442ad36ef5383cfc425024f60643714611c1a84da59a2"
+            },
+            "hybrid": {
+              "arm": "hybrid",
+              "token_budget": 4096,
+              "status": "DEGRADED",
+              "included_revision_ids": [],
+              "evidence_revision_ids": [],
+              "selection_revision_ids": [],
+              "token_used": 0,
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "canonical_eligibility": {
+                "revision_g4b_transfer_expired": "EXPIRED",
+                "revision_g4b_transfer_future": "NOT_YET_VALID"
+              },
+              "common_identity": {
+                "manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+                "case_hash": "sha256:e58a21290ca7342066ace49d0c7e89e044ce5ea1af714d8b30e088a0e39ed6b3",
+                "canonical_setup_hash": "sha256:1899933b348913cda87421899ab01cf23806715ceaecda1e1463c3d5c64f0223",
+                "principal_id": "user_local",
+                "scope": {
+                  "kind": "workspace",
+                  "id": "workspace_local"
+                },
+                "as_of": "2026-07-29T05:00:00.000Z",
+                "include_sensitive": false,
+                "token_budget": 4096,
+                "reader_hash": "sha256:4c528c0ebe008eb14313c880f67d5052b8fa86add9f787133156992f0628480a",
+                "filter_hash": "sha256:98a2c3cc9ecc373475c17b2016756297dca34d0c3767943b6e9c1405f5547c5d",
+                "compiler_hash": "sha256:9eeaf1ec15ba64d07ff1791a13d72236ebf3f806850677c4f9758d819b757fc1",
+                "oracle_hash": "sha256:375443b2e40d5b7297514e625c4275f486d377c543be8b6507d44cc5648e1590",
+                "calibration_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0"
+              },
+              "arm_configuration_hash": "sha256:f8d6ae5bb68c9359364b354e4c4c2eb1564e9221331050b4a2c1d35e5c9acdae",
+              "context_hash": "sha256:3f4cf10b670ce85367da378f7533ee7d73e13bb7b77eb0a479161306d48c7c0d",
+              "receipt_hash": "sha256:bc247a5ca86f5889742c007fb340721647b5497ba34e156f69826da2919e067a"
+            }
+          },
+          "scores": {
+            "fts_recency": {
+              "passed": true,
+              "task_passed": true,
+              "provenance_passed": true,
+              "explanation_passed": true,
+              "expected_included": true,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "layered": {
+              "passed": true,
+              "task_passed": true,
+              "provenance_passed": true,
+              "explanation_passed": true,
+              "expected_included": true,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "vector": {
+              "passed": true,
+              "task_passed": true,
+              "provenance_passed": true,
+              "explanation_passed": true,
+              "expected_included": true,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            },
+            "hybrid": {
+              "passed": true,
+              "task_passed": true,
+              "provenance_passed": true,
+              "explanation_passed": true,
+              "expected_included": true,
+              "prohibited_revision_ids": [],
+              "distractor_revision_ids": [],
+              "duplicate_count": 0,
+              "contradiction_count": 0,
+              "token_used": 0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "positive_cases_solved": 0,
+    "strict_case_gains": 0,
+    "holdout_gains": 0,
+    "transfer_gains": 0,
+    "critical_regressions": [
+      "g4b_cal_exact_scope_isolation:HYBRID_NEGATIVE_CONTROL_FAILED",
+      "g4b_hold_revoked_similarity_trap:HYBRID_NEGATIVE_CONTROL_FAILED"
+    ],
+    "pollution_deltas": [
+      {
+        "case_id": "g4b_cal_irrecoverable_forgetting",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_cal_irrecoverable_forgetting",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_cal_learning_pause_zh_en",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_cal_learning_pause_zh_en",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_cal_exact_scope_isolation",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_cal_exact_scope_isolation",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_hold_projection_fallback",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_hold_projection_fallback",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_hold_correction_zh_en",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_hold_correction_zh_en",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_hold_revoked_similarity_trap",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_hold_revoked_similarity_trap",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_transfer_offline_operation",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_transfer_offline_operation",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_transfer_context_pollution",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_transfer_context_pollution",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_transfer_temporal_abstention",
+        "token_budget": 1800,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      },
+      {
+        "case_id": "g4b_transfer_temporal_abstention",
+        "token_budget": 4096,
+        "layered": 0,
+        "hybrid": 0,
+        "delta": 0
+      }
+    ]
+  },
+  "threshold_results": {
+    "hybrid_positive_success": false,
+    "strict_case_gains": false,
+    "holdout_gain": false,
+    "transfer_gain": false,
+    "critical_regressions": false,
+    "negative_controls": false,
+    "context_pollution": true
+  },
+  "utility_gate": false,
+  "logical_results_hash": "sha256:24740004c4021d24a61086129af2aeb8d59233acc0db6a275e81fdbb6169f606",
+  "repeat": {
+    "schema_version": "1.0.0",
+    "runs": 2,
+    "deterministic": true,
+    "logical_results_hashes": [
+      "sha256:24740004c4021d24a61086129af2aeb8d59233acc0db6a275e81fdbb6169f606",
+      "sha256:24740004c4021d24a61086129af2aeb8d59233acc0db6a275e81fdbb6169f606"
+    ]
+  },
+  "report_hash": "sha256:58b088d8cf943ed5bee1c86c91937eb093f77dd473a84124c563dcf09eb05318"
+}

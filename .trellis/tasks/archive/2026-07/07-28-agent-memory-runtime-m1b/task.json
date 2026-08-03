@@ -1,0 +1,38 @@
+{
+  "id": "agent-memory-runtime-m1b",
+  "name": "agent-memory-runtime-m1b",
+  "title": "Agent Memory Runtime M1B stdio MCP explicit loop",
+  "description": "Implement local-principal-bound stdio MCP tools/resources, L0 evidence service, budgeted baseline Context compiler, recall/context receipts, and the end-to-end task-start/task-end Codex loop that closes parent G1.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "M1B only: local-principal-bound stdio MCP read/proposal tools, inspection resources, recall/context persistence, baseline L0 Context compiler, official-client explicit loop, and G1 evidence; excludes M2+ governance",
+  "package": null,
+  "priority": "P0",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-28",
+  "completedAt": "2026-07-28",
+  "branch": "codex/agent-memory-runtime-m1b",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [
+    "packages/mcp-server",
+    "packages/memory-kernel",
+    "packages/context-compiler",
+    "migrations/0003-recall-context.sql",
+    "tests/mcp",
+    "tests/integration/codex-explicit-loop.integration.test.ts",
+    "docs/evaluations/g1-decision.md"
+  ],
+  "notes": "This child closes parent G1 only after a real official-client stdio process loop passes on the G1A schema/lock lineage.",
+  "meta": {
+    "milestone": "M1B",
+    "gate": "G1",
+    "implementation_authorized": "true"
+  }
+}

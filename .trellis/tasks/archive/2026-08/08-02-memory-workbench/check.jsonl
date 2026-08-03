@@ -1,0 +1,9 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend quality checklist"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Verify one-writer transactions recovery and scope-local invariants"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Verify failure distinctions and content-free mapping"}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Verify memory credential and deleted-content redaction"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Verify schemas hashes replay and release gates"}
+{"file":".trellis/spec/frontend/index.md","reason":"Verify established frontend conventions accessibility and browser gates"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check real cross-layer chains instead of isolated mocks"}
+{"file":".trellis/tasks/08-02-memory-workbench/research/plan-review.md","reason":"Check implementation against all approved review decisions"}
+{"file": ".trellis/tasks/08-02-memory-workbench/research/baseline.md", "reason": "Verify against the pinned Node 24 green baseline"}

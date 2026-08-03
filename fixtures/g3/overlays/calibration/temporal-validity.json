@@ -1,0 +1,35 @@
+{
+  "overlay_schema_version": "1.0.0",
+  "case_id": "cal_temporal_validity",
+  "base_case_hash": "sha256:ff136748b2f521353eaf1171418314b733846ecc09d98ff657790f457649c7cd",
+  "partition": "calibration",
+  "projection_seeds": [],
+  "transform_inputs": [
+    {
+      "seed_id": "g3_timezone_current_topic",
+      "projection_type": "topic",
+      "source_memory_ids": ["mem_timezone_current"],
+      "evidence_ids": ["evidence_timezone_current"],
+      "task_units": ["Asia/Shanghai"]
+    }
+  ],
+  "rubric": {
+    "required_task_units": ["Asia/Shanghai"],
+    "required_evidence_units": ["evidence_timezone_current"],
+    "prohibited_pollution": ["stale_projection", "unsupported_inference"]
+  },
+  "lane_policy": {
+    "allowed_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {
+      "max_candidates_per_lane": 20,
+      "relation_max_depth": 2,
+      "relation_max_fanout": 5,
+      "max_concurrent_lanes": 2
+    }
+  },
+  "lane_overrides": {
+    "requested_lanes": ["recent_l1", "topic", "scenario_procedure", "core", "relation_sqlite"],
+    "limits": {}
+  },
+  "token_budgets": [512, 1800]
+}

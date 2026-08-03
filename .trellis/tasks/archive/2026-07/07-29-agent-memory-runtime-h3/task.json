@@ -1,0 +1,37 @@
+{
+  "id": "agent-memory-runtime-h3",
+  "name": "agent-memory-runtime-h3",
+  "title": "Agent Memory Runtime H3 bounded recall remediation",
+  "description": "Close the G3 HOLD blockers in bounded projection search, exact lineage revalidation, multi-scope frontiers, and relation truncation telemetry, then re-freeze G3 without opening downstream gates.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "H3 only: bounded projection search, exact projection-source revalidation, deterministic multi-scope frontier aggregation, relation truncation telemetry, regression fixtures, and complete G3 re-freeze; excludes graph, vector, learning, and M6 operations",
+  "package": null,
+  "priority": "P0",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-29",
+  "completedAt": "2026-07-29",
+  "branch": "codex/agent-memory-runtime-h3",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [
+    "docs/brainstorms/2026-07-29-g3-bounded-recall-remediation-requirements.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-h3/prd.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-h3/research/research-handoff.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-h3/design.md",
+    ".trellis/tasks/07-29-agent-memory-runtime-h3/implement.md",
+    "docs/plans/2026-07-29-002-fix-g3-bounded-recall-remediation-plan.md"
+  ],
+  "notes": "H3 follows the pre-authorized G3 HOLD path. Complete brainstorm, research-to-article, ce-plan, and ce-work under Trellis; commit each completed unit separately.",
+  "meta": {
+    "milestone": "H3",
+    "gate": "G3R",
+    "implementation_authorized": "true"
+  }
+}

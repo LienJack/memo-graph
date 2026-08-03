@@ -1,0 +1,21 @@
+{
+  "source_id": "Wbfba858067cc",
+  "snapshot_id": "Vce15c860ae20",
+  "previous_snapshot": null,
+  "url_id": "Ubfba858067cc",
+  "title": "Model Context Protocol Tools",
+  "original_url": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools",
+  "normalized_url": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools",
+  "retrieved_at": "2026-07-28T23:14:35+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.95,
+  "independence_group": "mcp-official",
+  "published_at": null,
+  "freshness": "current",
+  "extraction_quality": 0.95,
+  "extraction_method": "defuddle",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "f47ad6b464a7e5933fec89968cf47519306978458a098230fdc3289124a77339"
+}

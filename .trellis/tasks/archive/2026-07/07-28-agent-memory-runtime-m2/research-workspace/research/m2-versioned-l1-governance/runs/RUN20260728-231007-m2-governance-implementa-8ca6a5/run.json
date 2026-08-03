@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "run_id": "RUN20260728-231007-m2-governance-implementa-8ca6a5",
+  "title": "M2 governance implementation research",
+  "primary_question_id": "RQ001",
+  "learning_cycle_id": null,
+  "status": "completed",
+  "stop_reason": "Research acceptance and Claim Gate satisfied",
+  "plan_revision": 1,
+  "budgets": {
+    "search_queries": null,
+    "tokens": null,
+    "wall_time_minutes": 120
+  },
+  "usage": {
+    "search_queries": 6,
+    "tokens": 0,
+    "tool_calls": 0,
+    "wall_time_minutes": 0
+  },
+  "created_at": "2026-07-28T23:10:07+08:00",
+  "updated_at": "2026-07-28T23:19:04+08:00",
+  "last_reflection_id": "RF005"
+}

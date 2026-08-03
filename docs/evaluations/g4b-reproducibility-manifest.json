@@ -1,0 +1,310 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G4B",
+  "evaluation_status": "EVIDENCE_READY",
+  "decision": "NO-GO",
+  "recorded_at": "2026-07-29T18:12:07+08:00",
+  "tested_implementation": {
+    "commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+    "dependency_lock_hash": "sha256:87f5c3f5dde4b8f29758d83866e2afb7d4fd2ae5748e30d3aeed96738faaf585",
+    "executable_frozen_before_final_evidence": true,
+    "default_vector_enabled": false
+  },
+  "accepted_baseline": {
+    "commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+    "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+    "runtime": "accepted_g3r_sqlite"
+  },
+  "workspace_packages": [
+    {
+      "name": "@memo-graph/context-compiler",
+      "path": "packages/context-compiler",
+      "git_tree": "aef867472113d2eccfb1ce2e30c63355e3072f35"
+    },
+    {
+      "name": "@memo-graph/contracts",
+      "path": "packages/contracts",
+      "git_tree": "2a08a0d9c5f938b3d0465eeea551860741061ff6"
+    },
+    {
+      "name": "@memo-graph/graph-projection",
+      "path": "packages/graph-projection",
+      "git_tree": "3d7b0e645221de91fb96dbefa3dd98f8d6577226"
+    },
+    {
+      "name": "@memo-graph/mcp-server",
+      "path": "packages/mcp-server",
+      "git_tree": "f1912a5455f51c232ae42b78718b3c734c2bdabb"
+    },
+    {
+      "name": "@memo-graph/memory-kernel",
+      "path": "packages/memory-kernel",
+      "git_tree": "8098e7cb458874d7604f9b36d136e796db64e323"
+    },
+    {
+      "name": "@memo-graph/storage-sqlite",
+      "path": "packages/storage-sqlite",
+      "git_tree": "ebeec0d73428c0e4d7a8c11a58ebbe206eb5e97f"
+    },
+    {
+      "name": "@memo-graph/vector-retrieval",
+      "path": "packages/vector-retrieval",
+      "git_tree": "3e0669697616aeba9f5822b311275661dbc1d503"
+    }
+  ],
+  "frozen_inputs": {
+    "manifest_raw_hash": "sha256:15b6d6a936d5ba335da783f4681ed42baf27c8faed5b52e557cc0db5b4a010f5",
+    "manifest_canonical_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+    "thresholds_hash": "sha256:f76018937b09ef56ff4687112712749e61894ad8bf34d43124a30cf02ba29d55"
+  },
+  "source_bindings": [
+    {
+      "path": "package.json",
+      "raw_hash": "sha256:8eaeb3d4f02f9d03e21689064eb5a47e4c2b4bd25e4e26b9fc4f90d350082e59"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "raw_hash": "sha256:87f5c3f5dde4b8f29758d83866e2afb7d4fd2ae5748e30d3aeed96738faaf585"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "raw_hash": "sha256:08d75840c97ab0e72d1d9b5b84a17e47a2e06cb159a5fbec5ee0a6a56682dad7"
+    },
+    {
+      "path": "vitest.config.ts",
+      "raw_hash": "sha256:1cd07d75fad449104af263cdc47dcc2fdf687b2a7ed4adb278f71a95164138a8"
+    },
+    {
+      "path": "migrations/0013-vector-projection-delivery.sql",
+      "raw_hash": "sha256:2f9df2534a4287a8ecd5df25c05caff6922aa26ba2b18fc97de61fdf6d56a3e8"
+    },
+    {
+      "path": "fixtures/g4b/manifest.json",
+      "raw_hash": "sha256:15b6d6a936d5ba335da783f4681ed42baf27c8faed5b52e557cc0db5b4a010f5"
+    },
+    {
+      "path": "packages/vector-retrieval/package.json",
+      "raw_hash": "sha256:4863aa6e8e5ae24df42b17906f427f546f31fc0090da875d5d9373626ced670f"
+    },
+    {
+      "path": "tests/helpers/g4b-replay.ts",
+      "raw_hash": "sha256:f7db363869f2b821bb6e526d32dea78843c21d5a0c46a11edba4ca7795a05070"
+    },
+    {
+      "path": "scripts/run-g4b-replay.mjs",
+      "raw_hash": "sha256:4f0691beab6c469114d40c3006333dc92d462c0ad03d220118cb5ecd93fc0463"
+    },
+    {
+      "path": "scripts/run-g4b-resource-benchmark.mjs",
+      "raw_hash": "sha256:af913339dce5600768cb2292152c66a8b1aeca67da7b04dea86418b453d98ba0"
+    },
+    {
+      "path": "scripts/verify-g4b-evidence.d.mts",
+      "raw_hash": "sha256:f863fff6a5fa4d5ff425c0bbfd34a7e8aad67ab0b99530639b81def95be97d25"
+    },
+    {
+      "path": "scripts/verify-g4b-evidence.mjs",
+      "raw_hash": "sha256:dc8f94c42ac362742694d339250fa5b843f6bbe6d56907eb6d8f3b2757707ac2"
+    },
+    {
+      "path": "tests/integration/g4b-artifact-integrity.test.ts",
+      "raw_hash": "sha256:31ce3cdebe1c0e2a21846cd8fda964f071e5446db3ab70f5bbea78f68af3643c"
+    }
+  ],
+  "dependencies": {
+    "direct_optional": {
+      "@huggingface/transformers": "4.2.0",
+      "better-sqlite3": "13.0.1",
+      "sqlite-vec": "0.1.9"
+    },
+    "critical_transitive": {
+      "@huggingface/jinja": "0.5.9",
+      "@huggingface/tokenizers": "0.1.3",
+      "adm-zip": "0.6.0",
+      "node-addon-api": "8.9.0",
+      "onnxruntime-common": "1.24.3",
+      "onnxruntime-node": "1.24.3",
+      "sharp": "0.35.3"
+    },
+    "overrides": {
+      "adm-zip": "0.6.0",
+      "sharp": "0.35.3"
+    },
+    "lock_hash": "sha256:87f5c3f5dde4b8f29758d83866e2afb7d4fd2ae5748e30d3aeed96738faaf585",
+    "native_artifacts": {
+      "sqlite_vec_darwin_arm64": "sha256:193e480c50b59a55977d166f4aaf0e1bc8832d6963516e5950f39e4d2ce0b793",
+      "better_sqlite3_darwin_arm64": "sha256:b4dae3b865846f5336b83d0b8c1f5755bcc6cfef49d612afe523ea9259d9727e",
+      "onnxruntime_darwin_arm64": "sha256:76831409ce6eded92b4cb343cf422c458a60c1ea1d5f3cfa69692ab7fcc67f0f",
+      "onnxruntime_binding_darwin_arm64": "sha256:ffa33e57e56799a89ff4986ae579ca0de0be81867c5e3219ac9fdb0f7d1bbd89",
+      "sharp_darwin_arm64": "sha256:5efbf349396808af22ae4f6b67c327767297a97b54a1ecf04dedec63aeff4d46"
+    }
+  },
+  "model": {
+    "repository": "Xenova/multilingual-e5-small",
+    "revision": "761b726dd34fb83930e26aab4e9ac3899aa1fa78",
+    "source": "operator_materialized_local_snapshot",
+    "remote_access": false,
+    "dimensions": 384,
+    "pooling": "mean",
+    "normalization": "l2",
+    "files": [
+      {
+        "path": "config.json",
+        "size": 658,
+        "sha256": "sha256:cb99455288675345e1a4f411438d5d0adbba5fbd3a67ea4fb03c015433b996c1"
+      },
+      {
+        "path": "onnx/model_int8.onnx",
+        "size": 118054593,
+        "sha256": "sha256:4d24e2bc01a447951524466ef533e52944bf48509e6552810bcee1a2711cb02c"
+      },
+      {
+        "path": "tokenizer.json",
+        "size": 17082730,
+        "sha256": "sha256:0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "size": 443,
+        "sha256": "sha256:a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+      }
+    ]
+  },
+  "embedding_epoch": {
+    "epoch_id": "sha256:05bde32839153fa41ba5359fd19112a1246aa1d7ebaf7dfef448b7869e8ed5cf",
+    "dependency_lock_hash": "sha256:87f5c3f5dde4b8f29758d83866e2afb7d4fd2ae5748e30d3aeed96738faaf585",
+    "active_generation": {
+      "embedding_epoch_id": "sha256:05bde32839153fa41ba5359fd19112a1246aa1d7ebaf7dfef448b7869e8ed5cf",
+      "generation_id": "g4b_resource_direct_generation",
+      "source_frontier_hash": "sha256:f9b5a3fea931731ed66461b6626bb7c9fb44f3a531d4f6442ba92cd1eaebbfb4",
+      "logical_digest": "sha256:1b1a0e18715063f59de01d2c66426e02c04c66c0337132c1773207da2b75b5d2"
+    }
+  },
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "Darwin 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "evaluation": {
+    "corpus_manifest_hash": "sha256:449981ac83b2bc415c60df5237d6c857777e2dda6c03b1778588aa052c6ae3d4",
+    "partition_count": 3,
+    "arms": 4,
+    "token_budgets": [
+      1800,
+      4096
+    ],
+    "calibration_configuration_hash": "sha256:0712ac25a950b77c0b9a3cd9bb4246667a51857b87ee204b522c95b14fcf50d2",
+    "calibration_receipt_hash": "sha256:5249bfb0e136313fdb73497699d5e38fbb588b702a06cbd260c45e3f6efc6ec0",
+    "tuner_payload_hash": "sha256:de7201493651274153ac0c581cb312bd3b9bfe9194b1d4b674f2007e8dca0f42",
+    "thresholds_hash": "sha256:f76018937b09ef56ff4687112712749e61894ad8bf34d43124a30cf02ba29d55"
+  },
+  "evidence_reports": {
+    "replay": {
+      "path": "docs/evaluations/g4b-replay-report.json",
+      "raw_hash": "sha256:0f86d73aad43e4066b75650d9d6482ae65f4c62f64d4438ba5aee9c0aa1a5565",
+      "canonical_hash": "sha256:8ef0f50125bc338c560bf0732550b62bf0c66b39357835505c16194ab6bb8a38",
+      "report_hash": "sha256:58b088d8cf943ed5bee1c86c91937eb093f77dd473a84124c563dcf09eb05318"
+    },
+    "resource": {
+      "path": "docs/evaluations/g4b-resource-report.json",
+      "raw_hash": "sha256:45af6d0317df0ab4bcccd066155be145e6f4d91d27ba5a949e30ac747465a039",
+      "canonical_hash": "sha256:3dd7c7090f32b62c665dfa0517d46eb7c6a5b23cf8c21d6a5aa8cd7584db1a79",
+      "report_hash": "sha256:2c0bec6b23d071d128ed190724d73af1e2ca58f32fa3691d42e8d04eace7b960"
+    },
+    "verification": {
+      "path": "docs/evaluations/g4b-verification-report.json",
+      "raw_hash": "sha256:fbece7b57dbfb962457da0a7f1665c5cabaecbbf9195a14da167d1ae29078c75",
+      "canonical_hash": "sha256:a3c368e1fe139b96d8b90932c75f9d8507fa8e9d8429872ec6125da1ab390430"
+    }
+  },
+  "documentation": {
+    "scorecard": {
+      "path": "docs/evaluations/vector-scorecard.md",
+      "raw_hash": "sha256:3107486435ca911268e9165f4c541d0cece461bbf87f18363cfb6891e916fa08"
+    },
+    "review": {
+      "path": "docs/evaluations/g4b-code-review.md",
+      "raw_hash": "sha256:f15b2d7002551c0d97495b487d156cd07e1d8354bf13ddb1aeee8ddfe8cf15d3"
+    },
+    "runbook": {
+      "path": "docs/runbooks/vector-rebuild.md",
+      "raw_hash": "sha256:d2ace8b0ad670b54e93e656ae930f5c328a4f2a3d89b5ed9e98c819e8ae2db20"
+    },
+    "adr": {
+      "path": "docs/adr/0004-local-vector-adoption.md",
+      "raw_hash": "sha256:92806cff68abb28121d59fea0405f872fc798d547fbeee7469f593b61134cf3b"
+    },
+    "decision": {
+      "path": "docs/evaluations/g4b-decision.md",
+      "raw_hash": "sha256:8f638f8e685692397f5c309e27a592b703320b9c8c25da59b22e85af1d07f527"
+    },
+    "milestone_plan": {
+      "path": "docs/plans/2026-07-29-004-feat-local-vector-adoption-plan.md",
+      "raw_hash": "sha256:bbf1c13c2c0647e54c6ce31e5655727c7f47122b117831261ac362d1e4599d6c"
+    },
+    "parent_roadmap": {
+      "path": "docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md",
+      "raw_hash": "sha256:5cb657811d033c86d1563474e7059973c7b5cb584ef2179812c8a5f2f73652ec"
+    }
+  },
+  "review": {
+    "path": "docs/evaluations/g4b-code-review.md",
+    "raw_hash": "sha256:f15b2d7002551c0d97495b487d156cd07e1d8354bf13ddb1aeee8ddfe8cf15d3",
+    "result": "PASS",
+    "unresolved_p0": 0,
+    "unresolved_p1": 0
+  },
+  "dirty_state_policy": {
+    "base_commit": "3eec7119b1e441d76523d0a57c328d4d811a4af3",
+    "policy": "Only the hash-bound U8 evidence overlay may differ from the frozen executable candidate",
+    "allowed_paths": [
+      "docs/adr/0004-local-vector-adoption.md",
+      "docs/evaluations/g4b-code-review.md",
+      "docs/evaluations/g4b-decision.md",
+      "docs/evaluations/g4b-replay-report.json",
+      "docs/evaluations/g4b-reproducibility-manifest.json",
+      "docs/evaluations/g4b-resource-report.json",
+      "docs/evaluations/g4b-verification-report.json",
+      "docs/evaluations/vector-scorecard.md",
+      "docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md",
+      "docs/plans/2026-07-29-004-feat-local-vector-adoption-plan.md",
+      "docs/runbooks/vector-rebuild.md",
+      "fixtures/g4b/manifest.json",
+      "migrations/0013-vector-projection-delivery.sql",
+      "package.json",
+      "packages/vector-retrieval/package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "scripts/run-g4b-replay.mjs",
+      "scripts/run-g4b-resource-benchmark.mjs",
+      "scripts/verify-g4b-evidence.d.mts",
+      "scripts/verify-g4b-evidence.mjs",
+      "tests/helpers/g4b-replay.ts",
+      "tests/integration/g4b-artifact-integrity.test.ts",
+      "vitest.config.ts"
+    ],
+    "changed_path_digest": "sha256:99d39ba615b80f5327cf95f962925ffd304d36fd46599f1003c4e399b49b6b51"
+  },
+  "decision_input": {
+    "dependency_gate": true,
+    "governance_gate": true,
+    "recovery_gate": true,
+    "utility_gate": false,
+    "resource_gate": false,
+    "review_gate": true,
+    "eligible_for_go": false,
+    "first_failing_gate": "hybrid_positive_success"
+  },
+  "scope": {
+    "sqlite_authoritative": true,
+    "vector_default_enabled": false,
+    "vector_candidate_adopted": false,
+    "graph_decision_independent": true,
+    "runtime_network_required": false,
+    "production_readiness_claimed": false,
+    "release_fallback": "accepted_g3r_sqlite"
+  }
+}

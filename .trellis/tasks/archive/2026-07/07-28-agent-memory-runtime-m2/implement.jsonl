@@ -1,0 +1,12 @@
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m2/prd.md", "reason": "M2 scope, invariants, acceptance criteria, and hold boundary"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m2/design.md", "reason": "Canonical model, CAS, eligibility, approval, purge, and restore design"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m2/implement.md", "reason": "Ordered U1-U8 execution and validation checklist"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m2/research/research-handoff.md", "reason": "Supported M2 claim/evidence index and planning decisions"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/design.md", "reason": "Parent authority, component boundaries, deletion, and recovery design"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/implement.md", "reason": "Parent M2 assertions and G2 exit gate"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "SQLite authority, transactions, migrations, idempotency, and projection rules"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Package boundaries and SQL ownership"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Typed governed failures and boundary mapping"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Content-free diagnostics and privacy"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Contract, integration, recovery, and security evidence"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer contract, storage, runtime, MCP, Context, and test changes"}

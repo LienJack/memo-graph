@@ -1,0 +1,30 @@
+{
+  "id": "agent-memory-runtime-m2",
+  "name": "agent-memory-runtime-m2",
+  "title": "Agent Memory Runtime M2 versioned L1 governance",
+  "description": "Implement evidence-derived L1 candidate admission, immutable revisions, conflicts, correction overlays, user controls, tombstone-first purge Saga, invalidation outbox, governed MCP mutations, and close G2 no-resurrection.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "M2 only: L1 candidates/admission/revisions/conflicts/corrections/user controls/revoke/delete/purge/invalidation and G2; excludes L2/L3, graph/vector, and learning release",
+  "package": null,
+  "priority": "P0",
+  "creator": "LienJack",
+  "assignee": "LienJack",
+  "createdAt": "2026-07-28",
+  "completedAt": "2026-07-29",
+  "branch": "codex/agent-memory-runtime-m2",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-28-agent-memory-runtime",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "milestone": "M2",
+    "gate": "G2",
+    "implementation_authorized": "true"
+  }
+}

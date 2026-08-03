@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0.0",
+  "workloads": {
+    "small": {
+      "memory_revisions": 100,
+      "evidence_records": 200,
+      "concurrent_requests": 4
+    },
+    "expected": {
+      "memory_revisions": 10000,
+      "evidence_records": 25000,
+      "concurrent_requests": 16
+    }
+  },
+  "required_observations": [
+    "queue_depth",
+    "queue_age_ms",
+    "available_bytes",
+    "wal_bytes",
+    "checkpoint_state",
+    "maintenance_admission"
+  ],
+  "proofs": [
+    {
+      "id": "small_admission_hysteresis",
+      "obligations": ["small:admission_hysteresis"],
+      "test_file": "tests/integration/g6-resource-workloads.integration.test.ts",
+      "test_name": "executes small admission hysteresis against populated SQLite"
+    },
+    {
+      "id": "small_bounded_queue",
+      "obligations": ["small:bounded_queue"],
+      "test_file": "tests/integration/g6-resource-workloads.integration.test.ts",
+      "test_name": "executes small bounded queue against populated SQLite"
+    },
+    {
+      "id": "small_checkpoint_convergence",
+      "obligations": ["small:checkpoint_convergence"],
+      "test_file": "tests/integration/g6-resource-workloads.integration.test.ts",
+      "test_name": "executes small checkpoint convergence against populated SQLite"
+    },
+    {
+      "id": "small_maintenance_exclusion",
+      "obligations": ["small:maintenance_exclusion"],
+      "test_file": "tests/integration/g6-resource-workloads.integration.test.ts",
+      "test_name": "executes small maintenance exclusion against populated SQLite"
+    },
+    {
+      "id": "expected_admission_hysteresis",
+      "obligations": ["expected:admission_hysteresis"],
+      "test_file": "tests/integration/g6-resource-workloads.integration.test.ts",
+      "test_name": "executes expected admission hysteresis against populated SQLite"
+    },
+    {
+      "id": "expected_bounded_queue",
+      "obligations": ["expected:bounded_queue"],
+      "test_file": "tests/integration/g6-resource-workloads.integration.test.ts",
+      "test_name": "executes expected bounded queue against populated SQLite"
+    },
+    {
+      "id": "expected_checkpoint_convergence",
+      "obligations": ["expected:checkpoint_convergence"],
+      "test_file": "tests/integration/g6-resource-workloads.integration.test.ts",
+      "test_name": "executes expected checkpoint convergence against populated SQLite"
+    },
+    {
+      "id": "expected_maintenance_exclusion",
+      "obligations": ["expected:maintenance_exclusion"],
+      "test_file": "tests/integration/g6-resource-workloads.integration.test.ts",
+      "test_name": "executes expected maintenance exclusion against populated SQLite"
+    }
+  ]
+}

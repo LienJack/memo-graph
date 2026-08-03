@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G3R",
+  "candidate_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+  "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+  "environment": {
+    "recorded_at": "2026-07-28T23:31:42.860Z",
+    "node": "v24.18.0",
+    "pnpm": "10.33.2",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3",
+    "storage_schema": "0011",
+    "context_compiler_version": "3.0.0",
+    "context_policy_version": "2.0.0"
+  },
+  "compiler_profiles": {
+    "small": {
+      "population": {
+        "evidence": 10000,
+        "l1": 1000,
+        "projections": 250,
+        "relations": 1000
+      },
+      "warmup": 20,
+      "samples": 200,
+      "compiler": {
+        "p50_ms": 0.319,
+        "p95_ms": 0.428,
+        "max_ms": 0.957
+      },
+      "total_replay_request": {
+        "p50_ms": 0.449,
+        "p95_ms": 0.673,
+        "max_ms": 1.763
+      },
+      "token_budget": 1800,
+      "token_budget_adherent": true,
+      "result_hash": "sha256:04962696622938c278a671ad4995f0ff7029a2feaeae815ddc125993da0039aa"
+    },
+    "expected": {
+      "population": {
+        "evidence": 250000,
+        "l1": 25000,
+        "projections": 6000,
+        "relations": 50000
+      },
+      "warmup": 20,
+      "samples": 200,
+      "compiler": {
+        "p50_ms": 0.309,
+        "p95_ms": 0.419,
+        "max_ms": 1.738
+      },
+      "total_replay_request": {
+        "p50_ms": 0.432,
+        "p95_ms": 0.693,
+        "max_ms": 1.873
+      },
+      "token_budget": 1800,
+      "token_budget_adherent": true,
+      "result_hash": "sha256:04962696622938c278a671ad4995f0ff7029a2feaeae815ddc125993da0039aa"
+    }
+  },
+  "small_physical_resource_profile": {
+    "workload": {
+      "evidence": 10000,
+      "l1": 1000,
+      "projections": 250,
+      "relations": 1000
+    },
+    "verified_counts": {
+      "evidence": 10000,
+      "l1": 1000,
+      "projections": 250,
+      "relations": 1000,
+      "projection_revisions": 1250,
+      "projection_sources": 3000
+    },
+    "latency": {
+      "projection_build_ms": 3632.913,
+      "full_rebuild_ms": 329.538,
+      "total_ms": 16478.612
+    },
+    "rebuild": {
+      "applied": false,
+      "incremental_digest": "sha256:027e5bd3aaed787083c8578c20855a57fc5433c80c9730933fd6d23b5dc04e71",
+      "rebuilt_digest": "sha256:027e5bd3aaed787083c8578c20855a57fc5433c80c9730933fd6d23b5dc04e71",
+      "equal": true
+    },
+    "storage": {
+      "database_bytes": 59588608,
+      "wal_bytes": 16438832,
+      "data_root_bytes": 76060208
+    },
+    "memory": {
+      "rss_bytes": 669827072,
+      "heap_used_bytes": 75248368
+    }
+  },
+  "corrected_end_to_end_boundary": {
+    "verification_command": "pnpm test:g3r:h3",
+    "result": "PASS",
+    "coverage": [
+      "cursor exhaustion and named projection scan ceiling",
+      "exact projection-source batch revalidation beyond a one-thousand-row scope prefix",
+      "scope-keyed V2 frontier aggregation and one full-set epoch retry",
+      "scope-local correction invalidation with unrelated ready-scope retention",
+      "relation start and fanout bounded-work telemetry sealed into Context and receipt",
+      "V1 frozen artifact byte replay"
+    ],
+    "h3_regression_cases": 9,
+    "physical_expected_profile_materialized": false,
+    "production_capacity_claimed": false
+  },
+  "thresholds": {
+    "compiler_p50_ms": 100,
+    "compiler_p95_ms": 400,
+    "small_p50_pass": true,
+    "small_p95_pass": true,
+    "expected_p50_pass": true,
+    "expected_p95_pass": true,
+    "token_budget_pass": true,
+    "small_exact_counts_pass": true,
+    "small_rebuild_pass": true
+  },
+  "scope_notes": [
+    "Compiler profiles measure the deterministic bounded post-retrieval compiler and preserve the declared logical population identity.",
+    "Only the Small resource population was physically materialized in SQLite.",
+    "Expected-profile timing is not a physical 250000-row SQLite load and is not a production capacity claim.",
+    "The corrected online retrieval boundaries are executable correctness tests, not throughput measurements.",
+    "All resource and correctness evidence is local synthetic evidence on one Darwin arm64 machine."
+  ]
+}

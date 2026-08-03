@@ -1,0 +1,21 @@
+{
+  "source_id": "W0f32b54f0bcc",
+  "snapshot_id": "V0b6fdec4dd24",
+  "previous_snapshot": null,
+  "url_id": "U0f32b54f0bcc",
+  "title": "SQLite Transaction",
+  "original_url": "https://www.sqlite.org/lang_transaction.html",
+  "normalized_url": "https://www.sqlite.org/lang_transaction.html",
+  "retrieved_at": "2026-07-28T23:14:34+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.95,
+  "independence_group": "sqlite-official",
+  "published_at": null,
+  "freshness": "current",
+  "extraction_quality": 0.95,
+  "extraction_method": "defuddle",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "2b020b3135fcda400f9cf5d3627d29905c177c6f2e63de26206cddccfdf32752"
+}

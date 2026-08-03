@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G5_U8_RESOURCES",
+  "recorded_at": "2026-07-30T02:20:00.000+08:00",
+  "implementation": {
+    "commit": "91d810efe17632e64f5e9a3ddae81f8e9f0b9985",
+    "tree": "34719539c098343b3d47771cb0588be905faf6c5",
+    "dependency_lock_hash": "sha256:89b71c57b48310cd99dee5a054be88d08c8af18363b465f8dca2a98b186c5f82"
+  },
+  "environment": {
+    "node": "24.18.0",
+    "pnpm": "10.33.2",
+    "operating_system": "Darwin lien.local 24.5.0 Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:43 PDT 2025; root:xnu-11417.121.6~2/RELEASE_ARM64_T8132 arm64",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "sqlite": "3.53.3"
+  },
+  "fixture": {
+    "manifest_hash": "sha256:36380e09c85cd4624f2084c6da45492e099c6cef77e1327edce4304c2433e0e6",
+    "thresholds_hash": "sha256:c49eed1d7c78cdaca96fadedd878f2c5b6d6124b13936febb2cbdea36358485e"
+  },
+  "evidence_runner_wall_clock": {
+    "replay": {
+      "samples_ms": [
+        587.753,
+        545.074,
+        541.541
+      ],
+      "p50_ms": 545.074,
+      "p95_ms": 587.753,
+      "max_ms": 587.753
+    },
+    "canary": {
+      "samples_ms": [
+        673.61,
+        672.835,
+        672.698
+      ],
+      "p50_ms": 672.835,
+      "p95_ms": 673.61,
+      "max_ms": 673.61
+    }
+  },
+  "memory": {
+    "parent_rss_before_bytes": 94355456,
+    "parent_rss_after_bytes": 94371840,
+    "parent_rss_delta_bytes": 16384
+  },
+  "artifact_bytes": {
+    "docs/evaluations/g5-replay-report.json": 95084,
+    "docs/evaluations/g5-canary-report.json": 32227
+  },
+  "metric_families": {
+    "task_units": {
+      "passed": 23,
+      "failed": 31
+    },
+    "errors": 31,
+    "negative_transfer_units": 1,
+    "context": {
+      "tokens": 6120,
+      "pollution": 0
+    },
+    "latency": {
+      "declared_arm_latency_ms": 612,
+      "harness_replay_p95_ms": 587.753,
+      "harness_canary_p95_ms": 673.61
+    },
+    "side_effects": 0,
+    "governance": {
+      "violations": 0,
+      "critical_failures": 0
+    },
+    "privacy": {
+      "banned_marker_hash": "sha256:904f233e56870a53486a3608fe369e8b1511b812ec8b2da406382a14ff131ae6",
+      "matched_markers": []
+    },
+    "release": {
+      "pointer_revision": 1
+    },
+    "rollback": {
+      "pointer_revision": 2,
+      "final_active_release_id": null
+    }
+  },
+  "hard_rules": {
+    "implementation_identity_bound": true,
+    "complete_metric_families": true,
+    "bounded_repeat_harness": true,
+    "governance_and_privacy": true,
+    "exact_canary_bound": true,
+    "release_rollback_separate": true,
+    "reports_bounded": true
+  },
+  "evidence_boundary": {
+    "local_synthetic_measurement": true,
+    "qualified_environment_only": true,
+    "production_workload": false,
+    "production_readiness_claimed": false,
+    "wall_clock_is_observational_not_a_product_slo": true
+  },
+  "report_hash": "sha256:ab988d378568d775e671e687f2a68fcfbc2092165856c089086f329ef569f18a"
+}

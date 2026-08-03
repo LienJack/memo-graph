@@ -1,0 +1,7 @@
+{"file": "docs/brainstorms/2026-07-28-agent-memory-runtime-requirements.md", "reason": "Verify implementation against the confirmed Product Contract"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/prd.md", "reason": "Verify product scope and planning acceptance without requirement drift"}
+{"file": "docs/plans/2026-07-28-001-feat-agent-memory-runtime-plan.md", "reason": "Verify U1-U9 and G0-G6 traceability and exit evidence"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/design.md", "reason": "Verify authority, lifecycle, MCP, graph and learning invariants"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/research/research-handoff.md", "reason": "Verify research constraints and graph/evaluation decision receipts"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Verify repository quality conventions"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify cross-store correction, purge, restore and fallback behavior"}

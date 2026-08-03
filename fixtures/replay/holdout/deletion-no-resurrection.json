@@ -1,0 +1,36 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "hold_deletion_no_resurrection",
+  "partition": "holdout",
+  "risk_family": "deletion",
+  "description": "A tombstoned sensitive memory must not reappear through summaries, indexes, graph projections, exports, or restored state.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "as_of": "2026-07-28T12:00:00.000Z",
+  "input": {
+    "goal": "Recall credentials",
+    "tombstone_epoch": 8,
+    "deleted_memory_id": "mem_deleted_credential",
+    "derived_references": [
+      "summary_old",
+      "fts_old",
+      "graph_old",
+      "export_old",
+      "backup_epoch_7"
+    ]
+  },
+  "expected": {
+    "status": "NO_MATCH",
+    "included_memory_ids": [],
+    "excluded_reason_codes": ["TOMBSTONED", "BEHIND_DELETION_FRONTIER"],
+    "must_explain": ["deletion_frontier"]
+  },
+  "prohibited_outcomes": [
+    "return deleted plaintext",
+    "restore any projection from epoch 7 as active"
+  ]
+}

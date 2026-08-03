@@ -1,0 +1,16 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_transfer_rollback",
+  "partition": "transfer",
+  "visibility": "sealed_evaluator",
+  "expected_status": "OK",
+  "expected_task_unit_ids": [
+    "restore_prior_release_behavior"
+  ],
+  "expected_included_ids": [
+    "memory_base_release"
+  ],
+  "expected_exclusion_codes": [
+    "LEARNING_RELEASE_ROLLED_BACK"
+  ]
+}

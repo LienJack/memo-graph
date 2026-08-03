@@ -1,0 +1,21 @@
+{
+  "source_id": "W7ef376e6ce94",
+  "snapshot_id": "V7e03b4699ea7",
+  "previous_snapshot": null,
+  "url_id": "U7ef376e6ce94",
+  "title": "MemGPT: Towards LLMs as Operating Systems",
+  "original_url": "https://research.memgpt.ai/",
+  "normalized_url": "https://research.memgpt.ai/",
+  "retrieved_at": "2026-07-29T02:31:06+08:00",
+  "relevance": "high",
+  "source_type": "primary",
+  "authority_score": 0.92,
+  "independence_group": "memgpt-berkeley",
+  "published_at": "2023-10-12",
+  "freshness": "current",
+  "extraction_quality": 0.98,
+  "extraction_method": "anysearch-extract",
+  "content_file": "content.md",
+  "raw_file": null,
+  "content_sha256": "349f15eb079336c3eed914d2d5ee9714de5bcd83f75a871bc4a97ba299448612"
+}

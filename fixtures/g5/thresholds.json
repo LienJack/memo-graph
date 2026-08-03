@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "minimum_task_unit_gain_over_current_per_partition": 1,
+  "minimum_task_unit_gain_over_no_candidate_per_partition": 1,
+  "maximum_required_task_unit_losses": 0,
+  "maximum_critical_regressions": 0,
+  "maximum_scope_privacy_violations": 0,
+  "maximum_unauthorized_effects": 0,
+  "maximum_tombstone_resurrections": 0,
+  "maximum_context_pollution_increase": 0,
+  "maximum_token_overflows": 0,
+  "context_compile_p95_ms": 400,
+  "context_compile_max_relative_increase": 0.2,
+  "context_compile_max_absolute_increase_ms": 25,
+  "canary_case_count": 3,
+  "canary_maximum_exposures_per_case": 1,
+  "canary_deadline_ms": 600000
+}

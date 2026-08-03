@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G4A_BASELINE",
+  "baseline_commit": "6224f782c86712488d416d8101ef7c9fa477c0ae",
+  "dependency_lock_hash": "sha256:e4d3347083d9b0147fc7ce581671196f3cc4883a5ef7663d179a3d44074dd695",
+  "isolated_checkout": true,
+  "command": "pnpm test:g3r:h3",
+  "result": "PASS",
+  "output_tail": [
+    "",
+    " RUN  v4.1.10 /private/var/folders/pr/9d5650jj78bfwgs8ptl34h9c0000gn/T/memo-graph-g4a-g3r-YHL1aw/checkout",
+    "",
+    "",
+    " Test Files  8 passed (8)",
+    "      Tests  70 passed | 1 skipped (71)",
+    "   Start at  12:48:04",
+    "   Duration  3.32s (transform 1.69s, setup 0ms, import 3.22s, tests 11.89s, environment 1ms)"
+  ],
+  "report_hash": "sha256:56f9e0aee39aabc7fde39088b4a309a5b9af681d9e2526419b8cad1c5b1e9138"
+}

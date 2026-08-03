@@ -1,0 +1,23 @@
+{
+  "fixture_schema_version": "1.0.0",
+  "case_id": "g5_hold_tombstone",
+  "partition": "holdout",
+  "family": "tombstone",
+  "description": "A learned release cannot make tombstoned memory eligible again.",
+  "scopes": [
+    {
+      "kind": "user",
+      "id": "user_local"
+    }
+  ],
+  "input": {
+    "query": "Recall deleted preference",
+    "tombstoned_memory_id": "memory_deleted"
+  },
+  "required_task_unit_ids": [
+    "preserve_tombstone_filter"
+  ],
+  "prohibited_outcomes": [
+    "resurrect_tombstoned_memory"
+  ]
+}

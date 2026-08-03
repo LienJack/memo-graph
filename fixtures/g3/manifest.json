@@ -1,0 +1,90 @@
+{
+  "overlay_version": "1.0.0",
+  "base_corpus_version": "1.0.0",
+  "base_manifest_hash": "sha256:4c3b2a658b6f93ac09374d376edcac6f299b4628e891362c5568166d5561de0b",
+  "frozen_at": "2026-07-29T00:00:00.000Z",
+  "arms": [
+    "accepted_m2",
+    "m3_no_projection",
+    "m3_layered"
+  ],
+  "cases": [
+    {
+      "case_id": "cal_normal_preference",
+      "partition": "calibration",
+      "base_case_hash": "sha256:79a9da05cf8203bfe9fd7eb9e38428bbfa29d8f6e93ca9e5a746136dc46d43f2",
+      "overlay_file": "overlays/calibration/normal-preference.json",
+      "content_hash": "sha256:6cefa8b4532c7d7c0b0b1ab44b3de6bbaafd42cfe952d0ad92da3e83cb63dae8"
+    },
+    {
+      "case_id": "cal_conflict_supersession",
+      "partition": "calibration",
+      "base_case_hash": "sha256:a2c326551bf3803149ea2e7f67a3d5bf57fcc6fb038acefaea2fd979aa4c5205",
+      "overlay_file": "overlays/calibration/conflict-supersession.json",
+      "content_hash": "sha256:d0b139a4d9533593d2a1125b43c5b3ebb8b6c546238148e53e102fd631a18350"
+    },
+    {
+      "case_id": "cal_correction_lineage",
+      "partition": "calibration",
+      "base_case_hash": "sha256:60925368f038c8ca9cd8d4b8c2e4108e8ae2b33fe23c7a161a0fa92e923aa4fe",
+      "overlay_file": "overlays/calibration/correction-lineage.json",
+      "content_hash": "sha256:466f54fe916d96decd5e70517d7dcb4f0179452477e3c8929718dce62b2821b1"
+    },
+    {
+      "case_id": "cal_privacy_scope",
+      "partition": "calibration",
+      "base_case_hash": "sha256:fd6c6be68b785cea81de51e0a635b2ea99affcae883c8e48a237eb9ef307f6cb",
+      "overlay_file": "overlays/calibration/privacy-scope.json",
+      "content_hash": "sha256:9a1a56efc3a60debe1bc1766d1fdf056556c87d61911c727bc619932c9c01932"
+    },
+    {
+      "case_id": "cal_temporal_validity",
+      "partition": "calibration",
+      "base_case_hash": "sha256:ff136748b2f521353eaf1171418314b733846ecc09d98ff657790f457649c7cd",
+      "overlay_file": "overlays/calibration/temporal-validity.json",
+      "content_hash": "sha256:3bb8093335fedda7143b471c1bb7e7cca62c76d9387880255dd89f165156b7df"
+    },
+    {
+      "case_id": "hold_deletion_no_resurrection",
+      "partition": "holdout",
+      "base_case_hash": "sha256:85cd8dcc0a61c38ada4e7864fab41496310626967df77f341243b905f909a5fa",
+      "overlay_file": "overlays/holdout/deletion-no-resurrection.json",
+      "content_hash": "sha256:2eada827b8cb8e3a6e05d43f66088d1690644e16db01ccc16857cab0edeeb549"
+    },
+    {
+      "case_id": "hold_persisted_prompt_injection",
+      "partition": "holdout",
+      "base_case_hash": "sha256:1ef790619c11066f48c95d3c5f3816c3d848f267142f91b81658e1fdb86072fb",
+      "overlay_file": "overlays/holdout/persisted-prompt-injection.json",
+      "content_hash": "sha256:9c75cc9af8d17965db65e8e717d05b95dc3265fc1829cea946c86f9d22d2967d"
+    },
+    {
+      "case_id": "hold_multi_hop_lineage",
+      "partition": "holdout",
+      "base_case_hash": "sha256:0dc00c5f8519d8762185489f4f9e04dded29621ab39174bbedc5ce368fc44624",
+      "overlay_file": "overlays/holdout/multi-hop-lineage.json",
+      "content_hash": "sha256:481e548b845fb217f2916b2e78898483ba0c336766c355063d766923b81918e1"
+    },
+    {
+      "case_id": "hold_projection_failure",
+      "partition": "holdout",
+      "base_case_hash": "sha256:53831dedc37ad41c8e4115d289c31a081a3da4bd727cca0916db1055ff27b538",
+      "overlay_file": "overlays/holdout/projection-failure.json",
+      "content_hash": "sha256:9475b309d2b268f0a9e35c6cebfa5e7a92cb686adb2fd26d48a0fc634cd24b76"
+    },
+    {
+      "case_id": "transfer_negative_transfer",
+      "partition": "transfer",
+      "base_case_hash": "sha256:e29916fde800922a1daf72e04c11c3b8840ff58f61db80c34e49e62974b218a5",
+      "overlay_file": "overlays/transfer/negative-transfer.json",
+      "content_hash": "sha256:272f56502126d59f6345e66fa6acd1614d4455c076eaeedea4db55a7ade94818"
+    },
+    {
+      "case_id": "transfer_policy_exclusion",
+      "partition": "transfer",
+      "base_case_hash": "sha256:fa213848817f7adbbde9daf74aaf6623c7ab27ec142d1dde806c9b8242148d18",
+      "overlay_file": "overlays/transfer/policy-exclusion.json",
+      "content_hash": "sha256:b5759bb1d81962ab24a1a467982eb668cfe5c92ac1ac4439a2db16cd806d3585"
+    }
+  ]
+}

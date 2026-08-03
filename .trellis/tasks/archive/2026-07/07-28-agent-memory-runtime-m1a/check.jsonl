@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m1a/prd.md", "reason": "Check every acceptance criterion and exclusion"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime-m1a/implement.md", "reason": "Check completed work and exact gate commands"}
+{"file": ".trellis/tasks/07-28-agent-memory-runtime/implement.md", "reason": "Check M1 assertions without prematurely closing G1"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Audit storage invariants, privacy, and recovery"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Audit tests and build quality"}
+{"file": "docs/evaluations/performance-envelope.md", "reason": "Compare recorded benchmark with frozen envelope"}
+{"file": "docs/threat-model.md", "reason": "Audit filesystem, content, scope, and recovery threats"}

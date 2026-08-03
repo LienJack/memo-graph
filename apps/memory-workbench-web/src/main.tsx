@@ -1,0 +1,123 @@
+import { WorkbenchBrowserSessionSchema } from "@memo-graph/contracts/workbench-host";
+
+import { WorkbenchApiClient } from "./api/client.js";
+import { mountWorkbench } from "./mount.js";
+
+const selectedContainer = document.querySelector<HTMLElement>("#root");
+if (selectedContainer === null) {
+  throw new Error("workbench root element is missing");
+}
+const container: HTMLElement = selectedContainer;
+
+const fragment = new URLSearchParams(window.location.hash.slice(1));
+const fragmentTicket = fragment.get("ticket");
+const fragmentInstance = fragment.get("instance");
+const pageInstance = document.documentElement.dataset.instance ?? null;
+window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+
+let mounted: ReturnType<typeof mountWorkbench> | null = null;
+
+function mountSession(input: unknown): boolean {
+  const session = WorkbenchBrowserSessionSchema.safeParse(input);
+  if (!session.success) return false;
+  const api = new WorkbenchApiClient({
+    bearer: session.data.bearer,
+    instanceId: session.data.instance_id,
+    baseUrl: window.location.origin,
+  });
+  mounted?.unmount();
+  container.replaceChildren();
+  mounted = mountWorkbench(container, { api });
+  return true;
+}
+
+async function exchange(path: string, body: unknown): Promise<void> {
+  const response = await fetch(path, {
+    method: "POST",
+    cache: "no-store",
+    credentials: "omit",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok || !mountSession(await response.json())) {
+    throw new Error("SESSION_EXCHANGE_FAILED");
+  }
+}
+
+function sessionGate(message: string, instanceId: string | null): void {
+  const gate = document.createElement("main");
+  gate.className = "session-gate";
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "eyebrow";
+  eyebrow.textContent = "MEMO GRAPH · LOCAL SESSION";
+  const heading = document.createElement("h1");
+  heading.textContent = "记忆工作台";
+  const status = document.createElement("p");
+  status.id = "session-status";
+  status.role = "status";
+  status.textContent = message;
+  const form = document.createElement("form");
+  form.className = "session-pairing";
+  const label = document.createElement("label");
+  label.htmlFor = "pairing-code";
+  label.textContent = "终端配对码";
+  const input = document.createElement("input");
+  input.id = "pairing-code";
+  input.name = "code";
+  input.autocomplete = "off";
+  input.maxLength = 12;
+  input.required = true;
+  const button = document.createElement("button");
+  button.className = "button-primary";
+  button.type = "submit";
+  button.textContent = "连接当前实例";
+  form.append(label, input, button);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const code = input.value
+      .toUpperCase()
+      .replaceAll(/[^A-Z2-9]/gu, "");
+    if (instanceId === null) {
+      status.textContent = "页面缺少 Runtime instance identity；请从终端重新打开工作台。";
+      return;
+    }
+    button.disabled = true;
+    status.textContent = "正在验证配对码…";
+    void exchange("/api/session/pair", {
+      code,
+      instance_id: instanceId,
+    }).catch(() => {
+      button.disabled = false;
+      status.textContent = "配对失败或已过期，请从终端获取新的配对码。";
+      input.focus();
+    });
+  });
+  gate.append(eyebrow, heading, status, form);
+  container.replaceChildren(gate);
+}
+
+const initialSession = globalThis.__MEMO_GRAPH_SESSION__;
+globalThis.__MEMO_GRAPH_SESSION__ = undefined;
+if (!mountSession(initialSession)) {
+  sessionGate("正在建立本地安全会话…", fragmentInstance ?? pageInstance);
+  if (fragmentTicket !== null && fragmentInstance !== null) {
+    void exchange("/api/session/exchange", {
+      ticket: fragmentTicket,
+      instance_id: fragmentInstance,
+    }).catch(() => {
+      sessionGate(
+        "启动票据无效或已过期，请输入终端显示的配对码。",
+        fragmentInstance ?? pageInstance,
+      );
+    });
+  } else {
+    sessionGate("请输入终端显示的一次性配对码。", pageInstance);
+  }
+}
+
+globalThis.addEventListener("memo-graph-session", (event) => {
+  if (event instanceof CustomEvent) mountSession(event.detail);
+});

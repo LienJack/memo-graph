@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "research": {
+    "mode": "deep_understanding",
+    "budgets": {
+      "search_queries": null,
+      "tokens": null
+    }
+  },
+  "search": {
+    "primary_provider": "mcp:anysearch",
+    "fallback_provider": "web",
+    "fallback_conditions": [
+      "tool_unavailable",
+      "quota_exhausted",
+      "insufficient_credits",
+      "rate_limited"
+    ],
+    "fallback_without_confirmation": true,
+    "run_providers_in_parallel": false,
+    "record_fallback_reason": true
+  },
+  "adversarial_review": {
+    "provider": "gpt",
+    "providers": {
+      "gpt": {
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "xhigh",
+        "transport": "codex_subagent",
+        "network_provider": "mcp:anysearch",
+        "max_turns": 12,
+        "evidence_mode": "excerpts"
+      },
+      "grok": {
+        "command": "grok",
+        "model": "default",
+        "network_provider": "mcp:anysearch",
+        "mcp_server": "anysearch",
+        "max_turns": 12,
+        "timeout_seconds": 900,
+        "evidence_mode": "excerpts"
+      }
+    }
+  }
+}
