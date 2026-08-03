@@ -139,8 +139,8 @@ describe("0015 operational hardening schema", () => {
     const health = await storage.health();
     await storage.close();
 
-    expect(health.schema_version).toBe("0019");
-    expect(health.migrations).toHaveLength(19);
+    expect(health.schema_version).toBe("0020");
+    expect(health.migrations).toHaveLength(20);
     expect(health.counts).toMatchObject({
       encryption_keys: 0,
       encrypted_contents: 0,

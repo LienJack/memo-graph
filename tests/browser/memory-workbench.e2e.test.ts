@@ -180,7 +180,7 @@ describe("packaged memory workbench", () => {
       const detail = await reopened.getWorkbenchMemoryDetail({
         principal_id: "user_local",
         allowed_scopes: [scope],
-        as_of: "2026-08-02T12:00:00.000Z",
+        as_of: new Date().toISOString(),
         include_sensitive: false,
         context_scope: null,
         max_history: 20,

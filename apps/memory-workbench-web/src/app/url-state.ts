@@ -1,4 +1,4 @@
-export const WORKBENCH_VIEWS = ["memory", "graph", "runtime"] as const;
+export const WORKBENCH_VIEWS = ["memory", "automatic", "graph", "runtime"] as const;
 export type WorkbenchView = (typeof WORKBENCH_VIEWS)[number];
 
 export type StructuralUrlState = {

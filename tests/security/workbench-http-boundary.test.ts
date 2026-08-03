@@ -30,6 +30,10 @@ const temporaryDirectories: string[] = [];
 async function server(options: {
   runtimeState?: "ready" | "health_only";
   controlCredential?: Buffer;
+  hookCredential?: Buffer;
+  hookCapture?: Parameters<
+    typeof startWorkbenchHttpServer
+  >[0]["hookCapture"];
   maxConnections?: number;
   workbenchSession?: Parameters<
     typeof startWorkbenchHttpServer
@@ -41,6 +45,12 @@ async function server(options: {
     instanceId: INSTANCE,
     runtimeState: options.runtimeState ?? "ready",
     controlCredential,
+    ...(options.hookCredential === undefined
+      ? {}
+      : { hookCredential: options.hookCredential }),
+    ...(options.hookCapture === undefined
+      ? {}
+      : { hookCapture: options.hookCapture }),
     ...(options.maxConnections === undefined
       ? {}
       : { maxConnections: options.maxConnections }),
@@ -202,7 +212,7 @@ describe("workbench loopback HTTP boundary", () => {
 
   it("requires an authenticated one-use operator control request", async () => {
     const { started, controlCredential } = await server();
-    const body = { mode: "ticket" } as const;
+    const body = {};
     const nonce = randomBytes(24).toString("base64url");
     const proof = createWorkbenchControlProof({
       credential: controlCredential,
@@ -225,7 +235,6 @@ describe("workbench loopback HTTP boundary", () => {
     expect(await issued.json()).toMatchObject({
       instance_id: INSTANCE,
       ticket: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u),
-      pairing_code: null,
     });
 
     const replay = await fetch(`${started.origin}/__operator/bootstrap`, {
@@ -237,6 +246,61 @@ describe("workbench loopback HTTP boundary", () => {
     expect(
       await postJson(started.origin, "/__operator/bootstrap", body),
     ).toMatchObject({ status: 403 });
+  });
+
+  it("isolates a bounded non-browser hook ingress behind its own credential", async () => {
+    const hookCredential = randomBytes(32);
+    const captured: unknown[] = [];
+    const { started, controlCredential } = await server({
+      hookCredential,
+      hookCapture: async (input) => {
+        captured.push(input);
+        return {
+          schema_version: "1.0.0",
+          status: "accepted",
+          event_id: "hook:event-1",
+          additional_context: null,
+        };
+      },
+    });
+    const body = {
+      schema_version: "1.0.0",
+      source: "direct",
+      idempotency_key: "hook-capture-event-0001",
+      event: {
+        schema_version: "1.0.0",
+        event_id: "hook:event-1",
+        event_kind: "session_start",
+        session_id: "thr_123",
+        cwd: "/workspace",
+        occurred_at: "2026-08-03T08:00:00.000Z",
+        model: null,
+        source: "startup",
+      },
+    };
+    const invoke = (credential: Buffer, origin?: string) =>
+      fetch(`${started.origin}/__hooks/capture`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${credential.toString("base64url")}`,
+          "content-type": "application/json",
+          ...(origin === undefined ? {} : { origin }),
+        },
+        body: JSON.stringify(body),
+      });
+
+    expect(await invoke(controlCredential)).toMatchObject({ status: 403 });
+    expect(await invoke(hookCredential, started.origin)).toMatchObject({
+      status: 403,
+    });
+    const accepted = await invoke(hookCredential);
+    const acceptedBody = await accepted.json();
+    expect(accepted.status, JSON.stringify(acceptedBody)).toBe(200);
+    expect(acceptedBody).toMatchObject({
+      status: "accepted",
+      event_id: "hook:event-1",
+    });
+    expect(captured).toHaveLength(1);
   });
 
   it("exchanges browser authority once and keeps cookies, stale instances, and cross-site calls out", async () => {
@@ -302,12 +366,14 @@ describe("workbench loopback HTTP boundary", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          origin: "null",
-          "sec-fetch-site": "cross-site",
+          authorization: `Bearer ${session.bearer}`,
+          "x-memo-graph-instance": INSTANCE,
+          origin: started.origin,
+          "sec-fetch-site": "same-origin",
         },
         body: JSON.stringify({ instance_id: INSTANCE, code: "AAAAAAAAAAAA" }),
       }),
-    ).toMatchObject({ status: 403 });
+    ).toMatchObject({ status: 404 });
   });
 
   it("rejects rebinding hosts, duplicate Host, form bodies, oversized bodies, and unknown methods", async () => {
@@ -413,6 +479,18 @@ describe("workbench loopback HTTP boundary", () => {
           calls.push({ sessionId, operation: "graph", body });
           return { status: "not_found", reason_code: "NOT_FOUND" };
         },
+        automaticMemory: async (body) => {
+          calls.push({ sessionId, operation: "automatic", body });
+          return { status: "ready_empty", items: [], warnings: [] };
+        },
+        previewAutomaticMemoryUndo: async (body) => {
+          calls.push({ sessionId, operation: "automatic-undo-preview", body });
+          return { status: "failed", reason_code: "FIXTURE" };
+        },
+        confirmAutomaticMemoryUndo: async (body) => {
+          calls.push({ sessionId, operation: "automatic-undo-confirm", body });
+          return { status: "failed", reason_code: "FIXTURE" };
+        },
         previewCorrection: async (body) => {
           calls.push({ sessionId, operation: "preview", body });
           return { status: "failed", reason_code: "FIXTURE" };
@@ -486,24 +564,24 @@ describe("workbench loopback HTTP boundary", () => {
     expect(calls).toHaveLength(2);
   });
 
-  it("expires and consumes pairing codes without retaining raw authority", () => {
+  it("expires and consumes launch tickets without retaining raw authority", () => {
     let now = Date.parse("2026-08-02T08:00:00.000Z");
     const authority = new WorkbenchSessionAuthority({
       instanceId: INSTANCE,
       clock: () => now,
-      pairingTtlMs: 1_000,
+      ticketTtlMs: 1_000,
     });
-    const first = authority.issuePairingCode();
+    const first = authority.issueTicket();
     expect(
-      authority.exchangePairingCode({ instanceId: INSTANCE, code: first.code }),
+      authority.exchangeTicket({ instanceId: INSTANCE, ticket: first.ticket }),
     ).not.toBeNull();
     expect(
-      authority.exchangePairingCode({ instanceId: INSTANCE, code: first.code }),
+      authority.exchangeTicket({ instanceId: INSTANCE, ticket: first.ticket }),
     ).toBeNull();
-    const expired = authority.issuePairingCode();
+    const expired = authority.issueTicket();
     now += 1_001;
     expect(
-      authority.exchangePairingCode({ instanceId: INSTANCE, code: expired.code }),
+      authority.exchangeTicket({ instanceId: INSTANCE, ticket: expired.ticket }),
     ).toBeNull();
     authority.close();
   });

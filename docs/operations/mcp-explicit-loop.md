@@ -2,10 +2,13 @@
 
 ## Boundary
 
-The M1 server exposes governed local memory through explicit MCP calls. It
-cannot observe Codex conversation text, task starts, task ends, or resources
-that the host did not send. Reading an MCP resource also does not place that
-resource in model Context.
+The stdio MCP server exposes the deliberate fallback and control path for
+governed local memory. When managed Codex automatic memory is enabled, separate
+user-level hooks may capture bounded lifecycle events and inject one receipt-
+marked automatic Context slice on `UserPromptSubmit`; the MCP transport itself
+still cannot observe conversation text or lifecycle events that the host did
+not send. Reading an MCP resource does not place that resource in model
+Context.
 
 The process is bound to one configured principal. Actor, authority, and scope
 values in tool arguments are untrusted claims and cannot expand the process
@@ -90,9 +93,49 @@ Restart the Codex host after changing its MCP configuration. Inspect
 `memory://runtime/usage` to verify discovery; these reads do not create recall
 audit rows or change the ledger epoch.
 
-## Task start
+## Managed Codex installation
 
-Call `memory_context_compile` explicitly with:
+For normal Codex use, prefer the repository installer over a source-tree MCP
+entry:
+
+```bash
+pnpm codex:install
+```
+
+pnpm is the only separately installed runtime prerequisite. The command first
+performs a frozen workspace install; `devEngines.runtime` downloads and locks
+Node.js 24.18.0 before any Runtime build or installer probe runs.
+The verified Node binary is copied into the private installation root before
+Codex registration, so the installed command does not retain a `node_modules`
+or version-manager path from the checkout.
+
+The installer derives defaults from `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and
+`XDG_STATE_HOME`, with standard home-directory fallbacks. A clean installation
+creates matching private MCP/operator configuration and an external recovery
+authority. It deploys a content-addressed bootstrap release, switches the
+`memo_graph_memory` registration through the Codex CLI, and verifies the final
+command with an official MCP client `initialize`, `tools/list`, and read-only
+`memory_search` exchange.
+
+Existing paired configuration files are never rewritten. A partial pair,
+non-absolute override, unavailable compatible Codex executable, failed managed
+Node download, failed deployment, or incomplete tool list fails closed.
+Compatible Codex Desktop binaries are preferred over stale PATH entries. An
+upgrade may gracefully restart only an exact identity-checked Workbench owner
+and retries the acceptance probe once. Registration is rolled back after any
+post-switch verification failure. The installed process uses only the release,
+private configuration, data, recovery, and runtime-state directories; it does
+not import files from the Git checkout.
+
+After success, create a new Codex task or restart Codex. Existing tasks retain
+the MCP registry snapshot with which they started.
+
+## Explicit task start fallback
+
+Call `memory_context_compile` explicitly when automatic Context is disabled,
+unavailable, or deliberately overridden. If the current prompt already carries
+the memo-graph automatic-context receipt marker, do not compile and inject the
+same Context again. Supply:
 
 - a read-only envelope whose actor and scopes match the configured principal;
 - one `RecallRequest` with the same request ID and scopes;
@@ -141,8 +184,9 @@ principal. Repeating the same idempotency key and content returns the identical
 mutation receipt and does not create another episode. Reusing the key for
 different content returns `CONFLICT`.
 
-M1 records only L0 evidence. It does not silently promote evidence into L1,
-publish learned behavior, or enable destructive tools.
+The explicit episode commit records L0 evidence. Automatic formation is a
+separate asynchronous governed lane; it does not turn an explicit commit into
+silent L1 publication or enable destructive tools.
 
 ## Verification
 

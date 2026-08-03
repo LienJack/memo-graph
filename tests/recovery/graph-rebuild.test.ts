@@ -76,7 +76,7 @@ describe("graph deletion and rebuild", () => {
         restored_at: "2026-07-29T10:11:00.000Z",
       });
       await expect(storage.health()).resolves.toMatchObject({
-        schema_version: "0019",
+        schema_version: "0020",
         journal_mode: "wal",
       });
 

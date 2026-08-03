@@ -12,7 +12,6 @@ const container: HTMLElement = selectedContainer;
 const fragment = new URLSearchParams(window.location.hash.slice(1));
 const fragmentTicket = fragment.get("ticket");
 const fragmentInstance = fragment.get("instance");
-const pageInstance = document.documentElement.dataset.instance ?? null;
 window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
 
 let mounted: ReturnType<typeof mountWorkbench> | null = null;
@@ -47,7 +46,7 @@ async function exchange(path: string, body: unknown): Promise<void> {
   }
 }
 
-function sessionGate(message: string, instanceId: string | null): void {
+function sessionGate(message: string): void {
   const gate = document.createElement("main");
   gate.className = "session-gate";
   const eyebrow = document.createElement("p");
@@ -59,62 +58,25 @@ function sessionGate(message: string, instanceId: string | null): void {
   status.id = "session-status";
   status.role = "status";
   status.textContent = message;
-  const form = document.createElement("form");
-  form.className = "session-pairing";
-  const label = document.createElement("label");
-  label.htmlFor = "pairing-code";
-  label.textContent = "终端配对码";
-  const input = document.createElement("input");
-  input.id = "pairing-code";
-  input.name = "code";
-  input.autocomplete = "off";
-  input.maxLength = 12;
-  input.required = true;
-  const button = document.createElement("button");
-  button.className = "button-primary";
-  button.type = "submit";
-  button.textContent = "连接当前实例";
-  form.append(label, input, button);
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const code = input.value
-      .toUpperCase()
-      .replaceAll(/[^A-Z2-9]/gu, "");
-    if (instanceId === null) {
-      status.textContent = "页面缺少 Runtime instance identity；请从终端重新打开工作台。";
-      return;
-    }
-    button.disabled = true;
-    status.textContent = "正在验证配对码…";
-    void exchange("/api/session/pair", {
-      code,
-      instance_id: instanceId,
-    }).catch(() => {
-      button.disabled = false;
-      status.textContent = "配对失败或已过期，请从终端获取新的配对码。";
-      input.focus();
-    });
-  });
-  gate.append(eyebrow, heading, status, form);
+  gate.append(eyebrow, heading, status);
   container.replaceChildren(gate);
 }
 
 const initialSession = globalThis.__MEMO_GRAPH_SESSION__;
 globalThis.__MEMO_GRAPH_SESSION__ = undefined;
 if (!mountSession(initialSession)) {
-  sessionGate("正在建立本地安全会话…", fragmentInstance ?? pageInstance);
+  sessionGate("正在建立本地安全会话…");
   if (fragmentTicket !== null && fragmentInstance !== null) {
     void exchange("/api/session/exchange", {
       ticket: fragmentTicket,
       instance_id: fragmentInstance,
     }).catch(() => {
       sessionGate(
-        "启动票据无效或已过期，请输入终端显示的配对码。",
-        fragmentInstance ?? pageInstance,
+        "启动链接无效或已过期，请重新运行工作台命令。",
       );
     });
   } else {
-    sessionGate("请输入终端显示的一次性配对码。", pageInstance);
+    sessionGate("缺少安全启动链接，请重新运行工作台命令。");
   }
 }
 

@@ -51,7 +51,7 @@ the host package and HTTP allowlist.
   governed memory, inspects Graph, inspects Runtime health, sends `SIGTERM`,
   verifies writer-lease cleanup, reopens SQLite, and reads the durable successor.
 - Loopback security tests validate exact `Host`, same-origin/Fetch Metadata,
-  bearer and instance binding, one-use ticket/pairing authority, no cookie
+  bearer and instance binding, one-use launch-ticket authority, no cookie
   authority, request/body/connection limits, 405 method boundaries, CSP, no
   CORS, exact static assets, and absence of source-map routes.
 - Health contracts enforce canonical authority first, one Runtime owner, fixed

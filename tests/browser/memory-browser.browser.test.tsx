@@ -37,6 +37,13 @@ function api(overrides: Partial<MemoryWorkbenchApi> = {}): MemoryWorkbenchApi {
       warnings: [],
     })),
     health: vi.fn(async () => readyHealth),
+    automaticMemory: vi.fn(async () => ({
+      status: "ready_empty",
+      overview: { projects: 0, events: 0, turns: 0, pending: 0, completed: 0, quarantined: 0, recall_uses: 0 },
+      items: [], warnings: [],
+    })),
+    previewAutomaticMemoryUndo: vi.fn(),
+    confirmAutomaticMemoryUndo: vi.fn(),
     previewCorrection: vi.fn(async () => readyPreview),
     confirmCorrection: vi.fn(async () => readyConfirmation),
     ...overrides,

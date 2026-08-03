@@ -36,8 +36,8 @@ export function renderOperationalStatus(
 export function renderWorkbenchLaunch(
   resultInput: WorkbenchLaunchResult,
   format: OperatorOutputFormat,
-  pairingCode: string | null,
-  revealPairingCode: boolean,
+  launchUrl: string | null,
+  revealLaunchUrl: boolean,
 ): string {
   const result = WorkbenchLaunchResultSchema.parse(resultInput);
   if (format === "json") {
@@ -51,11 +51,11 @@ export function renderWorkbenchLaunch(
     `recovery: ${result.recovery}`,
   ];
   if (
-    result.recovery === "pair_on_tty" &&
-    pairingCode !== null &&
-    revealPairingCode
+    result.recovery === "open_launch_url" &&
+    launchUrl !== null &&
+    revealLaunchUrl
   ) {
-    lines.push(`pairing code: ${pairingCode}`);
+    lines.push(`launch url: ${launchUrl}`);
   }
   return `${lines.join("\n")}\n`;
 }

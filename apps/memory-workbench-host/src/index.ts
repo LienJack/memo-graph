@@ -14,9 +14,11 @@ export {
 export {
   assertPrivateWorkbenchDirectory,
   publishPrivateFile,
+  publishAutomaticMemoryHookDescriptor,
   publishWorkbenchEndpoint,
   quarantineArtifacts,
   readWorkbenchEndpoint,
+  readAutomaticMemoryHookDescriptor,
   removeOwnedArtifact,
   workbenchArtifactPaths,
   type WorkbenchArtifactPaths,

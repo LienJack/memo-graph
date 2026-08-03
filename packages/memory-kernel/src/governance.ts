@@ -53,10 +53,22 @@ export function evaluateAdmission(
     item.actor.authority,
     item.authority,
   ]);
+  const isGovernedAutomaticConfirmation =
+    candidate.transform.name === "automatic-memory-formation" &&
+    !candidate.inferred &&
+    !candidate.requires_user_confirmation &&
+    evidence.some((item) =>
+      item.actor.authority === "user_stated" ||
+      item.authority === "user_stated"
+    ) &&
+    authorities.every((authority) =>
+      authority === "user_stated" || authority === "observed"
+    );
   if (
     authorities.some((authority) =>
       ["observed", "tool_result", "imported"].includes(authority),
-    )
+    ) &&
+    !isGovernedAutomaticConfirmation
   ) {
     return {
       decision: "quarantine",
@@ -81,6 +93,13 @@ export function evaluateAdmission(
     return {
       decision: "activate",
       reason: "live exact-scope user-stated evidence is eligible",
+    };
+  }
+  if (isGovernedAutomaticConfirmation) {
+    return {
+      decision: "activate",
+      reason:
+        "explicit user confirmation with bounded assistant context is eligible",
     };
   }
   return {

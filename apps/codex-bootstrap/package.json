@@ -1,0 +1,37 @@
+{
+  "name": "@memo-graph/codex-bootstrap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "memo-graph-codex-bootstrap": "./dist/cli.js",
+    "memo-graph-codex-hook": "./dist/hook-command.js",
+    "memo-graph-codex-install": "./dist/install.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/install-contract.d.ts",
+      "import": "./dist/install-contract.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@memo-graph/contracts": "workspace:*",
+    "@memo-graph/mcp-server": "workspace:*",
+    "@memo-graph/memory-workbench-host": "workspace:*",
+    "@memo-graph/operator-cli": "workspace:*",
+    "@memo-graph/runtime-host": "workspace:*",
+    "@memo-graph/storage-sqlite": "workspace:*",
+    "@modelcontextprotocol/client": "2.0.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3"
+  }
+}

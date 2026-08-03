@@ -13,6 +13,174 @@ import {
   ValidityWindowSchema,
 } from "./common.js";
 import { MutationReceiptSchema } from "./mutation-receipt.js";
+import {
+  AutomaticMemoryPolicyReasonSchema,
+  RedactionActionSchema,
+} from "./automatic-memory.js";
+
+export const WorkbenchAutomaticMemoryDecisionSchema = z
+  .object({
+    decision_id: IdentifierSchema,
+    proposal_id: IdentifierSchema,
+    disposition: z.enum([
+      "activate",
+      "candidate_only",
+      "review_required",
+      "reject",
+    ]),
+    reason_codes: z.array(AutomaticMemoryPolicyReasonSchema).min(1).max(8),
+    requires_user_confirmation: z.boolean(),
+    decided_at: UtcTimestampSchema,
+    candidate_id: IdentifierSchema.nullable(),
+    memory_id: IdentifierSchema.nullable(),
+    revision_id: IdentifierSchema.nullable(),
+    receipt_id: IdentifierSchema.nullable(),
+    memory_scope: ScopeSchema.nullable(),
+    current_lifecycle: LifecycleSchema.nullable(),
+  })
+  .strict();
+
+export const WorkbenchAutomaticMemoryActivitySchema = z
+  .object({
+    turn_key: IdentifierSchema,
+    project_id: IdentifierSchema,
+    scope: ScopeSchema.extend({ kind: z.literal("workspace") }),
+    session_id: IdentifierSchema,
+    turn_id: IdentifierSchema,
+    generation: z.number().int().nonnegative(),
+    state: z.enum([
+      "open",
+      "stabilizing",
+      "ready",
+      "completed",
+      "quarantined",
+    ]),
+    user_captured_at: UtcTimestampSchema.nullable(),
+    assistant_captured_at: UtcTimestampSchema.nullable(),
+    job: z
+      .object({
+        job_id: IdentifierSchema,
+        status: z.enum(["pending", "processing", "completed", "quarantined"]),
+        attempts: z.number().int().nonnegative(),
+        updated_at: UtcTimestampSchema,
+      })
+      .strict()
+      .nullable(),
+    provider: z
+      .object({
+        provider_id: IdentifierSchema,
+        model: z.string().trim().min(1).max(240),
+        state: z.enum(["started", "succeeded", "failed"]),
+        redaction_action: RedactionActionSchema,
+        input_tokens: z.number().int().nonnegative(),
+        output_tokens: z.number().int().nonnegative(),
+        latency_ms: z.number().int().nonnegative(),
+        completed_at: UtcTimestampSchema.nullable(),
+      })
+      .strict()
+      .nullable(),
+    decisions: z.array(WorkbenchAutomaticMemoryDecisionSchema).max(8),
+  })
+  .strict();
+
+export const WorkbenchAutomaticMemoryOverviewSchema = z
+  .object({
+    projects: z.number().int().nonnegative(),
+    events: z.number().int().nonnegative(),
+    turns: z.number().int().nonnegative(),
+    pending: z.number().int().nonnegative(),
+    completed: z.number().int().nonnegative(),
+    quarantined: z.number().int().nonnegative(),
+    recall_uses: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const WorkbenchAutomaticMemoryListRequestSchema = z
+  .object({ limit: z.number().int().min(1).max(100).default(40) })
+  .strict();
+
+export const WorkbenchAutomaticMemoryListResultSchema = z.discriminatedUnion(
+  "status",
+  [
+    z.object({
+      status: z.enum(["ready", "ready_empty"]),
+      overview: WorkbenchAutomaticMemoryOverviewSchema,
+      items: z.array(WorkbenchAutomaticMemoryActivitySchema).max(100),
+      warnings: z.array(z.string().trim().min(1).max(160)),
+    }).strict(),
+    z.object({
+      status: z.enum(["blocked", "unauthorized", "failed"]),
+      reason_code: z.string().trim().min(1).max(160),
+      retryable: z.boolean(),
+      warnings: z.array(z.string().trim().min(1).max(160)),
+    }).strict(),
+  ],
+);
+
+export const WorkbenchAutomaticMemoryUndoPreviewRequestSchema = z
+  .object({
+    memory_id: IdentifierSchema,
+    expected_revision_id: IdentifierSchema,
+  })
+  .strict();
+
+export const WorkbenchAutomaticMemoryUndoPreviewResultSchema =
+  z.discriminatedUnion("status", [
+    z.object({
+      status: z.literal("ready"),
+      preview_id: IdentifierSchema,
+      memory_id: IdentifierSchema,
+      expected_revision_id: IdentifierSchema,
+      effect: z.literal("demote_from_automatic_recall"),
+      expires_at: UtcTimestampSchema,
+      warnings: z.array(z.string().trim().min(1).max(160)),
+    }).strict(),
+    z.object({
+      status: z.enum(["stale", "not_found", "governance_excluded", "failed"]),
+      reason_code: z.string().trim().min(1).max(160),
+      retryable: z.boolean(),
+      warnings: z.array(z.string().trim().min(1).max(160)),
+    }).strict(),
+  ]);
+
+export const WorkbenchAutomaticMemoryUndoConfirmRequestSchema = z
+  .object({ preview_id: IdentifierSchema, confirmed: z.literal(true) })
+  .strict();
+
+export const WorkbenchAutomaticMemoryUndoConfirmResultSchema =
+  z.discriminatedUnion("status", [
+    z.object({
+      status: z.literal("ready"),
+      memory_id: IdentifierSchema,
+      current_revision_id: IdentifierSchema,
+      lifecycle: z.literal("candidate"),
+      replayed: z.boolean(),
+      receipt: MutationReceiptSchema,
+      warnings: z.array(z.string().trim().min(1).max(160)),
+    }).strict(),
+    z.object({
+      status: z.enum(["stale", "not_found", "failed"]),
+      reason_code: z.string().trim().min(1).max(160),
+      retryable: z.boolean(),
+      warnings: z.array(z.string().trim().min(1).max(160)),
+    }).strict(),
+  ]);
+
+export type WorkbenchAutomaticMemoryActivity = z.infer<
+  typeof WorkbenchAutomaticMemoryActivitySchema
+>;
+export type WorkbenchAutomaticMemoryListRequest = z.input<
+  typeof WorkbenchAutomaticMemoryListRequestSchema
+>;
+export type WorkbenchAutomaticMemoryListResult = z.infer<
+  typeof WorkbenchAutomaticMemoryListResultSchema
+>;
+export type WorkbenchAutomaticMemoryUndoPreviewResult = z.infer<
+  typeof WorkbenchAutomaticMemoryUndoPreviewResultSchema
+>;
+export type WorkbenchAutomaticMemoryUndoConfirmResult = z.infer<
+  typeof WorkbenchAutomaticMemoryUndoConfirmResultSchema
+>;
 
 export const WorkbenchOpaqueCursorSchema = z
   .string()

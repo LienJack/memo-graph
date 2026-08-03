@@ -57,16 +57,85 @@ node apps/operator-cli/dist/cli.js workbench \
 
 Normal launch starts or reuses one managed Runtime and opens a one-use,
 authenticated loopback URL. Use `--no-open` or `--headless` when browser opening
-must be suppressed; a pairing code is revealed only on the controlling TTY.
+must be suppressed; a one-use launch URL is revealed only on the controlling
+TTY and can be opened directly without entering a code.
 
 See `docs/operations/memory-workbench.md` for configuration, lifecycle, recovery,
 and trust boundaries. Workbench-specific verification is recorded in
 `docs/evaluations/memory-workbench-verification.md`; it is not G6 or production
 qualification.
 
+## Codex automatic memory
+
+The managed Runtime now supports low-burden automatic capture, asynchronous
+model-assisted formation, local policy/admission, bounded per-prompt recall,
+and a Workbench audit/Undo path. Users do not need to say “remember” for the
+automatic path. Provider output remains untrusted and cannot publish memory
+without local evidence, authority, scope, conflict, and risk checks.
+
+The current fresh-install default remains `observe`, not `balanced`: the
+reproducible replay, privacy, reliability, latency, and browser gates pass, but
+the complete physical Codex Desktop lifecycle matrix is not yet recorded.
+Explicit MCP remains the supported fallback/control path, and an operator may
+explicitly select `balanced` for local evaluation.
+
+See `docs/operations/codex-automatic-memory.md` for the local/remote data
+boundary, provider setup, modes, Workbench inspection, Undo, disablement, and
+rollback. The exact qualification and remaining blocker are recorded in
+`docs/evaluations/codex-automatic-memory-verification.md`.
+
+## Install for Codex
+
+After installing pnpm 10.33.2, install and register the managed memory tools
+with one command from a fresh checkout:
+
+```bash
+pnpm codex:install
+```
+
+The command runs the frozen workspace install itself. pnpm downloads and locks
+Node.js 24.18.0 through `devEngines.runtime`, so a separately installed Node 24
+or a manual version-manager switch is not required.
+
+On a clean account, the installer creates private, matching MCP/operator
+configuration, an external Ed25519 recovery authority, and a local data root
+under the platform's XDG directories. Existing configuration is preserved. If
+only one of the two configuration files exists, installation fails closed
+instead of guessing how to merge policy.
+
+The command builds a self-contained, content-addressed release outside the Git
+checkout, copies the locked Node runtime into the private installation root,
+registers `memo_graph_memory` through the Codex CLI, cold-starts the managed
+Runtime, and completes an official MCP `tools/list` handshake before it reports
+success. Moving, switching, or deleting the source checkout afterward does not
+affect either the installed release or its Node executable. Start a new Codex
+task or restart Codex after installation because an already-running task does
+not hot-reload MCP registrations.
+
+Use explicit absolute-path overrides when required:
+
+```bash
+pnpm codex:install -- \
+  --data-root /private/data/memo-graph/data \
+  --mcp-config /private/config/memo-graph/mcp.json \
+  --operator-config /private/config/memo-graph/operator.json \
+  --recovery-authority-root /private/state/memo-graph/recovery-authority \
+  --runtime-dir /private/state/memo-graph/workbench-runtime
+```
+
+Successful output records the deployed release, registration backup, tool
+count, read status, and whether default configuration was created. The
+installer prefers a compatible Codex Desktop binary over stale PATH entries.
+During an upgrade it may gracefully restart only the exact Workbench owner
+whose root, configuration, credentials, descriptor, instance, and PID match.
+If registration or the MCP handshake/read probe still fails, a newly started
+probe host is identity-checked and stopped, then the previous Codex
+registration is restored.
+
 ## Development
 
-Use Node.js 24.18.0 and pnpm 10.33.2.
+Use pnpm 10.33.2. The workspace-managed development runtime is Node.js
+24.18.0.
 
 ```bash
 pnpm install --frozen-lockfile

@@ -6,6 +6,16 @@
   "bin": {
     "memo-graph-operator": "./dist/cli.js"
   },
+  "exports": {
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js"
+    },
+    "./workbench": {
+      "types": "./dist/commands/workbench.d.ts",
+      "import": "./dist/commands/workbench.js"
+    }
+  },
   "files": [
     "dist"
   ],

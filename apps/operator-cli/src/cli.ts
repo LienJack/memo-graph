@@ -935,7 +935,7 @@ export async function runOperatorCli(
           renderWorkbenchLaunch(
             launched.result,
             format,
-            launched.pairingCode,
+            launched.launchUrl,
             io.stdout.isTTY === true,
           ),
         );

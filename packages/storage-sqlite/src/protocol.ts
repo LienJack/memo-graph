@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import {
+  AutomaticMemoryEventSchema,
+  AutomaticMemoryPolicyDecisionSchema,
   AuthoritySchema,
   ApprovalBindingSchema,
   ApprovalGrantSchema,
@@ -61,6 +63,7 @@ import {
   RecoveryMinimumsSchema,
   RecoveryPendingAuthorizationSchema,
   RecoveryPendingReservationSchema,
+  RedactionReportSchema,
   RollbackReceiptSchema,
   RetrievalReceiptSchema,
   ScopeSchema,
@@ -86,6 +89,7 @@ import {
   WorkbenchMemoryDetailRequestSchema,
   type WorkbenchMemoryDetailResultSchema,
   WorkbenchMemoryListRequestSchema,
+  WorkbenchAutomaticMemoryListResultSchema,
   WorkbenchMemoryMemberSchema,
   type WorkbenchMemorySummaryBatchResultSchema,
   canonicalSha256,
@@ -2708,6 +2712,328 @@ export const RecordProjectionRebuildResultSchema = z
   })
   .strict();
 
+export const AutomaticMemoryProjectIdentitySchema = z
+  .object({
+    identity_kind: z.enum(["git_common_dir", "canonical_root"]),
+    identity_hash: CanonicalHashSchema,
+    scope: z
+      .object({ kind: z.literal("workspace"), id: IdentifierSchema })
+      .strict(),
+  })
+  .strict();
+
+export const RegisterAutomaticMemoryProjectCommandSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    principal_id: IdentifierSchema,
+    identity: AutomaticMemoryProjectIdentitySchema,
+    registered_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const AutomaticMemoryProjectSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    project_id: IdentifierSchema,
+    principal_id: IdentifierSchema,
+    identity_kind: AutomaticMemoryProjectIdentitySchema.shape.identity_kind,
+    identity_hash: CanonicalHashSchema,
+    scope: z
+      .object({ kind: z.literal("workspace"), id: IdentifierSchema })
+      .strict(),
+    registered_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const CaptureAutomaticMemoryEventCommandSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    idempotency_key: z.string().trim().min(8).max(200),
+    principal_id: IdentifierSchema,
+    project_id: IdentifierSchema,
+    evidence_id: IdentifierSchema.nullable(),
+    source: z.enum(["direct", "spool"]),
+    captured_at: UtcTimestampSchema,
+    stabilization_delay_ms: z.number().int().min(0).max(60_000),
+    event: AutomaticMemoryEventSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const isTurnEvent =
+      value.event.event_kind === "user_prompt_submit" ||
+      value.event.event_kind === "assistant_stop";
+    if (isTurnEvent !== (value.evidence_id !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["evidence_id"],
+        message: "turn events require one L0 evidence reference",
+      });
+    }
+    if (
+      value.event.event_kind === "assistant_stop" &&
+      value.event.last_assistant_message === null
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["event", "last_assistant_message"],
+        message: "assistant Stop capture requires the final message",
+      });
+    }
+  });
+
+export const AutomaticMemoryCaptureReceiptSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    capture_id: IdentifierSchema,
+    project_id: IdentifierSchema,
+    event_id: IdentifierSchema,
+    turn_key: IdentifierSchema.nullable(),
+    formation_job_id: IdentifierSchema.nullable(),
+    state: z.enum([
+      "recorded",
+      "waiting_for_pair",
+      "stabilizing",
+      "superseded",
+    ]),
+    recorded_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const AutomaticMemoryFormationJobSchema = z
+  .object({
+    schema_version: z.literal("1.0.0"),
+    job_id: IdentifierSchema,
+    turn_key: IdentifierSchema,
+    project_id: IdentifierSchema,
+    project_identity_hash: CanonicalHashSchema,
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    session_id: IdentifierSchema,
+    turn_id: IdentifierSchema,
+    generation: z.number().int().positive(),
+    user_event_id: IdentifierSchema,
+    assistant_event_id: IdentifierSchema,
+    user_evidence_id: IdentifierSchema,
+    assistant_evidence_id: IdentifierSchema,
+    status: z.enum([
+      "pending",
+      "processing",
+      "completed",
+      "quarantined",
+    ]),
+    attempts: z.number().int().nonnegative(),
+    available_at: UtcTimestampSchema,
+    claimed_by: IdentifierSchema.nullable(),
+    lease_expires_at: UtcTimestampSchema.nullable(),
+  })
+  .strict();
+
+export const ClaimAutomaticMemoryFormationJobsInputSchema = z
+  .object({
+    worker_id: IdentifierSchema,
+    claimed_at: UtcTimestampSchema,
+    lease_expires_at: UtcTimestampSchema,
+    limit: z.number().int().min(1).max(50),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (Date.parse(value.lease_expires_at) <= Date.parse(value.claimed_at)) {
+      context.addIssue({
+        code: "custom",
+        path: ["lease_expires_at"],
+        message: "formation lease must expire after claim time",
+      });
+    }
+  });
+
+export const ClaimAutomaticMemoryFormationJobsResultSchema = z
+  .object({
+    jobs: z.array(AutomaticMemoryFormationJobSchema).max(50),
+  })
+  .strict();
+
+export const CompleteAutomaticMemoryFormationJobCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    generation: z.number().int().positive(),
+    worker_id: IdentifierSchema,
+    completed_at: UtcTimestampSchema,
+    result_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const MAX_AUTOMATIC_MEMORY_FORMATION_ATTEMPTS = 3;
+
+export const FailAutomaticMemoryFormationJobCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    generation: z.number().int().positive(),
+    worker_id: IdentifierSchema,
+    failed_at: UtcTimestampSchema,
+    next_available_at: UtcTimestampSchema,
+    error_code: IdentifierSchema,
+    max_attempts: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_AUTOMATIC_MEMORY_FORMATION_ATTEMPTS),
+  })
+  .strict();
+
+export const AutomaticMemoryFormationJobMutationResultSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    generation: z.number().int().positive(),
+    state: z.enum(["pending", "completed", "quarantined"]),
+    attempts: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const AutomaticMemoryAdmissionAuditSchema = z
+  .object({
+    candidate_id: IdentifierSchema,
+    memory_id: IdentifierSchema.nullable(),
+    revision_id: IdentifierSchema.nullable(),
+    receipt_id: IdentifierSchema.nullable(),
+  })
+  .strict();
+
+export const RecordAutomaticMemoryFormationAuditCommandSchema = z
+  .object({
+    job_id: IdentifierSchema,
+    generation: z.number().int().positive(),
+    attempt: z.number().int().positive(),
+    provider_id: IdentifierSchema,
+    model: z.string().trim().min(1).max(240),
+    prompt_version: z.string().trim().min(1).max(80),
+    policy_version: z.string().trim().min(1).max(80),
+    schema_revision: z.string().trim().min(1).max(80),
+    request_hash: CanonicalHashSchema,
+    result_hash: CanonicalHashSchema,
+    redaction: RedactionReportSchema,
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    latency_ms: z.number().int().nonnegative(),
+    cost_microusd: z.number().int().nonnegative().nullable(),
+    started_at: UtcTimestampSchema,
+    completed_at: UtcTimestampSchema,
+    decisions: z
+      .array(
+        z
+          .object({
+            decision: AutomaticMemoryPolicyDecisionSchema,
+            admission: AutomaticMemoryAdmissionAuditSchema.nullable(),
+          })
+          .strict()
+          .superRefine((value, context) => {
+            const shouldHaveAdmission = value.decision.disposition !== "reject";
+            if (shouldHaveAdmission !== (value.admission !== null)) {
+              context.addIssue({
+                code: "custom",
+                path: ["admission"],
+                message: "non-rejected decisions require one admission link",
+              });
+            }
+          }),
+      )
+      .max(8),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (Date.parse(value.completed_at) < Date.parse(value.started_at)) {
+      context.addIssue({
+        code: "custom",
+        path: ["completed_at"],
+        message: "provider completion cannot precede start",
+      });
+    }
+  });
+
+export const RecordAutomaticMemoryFormationAuditResultSchema = z
+  .object({
+    attempt_id: IdentifierSchema,
+    policy_decisions: z.number().int().nonnegative().max(8),
+    admission_links: z.number().int().nonnegative().max(8),
+    replayed: z.boolean(),
+  })
+  .strict();
+
+export const CheckAutomaticMemoryConflictInputSchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    scope: ScopeSchema,
+    logical_key: z.string().trim().min(1).max(500),
+    proposed_content_hash: CanonicalHashSchema,
+  })
+  .strict();
+
+export const CheckAutomaticMemoryConflictResultSchema = z
+  .object({ has_conflict: z.boolean() })
+  .strict();
+
+export const RecordAutomaticMemoryRecallUseCommandSchema = z
+  .object({
+    project_id: IdentifierSchema,
+    session_id: IdentifierSchema,
+    turn_id: IdentifierSchema,
+    request_hash: CanonicalHashSchema,
+    retrieval_receipt_id: IdentifierSchema,
+    context_slice_id: IdentifierSchema,
+    memory_count: z.number().int().nonnegative().max(100),
+    token_count: z.number().int().nonnegative().max(32_000),
+    used_at: UtcTimestampSchema,
+  })
+  .strict();
+
+export const RecordAutomaticMemoryRecallUseResultSchema = z
+  .object({
+    recall_use_id: IdentifierSchema,
+    replayed: z.boolean(),
+  })
+  .strict();
+
+export const AutomaticMemoryActivityQuerySchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    allowed_scopes: z.array(ScopeSchema).min(1).max(100),
+    limit: z.number().int().min(1).max(100),
+  })
+  .strict();
+
+export const AutomaticMemoryActivityResultSchema =
+  WorkbenchAutomaticMemoryListResultSchema;
+
+export const AutomaticMemoryAdmissionLookupInputSchema = z
+  .object({
+    principal_id: IdentifierSchema,
+    allowed_scopes: z.array(ScopeSchema).min(1).max(100),
+    memory_id: IdentifierSchema,
+    revision_id: IdentifierSchema,
+  })
+  .strict();
+
+export const AutomaticMemoryAdmissionLookupResultSchema = z
+  .object({ scope: ScopeSchema, decision_id: IdentifierSchema })
+  .strict()
+  .nullable();
+
+export const AutomaticMemoryStatusSchema = z
+  .object({
+    projects: z.number().int().nonnegative(),
+    events: z.number().int().nonnegative(),
+    turns: z.number().int().nonnegative(),
+    jobs_pending: z.number().int().nonnegative(),
+    jobs_processing: z.number().int().nonnegative(),
+    jobs_completed: z.number().int().nonnegative(),
+    jobs_quarantined: z.number().int().nonnegative(),
+    provider_attempts: z.number().int().nonnegative(),
+    policy_decisions: z.number().int().nonnegative(),
+    admission_links: z.number().int().nonnegative(),
+    recall_uses: z.number().int().nonnegative(),
+    failures: z.number().int().nonnegative(),
+  })
+  .strict();
+
 export const BlockWorkerResultSchema = z
   .object({
     blocked_ms: z.number().int().min(1).max(2_000),
@@ -2781,6 +3107,17 @@ export const WorkerOperationSchema = z.enum([
   "explain_evidence",
   "get_receipt",
   "record_recall",
+  "register_automatic_memory_project",
+  "capture_automatic_memory_event",
+  "claim_automatic_memory_formation_jobs",
+  "complete_automatic_memory_formation_job",
+  "fail_automatic_memory_formation_job",
+  "record_automatic_memory_formation_audit",
+  "check_automatic_memory_conflict",
+  "record_automatic_memory_recall_use",
+  "list_automatic_memory_activity",
+  "lookup_automatic_memory_admission",
+  "automatic_memory_status",
   "apply_projection_batch",
   "get_projection_scope_frontier",
   "query_projections",
@@ -3200,6 +3537,75 @@ export type ProjectionRebuildReceipt = z.input<
 >;
 export type RecordProjectionRebuildResult = z.infer<
   typeof RecordProjectionRebuildResultSchema
+>;
+export type AutomaticMemoryProjectIdentity = z.infer<
+  typeof AutomaticMemoryProjectIdentitySchema
+>;
+export type RegisterAutomaticMemoryProjectCommand = z.input<
+  typeof RegisterAutomaticMemoryProjectCommandSchema
+>;
+export type AutomaticMemoryProject = z.infer<
+  typeof AutomaticMemoryProjectSchema
+>;
+export type CaptureAutomaticMemoryEventCommand = z.input<
+  typeof CaptureAutomaticMemoryEventCommandSchema
+>;
+export type ParsedCaptureAutomaticMemoryEventCommand = z.output<
+  typeof CaptureAutomaticMemoryEventCommandSchema
+>;
+export type AutomaticMemoryCaptureReceipt = z.infer<
+  typeof AutomaticMemoryCaptureReceiptSchema
+>;
+export type AutomaticMemoryFormationJob = z.infer<
+  typeof AutomaticMemoryFormationJobSchema
+>;
+export type ClaimAutomaticMemoryFormationJobsInput = z.input<
+  typeof ClaimAutomaticMemoryFormationJobsInputSchema
+>;
+export type ClaimAutomaticMemoryFormationJobsResult = z.infer<
+  typeof ClaimAutomaticMemoryFormationJobsResultSchema
+>;
+export type CompleteAutomaticMemoryFormationJobCommand = z.input<
+  typeof CompleteAutomaticMemoryFormationJobCommandSchema
+>;
+export type FailAutomaticMemoryFormationJobCommand = z.input<
+  typeof FailAutomaticMemoryFormationJobCommandSchema
+>;
+export type AutomaticMemoryFormationJobMutationResult = z.infer<
+  typeof AutomaticMemoryFormationJobMutationResultSchema
+>;
+export type RecordAutomaticMemoryFormationAuditCommand = z.input<
+  typeof RecordAutomaticMemoryFormationAuditCommandSchema
+>;
+export type RecordAutomaticMemoryFormationAuditResult = z.infer<
+  typeof RecordAutomaticMemoryFormationAuditResultSchema
+>;
+export type CheckAutomaticMemoryConflictInput = z.input<
+  typeof CheckAutomaticMemoryConflictInputSchema
+>;
+export type CheckAutomaticMemoryConflictResult = z.infer<
+  typeof CheckAutomaticMemoryConflictResultSchema
+>;
+export type RecordAutomaticMemoryRecallUseCommand = z.input<
+  typeof RecordAutomaticMemoryRecallUseCommandSchema
+>;
+export type RecordAutomaticMemoryRecallUseResult = z.infer<
+  typeof RecordAutomaticMemoryRecallUseResultSchema
+>;
+export type AutomaticMemoryActivityQuery = z.input<
+  typeof AutomaticMemoryActivityQuerySchema
+>;
+export type AutomaticMemoryActivityResult = z.infer<
+  typeof AutomaticMemoryActivityResultSchema
+>;
+export type AutomaticMemoryAdmissionLookupInput = z.input<
+  typeof AutomaticMemoryAdmissionLookupInputSchema
+>;
+export type AutomaticMemoryAdmissionLookupResult = z.infer<
+  typeof AutomaticMemoryAdmissionLookupResultSchema
+>;
+export type AutomaticMemoryStatus = z.infer<
+  typeof AutomaticMemoryStatusSchema
 >;
 export type AdmitMemoryCommand = z.input<typeof AdmitMemoryCommandSchema>;
 export type ParsedAdmitMemoryCommand = z.output<

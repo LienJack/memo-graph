@@ -54,6 +54,7 @@ import Database from "better-sqlite3";
 import type { z } from "zod";
 
 import { BlobStore, type StoredBlob } from "./blob-store.js";
+import { AutomaticMemoryRepository } from "./automatic-memory-repository.js";
 import { recoveryStateCommitment } from "./anchor-coordinator.js";
 import {
   ACCEPTED_RECOVERY_DECISIONS,
@@ -212,6 +213,16 @@ import {
   type RecoveryEffectRecord,
   type RecoveryStorageState,
   type StorageHealth,
+  type AutomaticMemoryCaptureReceipt,
+  type AutomaticMemoryFormationJobMutationResult,
+  type AutomaticMemoryProject,
+  type AutomaticMemoryStatus,
+  type AutomaticMemoryActivityResult,
+  type AutomaticMemoryAdmissionLookupResult,
+  type ClaimAutomaticMemoryFormationJobsResult,
+  type CheckAutomaticMemoryConflictResult,
+  type RecordAutomaticMemoryFormationAuditResult,
+  type RecordAutomaticMemoryRecallUseResult,
 } from "./protocol.js";
 import type {
   EncryptionKeyInventory,
@@ -413,6 +424,7 @@ export class StorageDatabase {
   readonly #blobStore: BlobStore;
   readonly #fts: FtsIndex;
   readonly #governance: GovernanceRepository;
+  readonly #automaticMemory: AutomaticMemoryRepository;
   readonly #governedMemory: GovernedMemoryReader;
   readonly #workbench: WorkbenchReader;
   readonly #control: ControlRepository;
@@ -512,6 +524,7 @@ export class StorageDatabase {
       inspectionOnly: this.#inspectionOnly,
     });
     this.#governance = new GovernanceRepository(this.#database);
+    this.#automaticMemory = new AutomaticMemoryRepository(this.#database);
     this.#governedMemory = new GovernedMemoryReader(this.#database);
     this.#workbench = new WorkbenchReader(
       this.#database,
@@ -2795,6 +2808,66 @@ export class StorageDatabase {
 
   getWorkbenchGraph(input: unknown): WorkbenchGraphResult {
     return this.#workbench.graph(WorkbenchGraphQuerySchema.parse(input));
+  }
+
+  registerAutomaticMemoryProject(input: unknown): AutomaticMemoryProject {
+    return this.#automaticMemory.registerProject(input);
+  }
+
+  captureAutomaticMemoryEvent(
+    input: unknown,
+  ): AutomaticMemoryCaptureReceipt {
+    return this.#automaticMemory.capture(input);
+  }
+
+  claimAutomaticMemoryFormationJobs(
+    input: unknown,
+  ): ClaimAutomaticMemoryFormationJobsResult {
+    return this.#automaticMemory.claim(input);
+  }
+
+  completeAutomaticMemoryFormationJob(
+    input: unknown,
+  ): AutomaticMemoryFormationJobMutationResult {
+    return this.#automaticMemory.complete(input);
+  }
+
+  failAutomaticMemoryFormationJob(
+    input: unknown,
+  ): AutomaticMemoryFormationJobMutationResult {
+    return this.#automaticMemory.fail(input);
+  }
+
+  recordAutomaticMemoryFormationAudit(
+    input: unknown,
+  ): RecordAutomaticMemoryFormationAuditResult {
+    return this.#automaticMemory.recordFormationAudit(input);
+  }
+
+  checkAutomaticMemoryConflict(
+    input: unknown,
+  ): CheckAutomaticMemoryConflictResult {
+    return this.#automaticMemory.checkConflict(input);
+  }
+
+  recordAutomaticMemoryRecallUse(
+    input: unknown,
+  ): RecordAutomaticMemoryRecallUseResult {
+    return this.#automaticMemory.recordRecallUse(input);
+  }
+
+  listAutomaticMemoryActivity(input: unknown): AutomaticMemoryActivityResult {
+    return this.#automaticMemory.listActivity(input);
+  }
+
+  lookupAutomaticMemoryAdmission(
+    input: unknown,
+  ): AutomaticMemoryAdmissionLookupResult {
+    return this.#automaticMemory.lookupAutomaticAdmission(input);
+  }
+
+  automaticMemoryStatus(): AutomaticMemoryStatus {
+    return this.#automaticMemory.status();
   }
 
   commitEpisode(input: unknown): CommitResult {

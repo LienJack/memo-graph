@@ -74,6 +74,26 @@ import {
 import type { OperationalMigrationFailurePoint } from "./migrations.js";
 import { recoveryContentHash } from "./recovery-hash.js";
 import {
+  AutomaticMemoryCaptureReceiptSchema,
+  AutomaticMemoryFormationJobMutationResultSchema,
+  AutomaticMemoryProjectSchema,
+  AutomaticMemoryStatusSchema,
+  CaptureAutomaticMemoryEventCommandSchema,
+  ClaimAutomaticMemoryFormationJobsInputSchema,
+  ClaimAutomaticMemoryFormationJobsResultSchema,
+  CompleteAutomaticMemoryFormationJobCommandSchema,
+  FailAutomaticMemoryFormationJobCommandSchema,
+  RecordAutomaticMemoryFormationAuditCommandSchema,
+  RecordAutomaticMemoryFormationAuditResultSchema,
+  CheckAutomaticMemoryConflictInputSchema,
+  CheckAutomaticMemoryConflictResultSchema,
+  RecordAutomaticMemoryRecallUseCommandSchema,
+  RecordAutomaticMemoryRecallUseResultSchema,
+  AutomaticMemoryActivityQuerySchema,
+  AutomaticMemoryActivityResultSchema,
+  AutomaticMemoryAdmissionLookupInputSchema,
+  AutomaticMemoryAdmissionLookupResultSchema,
+  RegisterAutomaticMemoryProjectCommandSchema,
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
   ApplyVectorProjectionJobCommandSchema,
@@ -222,6 +242,25 @@ import {
   VectorProjectionStatusSchema,
   WorkerResponseSchema,
   type BackupResult,
+  type AutomaticMemoryCaptureReceipt,
+  type AutomaticMemoryFormationJobMutationResult,
+  type AutomaticMemoryProject,
+  type AutomaticMemoryStatus,
+  type CaptureAutomaticMemoryEventCommand,
+  type ClaimAutomaticMemoryFormationJobsInput,
+  type ClaimAutomaticMemoryFormationJobsResult,
+  type CompleteAutomaticMemoryFormationJobCommand,
+  type FailAutomaticMemoryFormationJobCommand,
+  type RecordAutomaticMemoryFormationAuditCommand,
+  type RecordAutomaticMemoryFormationAuditResult,
+  type CheckAutomaticMemoryConflictInput,
+  type CheckAutomaticMemoryConflictResult,
+  type RecordAutomaticMemoryRecallUseCommand,
+  type RecordAutomaticMemoryRecallUseResult,
+  type AutomaticMemoryActivityQuery,
+  type AutomaticMemoryActivityResult,
+  type AutomaticMemoryAdmissionLookupInput,
+  type AutomaticMemoryAdmissionLookupResult,
   type AuditPurgeArtifactsInput,
   type ApplyProjectionBatchCommand,
   type ApplyVectorProjectionJobCommand,
@@ -330,6 +369,7 @@ import {
   type VectorProjectionStatus,
   type WorkerOperation,
 } from "./protocol.js";
+import { resolveAutomaticMemoryProjectIdentity } from "./automatic-memory-repository.js";
 import { RootWriterLease } from "./root-lease.js";
 import {
   createSecretIngressCoordinator,
@@ -455,6 +495,7 @@ export type SqliteStorageClientOptions = {
   migrationsDir?: string;
   busyTimeoutMs?: number;
   testOperations?: boolean;
+  automaticMemoryPrincipalId?: string;
   secretPrincipalId?: string;
   testFaults?: {
     exitAfterCommitBeforeResponseOnce?: boolean;
@@ -489,6 +530,12 @@ export type SqliteStorageClientOptions = {
     runtimeIdentityProvider: RuntimeIdentityProvider;
     now?: () => string;
   };
+};
+
+export type RegisterAutomaticMemoryProjectInput = {
+  principal_id: string;
+  cwd: string;
+  registered_at: string;
 };
 
 export function recoveryProtectedIdempotencyKey(
@@ -573,6 +620,7 @@ export class SqliteStorageClient {
     migrationsDir: string;
     busyTimeoutMs: number;
     testOperations: boolean;
+    automaticMemoryPrincipalId: string | null;
     inspectionOnly: boolean;
     secretPrincipalId: string | null;
     databasePath: string;
@@ -641,9 +689,13 @@ export class SqliteStorageClient {
       databasePath: layout.database,
       migrationsDir:
         options.migrationsDir ??
-        fileURLToPath(new URL("../../../migrations", import.meta.url)),
+        fileURLToPath(new URL("../migrations", import.meta.url)),
       busyTimeoutMs: options.busyTimeoutMs ?? 5_000,
       testOperations: options.testOperations ?? false,
+      automaticMemoryPrincipalId:
+        options.automaticMemoryPrincipalId === undefined
+          ? null
+          : IdentifierSchema.parse(options.automaticMemoryPrincipalId),
       inspectionOnly,
       secretPrincipalId:
         options.secretPrincipalId === undefined
@@ -1988,6 +2040,168 @@ export class SqliteStorageClient {
     );
   }
 
+  async registerAutomaticMemoryProject(
+    input: RegisterAutomaticMemoryProjectInput,
+  ): Promise<AutomaticMemoryProject> {
+    this.#assertAutomaticMemoryPrincipal(input.principal_id);
+    const command = RegisterAutomaticMemoryProjectCommandSchema.parse({
+      schema_version: "1.0.0",
+      principal_id: input.principal_id,
+      identity: resolveAutomaticMemoryProjectIdentity(input.cwd),
+      registered_at: input.registered_at,
+    });
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "register_automatic_memory_project",
+          command,
+          AutomaticMemoryProjectSchema,
+        ),
+      "canonical_write",
+    );
+  }
+
+  async captureAutomaticMemoryEvent(
+    input: CaptureAutomaticMemoryEventCommand,
+  ): Promise<AutomaticMemoryCaptureReceipt> {
+    this.#assertAutomaticMemoryPrincipal(input.principal_id);
+    const command = CaptureAutomaticMemoryEventCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "capture_automatic_memory_event",
+          command,
+          AutomaticMemoryCaptureReceiptSchema,
+        ),
+      "canonical_write",
+    );
+  }
+
+  async claimAutomaticMemoryFormationJobs(
+    input: ClaimAutomaticMemoryFormationJobsInput,
+  ): Promise<ClaimAutomaticMemoryFormationJobsResult> {
+    this.#assertAutomaticMemoryPrincipal();
+    const command = ClaimAutomaticMemoryFormationJobsInputSchema.parse(input);
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "claim_automatic_memory_formation_jobs",
+          command,
+          ClaimAutomaticMemoryFormationJobsResultSchema,
+        ),
+      "canonical_write",
+    );
+  }
+
+  async completeAutomaticMemoryFormationJob(
+    input: CompleteAutomaticMemoryFormationJobCommand,
+  ): Promise<AutomaticMemoryFormationJobMutationResult> {
+    this.#assertAutomaticMemoryPrincipal();
+    const command = CompleteAutomaticMemoryFormationJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "complete_automatic_memory_formation_job",
+          command,
+          AutomaticMemoryFormationJobMutationResultSchema,
+        ),
+      "canonical_write",
+    );
+  }
+
+  async failAutomaticMemoryFormationJob(
+    input: FailAutomaticMemoryFormationJobCommand,
+  ): Promise<AutomaticMemoryFormationJobMutationResult> {
+    this.#assertAutomaticMemoryPrincipal();
+    const command = FailAutomaticMemoryFormationJobCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "fail_automatic_memory_formation_job",
+          command,
+          AutomaticMemoryFormationJobMutationResultSchema,
+        ),
+      "canonical_write",
+    );
+  }
+
+  async recordAutomaticMemoryFormationAudit(
+    input: RecordAutomaticMemoryFormationAuditCommand,
+  ): Promise<RecordAutomaticMemoryFormationAuditResult> {
+    this.#assertAutomaticMemoryPrincipal();
+    const command = RecordAutomaticMemoryFormationAuditCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "record_automatic_memory_formation_audit",
+          command,
+          RecordAutomaticMemoryFormationAuditResultSchema,
+        ),
+      "canonical_write",
+    );
+  }
+
+  async checkAutomaticMemoryConflict(
+    input: CheckAutomaticMemoryConflictInput,
+  ): Promise<CheckAutomaticMemoryConflictResult> {
+    this.#assertAutomaticMemoryPrincipal(input.principal_id);
+    const query = CheckAutomaticMemoryConflictInputSchema.parse(input);
+    return this.#request(
+      "check_automatic_memory_conflict",
+      query,
+      CheckAutomaticMemoryConflictResultSchema,
+    );
+  }
+
+  async recordAutomaticMemoryRecallUse(
+    input: RecordAutomaticMemoryRecallUseCommand,
+  ): Promise<RecordAutomaticMemoryRecallUseResult> {
+    this.#assertAutomaticMemoryPrincipal();
+    const command = RecordAutomaticMemoryRecallUseCommandSchema.parse(input);
+    return this.#writerQueue.enqueue(
+      () =>
+        this.#request(
+          "record_automatic_memory_recall_use",
+          command,
+          RecordAutomaticMemoryRecallUseResultSchema,
+        ),
+      "canonical_write",
+    );
+  }
+
+  async listAutomaticMemoryActivity(
+    input: AutomaticMemoryActivityQuery,
+  ): Promise<AutomaticMemoryActivityResult> {
+    this.#assertAutomaticMemoryPrincipal(input.principal_id);
+    const query = AutomaticMemoryActivityQuerySchema.parse(input);
+    return this.#request(
+      "list_automatic_memory_activity",
+      query,
+      AutomaticMemoryActivityResultSchema,
+    );
+  }
+
+  async lookupAutomaticMemoryAdmission(
+    input: AutomaticMemoryAdmissionLookupInput,
+  ): Promise<AutomaticMemoryAdmissionLookupResult> {
+    this.#assertAutomaticMemoryPrincipal(input.principal_id);
+    const query = AutomaticMemoryAdmissionLookupInputSchema.parse(input);
+    return this.#request(
+      "lookup_automatic_memory_admission",
+      query,
+      AutomaticMemoryAdmissionLookupResultSchema,
+    );
+  }
+
+  async automaticMemoryStatus(): Promise<AutomaticMemoryStatus> {
+    this.#assertAutomaticMemoryPrincipal();
+    return this.#request(
+      "automatic_memory_status",
+      null,
+      AutomaticMemoryStatusSchema,
+    );
+  }
+
   commitEpisode(
     input: unknown,
   ): Promise<DurableEpisodeReceipt> {
@@ -2780,6 +2994,16 @@ export class SqliteStorageClient {
       this.#closed = true;
       this.#closing = false;
       this.#rootLease?.release();
+    }
+  }
+
+  #assertAutomaticMemoryPrincipal(principalId?: string): void {
+    const configured = this.#options.automaticMemoryPrincipalId;
+    if (
+      configured === null ||
+      (principalId !== undefined && principalId !== configured)
+    ) {
+      throw new StorageError("INVALID_INPUT");
     }
   }
 }

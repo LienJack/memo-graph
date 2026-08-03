@@ -8,6 +8,10 @@ import type {
   WorkbenchGraphRequest,
   WorkbenchGraphResult,
   WorkbenchHealthResult,
+  WorkbenchAutomaticMemoryListRequest,
+  WorkbenchAutomaticMemoryListResult,
+  WorkbenchAutomaticMemoryUndoPreviewResult,
+  WorkbenchAutomaticMemoryUndoConfirmResult,
 } from "@memo-graph/contracts/workbench";
 
 export type MemoryWorkbenchApi = {
@@ -25,6 +29,19 @@ export type MemoryWorkbenchApi = {
     signal?: AbortSignal,
   ): Promise<WorkbenchGraphResult>;
   health(signal?: AbortSignal): Promise<WorkbenchHealthResult>;
+  automaticMemory(
+    request: WorkbenchAutomaticMemoryListRequest,
+    signal?: AbortSignal,
+  ): Promise<WorkbenchAutomaticMemoryListResult>;
+  previewAutomaticMemoryUndo(
+    memoryId: string,
+    expectedRevisionId: string,
+    signal?: AbortSignal,
+  ): Promise<WorkbenchAutomaticMemoryUndoPreviewResult>;
+  confirmAutomaticMemoryUndo(
+    previewId: string,
+    signal?: AbortSignal,
+  ): Promise<WorkbenchAutomaticMemoryUndoConfirmResult>;
   previewCorrection(
     draft: WorkbenchCorrectionDraft,
     signal?: AbortSignal,

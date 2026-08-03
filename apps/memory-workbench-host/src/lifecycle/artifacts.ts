@@ -19,10 +19,12 @@ import { join, resolve } from "node:path";
 
 import {
   WorkbenchEndpointMetadataSchema,
+  AutomaticMemoryHookDescriptorSchema,
   canonicalJson,
   type CanonicalHash,
   type RuntimeRootIdentity,
   type WorkbenchEndpointMetadata,
+  type AutomaticMemoryHookDescriptor,
 } from "@memo-graph/contracts";
 import { readPrivateOperatorFile } from "@memo-graph/runtime-host";
 
@@ -36,6 +38,8 @@ export type WorkbenchArtifactPaths = {
   runtimeDescriptorPath: string;
   runtimeCredentialPath: string;
   runtimeSocketPath: string;
+  hookDescriptorPath: string;
+  hookCredentialPath: string;
 };
 
 export function assertPrivateWorkbenchDirectory(pathInput: string): string {
@@ -81,6 +85,8 @@ export function workbenchArtifactPaths(input: {
     runtimeDescriptorPath: join(runtimeDirectory, `h-${stem}.json`),
     runtimeCredentialPath: join(runtimeDirectory, `h-${stem}.key`),
     runtimeSocketPath: join(runtimeDirectory, `h-${stem}.sock`),
+    hookDescriptorPath: join(runtimeDirectory, `k-${stem}.json`),
+    hookCredentialPath: join(runtimeDirectory, `k-${stem}.key`),
   };
 }
 
@@ -121,6 +127,27 @@ export function publishWorkbenchEndpoint(
 ): FileIdentity {
   const exact = WorkbenchEndpointMetadataSchema.parse(endpoint);
   return publishPrivateFile(path, `${canonicalJson(exact)}\n`);
+}
+
+export function publishAutomaticMemoryHookDescriptor(
+  path: string,
+  descriptor: AutomaticMemoryHookDescriptor,
+): FileIdentity {
+  const exact = AutomaticMemoryHookDescriptorSchema.parse(descriptor);
+  return publishPrivateFile(path, `${canonicalJson(exact)}\n`);
+}
+
+export function readAutomaticMemoryHookDescriptor(
+  path: string,
+): AutomaticMemoryHookDescriptor {
+  const bytes = readPrivateOperatorFile(path);
+  try {
+    return AutomaticMemoryHookDescriptorSchema.parse(
+      JSON.parse(bytes.toString("utf8")) as unknown,
+    );
+  } finally {
+    bytes.fill(0);
+  }
 }
 
 export function readWorkbenchEndpoint(path: string): WorkbenchEndpointMetadata {
