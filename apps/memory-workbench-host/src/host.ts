@@ -52,26 +52,49 @@ export type MemoryWorkbenchHost = {
   close(): Promise<void>;
 };
 
-async function settledRuntimeStatus(
-  runtime: ManagedRuntimeHost,
-  timeoutMs = 2_000,
-): Promise<OperationalStatus> {
-  const deadline = performance.now() + timeoutMs;
+export async function waitForSettledRuntimeStatus(options: {
+  observe(): Promise<{
+    status: OperationalStatus;
+    startupWorkPending: boolean;
+  }>;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+  now?: () => number;
+  delay?: (milliseconds: number) => Promise<void>;
+}): Promise<OperationalStatus> {
+  const now = options.now ?? (() => performance.now());
+  const delay = options.delay ?? (
+    (milliseconds: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
+  );
+  const deadline = now() + (options.timeoutMs ?? 10_000);
   while (true) {
-    const health = await runtime.runtime.storage.health();
-    const status = operationalStatusFromStorageHealth(health);
-    const startupWorkPending =
-      health.writer_queue.depth > 0 ||
-      health.writer_queue.active_operation !== null;
+    const { status, startupWorkPending } = await options.observe();
     if (
       status.readiness !== "blocked" ||
       !startupWorkPending ||
-      performance.now() >= deadline
+      now() >= deadline
     ) {
       return status;
     }
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await delay(options.pollIntervalMs ?? 20);
   }
+}
+
+async function settledRuntimeStatus(
+  runtime: ManagedRuntimeHost,
+): Promise<OperationalStatus> {
+  return waitForSettledRuntimeStatus({
+    observe: async () => {
+      const health = await runtime.runtime.storage.health();
+      return {
+        status: operationalStatusFromStorageHealth(health),
+        startupWorkPending:
+          health.writer_queue.depth > 0 ||
+          health.writer_queue.active_operation !== null,
+      };
+    },
+  });
 }
 
 export async function startMemoryWorkbenchHost(options: {

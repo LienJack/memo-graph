@@ -17,6 +17,7 @@ import { dirname, isAbsolute, join, relative, sep } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { WorkbenchEndpointMetadataSchema } from "../../packages/contracts/src/index.js";
 import {
   CORE_MEMORY_TOOLS,
   assertCoreMemoryTools,
@@ -25,6 +26,7 @@ import {
   resolveBootstrapPaths,
 } from "../../apps/codex-bootstrap/src/install-contract.js";
 import {
+  probeOwnerIdentityMatches,
   sanitizePortableDeployment,
   selectCompatibleCodexBinary,
 } from "../../apps/codex-bootstrap/src/install.js";
@@ -246,6 +248,47 @@ describe("Codex bootstrap installation contract", () => {
         "/private/state/workbench-runtime",
       ],
     });
+  });
+
+  it("recognizes an exact probe-started health-only owner without weakening upgrade takeover", () => {
+    const rootIdentity = {
+      canonical_root_hash: `sha256:${"a".repeat(64)}` as const,
+      device: "16777229",
+      inode: "121593381",
+    };
+    const configIdentity = `sha256:${"b".repeat(64)}` as const;
+    const controlCredentialPath = "/private/state/w-aaaaaaaa-bbbbbbb.key";
+    const runtimeDescriptorPath = "/private/state/h-aaaaaaaa-bbbbbbb.json";
+    const endpoint = WorkbenchEndpointMetadataSchema.parse({
+      schema_version: "1.0.0",
+      instance_id: "workbench:probe-health-only",
+      root_identity: rootIdentity,
+      config_identity: configIdentity,
+      runtime_state: "health_only",
+      origin: "http://127.0.0.1:43123",
+      port: 43123,
+      process_id: 43210,
+      control_credential_path: controlCredentialPath,
+      runtime_descriptor_path: null,
+      created_at: "2026-08-04T09:00:00.000Z",
+      ready_at: "2026-08-04T09:00:01.000Z",
+    });
+    const identity = {
+      rootIdentity: endpoint.root_identity,
+      configIdentity: endpoint.config_identity,
+      controlCredentialPath,
+      runtimeDescriptorPath,
+    };
+
+    expect(probeOwnerIdentityMatches(endpoint, identity, true)).toBe(true);
+    expect(probeOwnerIdentityMatches(endpoint, identity, false)).toBe(false);
+    expect(
+      probeOwnerIdentityMatches(
+        endpoint,
+        { ...identity, controlCredentialPath: "/private/state/other.key" },
+        true,
+      ),
+    ).toBe(false);
   });
 
   it("rejects a registration handshake that omits any core memory tool", () => {

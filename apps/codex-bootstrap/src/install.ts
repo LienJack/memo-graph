@@ -34,6 +34,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import {
   WorkbenchEndpointMetadataSchema,
   canonicalJson,
+  type WorkbenchEndpointMetadata,
 } from "@memo-graph/contracts";
 import { workbenchArtifactPaths } from "@memo-graph/memory-workbench-host";
 import { loadOperatorConfig } from "@memo-graph/operator-cli/config";
@@ -813,7 +814,32 @@ function diagnosticsContain(
   return false;
 }
 
-function expectedWorkbenchOwner(registration: CodexRegistration) {
+export function probeOwnerIdentityMatches(
+  endpoint: WorkbenchEndpointMetadata,
+  expected: {
+    rootIdentity: WorkbenchEndpointMetadata["root_identity"];
+    configIdentity: string;
+    controlCredentialPath: string;
+    runtimeDescriptorPath: string;
+  },
+  allowHealthOnlyWithoutRuntimeDescriptor: boolean,
+): boolean {
+  const runtimeDescriptorMatches =
+    endpoint.runtime_descriptor_path === expected.runtimeDescriptorPath ||
+    allowHealthOnlyWithoutRuntimeDescriptor &&
+      endpoint.runtime_state === "health_only" &&
+      endpoint.runtime_descriptor_path === null;
+  return endpoint.config_identity === expected.configIdentity &&
+    canonicalJson(endpoint.root_identity) === canonicalJson(expected.rootIdentity) &&
+    endpoint.control_credential_path === expected.controlCredentialPath &&
+    runtimeDescriptorMatches &&
+    endpoint.process_id > 1;
+}
+
+function expectedWorkbenchOwner(
+  registration: CodexRegistration,
+  allowHealthOnlyWithoutRuntimeDescriptor = false,
+) {
   const operatorConfigPath = registrationArgument(
     registration,
     "--operator-config",
@@ -838,13 +864,12 @@ function expectedWorkbenchOwner(registration: CodexRegistration) {
   const endpoint = WorkbenchEndpointMetadataSchema.parse(
     JSON.parse(readFileSync(paths.endpointPath, "utf8")) as unknown,
   );
-  if (
-    endpoint.config_identity !== configIdentity ||
-    canonicalJson(endpoint.root_identity) !== canonicalJson(rootIdentity) ||
-    endpoint.control_credential_path !== paths.controlCredentialPath ||
-    endpoint.runtime_descriptor_path !== paths.runtimeDescriptorPath ||
-    endpoint.process_id <= 1
-  ) {
+  if (!probeOwnerIdentityMatches(endpoint, {
+    rootIdentity,
+    configIdentity,
+    controlCredentialPath: paths.controlCredentialPath,
+    runtimeDescriptorPath: paths.runtimeDescriptorPath,
+  }, allowHealthOnlyWithoutRuntimeDescriptor)) {
     throw new Error("PROBE_OWNER_IDENTITY_MISMATCH");
   }
   return { endpoint };
@@ -889,7 +914,7 @@ async function stopStartedProbeWorkbench(
   if (instanceId === null) {
     return;
   }
-  const owner = expectedWorkbenchOwner(registration);
+  const owner = expectedWorkbenchOwner(registration, true);
   if (owner === null) {
     return;
   }
