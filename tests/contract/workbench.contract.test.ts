@@ -4,6 +4,9 @@ import {
   WorkbenchCorrectionConfirmRequestSchema,
   WorkbenchCorrectionImpactSchema,
   WorkbenchCorrectionPreviewResultSchema,
+  WorkbenchAutomaticMemoryListResultSchema,
+  WorkbenchAutomaticMemoryUndoConfirmRequestSchema,
+  WorkbenchAutomaticMemoryUndoPreviewResultSchema,
   WorkbenchGraphRequestSchema,
   WorkbenchGraphResultSchema,
   WorkbenchHealthResultSchema,
@@ -107,6 +110,85 @@ const health = {
 };
 
 describe("workbench contracts", () => {
+  it("keeps automatic formation metadata inspectable and undo confirmation explicit", () => {
+    const activity = WorkbenchAutomaticMemoryListResultSchema.parse({
+      status: "ready",
+      overview: {
+        projects: 1,
+        events: 2,
+        turns: 1,
+        pending: 0,
+        completed: 1,
+        quarantined: 0,
+        recall_uses: 3,
+      },
+      items: [{
+        turn_key: "turn_key_1",
+        project_id: "project_1",
+        scope: { kind: "workspace", id: "workspace_1" },
+        session_id: "session_1",
+        turn_id: "turn_1",
+        generation: 1,
+        state: "completed",
+        user_captured_at: timestamp,
+        assistant_captured_at: timestamp,
+        job: {
+          job_id: "job_1",
+          status: "completed",
+          attempts: 1,
+          updated_at: timestamp,
+        },
+        provider: {
+          provider_id: "openai",
+          model: "gpt-5.6-luna",
+          state: "succeeded",
+          redaction_action: "accepted",
+          input_tokens: 80,
+          output_tokens: 20,
+          latency_ms: 400,
+          completed_at: timestamp,
+        },
+        decisions: [{
+          decision_id: "decision_1",
+          proposal_id: "proposal_1",
+          disposition: "activate",
+          reason_codes: ["eligible_for_activation"],
+          requires_user_confirmation: false,
+          decided_at: timestamp,
+          candidate_id: "candidate_1",
+          memory_id: "memory_1",
+          revision_id: "revision_1",
+          receipt_id: "receipt_1",
+          memory_scope: { kind: "user", id: "user_local" },
+          current_lifecycle: "active",
+        }],
+      }],
+      warnings: [],
+    });
+    if (activity.status !== "ready") throw new Error("expected activity");
+    expect(activity.items[0]?.decisions[0]?.memory_scope).toEqual({
+      kind: "user",
+      id: "user_local",
+    });
+    expect(activity.items[0]?.decisions[0]?.current_lifecycle).toBe("active");
+
+    const preview = WorkbenchAutomaticMemoryUndoPreviewResultSchema.parse({
+      status: "ready",
+      preview_id: "preview_automatic_1",
+      memory_id: "memory_1",
+      expected_revision_id: "revision_1",
+      effect: "demote_from_automatic_recall",
+      expires_at: "2026-08-02T06:05:00.000Z",
+      warnings: ["history_and_provenance_are_preserved"],
+    });
+    if (preview.status !== "ready") throw new Error("expected undo preview");
+    expect(preview.effect).toBe("demote_from_automatic_recall");
+    expect(() => WorkbenchAutomaticMemoryUndoConfirmRequestSchema.parse({
+      preview_id: preview.preview_id,
+      confirmed: false,
+    })).toThrow();
+  });
+
   it("keeps health authority, scope, and freshness explicit", () => {
     const parsed = WorkbenchHealthResultSchema.parse(health);
 

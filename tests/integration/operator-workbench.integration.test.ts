@@ -49,7 +49,7 @@ function launchResult(
     runtime_state: "ready",
     origin: "http://127.0.0.1:49152",
     browser: "suppressed",
-    recovery: "pair_on_tty",
+    recovery: "open_launch_url",
     ...overrides,
   });
 }
@@ -127,12 +127,12 @@ describe("operator workbench command", () => {
     });
   });
 
-  it("never emits pairing authority in JSON output", async () => {
+  it("never emits launch authority in JSON output", async () => {
     const current = fixture();
     const stdout: string[] = [];
     const launcher = vi.fn(async () => ({
       result: launchResult(),
-      pairingCode: "ABCDEFGHJKM2",
+      launchUrl: "http://127.0.0.1:49152/#ticket=secret",
       processId: 12_345,
     }));
 
@@ -160,10 +160,10 @@ describe("operator workbench command", () => {
     expect(code).toBe(0);
     expect(launcher).toHaveBeenCalledOnce();
     expect(JSON.parse(stdout.join(""))).toEqual(launchResult());
-    expect(stdout.join("")).not.toContain("ABCDEFGHJKM2");
+    expect(stdout.join("")).not.toContain("ticket=secret");
   });
 
-  it("reveals a pairing code only on a controlling human TTY", async () => {
+  it("reveals a launch URL only on a controlling human TTY", async () => {
     const current = fixture();
     const ttyOutput: string[] = [];
     const launcher = vi.fn(async () => ({
@@ -171,7 +171,7 @@ describe("operator workbench command", () => {
         status: "reused",
         browser: "failed",
       }),
-      pairingCode: "ABCDEFGHJKM2",
+      launchUrl: "http://127.0.0.1:49152/#ticket=secret",
       processId: 12_345,
     }));
 
@@ -192,7 +192,8 @@ describe("operator workbench command", () => {
 
     expect(code).toBe(2);
     expect(ttyOutput.join("")).toContain("url: http://127.0.0.1:49152");
-    expect(ttyOutput.join("")).toContain("pairing code: ABCDEFGHJKM2");
+    expect(ttyOutput.join(""))
+      .toContain("launch url: http://127.0.0.1:49152/#ticket=secret");
 
     const redirected: string[] = [];
     await runOperatorCli(
@@ -208,6 +209,6 @@ describe("operator workbench command", () => {
       },
       { workbenchLauncher: launcher },
     );
-    expect(redirected.join("")).not.toContain("ABCDEFGHJKM2");
+    expect(redirected.join("")).not.toContain("ticket=secret");
   });
 });

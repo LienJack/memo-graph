@@ -70,7 +70,7 @@ export class WorkbenchLaunchError extends Error {
 
 export type WorkbenchLaunchOutcome = {
   result: WorkbenchLaunchResult;
-  pairingCode: string | null;
+  launchUrl: string | null;
   processId: number;
 };
 
@@ -153,14 +153,13 @@ async function requestBootstrap(input: {
   endpoint: WorkbenchEndpointMetadata;
   paths: WorkbenchArtifactPaths;
   config: MemoryServerConfig;
-  mode: "ticket" | "pairing";
   timeoutMs: number;
 }) {
   assertExpectedEndpoint(input.endpoint, input.paths, input.config);
   const credential = readControlCredential(
     input.endpoint.control_credential_path,
   );
-  const body = { mode: input.mode } as const;
+  const body = {};
   const nonce = randomBytes(24).toString("base64url");
   const proof = createWorkbenchControlProof({
     credential,
@@ -262,6 +261,8 @@ function cleanupStaleArtifacts(input: {
     input.paths.runtimeDescriptorPath,
     input.paths.runtimeCredentialPath,
     input.paths.runtimeSocketPath,
+    input.paths.hookDescriptorPath,
+    input.paths.hookCredentialPath,
   ];
   if (input.endpoint?.runtime_descriptor_path !== null) {
     try {
@@ -302,7 +303,6 @@ function readExpectedEndpoint(input: {
 async function existingEndpoint(input: {
   paths: WorkbenchArtifactPaths;
   config: MemoryServerConfig;
-  mode: "ticket" | "pairing";
   timeoutMs: number;
 }): Promise<{
   endpoint: WorkbenchEndpointMetadata;
@@ -319,7 +319,6 @@ async function existingEndpoint(input: {
         endpoint,
         paths: input.paths,
         config: input.config,
-        mode: input.mode,
         timeoutMs: input.timeoutMs,
       }),
     };
@@ -451,8 +450,7 @@ export async function launchOrReuseWorkbench(options: {
     rootIdentity,
     configIdentity,
   });
-  const wantsPairing = options.noOpen === true || options.headless === true;
-  const bootstrapMode = wantsPairing ? "pairing" : "ticket";
+  const suppressBrowser = options.noOpen === true || options.headless === true;
   const deadline = Date.now() + (options.lockTimeoutMs ?? 5_000);
   const launchId = randomUUID();
   let lock = null;
@@ -460,7 +458,6 @@ export async function launchOrReuseWorkbench(options: {
     const reused = await existingEndpoint({
       paths,
       config,
-      mode: bootstrapMode,
       timeoutMs: 750,
     });
     if (reused !== null) {
@@ -468,7 +465,7 @@ export async function launchOrReuseWorkbench(options: {
         status: "reused",
         endpoint: reused.endpoint,
         bootstrap: reused.bootstrap,
-        wantsPairing,
+        suppressBrowser,
         paths,
         config,
         timeoutMs: 750,
@@ -502,7 +499,6 @@ export async function launchOrReuseWorkbench(options: {
     const existing = await existingEndpoint({
       paths,
       config,
-      mode: bootstrapMode,
       timeoutMs: 750,
     });
     if (existing !== null) {
@@ -510,7 +506,7 @@ export async function launchOrReuseWorkbench(options: {
         status: "reused",
         endpoint: existing.endpoint,
         bootstrap: existing.bootstrap,
-        wantsPairing,
+        suppressBrowser,
         paths,
         config,
         timeoutMs: 750,
@@ -570,22 +566,14 @@ export async function launchOrReuseWorkbench(options: {
     child.stderr?.destroy();
     child.stdout?.destroy();
     child.unref();
-    const bootstrap = wantsPairing
-      ? await requestBootstrap({
-          endpoint: ready.endpoint,
-          paths,
-          config,
-          mode: "pairing",
-          timeoutMs: 750,
-        })
-      : WorkbenchControlBootstrapResponseSchema.parse(
-          ready.initial_bootstrap,
-        );
+    const bootstrap = WorkbenchControlBootstrapResponseSchema.parse(
+      ready.initial_bootstrap,
+    );
     return await finishLaunch({
       status: "started",
       endpoint: ready.endpoint,
       bootstrap,
-      wantsPairing,
+      suppressBrowser,
       paths,
       config,
       timeoutMs: 750,
@@ -608,34 +596,34 @@ async function finishLaunch(input: {
   status: "started" | "reused";
   endpoint: WorkbenchEndpointMetadata;
   bootstrap: z.infer<typeof WorkbenchControlBootstrapResponseSchema>;
-  wantsPairing: boolean;
+  suppressBrowser: boolean;
   paths: WorkbenchArtifactPaths;
   config: MemoryServerConfig;
   timeoutMs: number;
   browserOpener?: (url: string) => Promise<void>;
 }): Promise<WorkbenchLaunchOutcome> {
-  let browser: "opened" | "suppressed" | "failed" = "suppressed";
-  let pairingCode = input.bootstrap.pairing_code;
-  if (!input.wantsPairing) {
-    const ticket = input.bootstrap.ticket;
-    if (ticket === null) {
-      throw new WorkbenchLaunchError("WORKBENCH_START_FAILED");
-    }
+  let browser: "opened" | "suppressed" | "failed" = input.suppressBrowser
+    ? "suppressed"
+    : "opened";
+  const launchUrl = (ticket: string): string =>
+    `${input.endpoint.origin}/#ticket=${ticket}&instance=${input.endpoint.instance_id}`;
+  let pendingLaunchUrl: string | null = launchUrl(input.bootstrap.ticket);
+  if (!input.suppressBrowser) {
     try {
       await (input.browserOpener ?? defaultBrowserOpener)(
-        `${input.endpoint.origin}/#ticket=${ticket}&instance=${input.endpoint.instance_id}`,
+        pendingLaunchUrl,
       );
       browser = "opened";
+      pendingLaunchUrl = null;
     } catch {
       browser = "failed";
       const recovery = await requestBootstrap({
         endpoint: input.endpoint,
         paths: input.paths,
         config: input.config,
-        mode: "pairing",
         timeoutMs: input.timeoutMs,
       });
-      pairingCode = recovery.pairing_code;
+      pendingLaunchUrl = launchUrl(recovery.ticket);
     }
   }
   return {
@@ -646,14 +634,9 @@ async function finishLaunch(input: {
       runtime_state: input.endpoint.runtime_state,
       origin: input.endpoint.origin,
       browser,
-      recovery:
-        browser === "opened"
-          ? "none"
-          : pairingCode === null
-            ? "open_base_url"
-            : "pair_on_tty",
+      recovery: browser === "opened" ? "none" : "open_launch_url",
     }),
-    pairingCode,
+    launchUrl: pendingLaunchUrl,
     processId: input.endpoint.process_id,
   };
 }

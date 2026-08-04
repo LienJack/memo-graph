@@ -5,6 +5,7 @@ import {
   EvidenceRecordSchema,
   MemoryCandidateSchema,
   MemoryCorrectInputSchema,
+  MemoryDemoteInputSchema,
   WorkbenchCorrectionConfirmRequestSchema,
   WorkbenchCorrectionConfirmResultSchema,
   WorkbenchCorrectionDraftSchema,
@@ -13,6 +14,12 @@ import {
   WorkbenchMemoryDetailResultSchema,
   WorkbenchGraphRequestSchema,
   WorkbenchGraphResultSchema,
+  WorkbenchAutomaticMemoryListRequestSchema,
+  WorkbenchAutomaticMemoryListResultSchema,
+  WorkbenchAutomaticMemoryUndoConfirmRequestSchema,
+  WorkbenchAutomaticMemoryUndoConfirmResultSchema,
+  WorkbenchAutomaticMemoryUndoPreviewRequestSchema,
+  WorkbenchAutomaticMemoryUndoPreviewResultSchema,
   WorkbenchMemoryListRequestSchema,
   WorkbenchMemoryListResultSchema,
   canonicalSha256,
@@ -26,6 +33,9 @@ import {
   type WorkbenchOpaqueCursor,
   type WorkbenchCorrectionConfirmResult,
   type WorkbenchCorrectionPreviewResult,
+  type WorkbenchAutomaticMemoryListResult,
+  type WorkbenchAutomaticMemoryUndoConfirmResult,
+  type WorkbenchAutomaticMemoryUndoPreviewResult,
 } from "@memo-graph/contracts";
 import {
   StorageError,
@@ -35,6 +45,7 @@ import {
 import { evaluateAdmission } from "./governance.js";
 import {
   WorkbenchApprovalRegistry,
+  WorkbenchAutomaticUndoRegistry,
   WorkbenchPreviewError,
 } from "./workbench-approval.js";
 
@@ -79,6 +90,9 @@ type WorkbenchStoragePort = Pick<
   | "getWorkbenchGraph"
   | "previewWorkbenchCorrection"
   | "applyMemoryRevision"
+  | "listAutomaticMemoryActivity"
+  | "lookupAutomaticMemoryAdmission"
+  | "applyMemoryControl"
 >;
 
 function hasActiveFilter(request: ParsedWorkbenchMemoryListRequest): boolean {
@@ -125,6 +139,7 @@ export class WorkbenchService {
   readonly #maxHistory: number;
   readonly #maxProvenanceNodes: number;
   readonly #approvals: WorkbenchApprovalRegistry;
+  readonly #automaticUndo: WorkbenchAutomaticUndoRegistry;
   readonly #sessionId: string;
   readonly #idFactory: (prefix: string) => string;
   readonly #previewTtlMs: number;
@@ -141,6 +156,7 @@ export class WorkbenchService {
     maxHistory?: number;
     maxProvenanceNodes?: number;
     approvals?: WorkbenchApprovalRegistry;
+    automaticUndo?: WorkbenchAutomaticUndoRegistry;
     sessionId?: string;
     idFactory?: (prefix: string) => string;
     previewTtlMs?: number;
@@ -157,6 +173,8 @@ export class WorkbenchService {
     this.#maxProvenanceNodes = options.maxProvenanceNodes ?? 300;
     this.#approvals =
       options.approvals ?? new WorkbenchApprovalRegistry({ clock: this.#clock });
+    this.#automaticUndo = options.automaticUndo ??
+      new WorkbenchAutomaticUndoRegistry({ clock: this.#clock });
     this.#sessionId = options.sessionId ?? "workbench_session_local";
     this.#idFactory =
       options.idFactory ?? ((prefix) => `${prefix}:${randomUUID()}`);
@@ -332,6 +350,209 @@ export class WorkbenchService {
         status: "failed",
         reason_code:
           error instanceof StorageError ? error.code : "WORKBENCH_GRAPH_FAILED",
+        retryable: error instanceof StorageError ? error.retryable : false,
+        warnings: [],
+      });
+    }
+  }
+
+  async automaticMemory(
+    input: unknown,
+  ): Promise<WorkbenchAutomaticMemoryListResult> {
+    const request = WorkbenchAutomaticMemoryListRequestSchema.safeParse(input);
+    if (!request.success) {
+      return WorkbenchAutomaticMemoryListResultSchema.parse({
+        status: "failed",
+        reason_code: "INVALID_REQUEST",
+        retryable: false,
+        warnings: [],
+      });
+    }
+    try {
+      return await this.#storage.listAutomaticMemoryActivity({
+        principal_id: this.#authority.principal_id,
+        allowed_scopes: this.#authority.allowed_scopes,
+        limit: request.data.limit,
+      });
+    } catch (error) {
+      return WorkbenchAutomaticMemoryListResultSchema.parse({
+        status: "failed",
+        reason_code:
+          error instanceof StorageError ? error.code : "AUTOMATIC_MEMORY_READ_FAILED",
+        retryable: error instanceof StorageError ? error.retryable : false,
+        warnings: [],
+      });
+    }
+  }
+
+  async previewAutomaticMemoryUndo(
+    input: unknown,
+  ): Promise<WorkbenchAutomaticMemoryUndoPreviewResult> {
+    const request = WorkbenchAutomaticMemoryUndoPreviewRequestSchema.safeParse(input);
+    if (!request.success) {
+      return WorkbenchAutomaticMemoryUndoPreviewResultSchema.parse({
+        status: "failed",
+        reason_code: "INVALID_REQUEST",
+        retryable: false,
+        warnings: [],
+      });
+    }
+    try {
+      const admission = await this.#storage.lookupAutomaticMemoryAdmission({
+        principal_id: this.#authority.principal_id,
+        allowed_scopes: this.#authority.allowed_scopes,
+        memory_id: request.data.memory_id,
+        revision_id: request.data.expected_revision_id,
+      });
+      if (admission === null) {
+        return WorkbenchAutomaticMemoryUndoPreviewResultSchema.parse({
+          status: "governance_excluded",
+          reason_code: "NOT_AUTOMATICALLY_ACTIVATED",
+          retryable: false,
+          warnings: [],
+        });
+      }
+      const now = this.#clock();
+      const previewId = this.#idFactory("automatic-undo-preview");
+      const operationId = this.#idFactory("automatic-undo");
+      const approvalId = this.#idFactory("automatic-undo-approval");
+      const expiresAt = new Date(Date.parse(now) + this.#previewTtlMs).toISOString();
+      const commonEnvelope = {
+        schema_version: "1.0.0",
+        tool: "memory_demote",
+        safety_class: "important_mutation",
+        actor_claim: {
+          principal_id: this.#authority.principal_id,
+          authority: "user_stated",
+        },
+        scopes: [admission.scope],
+        purpose: "Undo an automatically activated memory after user review",
+        reason: "User confirmed that this automatic memory should not remain active",
+        requested_at: now,
+        expected_revision_id: request.data.expected_revision_id,
+      } as const;
+      const previewRequest = MemoryDemoteInputSchema.parse({
+        envelope: {
+          ...commonEnvelope,
+          request_id: this.#idFactory("automatic-undo-preview-request"),
+          idempotency_key: `${operationId}:preview`,
+          approval_id: null,
+          dry_run: true,
+        },
+        memory_id: request.data.memory_id,
+      });
+      const storagePreview = await this.#storage.applyMemoryControl({
+        request: previewRequest,
+        approval: null,
+      });
+      if (
+        storagePreview.outcome !== "DRY_RUN" ||
+        storagePreview.current_revision_id !== request.data.expected_revision_id
+      ) {
+        return WorkbenchAutomaticMemoryUndoPreviewResultSchema.parse({
+          status: "stale",
+          reason_code: "STALE_REVISION",
+          retryable: false,
+          warnings: [],
+        });
+      }
+      const effectRequest = MemoryDemoteInputSchema.parse({
+        envelope: {
+          ...commonEnvelope,
+          request_id: this.#idFactory("automatic-undo-request"),
+          idempotency_key: operationId,
+          approval_id: approvalId,
+          dry_run: false,
+        },
+        memory_id: request.data.memory_id,
+      });
+      const preview = WorkbenchAutomaticMemoryUndoPreviewResultSchema.parse({
+        status: "ready",
+        preview_id: previewId,
+        memory_id: request.data.memory_id,
+        expected_revision_id: request.data.expected_revision_id,
+        effect: "demote_from_automatic_recall",
+        expires_at: expiresAt,
+        warnings: ["history_and_provenance_are_preserved"],
+      });
+      if (preview.status !== "ready") {
+        throw new Error("ready automatic undo preview failed validation");
+      }
+      this.#automaticUndo.prepare({
+        session_id: this.#sessionId,
+        preview,
+        request: effectRequest,
+        approval_id: approvalId,
+      });
+      return preview;
+    } catch (error) {
+      const stale = error instanceof StorageError && error.code === "STALE_REVISION";
+      return WorkbenchAutomaticMemoryUndoPreviewResultSchema.parse({
+        status: stale ? "stale" : "failed",
+        reason_code: stale
+          ? "STALE_REVISION"
+          : error instanceof StorageError
+            ? error.code
+            : "AUTOMATIC_MEMORY_UNDO_PREVIEW_FAILED",
+        retryable: error instanceof StorageError ? error.retryable : false,
+        warnings: [],
+      });
+    }
+  }
+
+  async confirmAutomaticMemoryUndo(
+    input: unknown,
+  ): Promise<WorkbenchAutomaticMemoryUndoConfirmResult> {
+    const request = WorkbenchAutomaticMemoryUndoConfirmRequestSchema.safeParse(input);
+    if (!request.success) {
+      return WorkbenchAutomaticMemoryUndoConfirmResultSchema.parse({
+        status: "failed",
+        reason_code: "INVALID_REQUEST",
+        retryable: false,
+        warnings: [],
+      });
+    }
+    try {
+      const prepared = this.#automaticUndo.confirm(
+        request.data.preview_id,
+        this.#sessionId,
+      );
+      const result = await this.#storage.applyMemoryControl({
+        request: prepared.request,
+        approval: {
+          grant: prepared.grant,
+          registry_hash: canonicalSha256({
+            preview_id: prepared.preview.preview_id,
+            approval_id: prepared.grant.approval_id,
+            request_hash: prepared.request_hash,
+          }),
+          verified_at: prepared.confirmed_at,
+        },
+      });
+      if (result.outcome !== "DEMOTED" || result.lifecycle !== "candidate") {
+        throw new Error("automatic memory undo did not demote the memory");
+      }
+      return WorkbenchAutomaticMemoryUndoConfirmResultSchema.parse({
+        status: "ready",
+        memory_id: result.memory_id,
+        current_revision_id: result.current_revision_id,
+        lifecycle: result.lifecycle,
+        replayed: result.replayed,
+        receipt: result.receipt,
+        warnings: result.receipt.warnings,
+      });
+    } catch (error) {
+      const previewError = error instanceof WorkbenchPreviewError;
+      const stale = error instanceof StorageError && error.code === "STALE_REVISION";
+      return WorkbenchAutomaticMemoryUndoConfirmResultSchema.parse({
+        status: previewError || stale ? "stale" : "failed",
+        reason_code: previewError
+          ? error.code
+          : stale
+            ? "STALE_REVISION"
+            : error instanceof StorageError
+              ? error.code
+              : "AUTOMATIC_MEMORY_UNDO_FAILED",
         retryable: error instanceof StorageError ? error.retryable : false,
         warnings: [],
       });

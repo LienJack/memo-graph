@@ -9,6 +9,7 @@ import {
   type EvidenceAdapterRequest,
   type EvidenceIngestItem,
 } from "@memo-graph/contracts";
+import type { z } from "zod";
 
 function authorityFor(item: EvidenceIngestItem): Authority {
   if (item.kind === "conversation_turn") {
@@ -30,7 +31,9 @@ function mediaTypeFor(item: EvidenceIngestItem): string {
   return item.kind === "text_file" ? item.media_type : "text/plain";
 }
 
-export function adaptEvidenceFastL0(input: EvidenceAdapterRequest): EvidenceAdaptation {
+export function adaptEvidenceFastL0(
+  input: z.input<typeof EvidenceAdapterRequestSchema>,
+): EvidenceAdaptation {
   const request = EvidenceAdapterRequestSchema.parse(input);
   const episodeId = `episode:${canonicalSha256({
     domain: "memo-graph/evidence-adapter/episode/v1",

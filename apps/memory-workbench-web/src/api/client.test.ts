@@ -67,4 +67,63 @@ describe("WorkbenchApiClient", () => {
     expect(observed.headers?.get("Authorization")).toBe("Bearer page-secret");
     expect(observed.headers?.get("Content-Type")).toBeNull();
   });
+
+  it("binds automatic undo to preview then explicit confirmation endpoints", async () => {
+    const paths: string[] = [];
+    const fetchImpl: typeof fetch = async (input) => {
+      paths.push(String(input));
+      if (String(input).endsWith("/preview")) {
+        return Response.json({
+          status: "ready",
+          preview_id: "preview_automatic_1",
+          memory_id: "memory_1",
+          expected_revision_id: "revision_1",
+          effect: "demote_from_automatic_recall",
+          expires_at: "2026-08-03T08:05:00.000Z",
+          warnings: ["history_and_provenance_are_preserved"],
+        });
+      }
+      return Response.json({
+        status: "ready",
+        memory_id: "memory_1",
+        current_revision_id: "revision_1",
+        lifecycle: "candidate",
+        replayed: false,
+        receipt: {
+          schema_version: "1.0.0",
+          receipt_id: "receipt_automatic_undo_1",
+          created_at: "2026-08-03T08:00:00.000Z",
+          state: "durable",
+          request_hash: `sha256:${"a".repeat(64)}`,
+          receipt_hash: `sha256:${"b".repeat(64)}`,
+          kind: "mutation",
+          idempotency_key: "automatic-undo-operation-1",
+          affected_memory_ids: ["memory_1"],
+          affected_revision_ids: ["revision_1"],
+          resulting_epoch: 2,
+          projection_jobs: [],
+          warnings: [],
+        },
+        warnings: [],
+      });
+    };
+    const client = new WorkbenchApiClient({
+      bearer: "page-secret",
+      instanceId: "instance-1",
+      fetchImpl,
+    });
+
+    const preview = await client.previewAutomaticMemoryUndo(
+      "memory_1",
+      "revision_1",
+    );
+    expect(preview.status).toBe("ready");
+    if (preview.status !== "ready") throw new Error("expected preview");
+    await expect(client.confirmAutomaticMemoryUndo(preview.preview_id)).resolves
+      .toMatchObject({ status: "ready", lifecycle: "candidate" });
+    expect(paths).toEqual([
+      "/api/workbench/automatic-memory/undo/preview",
+      "/api/workbench/automatic-memory/undo/confirm",
+    ]);
+  });
 });

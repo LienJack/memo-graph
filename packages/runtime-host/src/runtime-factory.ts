@@ -21,15 +21,18 @@ import {
   CanonicalHashSchema,
   GraphBackendIdentitySchema,
   GraphQueryModeSchema,
+  IdentifierSchema,
   LanePolicySchema,
   RelationTypeSchema,
   ScopeSchema,
+  UtcTimestampSchema,
   VectorEmbeddingEpochSchema,
   canonicalSha256,
   type CanonicalHash,
   type OperationalStatus,
   type RuntimeRootIdentity,
 } from "@memo-graph/contracts";
+import { adaptEvidenceFastL0 } from "@memo-graph/evidence-adapter";
 import {
   ExactScopeGraphProjector,
   GraphProcessHost,
@@ -41,10 +44,16 @@ import {
   MemoryRuntime,
 } from "@memo-graph/memory-kernel";
 import {
+  MemoryFormationService,
+  OpenAIResponsesFormationProvider,
+  type MemoryFormationProvider,
+} from "@memo-graph/memory-formation";
+import {
   blockedOperationalStatus,
   FileRecoveryHeadProvider,
   operationalStatusFromStorageHealth,
   SqliteStorageClient,
+  GovernanceMutationResultSchema,
 } from "@memo-graph/storage-sqlite";
 import {
   SemanticVectorRetriever,
@@ -123,6 +132,27 @@ const RecoveryHeadConfigSchema = z
   ])
   .default({ enabled: false });
 
+const AutomaticMemoryConfigSchema = z
+  .object({
+    mode: z.enum(["disabled", "observe", "balanced"]).default("disabled"),
+    provider: z.discriminatedUnion("enabled", [
+      z.object({ enabled: z.literal(false) }).strict(),
+      z.object({
+        enabled: z.literal(true),
+        kind: z.literal("openai_responses"),
+        model: z.string().trim().min(1).max(240),
+        api_key_env: z.string().regex(/^[A-Z][A-Z0-9_]{1,79}$/u),
+        endpoint: z.url().startsWith("https://").default(
+          "https://api.openai.com/v1/responses",
+        ),
+        timeout_ms: z.number().int().min(1_000).max(60_000).default(20_000),
+      }).strict(),
+    ]).default({ enabled: false }),
+    sensitive_identifiers: z.array(z.string().min(3).max(240)).max(64).default([]),
+  })
+  .strict()
+  .default({ mode: "disabled", provider: { enabled: false }, sensitive_identifiers: [] });
+
 export const MemoryServerConfigSchema = z
   .object({
     data_root: z.string().trim().min(1),
@@ -155,6 +185,7 @@ export const MemoryServerConfigSchema = z
     graph: GraphServerConfigSchema,
     vector: VectorServerConfigSchema,
     recovery_head: RecoveryHeadConfigSchema,
+    automatic_memory: AutomaticMemoryConfigSchema,
   })
   .strict();
 
@@ -267,6 +298,10 @@ export async function openMemoryRuntime(
   options: {
     mode?: RuntimeOpenMode;
     backgroundLanes?: BackgroundLane[];
+    automaticMemoryProvider?: {
+      provider: MemoryFormationProvider;
+      model: string;
+    };
   } = {},
 ): Promise<OpenedMemoryRuntime> {
   const mode = options.mode ?? "direct";
@@ -303,6 +338,9 @@ export async function openMemoryRuntime(
     : undefined;
   const storage = await SqliteStorageClient.open({
     dataRoot: config.data_root,
+    ...(mode === "managed"
+      ? { automaticMemoryPrincipalId: config.principal_id }
+      : {}),
     recoveryHeadProvider: recoveryHeadProvider ?? null,
   });
   let graphRetriever: GraphRecallRetriever | undefined;
@@ -417,6 +455,149 @@ export async function openMemoryRuntime(
     if (mode === "managed") {
       const consolidation = new ConsolidationService({ storage });
       const workerId = `runtime_host_${randomUUID()}`;
+      const configuredProvider = options.automaticMemoryProvider ?? (() => {
+        const provider = config.automatic_memory.provider;
+        if (provider.enabled === false) {
+          return null;
+        }
+        const apiKey = process.env[provider.api_key_env];
+        if (apiKey === undefined || apiKey.trim().length === 0) {
+          return null;
+        }
+        return {
+          model: provider.model,
+          provider: new OpenAIResponsesFormationProvider({
+            apiKey,
+            model: provider.model,
+            endpoint: provider.endpoint,
+            timeoutMs: provider.timeout_ms,
+          }),
+        };
+      })();
+      const formationService =
+        config.automatic_memory.mode === "disabled" || configuredProvider === null
+          ? null
+          : new MemoryFormationService({
+              provider: configuredProvider.provider,
+              model: configuredProvider.model,
+              mode: config.automatic_memory.mode,
+              sensitiveIdentifiers: config.automatic_memory.sensitive_identifiers,
+              loadEvidence: (evidenceId, scope) =>
+                storage.getEvidence({
+                  evidence_id: evidenceId,
+                  principal_id: config.principal_id,
+                  scope,
+                }),
+              hasLocalConflict: async (
+                logicalKey,
+                scope,
+                proposedContentHash,
+              ) => (await storage.checkAutomaticMemoryConflict({
+                principal_id: config.principal_id,
+                scope,
+                logical_key: logicalKey,
+                proposed_content_hash: proposedContentHash,
+              })).has_conflict,
+              prepareEvidence: async (evidenceIds, targetScope, job) => {
+                if (
+                  targetScope.kind === job.scope.kind &&
+                  targetScope.id === job.scope.id
+                ) {
+                  return [...evidenceIds];
+                }
+                const originals = await Promise.all(
+                  evidenceIds.map((evidenceId) => storage.getEvidence({
+                    evidence_id: evidenceId,
+                    principal_id: config.principal_id,
+                    scope: job.scope,
+                  })),
+                );
+                if (
+                  originals.some(
+                    (item) => item === null || item.payload.storage !== "inline",
+                  )
+                ) {
+                  throw new Error("FORMATION_EVIDENCE_RESCOPING_FAILED");
+                }
+                const exact = originals.filter(
+                  (item): item is NonNullable<typeof item> => item !== null,
+                );
+                const adaptation = adaptEvidenceFastL0({
+                  idempotency_key: `automatic-rescope:${job.job_id}:${job.generation}`,
+                  principal_id: IdentifierSchema.parse(config.principal_id),
+                  recorded_at: UtcTimestampSchema.parse(
+                    new Date().toISOString(),
+                  ),
+                  batch: {
+                    scope: targetScope,
+                    outcome: "succeeded",
+                    items: exact.map((item) => ({
+                      kind: "conversation_turn" as const,
+                      speaker: item.authority === "user_stated"
+                        ? "user" as const
+                        : "assistant" as const,
+                      text: item.payload.storage === "inline"
+                        ? item.payload.text
+                        : "",
+                      occurred_at: item.occurred_at,
+                      sensitivity: item.sensitivity === "secret"
+                        ? "sensitive" as const
+                        : item.sensitivity,
+                    })),
+                  },
+                });
+                await storage.commitEpisode({
+                  idempotencyKey: `automatic-rescope:${job.job_id}:${job.generation}`,
+                  episode: adaptation.episode,
+                  evidence: adaptation.evidence,
+                  blobs: [],
+                });
+                return adaptation.evidence.map((item) => item.evidence_id);
+              },
+              propose: async (candidate, _decision, job) => {
+                const automaticRuntime = new MemoryRuntime({
+                  storage,
+                  policy: {
+                    principal: {
+                      principal_id: config.principal_id,
+                      allowed_scopes: [candidate.scope],
+                      allowed_authorities: config.allowed_authorities,
+                      destructive_tools_enabled: false,
+                    },
+                    default_token_budget: config.default_token_budget,
+                    lane_policy: config.lane_policy,
+                  },
+                });
+                const response = await automaticRuntime.memoryPropose({
+                  envelope: {
+                    schema_version: "1.0.0",
+                    request_id: `automatic_propose:${candidate.candidate_id}`,
+                    tool: "memory_propose",
+                    actor_claim: {
+                      principal_id: config.principal_id,
+                      authority: "user_stated",
+                    },
+                    scopes: [candidate.scope],
+                    purpose: "governed automatic memory formation",
+                    reason: "locally validated provider proposal",
+                    requested_at: candidate.validity.recorded_at,
+                    safety_class: "proposal",
+                    idempotency_key: `automatic-propose:${job.job_id}:${candidate.candidate_id}`,
+                  },
+                  candidate,
+                });
+                if (response.status !== "OK") {
+                  throw new Error("FORMATION_ADMISSION_FAILED");
+                }
+                const mutation = GovernanceMutationResultSchema.parse(response.data);
+                return {
+                  candidate_id: mutation.candidate_id,
+                  memory_id: mutation.memory_id,
+                  revision_id: mutation.current_revision_id,
+                  receipt_id: mutation.receipt.receipt_id,
+                };
+              },
+            });
       const lanes: BackgroundLane[] = [
         {
           name: "writer_lease",
@@ -426,6 +607,111 @@ export async function openMemoryRuntime(
             return { claimed: 0, completed: 0, failed: 0, terminal: 0 };
           },
         },
+        ...(config.automatic_memory.mode === "disabled"
+          ? []
+          : [{
+              name: "automatic_memory_formation",
+              intervalMs: 750,
+              runOnce: async () => {
+                if (formationService === null) {
+                  return {
+                    claimed: 0,
+                    completed: 0,
+                    failed: 0,
+                    retrying: 1,
+                    terminal: 0,
+                    failure_code: "FORMATION_PROVIDER_UNAVAILABLE",
+                  };
+                }
+                const now = new Date();
+                const claimed = await storage.claimAutomaticMemoryFormationJobs({
+                  worker_id: `formation_${workerId}`,
+                  claimed_at: now.toISOString(),
+                  lease_expires_at: new Date(now.getTime() + 60_000).toISOString(),
+                  limit: 2,
+                });
+                let completed = 0;
+                let failed = 0;
+                let terminal = 0;
+                for (const job of claimed.jobs) {
+                  try {
+                    const result = await formationService.process(job);
+                    await storage.recordAutomaticMemoryFormationAudit({
+                      job_id: job.job_id,
+                      generation: job.generation,
+                      attempt: job.attempts,
+                      provider_id: result.request.provider_id,
+                      model: result.request.model,
+                      prompt_version: result.request.prompt_version,
+                      policy_version: result.request.policy_version,
+                      schema_revision: result.request.schema_revision,
+                      request_hash: canonicalSha256(result.request),
+                      result_hash: result.provider_result_hash,
+                      redaction: result.request.redaction,
+                      input_tokens: result.provider_usage.input_tokens,
+                      output_tokens: result.provider_usage.output_tokens,
+                      latency_ms: Math.max(
+                        0,
+                        Date.parse(result.provider_completed_at) -
+                          Date.parse(result.request.requested_at),
+                      ),
+                      cost_microusd: null,
+                      started_at: result.request.requested_at,
+                      completed_at: result.provider_completed_at,
+                      decisions: result.decisions.map((decision) => {
+                        const admission = result.admissions.find(
+                          (item) => item.decision_id === decision.decision_id,
+                        );
+                        return {
+                          decision,
+                          admission: admission === undefined
+                            ? null
+                            : {
+                                candidate_id: admission.candidate_id,
+                                memory_id: admission.memory_id,
+                                revision_id: admission.revision_id,
+                                receipt_id: admission.receipt_id,
+                              },
+                        };
+                      }),
+                    });
+                    await storage.completeAutomaticMemoryFormationJob({
+                      job_id: job.job_id,
+                      generation: job.generation,
+                      worker_id: `formation_${workerId}`,
+                      completed_at: new Date().toISOString(),
+                      result_hash: result.result_hash,
+                    });
+                    completed += 1;
+                  } catch {
+                    const failedAt = new Date();
+                    const outcome = await storage.failAutomaticMemoryFormationJob({
+                      job_id: job.job_id,
+                      generation: job.generation,
+                      worker_id: `formation_${workerId}`,
+                      failed_at: failedAt.toISOString(),
+                      next_available_at: new Date(
+                        failedAt.getTime() + 2 ** job.attempts * 1_000,
+                      ).toISOString(),
+                      error_code: "formation_failed",
+                      max_attempts: 3,
+                    });
+                    failed += 1;
+                    if (outcome.state === "quarantined") {
+                      terminal += 1;
+                    }
+                  }
+                }
+                return {
+                  claimed: claimed.jobs.length,
+                  completed,
+                  failed,
+                  retrying: failed - terminal,
+                  terminal,
+                  failure_code: failed > 0 ? "FORMATION_FAILED" : null,
+                };
+              },
+            } satisfies BackgroundLane]),
         {
           name: "fts",
           intervalMs: 500,

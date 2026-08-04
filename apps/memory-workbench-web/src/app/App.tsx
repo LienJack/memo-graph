@@ -6,6 +6,7 @@ import type { MemoryWorkbenchApi } from "../features/memories/api.js";
 import { GovernedMemoryBrowser } from "../features/memories/memory-browser.js";
 import { GraphExplorer } from "../features/graph/graph-explorer.js";
 import { RuntimeDashboard } from "../features/health/runtime-dashboard.js";
+import { RecentAutomaticMemory } from "../features/automatic-memory/recent-captures.js";
 import {
   canMutate,
   recoveryPolicy,
@@ -28,6 +29,7 @@ export type AppProps = {
 
 const NAVIGATION: readonly { view: WorkbenchView; label: string; meta: string }[] = [
   { view: "memory", label: "记忆", meta: "浏览与治理" },
+  { view: "automatic", label: "自动记忆", meta: "捕获与准入" },
   { view: "graph", label: "Graph", meta: "关系视图" },
   { view: "runtime", label: "运行仪表盘", meta: "只读健康状态" },
 ];
@@ -266,6 +268,43 @@ export function App({ api, initialRecoveryKind = "ready", initialUrl }: AppProps
         ) : null}
         {view === "runtime" ? (
           api === undefined ? <RuntimePreview /> : <RuntimeDashboard api={api} />
+        ) : null}
+        {view === "automatic" ? (
+          api === undefined ? (
+            <section className="automatic-state"><strong>自动记忆记录</strong><span>连接 Runtime 后显示。</span></section>
+          ) : (
+            <RecentAutomaticMemory
+              api={api}
+              onOpenMemory={(memoryId, revisionId, scope) => {
+                const next = {
+                  scope,
+                  selectedMemoryId: memoryId,
+                  selectedRevisionId: revisionId,
+                  includeNonCurrent: true,
+                };
+                setView("memory");
+                setStructure((current) => ({
+                  ...current,
+                  view: "memory",
+                  scopeKind: scope.kind,
+                  scopeId: scope.id,
+                  selectedMemoryId: memoryId,
+                  selectedRevisionId: revisionId,
+                  graphCenterKind: null,
+                  graphCenterRevisionId: null,
+                  includeNonCurrent: true,
+                }));
+                setAnnouncement("已打开自动形成的权威记忆");
+                if (initialUrl === undefined) {
+                  window.history.pushState(
+                    null,
+                    "",
+                    urlForMemoryStructure(new URL(window.location.href), next),
+                  );
+                }
+              }}
+            />
+          )
         ) : null}
       </main>
 

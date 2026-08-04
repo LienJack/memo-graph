@@ -95,6 +95,13 @@ import {
 
 export { evaluateAdmission } from "./governance.js";
 export {
+  compileAutomaticRecall,
+  DEFAULT_AUTOMATIC_RECALL_LIMITS,
+  type AutomaticRecallResult,
+  type AutomaticRecallSelection,
+} from "./automatic-recall.js";
+
+export {
   ConsolidationService,
   type ProjectionDrainResult,
   type ProjectionRebuildResult,

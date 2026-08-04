@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",
+    "@memo-graph/evidence-adapter": "workspace:*",
     "@memo-graph/mcp-server": "workspace:*",
+    "@memo-graph/memory-kernel": "workspace:*",
     "@memo-graph/runtime-host": "workspace:*",
     "@memo-graph/storage-sqlite": "workspace:*",
     "zod": "4.4.3"

@@ -172,6 +172,115 @@ const runtimeDirectory = "/absolute/private/stable/memo-graph-runtime";
 await launchOrReuseWorkbench({ config, runtimeDirectory, noOpen: true });
 ```
 
+## Scenario: Portable Codex Runtime Deployment
+
+### 1. Scope / Trigger
+
+Use this contract when packaging, installing, upgrading, or registering the
+managed Runtime for Codex outside a workspace checkout.
+
+### 2. Signatures
+
+```text
+pnpm codex:install -- [--data-root ABSOLUTE_PATH]
+  [--mcp-config ABSOLUTE_PATH]
+  [--operator-config ABSOLUTE_PATH]
+  [--recovery-authority-root ABSOLUTE_PATH]
+  [--runtime-dir ABSOLUTE_PATH]
+  [--node ABSOLUTE_PATH]
+  [--codex-bin ABSOLUTE_PATH]
+```
+
+Package deployment uses `pnpm --filter @memo-graph/codex-bootstrap deploy
+--prod --legacy STAGING_DIRECTORY`. `@memo-graph/storage-sqlite` must publish
+both `dist/` and its generated package-local `migrations/` directory.
+
+### 3. Contracts
+
+- Node major version is exactly 24; every override is absolute.
+- Installer-controlled leaves remain dedicated: `data`, `codex-bootstrap`,
+  `recovery-authority`, `workbench-runtime`, `mcp.json`, and `operator.json`.
+  Reject filesystem/home roots, symlinked ancestors, and overlapping data,
+  install, recovery, runtime, or configuration paths before any chmod/write.
+- Refuse to run the installer as root; memo-graph is a current-user local
+  Runtime, and privileged installation would expand pathname race impact.
+- Clean installation creates mode `0600` MCP/operator configuration and
+  Ed25519 key files plus mode `0700` data, recovery, install, and runtime roots.
+- Default MCP and operator documents resolve to the same complete
+  `MemoryServerConfig` identity and include an external recovery authority.
+- If both configuration files already exist, preserve them. If exactly one
+  exists, return `PARTIAL_CONFIGURATION_PRESENT` without writing the other.
+- Build copies canonical root migrations into
+  `packages/storage-sqlite/migrations`; runtime resolves migrations relative to
+  the installed package, never the repository root.
+- Releases are content-addressed and immutable. The registered command names
+  only the selected release, Node executable, private configs, and stable
+  runtime directory.
+- Remove pnpm-generated `.bin` launchers and `.modules.yaml` before hashing;
+  they embed the random staging path and are not part of the runtime import
+  graph.
+- Save the previous Codex registration privately before switching. Run the
+  final command through the official MCP client, require all core tools, and
+  complete a read-only search before reporting success. On probe failure,
+  identity-check and stop only a host whose `STARTED` diagnostic binds the same
+  instance/root/config, then restore the previous registration.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+| --- | --- |
+| Node is not major 24 | `UNSUPPORTED_NODE_VERSION` |
+| Any override is relative | `INSTALL_PATH_NOT_ABSOLUTE` |
+| Override is broad, overlapping, symlinked, or not a dedicated leaf | Reject before filesystem mutation |
+| Only one configuration file exists | `PARTIAL_CONFIGURATION_PRESENT` |
+| Default recovery root already exists without configs | `DEFAULT_RECOVERY_AUTHORITY_PRESENT` |
+| Codex executable is unavailable | `CODEX_BINARY_NOT_FOUND` |
+| Existing registration has filters, timeouts, disabled state, or HTTP transport | `PREVIOUS_REGISTRATION_NOT_ROUND_TRIPPABLE` before mutation |
+| Deploy entry or packaged migrations are absent | Installation fails before registration |
+| Registration command fails | Restore the prior registration when present |
+| `tools/list` omits a core memory tool | `MCP_TOOL_REGISTRATION_INCOMPLETE`, then rollback |
+
+### 5. Good / Base / Bad Cases
+
+- Good: a clean XDG account runs one command, creates a governed recovery
+  authority, cold-starts the deployed Runtime, and receives all tools.
+- Base: an existing paired configuration is preserved and a new immutable
+  release replaces only the Codex registration after verification.
+- Bad: register `dist/cli.js` from a mutable worktree or resolve migrations as
+  `../../../migrations` from an installed package.
+
+### 6. Tests Required
+
+- Unit-test XDG/default paths, matching default documents, absolute
+  registration arguments, and the core tool assertion.
+- Compare packaged migrations byte-for-byte with canonical root migrations.
+- Deploy into a temporary directory, cold-start from a different working
+  directory and empty data root, then assert `runtime_state=ready` and the full
+  tool list through the official MCP client.
+- Search deployed JavaScript and package metadata for workspace and username
+  paths.
+- Exercise installer rollback with a controlled Codex CLI double whenever the
+  registration transaction changes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```toml
+args = ["/checkout/packages/mcp-server/dist/cli.js", "--config", "..."]
+```
+
+The next branch switch or checkout deletion invalidates registration.
+
+#### Correct
+
+```toml
+args = ["/xdg/data/memo-graph/codex-bootstrap/releases/release-HASH/dist/cli.js",
+        "--mcp-config", "/xdg/config/memo-graph/mcp.json",
+        "--operator-config", "/xdg/config/memo-graph/operator.json",
+        "--runtime-dir", "/xdg/state/memo-graph/workbench-runtime"]
+```
+
 ## Scenario: Deterministic L0 Evidence Ingestion
 
 ### 1. Scope / Trigger

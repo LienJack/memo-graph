@@ -360,7 +360,7 @@ export function createMemoryMcpServer(options: {
         resources: { listChanged: false, subscribe: false },
       },
       instructions:
-        "Memory is returned only by explicit tool calls. Resources are inspection endpoints and are not automatically added to model context. MCP cannot originate secret plaintext; it may only reference an existing encrypted evidence identity, and secret content remains excluded from recall and Context.",
+        "Codex hooks may already inject bounded governed memory marked '[memo-graph automatic-context v1 receipt=...]'. When that marker is present for the current turn, do not call memory_context_compile for the same context. MCP resources remain inspection endpoints. MCP cannot originate secret plaintext; secret content remains excluded from recall and Context.",
     },
   );
   registerOperationalHealthResource(
@@ -445,7 +445,7 @@ export function createMemoryMcpServer(options: {
     {
       title: "Compile frozen governed context",
       description:
-        "Compile an exact-scope, hard-budget Context from operator-enabled memory lanes; request overrides may only narrow the configured policy.",
+        "Compile an exact-scope, hard-budget Context only when the current turn does not already contain a memo-graph automatic-context receipt marker; request overrides may only narrow configured policy.",
       inputSchema: MemoryContextCompileInputSchema,
       outputSchema: GovernedResponseSchema,
       annotations: annotations("memory_context_compile"),
@@ -668,8 +668,11 @@ export function createMemoryMcpServer(options: {
           mimeType: "application/json",
           text: canonicalJson({
             schema_version: "1.0.0",
-            automatic_context_injection: false,
-            task_start: "Call memory_context_compile explicitly.",
+            automatic_context_injection: true,
+            automatic_context_marker:
+              "[memo-graph automatic-context v1 receipt=...]",
+            task_start:
+              "If the current turn already contains the automatic-context marker, reuse it and do not call memory_context_compile; otherwise call memory_context_compile explicitly when memory is needed.",
             task_end:
               "Call memory_evidence_ingest for supported text sources, or memory_episode_commit for pre-sealed canonical evidence.",
             note:

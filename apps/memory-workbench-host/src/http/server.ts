@@ -1,15 +1,19 @@
+import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 
 import {
   WorkbenchHealthResultSchema,
+  AutomaticMemoryHookCaptureRequestSchema,
+  AutomaticMemoryHookCaptureResponseSchema,
   WorkbenchControlBootstrapRequestSchema,
   WorkbenchControlBootstrapResponseSchema,
-  WorkbenchPairingExchangeSchema,
   WorkbenchTicketExchangeSchema,
   canonicalJson,
   type WorkbenchHealthResult,
   type WorkbenchBrowserSession,
+  type AutomaticMemoryHookCaptureRequest,
+  type AutomaticMemoryHookCaptureResponse,
 } from "@memo-graph/contracts";
 
 import {
@@ -22,6 +26,7 @@ import {
 } from "./web-assets.js";
 
 const MAX_JSON_BODY_BYTES = 8 * 1024;
+const MAX_HOOK_BODY_BYTES = 80 * 1024;
 const MAX_CORRECTION_DRAFT_BYTES = 2 * 1024 * 1024;
 const SECURITY_HEADERS = {
   "cache-control": "no-store, max-age=0",
@@ -46,19 +51,14 @@ const FIXTURE_HTML = `<!doctype html>
     <p class="eyebrow">MEMO GRAPH</p>
     <h1>记忆工作台</h1>
     <p id="status" role="status">正在建立本地安全会话…</p>
-    <form id="pairing" hidden>
-      <label for="pairing-code">配对码</label>
-      <input id="pairing-code" name="code" autocomplete="off" maxlength="12">
-      <button type="submit">连接工作台</button>
-    </form>
   </main>
   <script type="module" src="/bootstrap.js"></script>
 </body>
 </html>`;
 
-const FIXTURE_CSS = `:root{color-scheme:light;font-family:ui-sans-serif,system-ui,sans-serif;background:#f4f4f0;color:#171815}body{margin:0;min-height:100vh;display:grid;place-items:center}main{width:min(38rem,calc(100% - 3rem));border:1px solid #d8d8d0;background:#fff;padding:3rem;box-shadow:0 18px 45px rgba(20,22,18,.08)}.eyebrow{font:600 .75rem ui-monospace,monospace;letter-spacing:.14em;color:#68705e}h1{font-size:clamp(2rem,7vw,4.5rem);line-height:.95;margin:1rem 0}form{display:grid;gap:.75rem;margin-top:2rem}input,button{min-height:44px;font:inherit}input{border:1px solid #aaa;padding:0 .75rem}button{border:0;background:#1f3528;color:#fff;padding:0 1rem;cursor:pointer}`;
+const FIXTURE_CSS = `:root{color-scheme:light;font-family:ui-sans-serif,system-ui,sans-serif;background:#f4f4f0;color:#171815}body{margin:0;min-height:100vh;display:grid;place-items:center}main{width:min(38rem,calc(100% - 3rem));border:1px solid #d8d8d0;background:#fff;padding:3rem;box-shadow:0 18px 45px rgba(20,22,18,.08)}.eyebrow{font:600 .75rem ui-monospace,monospace;letter-spacing:.14em;color:#68705e}h1{font-size:clamp(2rem,7vw,4.5rem);line-height:.95;margin:1rem 0}`;
 
-const BOOTSTRAP_JS = `const statusNode=document.querySelector('#status');const form=document.querySelector('#pairing');const input=document.querySelector('#pairing-code');const fragment=new URLSearchParams(location.hash.slice(1));const ticket=fragment.get('ticket');const instance=fragment.get('instance');history.replaceState(null,'',location.pathname+location.search);async function exchange(path,body){const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error('SESSION_EXCHANGE_FAILED');const session=await response.json();globalThis.__MEMO_GRAPH_SESSION__=session;globalThis.dispatchEvent(new CustomEvent('memo-graph-session',{detail:session}));statusNode.textContent='本地安全会话已建立。';form.hidden=true;}if(ticket&&instance){exchange('/api/session/exchange',{ticket,instance_id:instance}).catch(()=>{statusNode.textContent='启动票据无效或已过期，请使用配对码。';form.hidden=false;});}else{statusNode.textContent='请输入终端中显示的一次性配对码。';form.hidden=false;}form.addEventListener('submit',event=>{event.preventDefault();const code=String(new FormData(form).get('code')??'').toUpperCase().replaceAll(/[^A-Z2-9]/g,'');exchange('/api/session/pair',{code,instance_id:instance??document.documentElement.dataset.instance??''}).catch(()=>{statusNode.textContent='配对失败，请获取新的配对码。';input.focus();});});`;
+const BOOTSTRAP_JS = `const statusNode=document.querySelector('#status');const fragment=new URLSearchParams(location.hash.slice(1));const ticket=fragment.get('ticket');const instance=fragment.get('instance');history.replaceState(null,'',location.pathname+location.search);async function exchange(body){const response=await fetch('/api/session/exchange',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error('SESSION_EXCHANGE_FAILED');const session=await response.json();globalThis.__MEMO_GRAPH_SESSION__=session;globalThis.dispatchEvent(new CustomEvent('memo-graph-session',{detail:session}));statusNode.textContent='本地安全会话已建立。';}if(ticket&&instance){exchange({ticket,instance_id:instance}).catch(()=>{statusNode.textContent='启动链接无效或已过期，请重新运行工作台命令。';});}else{statusNode.textContent='缺少安全启动链接，请重新运行工作台命令。';}`;
 
 type FixedWindow = { startedAtMs: number; count: number };
 
@@ -66,6 +66,9 @@ type WorkbenchRequestService = {
   list(input: unknown): Promise<unknown>;
   detail(input: unknown): Promise<unknown>;
   graph(input: unknown): Promise<unknown>;
+  automaticMemory(input: unknown): Promise<unknown>;
+  previewAutomaticMemoryUndo(input: unknown): Promise<unknown>;
+  confirmAutomaticMemoryUndo(input: unknown): Promise<unknown>;
   previewCorrection(input: unknown): Promise<unknown>;
   confirmCorrection(input: unknown): Promise<unknown>;
 };
@@ -74,6 +77,9 @@ const WORKBENCH_ROUTES = {
   "/api/workbench/memories/query": "list",
   "/api/workbench/memories/detail": "detail",
   "/api/workbench/graph/query": "graph",
+  "/api/workbench/automatic-memory/query": "automaticMemory",
+  "/api/workbench/automatic-memory/undo/preview": "previewAutomaticMemoryUndo",
+  "/api/workbench/automatic-memory/undo/confirm": "confirmAutomaticMemoryUndo",
   "/api/workbench/corrections/preview": "previewCorrection",
   "/api/workbench/corrections/confirm": "confirmCorrection",
 } as const satisfies Record<string, keyof WorkbenchRequestService>;
@@ -191,6 +197,23 @@ function bearer(request: IncomingMessage): string | null {
   return value.slice("Bearer ".length);
 }
 
+function hookCredentialMatches(
+  request: IncomingMessage,
+  expected: Buffer,
+): boolean {
+  const encoded = bearer(request);
+  if (encoded === null || !/^[A-Za-z0-9_-]{43}$/u.test(encoded)) {
+    return false;
+  }
+  const candidate = Buffer.from(encoded, "base64url");
+  try {
+    return candidate.byteLength === expected.byteLength &&
+      timingSafeEqual(candidate, expected);
+  } finally {
+    candidate.fill(0);
+  }
+}
+
 export type WorkbenchHttpServer = {
   origin: string;
   port: number;
@@ -203,6 +226,10 @@ export async function startWorkbenchHttpServer(options: {
   instanceId: string;
   runtimeState: "ready" | "health_only";
   controlCredential: Buffer;
+  hookCredential?: Buffer;
+  hookCapture?: (
+    input: AutomaticMemoryHookCaptureRequest,
+  ) => Promise<AutomaticMemoryHookCaptureResponse>;
   health(): Promise<WorkbenchHealthResult>;
   workbenchSession?: (sessionId: string) => WorkbenchRequestService;
   webAssets?: WorkbenchWebAssets;
@@ -225,6 +252,10 @@ export async function startWorkbenchHttpServer(options: {
     count: 0,
   };
   const operatorControlWindow: FixedWindow = {
+    startedAtMs: clock(),
+    count: 0,
+  };
+  const hookIngressWindow: FixedWindow = {
     startedAtMs: clock(),
     count: 0,
   };
@@ -304,7 +335,7 @@ export async function startWorkbenchHttpServer(options: {
       }
       if (
         request.method === "POST" &&
-        (path === "/api/session/exchange" || path === "/api/session/pair")
+        path === "/api/session/exchange"
       ) {
         if (
           !rateAllowed(browserBootstrapWindow, 20) ||
@@ -314,20 +345,11 @@ export async function startWorkbenchHttpServer(options: {
           return;
         }
         const body = await readJsonBody(request);
-        let session: WorkbenchBrowserSession | null;
-        if (path === "/api/session/exchange") {
-          const parsed = WorkbenchTicketExchangeSchema.parse(body);
-          session = sessions.exchangeTicket({
-            instanceId: parsed.instance_id,
-            ticket: parsed.ticket,
-          });
-        } else {
-          const parsed = WorkbenchPairingExchangeSchema.parse(body);
-          session = sessions.exchangePairingCode({
-            instanceId: parsed.instance_id,
-            code: parsed.code,
-          });
-        }
+        const parsed = WorkbenchTicketExchangeSchema.parse(body);
+        const session: WorkbenchBrowserSession | null = sessions.exchangeTicket({
+          instanceId: parsed.instance_id,
+          ticket: parsed.ticket,
+        });
         if (session === null) {
           writeJson(response, 401, { code: "BROWSER_AUTHORITY_INVALID" });
           return;
@@ -382,32 +404,49 @@ export async function startWorkbenchHttpServer(options: {
           }
         }
         controlNonces.set(nonce, now + 2 * 60_000);
-        const bootstrap = body.mode === "ticket"
-          ? (() => {
-              const authority = sessions.issueTicket();
-              return {
-                ticket: authority.ticket,
-                pairing_code: null,
-                expires_at: authority.expires_at,
-              };
-            })()
-          : (() => {
-              const authority = sessions.issuePairingCode();
-              return {
-                ticket: null,
-                pairing_code: authority.code,
-                expires_at: authority.expires_at,
-              };
-            })();
+        const authority = sessions.issueTicket();
         writeJson(
           response,
           200,
           WorkbenchControlBootstrapResponseSchema.parse({
             schema_version: "1.0.0",
             instance_id: options.instanceId,
-            ...bootstrap,
+            ticket: authority.ticket,
+            expires_at: authority.expires_at,
           }),
         );
+        return;
+      }
+
+      if (request.method === "POST" && path === "/__hooks/capture") {
+        if (
+          request.headers.origin !== undefined ||
+          options.hookCredential === undefined ||
+          options.hookCapture === undefined ||
+          !rateAllowed(hookIngressWindow, 80) ||
+          !hookCredentialMatches(request, options.hookCredential)
+        ) {
+          writeJson(response, 403, { code: "HOOK_AUTHORITY_REJECTED" });
+          return;
+        }
+        if (options.runtimeState === "health_only") {
+          writeJson(response, 503, { code: "RUNTIME_BLOCKED" });
+          return;
+        }
+        const body = AutomaticMemoryHookCaptureRequestSchema.parse(
+          await readJsonBody(request, MAX_HOOK_BODY_BYTES),
+        );
+        try {
+          writeJson(
+            response,
+            200,
+            AutomaticMemoryHookCaptureResponseSchema.parse(
+              await options.hookCapture(body),
+            ),
+          );
+        } catch {
+          writeJson(response, 503, { code: "HOOK_CAPTURE_UNAVAILABLE" });
+        }
         return;
       }
 
@@ -481,8 +520,8 @@ export async function startWorkbenchHttpServer(options: {
       const knownPath = new Set([
         "/",
         "/api/session/exchange",
-        "/api/session/pair",
         "/__operator/bootstrap",
+        "/__hooks/capture",
         "/api/health",
         ...Object.keys(WORKBENCH_ROUTES),
         ...(options.webAssets === undefined
@@ -548,6 +587,7 @@ export async function startWorkbenchHttpServer(options: {
       }
       await new Promise<void>((resolve) => server.close(() => resolve()));
       options.controlCredential.fill(0);
+      options.hookCredential?.fill(0);
     },
   };
 }

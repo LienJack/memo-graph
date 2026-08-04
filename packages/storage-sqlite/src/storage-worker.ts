@@ -25,6 +25,16 @@ import {
   assertRecoveryProtectionBinding,
 } from "./recovery-protection.js";
 import {
+  CaptureAutomaticMemoryEventCommandSchema,
+  ClaimAutomaticMemoryFormationJobsInputSchema,
+  CompleteAutomaticMemoryFormationJobCommandSchema,
+  FailAutomaticMemoryFormationJobCommandSchema,
+  RecordAutomaticMemoryFormationAuditCommandSchema,
+  CheckAutomaticMemoryConflictInputSchema,
+  RecordAutomaticMemoryRecallUseCommandSchema,
+  AutomaticMemoryActivityQuerySchema,
+  AutomaticMemoryAdmissionLookupInputSchema,
+  RegisterAutomaticMemoryProjectCommandSchema,
   ApplyProjectionBatchCommandSchema,
   ApplyGraphProjectionJobCommandSchema,
   ApplyVectorProjectionJobCommandSchema,
@@ -245,6 +255,65 @@ port.on("message", (message: unknown) => {
       const executeRequest = (): unknown => {
         let result: unknown;
         switch (request.operation) {
+        case "register_automatic_memory_project":
+          result = database.registerAutomaticMemoryProject(
+            RegisterAutomaticMemoryProjectCommandSchema.parse(request.payload),
+          );
+          break;
+        case "capture_automatic_memory_event":
+          result = database.captureAutomaticMemoryEvent(
+            CaptureAutomaticMemoryEventCommandSchema.parse(request.payload),
+          );
+          break;
+        case "claim_automatic_memory_formation_jobs":
+          result = database.claimAutomaticMemoryFormationJobs(
+            ClaimAutomaticMemoryFormationJobsInputSchema.parse(request.payload),
+          );
+          break;
+        case "complete_automatic_memory_formation_job":
+          result = database.completeAutomaticMemoryFormationJob(
+            CompleteAutomaticMemoryFormationJobCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "fail_automatic_memory_formation_job":
+          result = database.failAutomaticMemoryFormationJob(
+            FailAutomaticMemoryFormationJobCommandSchema.parse(request.payload),
+          );
+          break;
+        case "record_automatic_memory_formation_audit":
+          result = database.recordAutomaticMemoryFormationAudit(
+            RecordAutomaticMemoryFormationAuditCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "check_automatic_memory_conflict":
+          result = database.checkAutomaticMemoryConflict(
+            CheckAutomaticMemoryConflictInputSchema.parse(request.payload),
+          );
+          break;
+        case "record_automatic_memory_recall_use":
+          result = database.recordAutomaticMemoryRecallUse(
+            RecordAutomaticMemoryRecallUseCommandSchema.parse(
+              request.payload,
+            ),
+          );
+          break;
+        case "list_automatic_memory_activity":
+          result = database.listAutomaticMemoryActivity(
+            AutomaticMemoryActivityQuerySchema.parse(request.payload),
+          );
+          break;
+        case "lookup_automatic_memory_admission":
+          result = database.lookupAutomaticMemoryAdmission(
+            AutomaticMemoryAdmissionLookupInputSchema.parse(request.payload),
+          );
+          break;
+        case "automatic_memory_status":
+          result = database.automaticMemoryStatus();
+          break;
         case "recovery_state":
           result = database.recoveryState();
           break;

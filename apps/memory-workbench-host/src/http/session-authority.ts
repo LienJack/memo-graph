@@ -11,8 +11,6 @@ import {
 import { z } from "zod";
 
 const RawAuthoritySchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/u);
-const PairingCodeSchema = z.string().regex(/^[A-Z2-9]{12}$/u);
-const PAIRING_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 type PendingAuthority = {
   expiresAtMs: number;
@@ -45,10 +43,8 @@ export class WorkbenchSessionAuthority {
   readonly #key = randomBytes(32);
   readonly #clock: () => number;
   readonly #ticketTtlMs: number;
-  readonly #pairingTtlMs: number;
   readonly #sessionTtlMs: number;
   readonly #tickets = new Map<string, PendingAuthority>();
-  readonly #pairingCodes = new Map<string, PendingAuthority>();
   readonly #sessions = new Map<string, BrowserSessionRecord>();
   #closed = false;
 
@@ -56,15 +52,12 @@ export class WorkbenchSessionAuthority {
     instanceId: string;
     clock?: () => number;
     ticketTtlMs?: number;
-    pairingTtlMs?: number;
     sessionTtlMs?: number;
   }) {
     this.#instanceId = z.string().min(1).max(160).parse(options.instanceId);
     this.#clock = options.clock ?? Date.now;
     this.#ticketTtlMs = z.number().int().min(1_000).max(5 * 60_000)
       .parse(options.ticketTtlMs ?? 60_000);
-    this.#pairingTtlMs = z.number().int().min(1_000).max(10 * 60_000)
-      .parse(options.pairingTtlMs ?? 2 * 60_000);
     this.#sessionTtlMs = z.number().int().min(10_000).max(24 * 60 * 60_000)
       .parse(options.sessionTtlMs ?? 30 * 60_000);
   }
@@ -83,40 +76,11 @@ export class WorkbenchSessionAuthority {
     return { ticket, expires_at: new Date(expiresAt).toISOString() };
   }
 
-  issuePairingCode(): { code: string; expires_at: string } {
-    this.#assertOpen();
-    this.#expire();
-    evictOldest(this.#pairingCodes, 16);
-    let code = "";
-    for (const byte of randomBytes(12)) {
-      code += PAIRING_ALPHABET[byte % PAIRING_ALPHABET.length];
-    }
-    const exact = PairingCodeSchema.parse(code);
-    const now = this.#clock();
-    const expiresAt = now + this.#pairingTtlMs;
-    this.#pairingCodes.set(this.#digest("pairing", exact), {
-      createdAtMs: now,
-      expiresAtMs: expiresAt,
-    });
-    return { code: exact, expires_at: new Date(expiresAt).toISOString() };
-  }
-
   exchangeTicket(input: {
     instanceId: string;
     ticket: string;
   }): WorkbenchBrowserSession | null {
-    return this.#exchange("ticket", input.instanceId, input.ticket);
-  }
-
-  exchangePairingCode(input: {
-    instanceId: string;
-    code: string;
-  }): WorkbenchBrowserSession | null {
-    const code = PairingCodeSchema.safeParse(input.code.toUpperCase());
-    if (!code.success) {
-      return null;
-    }
-    return this.#exchange("pairing", input.instanceId, code.data);
+    return this.#exchange(input.instanceId, input.ticket);
   }
 
   authenticateBearer(rawBearer: string): { session_id: string } | null {
@@ -138,13 +102,11 @@ export class WorkbenchSessionAuthority {
     }
     this.#closed = true;
     this.#tickets.clear();
-    this.#pairingCodes.clear();
     this.#sessions.clear();
     this.#key.fill(0);
   }
 
   #exchange(
-    kind: "ticket" | "pairing",
     instanceId: string,
     raw: string,
   ): WorkbenchBrowserSession | null {
@@ -153,10 +115,9 @@ export class WorkbenchSessionAuthority {
     if (instanceId !== this.#instanceId) {
       return null;
     }
-    const entries = kind === "ticket" ? this.#tickets : this.#pairingCodes;
-    const digest = this.#digest(kind, raw);
-    const pending = entries.get(digest);
-    entries.delete(digest);
+    const digest = this.#digest("ticket", raw);
+    const pending = this.#tickets.get(digest);
+    this.#tickets.delete(digest);
     if (pending === undefined || pending.expiresAtMs <= this.#clock()) {
       return null;
     }
@@ -183,7 +144,6 @@ export class WorkbenchSessionAuthority {
     const now = this.#clock();
     for (const entries of [
       this.#tickets,
-      this.#pairingCodes,
       this.#sessions,
     ]) {
       for (const [key, value] of entries) {

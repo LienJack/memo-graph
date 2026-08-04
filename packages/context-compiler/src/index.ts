@@ -49,6 +49,27 @@ export const CONTEXT_COMPILER_VERSION = "1.0.0";
 export const CONTEXT_POLICY_VERSION = "1.0.0";
 export const LAYERED_CONTEXT_COMPILER_VERSION = "3.0.0";
 export const LAYERED_CONTEXT_POLICY_VERSION = "2.0.0";
+export const AUTOMATIC_CONTEXT_MARKER_PREFIX =
+  "[memo-graph automatic-context v1 receipt=";
+
+export function automaticContextReceiptMarker(receiptId: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/u.test(receiptId)) {
+    throw new Error("AUTOMATIC_CONTEXT_RECEIPT_INVALID");
+  }
+  return `${AUTOMATIC_CONTEXT_MARKER_PREFIX}${receiptId}]`;
+}
+
+export function detectAutomaticContextReceipt(
+  context: string,
+): string | null {
+  const escaped = AUTOMATIC_CONTEXT_MARKER_PREFIX.replace(
+    /[.*+?^${}()|[\]\\]/gu,
+    "\\$&",
+  );
+  return context.match(
+    new RegExp(`${escaped}([A-Za-z0-9][A-Za-z0-9._:-]{0,159})\\]`, "u"),
+  )?.[1] ?? null;
+}
 export {
   estimateContextTokens,
   estimateStructuredTokens,

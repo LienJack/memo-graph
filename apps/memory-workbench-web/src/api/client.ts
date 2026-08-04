@@ -9,6 +9,9 @@ import {
   WorkbenchMemoryListResultSchema,
   WorkbenchGraphResultSchema,
   WorkbenchHealthResultSchema,
+  WorkbenchAutomaticMemoryListResultSchema,
+  WorkbenchAutomaticMemoryUndoPreviewResultSchema,
+  WorkbenchAutomaticMemoryUndoConfirmResultSchema,
 } from "@memo-graph/contracts/workbench";
 import type { ZodType } from "zod";
 
@@ -74,6 +77,37 @@ export class WorkbenchApiClient {
     return this.#read(
       "/api/health",
       WorkbenchHealthResultSchema,
+      signal,
+    );
+  }
+
+  automaticMemory(request: { limit?: number }, signal?: AbortSignal) {
+    return this.#request(
+      "/api/workbench/automatic-memory/query",
+      WorkbenchAutomaticMemoryListResultSchema,
+      request,
+      signal,
+    );
+  }
+
+  previewAutomaticMemoryUndo(
+    memoryId: string,
+    expectedRevisionId: string,
+    signal?: AbortSignal,
+  ) {
+    return this.#request(
+      "/api/workbench/automatic-memory/undo/preview",
+      WorkbenchAutomaticMemoryUndoPreviewResultSchema,
+      { memory_id: memoryId, expected_revision_id: expectedRevisionId },
+      signal,
+    );
+  }
+
+  confirmAutomaticMemoryUndo(previewId: string, signal?: AbortSignal) {
+    return this.#request(
+      "/api/workbench/automatic-memory/undo/confirm",
+      WorkbenchAutomaticMemoryUndoConfirmResultSchema,
+      { preview_id: previewId, confirmed: true },
       signal,
     );
   }

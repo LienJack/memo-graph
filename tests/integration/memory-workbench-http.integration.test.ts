@@ -137,6 +137,9 @@ describe("memory workbench authenticated HTTP workflow", () => {
     const asset = await fetch(`${host.http.origin}${mainAsset ?? ""}`);
     expect(asset).toMatchObject({ status: 200 });
     expect(asset.headers.get("content-type")).toContain("text/javascript");
+    const applicationScript = await asset.text();
+    expect(applicationScript).not.toContain("/api/session/pair");
+    expect(applicationScript).not.toContain("配对码");
 
     const authority = await exchange(
       host,

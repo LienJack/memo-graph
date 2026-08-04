@@ -77,7 +77,7 @@ afterEach(async () => {
 });
 
 describe("memory workbench management launcher", () => {
-  it("opens one authenticated tab, reuses the host, and falls back to pairing", async () => {
+  it("opens one authenticated tab and returns a launch URL when opening is suppressed or fails", async () => {
     const current = await fixture();
     const openedUrls: string[] = [];
     const started = await launchOrReuseWorkbench({
@@ -97,7 +97,7 @@ describe("memory workbench management launcher", () => {
       browser: "opened",
       recovery: "none",
     });
-    expect(started.pairingCode).toBeNull();
+    expect(started.launchUrl).toBeNull();
     expect(openedUrls).toHaveLength(1);
     expect(JSON.stringify(started.result)).not.toContain("ticket");
     expect(JSON.stringify(started.result)).not.toContain("pairing");
@@ -136,8 +136,10 @@ describe("memory workbench management launcher", () => {
     expect(reused.result.status).toBe("reused");
     expect(reused.processId).toBe(started.processId);
     expect(reused.result.browser).toBe("suppressed");
-    expect(reused.result.recovery).toBe("pair_on_tty");
-    expect(reused.pairingCode).toMatch(/^[A-Z2-9]{12}$/u);
+    expect(reused.result.recovery).toBe("open_launch_url");
+    expect(reused.launchUrl).toMatch(
+      /^http:\/\/127\.0\.0\.1:\d+\/#ticket=[A-Za-z0-9_-]{43}&instance=workbench:/u,
+    );
     expect(unexpectedOpens).toBe(0);
 
     const failedOpen = await launchOrReuseWorkbench({
@@ -152,9 +154,11 @@ describe("memory workbench management launcher", () => {
     expect(failedOpen.result).toMatchObject({
       status: "reused",
       browser: "failed",
-      recovery: "pair_on_tty",
+      recovery: "open_launch_url",
     });
-    expect(failedOpen.pairingCode).toMatch(/^[A-Z2-9]{12}$/u);
+    expect(failedOpen.launchUrl).toMatch(
+      /^http:\/\/127\.0\.0\.1:\d+\/#ticket=[A-Za-z0-9_-]{43}&instance=workbench:/u,
+    );
     const baseOnly = await fetch(`${started.result.origin}/api/health`);
     expect(baseOnly.status).toBe(401);
   }, 30_000);
@@ -185,7 +189,7 @@ describe("memory workbench management launcher", () => {
     expect(new Set(outcomes.map(({ processId }) => processId)).size).toBe(1);
     expect(new Set(outcomes.map(({ result }) => result.instance_id)).size)
       .toBe(1);
-    expect(outcomes.every(({ pairingCode }) => pairingCode !== null)).toBe(true);
+    expect(outcomes.every(({ launchUrl }) => launchUrl !== null)).toBe(true);
     expect(openCalls).toBe(0);
   }, 30_000);
 });

@@ -4,12 +4,19 @@ import { mkdirSync } from "node:fs";
 import {
   WorkbenchControlBootstrapResponseSchema,
   WorkbenchEndpointMetadataSchema,
+  AutomaticMemoryHookCaptureResponseSchema,
+  AutomaticMemoryHookDescriptorSchema,
+  IdentifierSchema,
   type OperationalStatus,
   type WorkbenchHealthResult,
   type WorkbenchControlBootstrapResponse,
   type WorkbenchEndpointMetadata,
+  type AutomaticMemoryHookCaptureRequest,
+  type AutomaticMemoryHookCaptureResponse,
 } from "@memo-graph/contracts";
+import { adaptEvidenceFastL0 } from "@memo-graph/evidence-adapter";
 import { attachManagedMemoryMcpSession } from "@memo-graph/mcp-server";
+import { compileAutomaticRecall } from "@memo-graph/memory-kernel";
 import {
   MemoryServerConfigSchema,
   memoryRuntimeConfigIdentity,
@@ -25,6 +32,7 @@ import { z } from "zod";
 
 import {
   publishPrivateFile,
+  publishAutomaticMemoryHookDescriptor,
   publishWorkbenchEndpoint,
   removeOwnedArtifact,
   workbenchArtifactPaths,
@@ -44,26 +52,49 @@ export type MemoryWorkbenchHost = {
   close(): Promise<void>;
 };
 
-async function settledRuntimeStatus(
-  runtime: ManagedRuntimeHost,
-  timeoutMs = 2_000,
-): Promise<OperationalStatus> {
-  const deadline = performance.now() + timeoutMs;
+export async function waitForSettledRuntimeStatus(options: {
+  observe(): Promise<{
+    status: OperationalStatus;
+    startupWorkPending: boolean;
+  }>;
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+  now?: () => number;
+  delay?: (milliseconds: number) => Promise<void>;
+}): Promise<OperationalStatus> {
+  const now = options.now ?? (() => performance.now());
+  const delay = options.delay ?? (
+    (milliseconds: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
+  );
+  const deadline = now() + (options.timeoutMs ?? 10_000);
   while (true) {
-    const health = await runtime.runtime.storage.health();
-    const status = operationalStatusFromStorageHealth(health);
-    const startupWorkPending =
-      health.writer_queue.depth > 0 ||
-      health.writer_queue.active_operation !== null;
+    const { status, startupWorkPending } = await options.observe();
     if (
       status.readiness !== "blocked" ||
       !startupWorkPending ||
-      performance.now() >= deadline
+      now() >= deadline
     ) {
       return status;
     }
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await delay(options.pollIntervalMs ?? 20);
   }
+}
+
+async function settledRuntimeStatus(
+  runtime: ManagedRuntimeHost,
+): Promise<OperationalStatus> {
+  return waitForSettledRuntimeStatus({
+    observe: async () => {
+      const health = await runtime.runtime.storage.health();
+      return {
+        status: operationalStatusFromStorageHealth(health),
+        startupWorkPending:
+          health.writer_queue.depth > 0 ||
+          health.writer_queue.active_operation !== null,
+      };
+    },
+  });
 }
 
 export async function startMemoryWorkbenchHost(options: {
@@ -79,6 +110,7 @@ export async function startMemoryWorkbenchHost(options: {
   }) => void;
 }): Promise<MemoryWorkbenchHost> {
   const config = MemoryServerConfigSchema.parse(options.config);
+  const principalId = IdentifierSchema.parse(config.principal_id);
   mkdirSync(config.data_root, { recursive: true, mode: 0o700 });
   const rootIdentity = memoryRuntimeRootIdentity(config.data_root);
   const configIdentity = memoryRuntimeConfigIdentity(config);
@@ -92,7 +124,10 @@ export async function startMemoryWorkbenchHost(options: {
   );
   const clock = options.clock ?? (() => new Date().toISOString());
   const controlCredential = randomBytes(32);
+  const hookCredential = randomBytes(32);
   let credentialIdentity: ReturnType<typeof publishPrivateFile> | null = null;
+  let hookCredentialIdentity: ReturnType<typeof publishPrivateFile> | null = null;
+  let hookDescriptorIdentity: ReturnType<typeof publishPrivateFile> | null = null;
   let endpointIdentity: ReturnType<typeof publishPrivateFile> | null = null;
   let runtime: ManagedRuntimeHost | null = null;
   let http: WorkbenchHttpServer | null = null;
@@ -103,6 +138,10 @@ export async function startMemoryWorkbenchHost(options: {
     credentialIdentity = publishPrivateFile(
       paths.controlCredentialPath,
       `${controlCredential.toString("base64url")}\n`,
+    );
+    hookCredentialIdentity = publishPrivateFile(
+      paths.hookCredentialPath,
+      `${hookCredential.toString("base64url")}\n`,
     );
     try {
       runtime = await startManagedRuntimeHost({
@@ -176,11 +215,120 @@ export async function startMemoryWorkbenchHost(options: {
       }
     };
     const runtimeOwner = runtime;
+    const captureHookEvent = async (
+      request: AutomaticMemoryHookCaptureRequest,
+    ): Promise<AutomaticMemoryHookCaptureResponse> => {
+      if (runtimeOwner === null) {
+        throw new Error("AUTOMATIC_MEMORY_RUNTIME_UNAVAILABLE");
+      }
+      if (config.automatic_memory.mode === "disabled") {
+        return AutomaticMemoryHookCaptureResponseSchema.parse({
+          schema_version: "1.0.0",
+          status: "skipped",
+          event_id: request.event.event_id,
+          additional_context: null,
+        });
+      }
+      const eventText = request.event.event_kind === "user_prompt_submit"
+        ? request.event.prompt
+        : request.event.event_kind === "assistant_stop"
+          ? request.event.last_assistant_message
+          : null;
+      const secretSignal = eventText !== null &&
+        /(?:\b(?:ghp_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|sk-(?:proj-|ant-)?[A-Za-z0-9_-]{12,})\b|\bBearer\s+[A-Za-z0-9._~-]{16,}\b|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/u.test(
+          eventText,
+        );
+      if (
+        secretSignal ||
+        (request.event.event_kind === "assistant_stop" && eventText === null)
+      ) {
+        return AutomaticMemoryHookCaptureResponseSchema.parse({
+          schema_version: "1.0.0",
+          status: secretSignal ? "rejected" : "skipped",
+          event_id: request.event.event_id,
+          additional_context: null,
+        });
+      }
+      const project = await runtimeOwner.runtime.storage.registerAutomaticMemoryProject({
+        principal_id: principalId,
+        cwd: request.event.cwd,
+        registered_at: request.event.occurred_at,
+      });
+      let additionalContext: string | null = null;
+      if (request.event.event_kind === "user_prompt_submit") {
+        try {
+          additionalContext = (await compileAutomaticRecall({
+            storage: runtimeOwner.runtime.storage,
+            principalId,
+            projectId: project.project_id,
+            projectScope: project.scope,
+            sessionId: request.event.session_id,
+            turnId: request.event.turn_id,
+            prompt: request.event.prompt,
+            asOf: request.event.occurred_at,
+          })).additional_context;
+        } catch {
+          // Automatic recall is fail-open and never blocks capture or the prompt.
+        }
+      }
+      let evidenceId: string | null = null;
+      if (eventText !== null) {
+        const speaker = request.event.event_kind === "user_prompt_submit"
+          ? "user"
+          : "assistant";
+        const adaptation = adaptEvidenceFastL0({
+          idempotency_key: `hook-l0:${request.event.event_id}`,
+          principal_id: principalId,
+          recorded_at: request.event.occurred_at,
+          batch: {
+            scope: project.scope,
+            outcome: "succeeded",
+            items: [
+              {
+                kind: "conversation_turn",
+                speaker,
+                text: eventText,
+                occurred_at: request.event.occurred_at,
+                sensitivity: "internal",
+              },
+            ],
+          },
+        });
+        await runtimeOwner.runtime.storage.commitEpisode({
+          idempotencyKey: `hook-l0:${request.event.event_id}`,
+          episode: adaptation.episode,
+          evidence: adaptation.evidence,
+          blobs: [],
+        });
+        evidenceId = adaptation.evidence[0]?.evidence_id ?? null;
+        if (evidenceId === null) {
+          throw new Error("AUTOMATIC_MEMORY_EVIDENCE_MISSING");
+        }
+      }
+      await runtimeOwner.runtime.storage.captureAutomaticMemoryEvent({
+        schema_version: "1.0.0",
+        idempotency_key: request.idempotency_key,
+        principal_id: principalId,
+        project_id: project.project_id,
+        evidence_id: evidenceId,
+        source: request.source,
+        captured_at: request.event.occurred_at,
+        stabilization_delay_ms: 1_500,
+        event: request.event,
+      });
+      return AutomaticMemoryHookCaptureResponseSchema.parse({
+        schema_version: "1.0.0",
+        status: "accepted",
+        event_id: request.event.event_id,
+        additional_context: additionalContext,
+      });
+    };
     const webAssets = loadPackagedWorkbenchWebAssets();
     http = await startWorkbenchHttpServer({
       instanceId,
       runtimeState,
       controlCredential,
+      hookCredential,
       health,
       webAssets,
       ...(runtimeOwner === null
@@ -188,10 +336,26 @@ export async function startMemoryWorkbenchHost(options: {
         : {
             workbenchSession: (sessionId: string) =>
               runtimeOwner.workbenchSession(sessionId),
+            hookCapture: captureHookEvent,
           }),
       ...(options.port === undefined ? {} : { port: options.port }),
     });
     const readyAt = clock();
+    const hookDescriptor = AutomaticMemoryHookDescriptorSchema.parse({
+      schema_version: "1.0.0",
+      instance_id: instanceId,
+      root_identity: rootIdentity,
+      config_identity: configIdentity,
+      origin: http.origin,
+      credential_path: paths.hookCredentialPath,
+      capture_path: "/__hooks/capture",
+      created_at: createdAt,
+      ready_at: readyAt,
+    });
+    hookDescriptorIdentity = publishAutomaticMemoryHookDescriptor(
+      paths.hookDescriptorPath,
+      hookDescriptor,
+    );
     const endpoint = WorkbenchEndpointMetadataSchema.parse({
       schema_version: "1.0.0",
       instance_id: instanceId,
@@ -213,7 +377,6 @@ export async function startMemoryWorkbenchHost(options: {
       schema_version: "1.0.0",
       instance_id: instanceId,
       ticket: initial.ticket,
-      pairing_code: null,
       expires_at: initial.expires_at,
       });
     let closed = false;
@@ -243,7 +406,13 @@ export async function startMemoryWorkbenchHost(options: {
             paths.controlCredentialPath,
             credentialIdentity,
           );
+          removeOwnedArtifact(paths.hookDescriptorPath, hookDescriptorIdentity);
+          removeOwnedArtifact(
+            paths.hookCredentialPath,
+            hookCredentialIdentity,
+          );
           controlCredential.fill(0);
+          hookCredential.fill(0);
         }
         if (firstError !== undefined) {
           throw firstError;
@@ -255,7 +424,10 @@ export async function startMemoryWorkbenchHost(options: {
     await runtime?.close().catch(() => undefined);
     removeOwnedArtifact(paths.endpointPath, endpointIdentity);
     removeOwnedArtifact(paths.controlCredentialPath, credentialIdentity);
+    removeOwnedArtifact(paths.hookDescriptorPath, hookDescriptorIdentity);
+    removeOwnedArtifact(paths.hookCredentialPath, hookCredentialIdentity);
     controlCredential.fill(0);
+    hookCredential.fill(0);
     throw error;
   }
 }

@@ -1,4 +1,4 @@
-import type { Core } from "cytoscape";
+import type { Network } from "vis-network/standalone/esm";
 import {
   useEffect,
   useMemo,
@@ -22,6 +22,14 @@ type ReadyGraph = Extract<
 >;
 type GraphNode = ReadyGraph["nodes"][number];
 type GraphEdge = ReadyGraph["edges"][number];
+
+const GRAPH_KIND_COLORS = {
+  memory_revision: "#d7d3c7",
+  topic: "#74c7c1",
+  scenario: "#f29a57",
+  procedure: "#a99ad1",
+  core: "#ee7d88",
+} as const satisfies Record<GraphNode["kind"], string>;
 
 export function GraphExplorer({
   api,
@@ -329,7 +337,7 @@ function GraphCanvas({
   onSelectNode(nodeId: string): void;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const instance = useRef<Core | null>(null);
+  const instance = useRef<Network | null>(null);
   const [canvasState, setCanvasState] = useState<"loading" | "ready" | "failed">("loading");
   const selectEdge = useRef(onSelectEdge);
   const selectNode = useRef(onSelectNode);
@@ -341,43 +349,118 @@ function GraphCanvas({
     if (container.current === null) return;
     const host = container.current;
     let disposed = false;
-    let mounted: Core | null = null;
+    let mounted: Network | null = null;
     setCanvasState("loading");
-    void import("cytoscape").then(({ default: cytoscape }) => {
+    void import("vis-network/standalone/esm").then(({ DataSet, Network: VisNetwork }) => {
       if (disposed) return;
-      const cy = cytoscape({
-        container: host,
-        elements: [
-          ...graph.nodes.map((node) => ({
-            data: { id: node.node_id, label: shortLabel(node.label), kind: node.kind },
-          })),
-          ...graph.edges.map((edge) => ({
-            data: {
-              id: edge.edge_id,
-              source: edge.from_node_id,
-              target: edge.to_node_id,
-              label: edge.relation,
-              plane: edge.authority_plane,
-            },
-          })),
-        ],
-        style: [
-          { selector: "node", style: { "background-color": "#c7f36b", color: "#f4f6ef", label: "data(label)", "font-family": "Geist Mono", "font-size": "10px", "text-wrap": "wrap", "text-max-width": "120px", "text-valign": "bottom", "text-margin-y": 8, width: 30, height: 30 } },
-          { selector: 'node[kind = "memory_revision"]', style: { shape: "round-rectangle", "background-color": "#f0f2eb", "border-color": "#7d8c70", "border-width": 2 } },
-          { selector: "edge", style: { width: 1.5, "line-color": "#66705f", "target-arrow-color": "#66705f", "target-arrow-shape": "triangle", "curve-style": "bezier", label: "data(label)", color: "#a8b29f", "font-size": "8px", "text-background-color": "#111411", "text-background-opacity": 0.85, "text-background-padding": "3px" } },
-          { selector: 'edge[plane = "governed_relation"]', style: { "line-color": "#c7f36b", "target-arrow-color": "#c7f36b" } },
-          { selector: ":selected", style: { "border-color": "#ffb86b", "border-width": 4, "line-color": "#ffb86b", "target-arrow-color": "#ffb86b" } },
-        ],
-        layout: { name: "breadthfirst", directed: true, animate: false, spacingFactor: 1.4 },
-        autoungrabify: true,
-        boxSelectionEnabled: false,
-        minZoom: 0.4,
-        maxZoom: 2.2,
+      const degrees = graphDegrees(graph);
+      const showEveryLabel = graph.nodes.length <= 18;
+      const nodes = new DataSet(graph.nodes.map((node) => {
+        const color = GRAPH_KIND_COLORS[node.kind];
+        const degree = degrees.get(node.node_id) ?? 0;
+        const prominent = showEveryLabel || degree >= 3 || node.node_id === graph.center_node_id;
+        return {
+          id: node.node_id,
+          label: prominent ? visibleGraphLabel(node.label) : "",
+          title: safeGraphTooltip(`${nodeKindLabel(node.kind)} · ${node.label}`),
+          group: node.kind,
+          value: Math.max(1, degree),
+          shape: "dot",
+          size: node.node_id === graph.center_node_id ? 25 : nodeSize(degree),
+          borderWidth: node.authority_plane === "canonical" ? 3 : 1.25,
+          color: {
+            background: color,
+            border: node.authority_plane === "canonical" ? "#f1efe7" : color,
+            highlight: { background: "#fff7da", border: "#ffbd63" },
+            hover: { background: "#f6f1df", border: color },
+          },
+          font: {
+            color: "#d7ddd4",
+            face: "Geist Mono Variable",
+            size: prominent ? 10 : 0,
+            strokeWidth: 3,
+            strokeColor: "#0b0e12",
+            vadjust: 7,
+          },
+        };
+      }));
+      const edges = new DataSet(graph.edges.map((edge) => ({
+        id: edge.edge_id,
+        from: edge.from_node_id,
+        to: edge.to_node_id,
+        title: safeGraphTooltip(edge.description ?? edge.relation),
+        ...(edge.direction === "directed"
+          ? { arrows: { to: { enabled: true, scaleFactor: 0.45 } } }
+          : {}),
+        dashes: edge.authority_plane === "projection_lineage" ? [3, 5] : false,
+        width: edge.authority_plane === "governed_relation" ? 1.35 : 0.8,
+        color: {
+          color: edge.authority_plane === "governed_relation" ? "#688cb3" : "#64706c",
+          highlight: "#ffbd63",
+          hover: "#a8c8e5",
+          opacity: edge.authority_plane === "governed_relation" ? 0.72 : 0.48,
+        },
+      })));
+      const network = new VisNetwork(host, { nodes, edges }, {
+        autoResize: true,
+        physics: {
+          enabled: true,
+          solver: "forceAtlas2Based",
+          forceAtlas2Based: {
+            gravitationalConstant: -62,
+            centralGravity: 0.008,
+            springLength: 118,
+            springConstant: 0.075,
+            damping: 0.43,
+            avoidOverlap: 0.78,
+          },
+          stabilization: {
+            enabled: true,
+            iterations: 240,
+            updateInterval: 24,
+            fit: true,
+          },
+        },
+        interaction: {
+          dragNodes: true,
+          dragView: true,
+          hideEdgesOnDrag: true,
+          hover: true,
+          hoverConnectedEdges: true,
+          multiselect: false,
+          navigationButtons: false,
+          selectable: true,
+          tooltipDelay: 120,
+          zoomView: true,
+        },
+        nodes: {
+          chosen: true,
+          scaling: { min: 11, max: 34 },
+        },
+        edges: {
+          chosen: true,
+          hoverWidth: 0.8,
+          selectionWidth: 2.2,
+          smooth: { enabled: true, type: "continuous", roundness: 0.22 },
+        },
       });
-      cy.on("tap", "node", (event) => selectNode.current(event.target.id()));
-      cy.on("tap", "edge", (event) => selectEdge.current(event.target.id()));
-      mounted = cy;
-      instance.current = cy;
+      network.once("stabilizationIterationsDone", () => {
+        network.setOptions({ physics: { enabled: false } });
+        network.fit({ animation: { duration: 420, easingFunction: "easeInOutQuad" } });
+      });
+      network.on("selectNode", ({ nodes: selectedNodes }) => {
+        const nodeId = selectedNodes[0];
+        if (nodeId !== undefined) selectNode.current(String(nodeId));
+      });
+      network.on("selectEdge", ({ edges: selectedEdges, nodes: selectedNodes }) => {
+        if (selectedNodes.length > 0) return;
+        const edgeId = selectedEdges[0];
+        if (edgeId !== undefined) selectEdge.current(String(edgeId));
+      });
+      if (selectedNodeId !== null) network.selectNodes([selectedNodeId]);
+      if (selectedEdgeId !== null) network.selectEdges([selectedEdgeId]);
+      mounted = network;
+      instance.current = network;
       setCanvasState("ready");
     }).catch(() => {
       if (!disposed) setCanvasState("failed");
@@ -389,21 +472,29 @@ function GraphCanvas({
     };
   }, [graph]);
   useEffect(() => {
-    const cy = instance.current;
-    if (cy === null) return;
-    cy.elements().unselect();
-    const id = selectedNodeId ?? selectedEdgeId;
-    if (id !== null) cy.$id(id).select();
+    const network = instance.current;
+    if (network === null) return;
+    network.unselectAll();
+    if (selectedNodeId !== null) network.selectNodes([selectedNodeId]);
+    if (selectedEdgeId !== null) network.selectEdges([selectedEdgeId]);
   }, [selectedEdgeId, selectedNodeId]);
   return (
-    <>
+    <div className="graph-visual">
+      <div className="graph-canvas-toolbar" aria-label="Graph 图例与画布控制">
+        <ul className="graph-legend" aria-label="节点类型">
+          {Object.entries(GRAPH_KIND_COLORS).map(([kind, color]) => (
+            <li key={kind}><span style={{ backgroundColor: color }} />{nodeKindLabel(kind as GraphNode["kind"])}</li>
+          ))}
+        </ul>
+        <button onClick={() => instance.current?.fit({ animation: true })} type="button">适应画布</button>
+      </div>
       <div aria-hidden="true" className="graph-canvas" data-state={canvasState} ref={container} />
       {canvasState === "failed" ? (
         <p className="graph-canvas-fallback" role="status">
           视觉图层加载失败；下方语义列表仍可完整检查和导航。
         </p>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -459,8 +550,28 @@ function isReadyGraph(value: WorkbenchGraphResult | null): value is ReadyGraph {
   return value !== null && ["ready", "ready_empty", "degraded"].includes(value.status);
 }
 
-function shortLabel(value: string): string {
-  return value.length > 36 ? `${value.slice(0, 34)}…` : value;
+function visibleGraphLabel(value: string): string {
+  const normalized = value.trim();
+  return [...normalized].length <= 18 ? normalized : "";
+}
+
+function graphDegrees(graph: ReadyGraph): Map<string, number> {
+  const degrees = new Map(graph.nodes.map((node) => [node.node_id, 0]));
+  for (const edge of graph.edges) {
+    degrees.set(edge.from_node_id, (degrees.get(edge.from_node_id) ?? 0) + 1);
+    degrees.set(edge.to_node_id, (degrees.get(edge.to_node_id) ?? 0) + 1);
+  }
+  return degrees;
+}
+
+function nodeSize(degree: number): number {
+  return Math.min(30, 10 + Math.sqrt(Math.max(1, degree)) * 4.5);
+}
+
+function safeGraphTooltip(text: string): HTMLElement {
+  const tooltip = document.createElement("span");
+  tooltip.textContent = text;
+  return tooltip;
 }
 
 function nodeKindLabel(kind: GraphNode["kind"]): string {

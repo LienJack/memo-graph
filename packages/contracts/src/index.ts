@@ -1,4 +1,5 @@
 export * from "./canonical-json.js";
+export * from "./automatic-memory.js";
 export * from "./common.js";
 export * from "./encryption.js";
 export * from "./evidence-adapter.js";

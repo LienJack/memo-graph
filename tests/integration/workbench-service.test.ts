@@ -37,6 +37,27 @@ const authority = LocalPrincipalSchema.parse({
   destructive_tools_enabled: true,
 });
 
+function automaticStorageStubs() {
+  return {
+    listAutomaticMemoryActivity: vi.fn(async () => ({
+      status: "ready_empty" as const,
+      overview: {
+        projects: 0,
+        events: 0,
+        turns: 0,
+        pending: 0,
+        completed: 0,
+        quarantined: 0,
+        recall_uses: 0,
+      },
+      items: [],
+      warnings: [],
+    })),
+    lookupAutomaticMemoryAdmission: vi.fn(async () => null),
+    applyMemoryControl: vi.fn(),
+  };
+}
+
 function summary(id: string, revisionId: string) {
   return WorkbenchMemorySummarySchema.parse({
     memory_id: id,
@@ -141,6 +162,7 @@ describe("WorkbenchService", () => {
       snapshots: new StableRegistry(),
       clock: () => NOW,
       storage: {
+        ...automaticStorageStubs(),
         listWorkbenchMemories,
         getWorkbenchMemorySummaries,
         getWorkbenchMemoryDetail: async (
@@ -208,6 +230,7 @@ describe("WorkbenchService", () => {
         }),
       },
       storage: {
+        ...automaticStorageStubs(),
         listWorkbenchMemories: vi.fn(),
         getWorkbenchMemorySummaries,
         getWorkbenchMemoryDetail: vi.fn(),
@@ -232,6 +255,7 @@ describe("WorkbenchService", () => {
       snapshots: new StableRegistry(),
       clock: () => NOW,
       storage: {
+        ...automaticStorageStubs(),
         listWorkbenchMemories: async () =>
           WorkbenchMemoryCandidateSetSchema.parse({
             frontier_hash: canonicalSha256({ frontier: "truncated" }),
@@ -290,6 +314,7 @@ describe("WorkbenchService", () => {
       snapshots: new StableRegistry(),
       clock: () => NOW,
       storage: {
+        ...automaticStorageStubs(),
         listWorkbenchMemories: vi.fn(),
         getWorkbenchMemorySummaries: vi.fn(),
         getWorkbenchMemoryDetail: vi.fn(),

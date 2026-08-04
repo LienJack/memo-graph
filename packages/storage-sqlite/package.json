@@ -10,10 +10,11 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "migrations"
   ],
   "scripts": {
-    "build": "node ../../tools/rename-noreplace/build.mjs && tsc -p tsconfig.json"
+    "build": "node scripts/copy-migrations.mjs && node ../../tools/rename-noreplace/build.mjs && tsc -p tsconfig.json"
   },
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",

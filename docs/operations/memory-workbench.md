@@ -7,12 +7,15 @@ memo-graph Runtime. The managed host owns the SQLite writer lease, background
 workers, private MCP IPC, loopback HTTP server, and browser sessions. The browser
 never opens SQLite and never becomes memory authority.
 
-The three surfaces have different roles:
+The four surfaces have different roles:
 
 - **Memory** browses governed, current-effective memory by default and performs
   correction only through sealed preview and explicit confirmation.
 - **Graph** reads a bounded SQLite relation/projection view. It does not enable
   the native Graph backend rejected by G4A and cannot edit relationships.
+- **Automatic memory** reads capture, formation, policy, admission, retry,
+  quarantine, and recall-use audit metadata. Its Undo action uses governed
+  preview-confirm demotion and never edits raw evidence.
 - **Runtime dashboard** polls content-free health through authenticated GET. It
   has no retry, rebuild, backup, restore, cleanup, rollback, or key action.
 
@@ -107,13 +110,14 @@ node apps/operator-cli/dist/cli.js workbench \
 ```
 
 `--no-open` and `--headless` are mutually exclusive. In either mode the launch
-result gives the loopback base URL and requests pairing. The short-lived pairing
-code is printed only when human output is attached to the controlling TTY; it is
-not written to JSON, endpoint metadata, logs, environment variables, or files.
-Open the base URL in the same local account and enter that code.
+result gives the loopback base URL and prints a one-use launch URL only when
+human output is attached to the controlling TTY. Open that launch URL directly;
+there is no pairing-code entry flow. The launch URL is not written to JSON,
+endpoint metadata, logs, environment variables, or files.
 
-If automatic browser opening fails, rerun with `--no-open --format human` on a
-TTY. Do not copy an old fragment URL: launch tickets, pairing codes, bearers, and
+If automatic browser opening fails, open the one-use launch URL printed on the
+controlling TTY. If it has expired, rerun the normal command to mint and open a
+fresh link. Do not copy an old fragment URL: launch tickets, bearers, and
 instance identity expire independently.
 
 ## Runtime states
@@ -123,7 +127,7 @@ instance identity expire independently.
 | `ready` | Canonical Runtime and governed content routes are available. | Use Memory, Graph, and Runtime dashboard normally. |
 | `health_only` | The loopback host is inspectable but Runtime authority is blocked. | Read health reasons; fix configuration or recovery authority outside the dashboard, then relaunch. |
 | stale page | The page retained an old or disconnected instance. | Do not confirm a draft; relaunch and establish a new browser session. |
-| browser failed | Host may be live but no authenticated tab opened. | Use the TTY pairing recovery above. |
+| browser failed | Host may be live but no authenticated tab opened. | Open the one-use launch URL printed on the controlling TTY, or rerun the command. |
 
 An unavailable projection does not mean canonical memory is unavailable. The
 dashboard deliberately shows canonical storage first, then Runtime ownership,
@@ -145,7 +149,7 @@ endpoint is live.
 
 Runtime metadata is kept in the private per-user temporary directory
 `memo-graph-workbench-<uid>`. Endpoint metadata contains identities, paths,
-origin, port, and process ID but no browser bearer or pairing code. Credential
+origin, port, and process ID but no browser bearer or launch ticket. Credential
 files are mode `0600`; the directory is mode `0700`.
 
 ## Safe stale-metadata recovery
@@ -178,3 +182,6 @@ pnpm exec vitest run \
 
 See `docs/evaluations/memory-workbench-verification.md` for the full acceptance
 matrix and residual limitations.
+Automatic-memory operation and its separate release gate are documented in
+`docs/operations/codex-automatic-memory.md` and
+`docs/evaluations/codex-automatic-memory-verification.md`.

@@ -18,6 +18,8 @@
   "dependencies": {
     "@memo-graph/contracts": "workspace:*",
     "@memo-graph/graph-projection": "workspace:*",
+    "@memo-graph/evidence-adapter": "workspace:*",
+    "@memo-graph/memory-formation": "workspace:*",
     "@memo-graph/memory-kernel": "workspace:*",
     "@memo-graph/storage-sqlite": "workspace:*",
     "@memo-graph/vector-retrieval": "workspace:*",
