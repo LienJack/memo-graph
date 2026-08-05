@@ -356,6 +356,7 @@ export async function startWorkbenchHttpServer(options: {
         }
         writeJson(response, 200, session);
         return;
+      }
       if (
         request.method === "POST" &&
         path === "/api/session/auto"
@@ -364,13 +365,11 @@ export async function startWorkbenchHttpServer(options: {
           !rateAllowed(browserBootstrapWindow, 10) ||
           !sameOriginBrowserRequest(request, origin, true)
         ) {
-          writeJson(response, 403, { code: "BROWSER_ORIGIN_REJECTED" });
           return;
         }
         const session = sessions.issueSession();
         writeJson(response, 200, session);
         return;
-      }
       }
       if (request.method === "POST" && path === "/__operator/bootstrap") {
         if (

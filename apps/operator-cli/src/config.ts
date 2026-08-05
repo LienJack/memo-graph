@@ -28,12 +28,6 @@ import {
   OperationalArtifactClassSchema,
   OperatorConfirmationSchema,
   ReleaseQualificationSchema,
-  G6ReleaseControlSchema,
-  G6ReleaseControlTrustSchema,
-  PINNED_G6_RELEASE_CONTROL_TRUST,
-  RuntimeIdentitySchema,
-  SecretAdmissionApprovalSchema,
-  SecretAdmissionTrustSchema,
   UtcTimestampSchema,
   canonicalSha256,
 } from "@memo-graph/contracts";
@@ -44,19 +38,6 @@ import {
 
 const MAX_CONFIG_BYTES = 256 * 1024;
 
-export const G6ReleaseControlArtifactSchema = z
-  .object({
-    control: G6ReleaseControlSchema,
-    trust: G6ReleaseControlTrustSchema,
-    evidence_binding: z
-      .object({
-        evidence_bundle_hash: CanonicalHashSchema,
-        release_binding_hash: CanonicalHashSchema,
-      })
-      .strict(),
-    verification_time: UtcTimestampSchema,
-  })
-  .strict();
 
 export const OperatorConfigSchema = z
   .object({
@@ -143,30 +124,6 @@ export const OperatorConfigSchema = z
           z.string().trim().min(1),
         ),
         forbidden_markers: z.array(z.string().min(1).max(512)),
-      })
-      .strict()
-      .nullable()
-      .default(null),
-    secret_admission: z
-      .object({
-        enabled: z.boolean(),
-        approval_trust: SecretAdmissionTrustSchema,
-        signing_private_key_path: z.string().trim().min(1),
-        commitment_key_path: z.string().trim().min(1),
-        release_control_path: z.string().trim().min(1),
-        release_trust: G6ReleaseControlTrustSchema,
-        runtime_identity_path: z.string().trim().min(1),
-        encryption_provider: z
-          .object({
-            key_id: IdentifierSchema,
-            key_generation: z.number().int().positive(),
-            key_path: z.string().trim().min(1),
-            commitment_key_id: IdentifierSchema,
-            commitment_key_path: z.string().trim().min(1),
-          })
-          .strict(),
-        requests: z.record(IdentifierSchema, z.string().trim().min(1)),
-        approvals: z.record(IdentifierSchema, z.string().trim().min(1)),
       })
       .strict()
       .nullable()
@@ -292,22 +249,9 @@ function validateOperatorPaths(config: OperatorConfig): OperatorConfig {
           ),
           ...Object.values(config.learning_rollback.approval_grants),
         ].map(({ path }) => resolveNoSymlinkTail(path));
-  const operationalArtifacts = config.operational_artifacts;
-  const secretAdmissionPaths =
-    config.secret_admission === null
-      ? []
-      : [
-          config.secret_admission.signing_private_key_path,
-          config.secret_admission.commitment_key_path,
-          config.secret_admission.release_control_path,
-          config.secret_admission.runtime_identity_path,
-          config.secret_admission.encryption_provider.key_path,
-          config.secret_admission.encryption_provider.commitment_key_path,
-          ...Object.values(config.secret_admission.requests),
-          ...Object.values(config.secret_admission.approvals),
-        ].map(resolveNoSymlinkTail);
+ const operationalArtifacts = config.operational_artifacts;
   const operationalArtifactRoots =
-    operationalArtifacts === null
+   operationalArtifacts === null
       ? []
       : OperationalArtifactClassSchema.options.map(
           (artifactClass) =>
@@ -339,35 +283,12 @@ function validateOperatorPaths(config: OperatorConfig): OperatorConfig {
       }
     }
   }
-  if (
-    config.secret_admission !== null &&
-    new Set(secretAdmissionPaths.slice(0, 6)).size !== 6
-  ) {
-    throw new OperatorConfigError();
-  }
-  if (
-    config.secret_admission !== null &&
-    (authorityKeys.some((keyPath) =>
-      secretAdmissionPaths.slice(0, 6).includes(keyPath),
-    ) ||
-      (confirmationAuthority !== null &&
-        [
-          config.secret_admission.approval_trust
-            .public_key_spki_base64url,
-          config.secret_admission.release_trust
-            .public_key_spki_base64url,
-        ].includes(confirmationAuthority.trust.public_key_spki)))
-  ) {
-    throw new OperatorConfigError();
-  }
-
   for (const externalPath of [
     ...(authorityDirectory === null ? [] : [authorityDirectory]),
     ...authorityKeys,
     ...(actionLedger === null ? [] : [actionLedger]),
     ...grantPaths,
     ...learningArtifactPaths,
-    ...secretAdmissionPaths,
   ]) {
     if (
       protectedRoots.some((root) => pathsOverlap(root, externalPath))
@@ -387,7 +308,6 @@ function validateOperatorPaths(config: OperatorConfig): OperatorConfig {
       ...(actionLedger === null ? [] : [actionLedger]),
       ...grantPaths,
       ...learningArtifactPaths,
-      ...secretAdmissionPaths,
     ].some((path) => pathsOverlap(path, quarantineRoot))
   ) {
     throw new OperatorConfigError();
@@ -524,90 +444,6 @@ export function openPrivateOperatorDescriptor(pathInput: string): number {
     }
     throw new OperatorConfigError();
   }
-}
-
-export function loadSecretAdmissionArtifacts(
-  config: OperatorConfig,
-  input: { requestRef?: string; approvalRef?: string },
-) {
-  const admission = config.secret_admission;
-  if (admission === null) {
-    throw new OperatorConfigError();
-  }
-  const request =
-    input.requestRef === undefined
-      ? null
-      : readPrivateOperatorJson(
-          admission.requests[IdentifierSchema.parse(input.requestRef)] ??
-            (() => {
-              throw new OperatorConfigError();
-            })(),
-        );
-  const approval =
-    input.approvalRef === undefined
-      ? null
-      : SecretAdmissionApprovalSchema.parse(
-          readPrivateOperatorJson(
-            admission.approvals[
-              IdentifierSchema.parse(input.approvalRef)
-            ] ??
-              (() => {
-                throw new OperatorConfigError();
-              })(),
-          ),
-        );
-  const releaseArtifact = G6ReleaseControlArtifactSchema.parse(
-    readPrivateOperatorJson(admission.release_control_path),
-  );
-  const evidenceBundleTag =
-    releaseArtifact.evidence_binding.evidence_bundle_hash.slice(
-      "sha256:".length,
-    );
-  if (
-    canonicalSha256(admission.release_trust) !==
-      canonicalSha256(PINNED_G6_RELEASE_CONTROL_TRUST) ||
-    canonicalSha256(releaseArtifact.trust) !==
-      canonicalSha256(admission.release_trust) ||
-    !releaseArtifact.control.control_id.endsWith(
-      `:${evidenceBundleTag}`,
-    ) ||
-    releaseArtifact.evidence_binding.release_binding_hash !==
-      canonicalSha256({
-        control_hash: releaseArtifact.control.control_hash,
-        evidence_bundle_hash:
-          releaseArtifact.evidence_binding.evidence_bundle_hash,
-      })
-  ) {
-    throw new OperatorConfigError();
-  }
-  return {
-    admission,
-    request,
-    approval,
-    control: releaseArtifact.control,
-    releaseArtifact,
-    runtimeIdentity: RuntimeIdentitySchema.parse(
-      readPrivateOperatorJson(admission.runtime_identity_path),
-    ),
-  };
-}
-
-export function loadSecretAdmissionRequest(
-  config: OperatorConfig,
-  requestRef: string,
-) {
-  const admission = config.secret_admission;
-  if (admission === null) {
-    throw new OperatorConfigError();
-  }
-  const path = admission.requests[IdentifierSchema.parse(requestRef)];
-  if (path === undefined) {
-    throw new OperatorConfigError();
-  }
-  return {
-    admission,
-    request: readPrivateOperatorJson(path),
-  };
 }
 
 export function loadOperatorConfig(pathInput: string): OperatorConfig {

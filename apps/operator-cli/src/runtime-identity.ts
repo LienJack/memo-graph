@@ -278,7 +278,6 @@ export function runtimeConfigurationDigest(
 ): RuntimeIdentity["configuration_digest"] {
   const recoveryAuthority = config.recovery.authority;
   const operatorConfirmation = config.operator_confirmation;
-  const admission = config.secret_admission;
   return CanonicalHashSchema.parse(canonicalSha256({
     schema_version: "1.0.0",
     topology: "single-user-single-root-single-writer-stdio",
@@ -299,21 +298,6 @@ export function runtimeConfigurationDigest(
           },
     operator_confirmation_trust:
       operatorConfirmation?.trust ?? null,
-    secret_admission:
-      admission === null
-        ? null
-        : {
-            enabled: admission.enabled,
-            approval_trust: admission.approval_trust,
-            release_trust: admission.release_trust,
-            encryption_provider: {
-              key_id: admission.encryption_provider.key_id,
-              key_generation:
-                admission.encryption_provider.key_generation,
-              commitment_key_id:
-                admission.encryption_provider.commitment_key_id,
-            },
-          },
   }));
 }
 
