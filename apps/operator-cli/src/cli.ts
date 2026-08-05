@@ -44,12 +44,6 @@ import {
   runConfirmedKeyRotation,
 } from "./commands/key.js";
 import {
-  admitConfiguredSecret,
-  approveConfiguredSecretAdmission,
-  SecretAdmissionRequestSchema,
-  secretAdmissionDryRun,
-} from "./commands/secret.js";
-import {
   restoreDryRun,
   runConfirmedRestore,
 } from "./commands/restore.js";
@@ -70,8 +64,6 @@ import {
   loadOperatorGrant,
   loadRecoveryHeadProvider,
   loadOperatorConfig,
-  loadSecretAdmissionArtifacts,
-  loadSecretAdmissionRequest,
   openPrivateOperatorDescriptor,
   readPrivateOperatorJson,
 } from "./config.js";
@@ -382,27 +374,6 @@ type ParsedArguments =
       format: OperatorOutputFormat;
     }
   | {
-      command: "secret_admit_dry_run";
-      configPath: string;
-      format: OperatorOutputFormat;
-      inputDescriptor: number;
-    }
-  | {
-      command: "secret_approve";
-      configPath: string;
-      format: "json";
-      inputDescriptor: number;
-      requestRef: string;
-    }
-  | {
-      command: "secret_admit";
-      configPath: string;
-      format: "json";
-      inputDescriptor: number;
-      requestRef: string;
-      approvalRef: string;
-    }
-  | {
       command: "backup_inspect";
       configPath: string;
       format: OperatorOutputFormat;
@@ -481,9 +452,6 @@ export function parseOperatorArguments(
             ? 2
           : argv[0] === "operator" && argv[1] === "recover-lock"
             ? 2
-        : argv[0] === "secret" &&
-            (argv[1] === "admit" || argv[1] === "approve")
-          ? 2
           : 0;
   if (
     commandLength === 0 ||
@@ -511,8 +479,6 @@ export function parseOperatorArguments(
       || argument === "--evidence-ref"
       || argument === "--confirmation-ref"
       || argument === "--process-id"
-      || argument === "--request-ref"
-      || argument === "--approval-ref"
     ) {
       consumed.add(index);
       if (argv[index + 1] !== undefined) {
@@ -799,91 +765,7 @@ export function parseOperatorArguments(
     }
     return { command: "key_rotate_dry_run", configPath, format };
   }
-  const descriptorText = argumentValue(argv, "--input-fd");
-  const inputDescriptor = Number(descriptorText);
-  const requestRef = argumentValue(argv, "--request-ref");
-  const approvalRef = argumentValue(argv, "--approval-ref");
-  if (argv[0] === "secret" && argv[1] === "approve") {
-    if (
-      requestRef === null ||
-      argumentCount(argv, "--request-ref") !== 1 ||
-      argumentCount(argv, "--input-fd") !== 1 ||
-      !Number.isSafeInteger(inputDescriptor) ||
-      inputDescriptor < 3 ||
-      format !== "json" ||
-      argv.includes("--dry-run") ||
-      hasUnexpectedFlags(argv, [
-        "--config",
-        "--format",
-        "--input-fd",
-        "--request-ref",
-      ])
-    ) {
-      throw new OperatorConfigError();
-    }
-    return {
-      command: "secret_approve",
-      configPath,
-      format,
-      inputDescriptor,
-      requestRef,
-    };
-  }
-  if (
-    argv[0] === "secret" &&
-    argv[1] === "admit" &&
-    !argv.includes("--dry-run")
-  ) {
-    if (
-      requestRef === null ||
-      approvalRef === null ||
-      argumentCount(argv, "--request-ref") !== 1 ||
-      argumentCount(argv, "--approval-ref") !== 1 ||
-      argumentCount(argv, "--input-fd") !== 1 ||
-      !Number.isSafeInteger(inputDescriptor) ||
-      inputDescriptor < 3 ||
-      format !== "json" ||
-      hasUnexpectedFlags(argv, [
-        "--config",
-        "--format",
-        "--input-fd",
-        "--request-ref",
-        "--approval-ref",
-      ])
-    ) {
-      throw new OperatorConfigError();
-    }
-    return {
-      command: "secret_admit",
-      configPath,
-      format,
-      inputDescriptor,
-      requestRef,
-      approvalRef,
-    };
-  }
-  if (
-    argv.filter((argument) => argument === "--dry-run").length !== 1 ||
-    argv.filter((argument) => argument === "--input-fd").length !== 1 ||
-    !Number.isSafeInteger(inputDescriptor) ||
-    inputDescriptor < 3 ||
-    argv.includes("--backup-ref") ||
-    argv.includes("--target-ref")
-    || hasUnexpectedFlags(argv, [
-      "--config",
-      "--format",
-      "--input-fd",
-      "--dry-run",
-    ])
-  ) {
-    throw new OperatorConfigError();
-  }
-  return {
-    command: "secret_admit_dry_run",
-    configPath,
-    format,
-    inputDescriptor,
-  };
+  throw new OperatorConfigError();
 }
 
 function replaceExitClass(
@@ -966,142 +848,7 @@ export async function runOperatorCli(
       case "key_rotate_dry_run":
         io.stdout.write(`${canonicalJson(keyRotationDryRun())}\n`);
         return operatorExitCode("operator_action_required");
-      case "secret_admit_dry_run":
-        void arguments_.inputDescriptor;
-        io.stdout.write(`${canonicalJson(secretAdmissionDryRun())}\n`);
-        return operatorExitCode("operator_action_required");
-      case "secret_approve": {
-        const artifacts = loadSecretAdmissionRequest(
-          config,
-          arguments_.requestRef,
-        );
-        const request = SecretAdmissionRequestSchema.parse(
-          artifacts.request,
-        );
-        let signingDescriptor: number | undefined;
-        let admissionCommitmentDescriptor: number | undefined;
-        try {
-          signingDescriptor = openPrivateOperatorDescriptor(
-            artifacts.admission.signing_private_key_path,
-          );
-          admissionCommitmentDescriptor = openPrivateOperatorDescriptor(
-            artifacts.admission.commitment_key_path,
-          );
-          const storage = await SqliteStorageClient.inspect({
-            dataRoot: config.data_root,
-            secretPrincipalId: config.principal_id,
-          });
-          try {
-            const approval = await approveConfiguredSecretAdmission({
-              storage,
-              rootFenceToken: inspectNextRootFenceToken(config.data_root),
-              request,
-              inputDescriptor: arguments_.inputDescriptor,
-              signingKeyDescriptor: signingDescriptor,
-              commitmentKeyDescriptor:
-                admissionCommitmentDescriptor,
-              trust: artifacts.admission.approval_trust,
-            });
-            io.stdout.write(`${canonicalJson(approval)}\n`);
-            return operatorExitCode("success");
-          } finally {
-            await storage.close();
-          }
-        } finally {
-          for (const descriptor of [
-            signingDescriptor,
-            admissionCommitmentDescriptor,
-          ]) {
-            if (descriptor !== undefined) {
-              closeSync(descriptor);
-            }
-          }
-        }
-      }
-      case "secret_admit": {
-        const artifacts = loadSecretAdmissionArtifacts(config, {
-          requestRef: arguments_.requestRef,
-          approvalRef: arguments_.approvalRef,
-        });
-        const request = SecretAdmissionRequestSchema.parse(
-          artifacts.request,
-        );
-        if (artifacts.approval === null) {
-          throw new OperatorConfigError();
-        }
-        let admissionCommitmentDescriptor: number | undefined;
-        let dataKeyDescriptor: number | undefined;
-        let dataCommitmentDescriptor: number | undefined;
-        try {
-          admissionCommitmentDescriptor = openPrivateOperatorDescriptor(
-            artifacts.admission.commitment_key_path,
-          );
-          dataKeyDescriptor = openPrivateOperatorDescriptor(
-            artifacts.admission.encryption_provider.key_path,
-          );
-          dataCommitmentDescriptor = openPrivateOperatorDescriptor(
-            artifacts.admission.encryption_provider
-              .commitment_key_path,
-          );
-          const storage = await SqliteStorageClient.open({
-            dataRoot: config.data_root,
-            secretPrincipalId: config.principal_id,
-            recoveryHeadProvider: loadRecoveryHeadProvider(config),
-            secretAdmission: {
-              enabled: artifacts.admission.enabled,
-              approvalTrust: artifacts.admission.approval_trust,
-              approvalCommitmentDescriptor:
-                admissionCommitmentDescriptor,
-              encryptionProvider: {
-                key_id:
-                  artifacts.admission.encryption_provider.key_id,
-                key_generation:
-                  artifacts.admission.encryption_provider
-                    .key_generation,
-                key_descriptor: dataKeyDescriptor,
-                commitment_key_id:
-                  artifacts.admission.encryption_provider
-                    .commitment_key_id,
-                commitment_descriptor: dataCommitmentDescriptor,
-              },
-              releaseControl: artifacts.control,
-              releaseTrust: artifacts.admission.release_trust,
-              runtimeIdentityProvider:
-                runtime.runtimeIdentityProvider ??
-                productionRuntimeIdentityProvider(
-                  artifacts.runtimeIdentity,
-                  config,
-                ),
-              ...(runtime.now === undefined
-                ? {}
-                : { now: runtime.now }),
-            },
-          });
-          try {
-            const receipt = await admitConfiguredSecret({
-              storage,
-              request,
-              approval: artifacts.approval,
-              inputDescriptor: arguments_.inputDescriptor,
-            });
-            io.stdout.write(`${canonicalJson(receipt)}\n`);
-            return operatorExitCode("success");
-          } finally {
-            await storage.close();
-          }
-        } finally {
-          for (const descriptor of [
-            admissionCommitmentDescriptor,
-            dataKeyDescriptor,
-            dataCommitmentDescriptor,
-          ]) {
-            if (descriptor !== undefined) {
-              closeSync(descriptor);
-            }
-          }
-        }
-      }
-      case "backup_inspect": {
+     case "backup_inspect": {
         const backupBundles = config.recovery
           .backup_bundles as Record<string, string>;
         const directory = backupBundles[arguments_.backupRef];

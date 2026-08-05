@@ -76,6 +76,28 @@ export class WorkbenchSessionAuthority {
     return { ticket, expires_at: new Date(expiresAt).toISOString() };
   }
 
+
+  issueSession(): WorkbenchBrowserSession {
+    this.#assertOpen();
+    this.#expire();
+    evictOldest(this.#sessions, 64);
+    const bearer = randomBytes(32).toString("base64url");
+    const sessionId = `browser:${randomUUID()}`;
+    const now = this.#clock();
+    const expiresAt = now + this.#sessionTtlMs;
+    this.#sessions.set(this.#digest("bearer", bearer), {
+      sessionId,
+      createdAtMs: now,
+      expiresAtMs: expiresAt,
+    });
+    return WorkbenchBrowserSessionSchema.parse({
+      schema_version: "1.0.0",
+      instance_id: this.#instanceId,
+      session_id: sessionId,
+      bearer,
+      expires_at: new Date(expiresAt).toISOString(),
+    });
+  }
   exchangeTicket(input: {
     instanceId: string;
     ticket: string;
