@@ -58,7 +58,7 @@ const FIXTURE_HTML = `<!doctype html>
 
 const FIXTURE_CSS = `:root{color-scheme:light;font-family:ui-sans-serif,system-ui,sans-serif;background:#f4f4f0;color:#171815}body{margin:0;min-height:100vh;display:grid;place-items:center}main{width:min(38rem,calc(100% - 3rem));border:1px solid #d8d8d0;background:#fff;padding:3rem;box-shadow:0 18px 45px rgba(20,22,18,.08)}.eyebrow{font:600 .75rem ui-monospace,monospace;letter-spacing:.14em;color:#68705e}h1{font-size:clamp(2rem,7vw,4.5rem);line-height:.95;margin:1rem 0}`;
 
-const BOOTSTRAP_JS = `const statusNode=document.querySelector('#status');const fragment=new URLSearchParams(location.hash.slice(1));const ticket=fragment.get('ticket');const instance=fragment.get('instance');history.replaceState(null,'',location.pathname+location.search);async function exchange(body){const response=await fetch('/api/session/exchange',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error('SESSION_EXCHANGE_FAILED');const session=await response.json();globalThis.__MEMO_GRAPH_SESSION__=session;globalThis.dispatchEvent(new CustomEvent('memo-graph-session',{detail:session}));statusNode.textContent='本地安全会话已建立。';}if(ticket&&instance){exchange({ticket,instance_id:instance}).catch(()=>{statusNode.textContent='启动链接无效或已过期，请重新运行工作台命令。';});}else{statusNode.textContent='缺少安全启动链接，请重新运行工作台命令。';}`;
+const BOOTSTRAP_JS = `const statusNode=document.querySelector('#status');const fragment=new URLSearchParams(location.hash.slice(1));const ticket=fragment.get('ticket');const instance=fragment.get('instance');history.replaceState(null,'',location.pathname+location.search);async function exchange(body,path){const response=await fetch(path||'/api/session/exchange',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error('SESSION_EXCHANGE_FAILED');const session=await response.json();globalThis.__MEMO_GRAPH_SESSION__=session;globalThis.dispatchEvent(new CustomEvent('memo-graph-session',{detail:session}));statusNode.textContent='本地安全会话已建立。';}if(ticket&&instance){exchange({ticket,instance_id:instance}).catch(()=>{statusNode.textContent='启动链接无效或已过期，请重新运行工作台命令。';});}else{exchange({},'/api/session/auto').catch(()=>{statusNode.textContent='无法建立本地会话，请重新运行工作台命令。';});}`;
 
 type FixedWindow = { startedAtMs: number; count: number };
 
@@ -356,6 +356,21 @@ export async function startWorkbenchHttpServer(options: {
         }
         writeJson(response, 200, session);
         return;
+      if (
+        request.method === "POST" &&
+        path === "/api/session/auto"
+      ) {
+        if (
+          !rateAllowed(browserBootstrapWindow, 10) ||
+          !sameOriginBrowserRequest(request, origin, true)
+        ) {
+          writeJson(response, 403, { code: "BROWSER_ORIGIN_REJECTED" });
+          return;
+        }
+        const session = sessions.issueSession();
+        writeJson(response, 200, session);
+        return;
+      }
       }
       if (request.method === "POST" && path === "/__operator/bootstrap") {
         if (
@@ -519,6 +534,7 @@ export async function startWorkbenchHttpServer(options: {
       }
       const knownPath = new Set([
         "/",
+        "/api/session/auto",
         "/api/session/exchange",
         "/__operator/bootstrap",
         "/__hooks/capture",

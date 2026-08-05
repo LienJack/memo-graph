@@ -76,7 +76,11 @@ if (!mountSession(initialSession)) {
       );
     });
   } else {
-    sessionGate("缺少安全启动链接，请重新运行工作台命令。");
+    void exchange("/api/session/auto", {}).catch(() => {
+      sessionGate(
+        "无法建立本地会话，请重新运行工作台命令。",
+      );
+    });
   }
 }
 
